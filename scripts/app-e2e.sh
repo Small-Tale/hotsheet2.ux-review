@@ -245,6 +245,21 @@ run annotate-again 0 -- --annotate "$TMP/script-annotate2.json" --drafts-dir "$A
 [[ "$(png_size "$shot")" == 300x200 ]] || die "annotate: reopen changed the crop"
 ok "a second session reopens the saved draft and edits it"
 
+# HS2-6PV1N3: the crop is recorded next to the original, so a later session can restore it.
+[[ "$(json "$adraft/originals/crops.json" '`${j.crops["capture-1.png"].x},${j.crops["capture-1.png"].y},${j.crops["capture-1.png"].width}x${j.crops["capture-1.png"].height}`')" == "20,20,300x200" ]] \
+  || die "restore: crop not recorded in originals/crops.json"
+before_restore="$(json "$adraft/review.json" 'JSON.stringify(j.annotations[0].shape)')"
+echo '{"steps": [{"op": "media", "media": "m1"}, {"op": "restore-original"}]}' >"$TMP/script-restore.json"
+run annotate-restore 0 -- --annotate "$TMP/script-restore.json" --drafts-dir "$ADRAFTS"
+[[ "$(png_size "$shot")" == "$original_size" ]] || die "restore: PNG is $(png_size "$shot"), expected $original_size"
+sips -s format bmp "$shot" --out "$TMP/restored.bmp" >/dev/null && sips -s format bmp "$adraft/originals/capture-1.png" --out "$TMP/original.bmp" >/dev/null
+cmp -s "$TMP/restored.bmp" "$TMP/original.bmp" || die "restore: pixels differ from the original"
+[[ "$(json "$adraft/review.json" '`${j.media[0].pixelWidth}x${j.media[0].pixelHeight}`')" == "$original_size" ]] || die "restore: media size"
+[[ "$(json "$adraft/review.json" 'JSON.stringify(j.annotations[0].shape)')" != "$before_restore" ]] || die "restore: annotations not mapped back"
+[[ "$(json "$adraft/review.json" j.annotations.length)" == 6 ]] || die "restore: annotations lost"
+validate_bundle "$adraft/review.json"
+ok "a third session restores the $original_size original from the earlier crop, pixel for pixel, with annotations mapped back"
+
 echo '{"steps": [{"op": "paint"}]}' >"$TMP/bad-script.json"
 run annotate-bad 2 -- --annotate "$TMP/bad-script.json" --drafts-dir "$ADRAFTS"
 echo '{"steps": [{"op": "delete"}]}' >"$TMP/bad-step.json"
@@ -263,9 +278,9 @@ echo hello >"$TMP/media/notes.txt"
 run import 0 -- --import "$TMP/media/Screenshot 1.png" "$TMP/media/photo.jpg" "$TMP/media/old recording.mov" --drafts-dir "$IDRAFTS"
 idraft="$(json "$TMP/import.json" j.draftDirectory)"
 [[ "$(json "$TMP/import.json" 'j.media.map(m => `${m.filename}:${m.kind}:${m.pixelWidth}x${m.pixelHeight}`).join(",")')" == \
-  "capture-1.png:image:300x200,capture-2.png:image:300x200,capture-3.mov:video:${w}x${h}" ]] \
+  "capture-1.png:image:$(png_size "$shot"),capture-2.png:image:$(png_size "$shot"),capture-3.mov:video:${w}x${h}" ]] \
   || die "import: media $(json "$TMP/import.json" 'j.media.map(m => `${m.filename}:${m.kind}:${m.pixelWidth}x${m.pixelHeight}`).join(",")')"
-[[ "$(png_size "$idraft/capture-2.png")" == 300x200 ]] || die "import: JPEG not re-encoded to a 300x200 PNG"
+[[ "$(png_size "$idraft/capture-2.png")" == "$(png_size "$shot")" ]] || die "import: JPEG not re-encoded to a same-size PNG"
 cmp -s "$movie" "$idraft/capture-3.mov" || die "import: movie not copied byte for byte"
 [[ -f "$TMP/media/Screenshot 1.png" && -f "$TMP/media/old recording.mov" ]] || die "import: sources were moved"
 validate_bundle "$idraft/review.json"

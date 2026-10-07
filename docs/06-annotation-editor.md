@@ -33,7 +33,7 @@ opens the editor on the current draft.
 
 | Area | Contents |
 | --- | --- |
-| Tool bar | Tools (§6.3), Undo, Redo, **Reset Crop** (only while the image is cropped), and a status line: "Editing…" / "Saved to draft", the last editor message, or a save error |
+| Tool bar | Tools (§6.3), Undo, Redo, **Restore Original** (only while the image is cropped, §6.6), and a status line: "Editing…" / "Saved to draft", the last editor message, or a save error |
 | Media strip (left, only with 2+ captures) | Thumbnails (with the current crop) plus a count badge of annotations on each. Click one to show it. Videos are marked |
 | Canvas | The current capture fitted to the view (at most 2×) or zoomed (§6.2.1), on a dark backdrop, with annotations drawn on top |
 | Inspector (right) | The selected annotation's number, shape, intents, and Markdown note, with Duplicate and Delete buttons. Below that, every annotation on this capture in review order: number, shape, intents, and note preview. Click a row to select it |
@@ -227,16 +227,31 @@ Crop applies to images only.
 **Crops within a session:**
 
 - Crops compose: a second crop is relative to the first.
-- **Reset Crop** returns the image to its size when the editor opened and maps annotations
-  back. It is undoable.
-- A crop stays undoable after it is saved. Each save rewrites the image file from the copy the
-  session loaded when it opened, cropped by the current crop.
+- **Restore Original** returns the image to its untouched original, even when it was cropped
+  in an earlier session, and maps the annotations back. It is undoable.
+- A crop stays undoable after it is saved. Each save rewrites the image file from the
+  session's base image, cropped by the current crop.
 
 **Original files.** The first time a capture is ever cropped, its untouched file is kept as
-`originals/<filename>` in the draft.
+`originals/<filename>` in the draft. `originals/crops.json` (`OriginalsIndex`, `HS2-6PV1N3`)
+records the crop that produced the current file, relative to that original:
 
-- That copy is never attached to the ticket.
-- Restoring it in a later session is `HS2-6PV1N3`.
+```json
+{"crops": {"capture-1.png": {"height": 200, "width": 300, "x": 20, "y": 20}}, "version": 1}
+```
+
+- **Later sessions.** When a session opens, an image with a trusted record uses the original
+  as its base, with the recorded crop already applied. This doesn't mark the editor dirty.
+  Restore Original, new crops (relative to the original), and undo then work exactly as within
+  one session. Each save updates the record. After a restore it records the full image.
+- **When a record is trusted:** the original exists, the crop lies inside it, and the current
+  file is exactly the crop's size. With no record, an original the same size as the file must
+  be identical, so it counts as a full-image record.
+- **Otherwise** (an original kept before crops were recorded, or an unreadable, mismatched, or
+  other-version index), the image is edited relative to the file as found. The button reads
+  **Reset Crop** and returns only to that file. Cropping such an image drops its unknown
+  record, and the original is never overwritten.
+- Neither `originals/` nor `crops.json` is ever attached to the ticket.
 - `media[].pixelWidth/Height` always describe the file as it is now.
 
 ## 6.7 History and saving
@@ -320,7 +335,7 @@ on the current draft (or the draft directory named by `--draft`), then saves.
 | `{"op": "select", "id": "a2"}` / `"#2"` / no id | Select by id or review number, or deselect |
 | `{"op": "note", "text": …}`, `{"op": "intent", "intent": "bug"}`, `{"op": "closed", "closed": false}` | Edit the selection (intent toggles) |
 | `{"op": "delete"}`, `{"op": "duplicate"}`, `{"op": "nudge", "dx": 1, "dy": 0}` | Act on the selection |
-| `{"op": "crop", "rect": [x, y, w, h]}`, `{"op": "reset-crop"}` | Crop the current image |
+| `{"op": "crop", "rect": [x, y, w, h]}`, `{"op": "reset-crop"}` (alias `restore-original`) | Crop the current image, or restore it (§6.6) |
 | `{"op": "undo"}`, `{"op": "redo"}`, `{"op": "save"}` | History and saving |
 
 | Exit code | `error` | Meaning |

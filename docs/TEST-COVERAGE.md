@@ -264,3 +264,25 @@ Each feature gets both unit tests and end-to-end tests. Tests live in
   tool bar shows 300 %.
 - **Not covered automatically:** live pinch, scroll, and space-drag events. They are thin
   adapters onto the tested `CanvasViewport` calls.
+
+## HS2-6PV1N3: restore a capture's original after cropping in an earlier session
+
+- **Unit / file-level** (`EditorSessionTests`, real PNGs in a real draft):
+  - crop and save, then a later session opens on the original with the crop applied (not
+    dirty, no rewrite on save)
+  - Restore Original maps the annotation back exactly and makes the file pixel-identical to
+    the original
+  - undo, then a new crop composes relative to the original (the index records 110,60)
+  - a third session restores two sessions of crops in one step, and the index then records
+    the full image
+  - untrusted originals fall back to the file as found: no index (legacy), unreadable, wrong
+    version, size mismatch, outside the original. Cropping them drops the record, and the
+    original stays untouched.
+  - `priorCropRules`
+- **App end to end** (`scripts/app-e2e.sh`):
+  - `crops.json` records the first session's crop
+  - a third `--annotate` session runs `restore-original`: the PNG is back to the original size
+    and pixel-identical (BMP compare), the media size is updated, annotations are mapped back,
+    and the schema validates
+- **Not covered automatically:** the tool bar button's label switch (Restore Original / Reset
+  Crop), a one-line view over `EditorSession.resetRestoresOriginal`, which is unit-tested.

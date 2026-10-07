@@ -62,7 +62,8 @@ extension EditorScript.Step: Decodable {
 
     /// Ops that take no arguments.
     private static let bare: [String: EditorScript.Step] = [
-        "delete": .delete, "duplicate": .duplicate, "reset-crop": .resetCrop, "undo": .undo, "redo": .redo, "save": .save,
+        "delete": .delete, "duplicate": .duplicate, "reset-crop": .resetCrop, "restore-original": .resetCrop, "undo": .undo, "redo": .redo,
+        "save": .save,
     ]
 
     public init(from decoder: Decoder) throws {

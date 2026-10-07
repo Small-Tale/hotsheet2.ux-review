@@ -7,9 +7,11 @@ import Foundation
 /// captures added meanwhile are kept), and writes cropped images. The editor window and the
 /// headless `--annotate` mode share it. Spec: docs/06-annotation-editor.md §6.6–6.7.
 ///
-/// Crops stay undoable after saving: each image file is rewritten from the image as it was
-/// when the session opened, cropped by the current crop. The first time a capture is ever
-/// cropped, its untouched file is kept under `originals/` in the draft (never submitted).
+/// Crops stay undoable after saving: each image file is rewritten from the session's base
+/// image, cropped by the current crop. The first time a capture is ever cropped, its untouched
+/// file is kept under `originals/` in the draft (never submitted), and `originals/crops.json`
+/// records the crop relative to it. A later session then uses the original as the base, with
+/// that crop already applied, so Reset Crop restores the original (`OriginalsIndex`).
 public final class EditorSession {
     public static let originalsDirectory = "originals"
 
@@ -20,11 +22,38 @@ public final class EditorSession {
     private var baseImages: [String: CGImage] = [:]
     private var posters: [String: CGImage] = [:]
     private var savedCrops: [String: PixelRect] = [:]
+    /// Images whose base is their `originals/` copy (crops are relative to it).
+    private var tracked: Set<String> = []
 
     public init(store: ReviewDraftStore, directory: URL, mediaId: String? = nil) throws {
         self.store = store
         self.directory = directory
-        editor = try AnnotationEditor(bundle: store.load(directory).bundle, mediaId: mediaId)
+        let bundle = try store.load(directory).bundle
+        let originals = directory.appendingPathComponent(Self.originalsDirectory, isDirectory: true)
+        let index = OriginalsIndex.load(from: originals)
+        var priors: [String: PriorCrop] = [:]
+        for item in bundle.media where item.kind == .image {
+            let size = (try? ImageFiles.pixelSize(of: originals.appendingPathComponent(item.filename)))
+                .map { PixelRect(x: 0, y: 0, width: $0.width, height: $0.height) }
+            if let prior = index.prior(
+                filename: item.filename, originalSize: size, currentWidth: item.pixelWidth, currentHeight: item.pixelHeight
+            ) {
+                priors[item.id] = prior
+            }
+        }
+        tracked = Set(priors.keys)
+        editor = AnnotationEditor(bundle: bundle, mediaId: mediaId, originals: priors)
+        savedCrops = editor.document.crops
+    }
+
+    private var originalsURL: URL { directory.appendingPathComponent(Self.originalsDirectory, isDirectory: true) }
+
+    /// True when Reset Crop brings back the untouched original: the base is the `originals/`
+    /// copy, or there is no copy yet (the file itself is untouched). False only for an original
+    /// kept before crops were recorded, where Reset Crop returns to the file as this session found it.
+    public func resetRestoresOriginal(_ mediaId: String) -> Bool {
+        guard let item = editor.media(mediaId) else { return false }
+        return tracked.contains(mediaId) || !FileManager.default.fileExists(atPath: originalsURL.appendingPathComponent(item.filename).path)
     }
 
     public func fileURL(_ item: MediaItem) -> URL { directory.appendingPathComponent(item.filename) }
@@ -85,7 +114,8 @@ public final class EditorSession {
 
     private func baseImage(_ item: MediaItem) -> CGImage? {
         if let image = baseImages[item.id] { return image }
-        let image = try? ImageFiles.loadImage(at: fileURL(item))
+        let url = tracked.contains(item.id) ? originalsURL.appendingPathComponent(item.filename) : fileURL(item)
+        let image = try? ImageFiles.loadImage(at: url)
         baseImages[item.id] = image
         return image
     }
@@ -103,13 +133,22 @@ public final class EditorSession {
     private func writeCrop(_ item: MediaItem, crop: PixelRect?) throws {
         guard let base = baseImage(item) else { throw ImageFileError.unreadable(fileURL(item)) }
         let url = fileURL(item)
-        let originals = directory.appendingPathComponent(Self.originalsDirectory, isDirectory: true)
+        let originals = originalsURL
         let original = originals.appendingPathComponent(item.filename)
         if !FileManager.default.fileExists(atPath: original.path) {
+            // First crop ever: the base is the untouched file, so from now on it is the original.
             try FileManager.default.createDirectory(at: originals, withIntermediateDirectories: true)
             try FileManager.default.copyItem(at: url, to: original)
+            tracked.insert(item.id)
         }
         guard let pixels = crop.map({ ImageCrop.apply($0, to: base) }) ?? base else { throw ImageFileError.cannotWrite(url) }
         try ImageFiles.writePNG(pixels, to: url)
+        // Record the crop relative to the original, or forget it when the base isn't the original
+        // (an original kept before crops were recorded, whose offset is unknown).
+        var index = OriginalsIndex.load(from: originals)
+        index.crops[item.filename] = tracked.contains(item.id)
+            ? crop ?? PixelRect(x: 0, y: 0, width: base.width, height: base.height)
+            : nil
+        try index.save(to: originals)
     }
 }

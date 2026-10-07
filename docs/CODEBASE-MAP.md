@@ -44,6 +44,7 @@ macos/
     Editor/AnnotationEditor+Gestures.swift  draw/move/resize/crop gestures, hit testing, crop + reset crop
     Editor/CanvasViewport.swift       canvas zoom/pan: fit, zoom stops, anchored zoom, clamped pan (docs/06 §6.2.1)
     Editor/ShapeGeometry.swift        MediaFrame pixel ↔ normalized, handles, hit distance, translate/resize
+    Editor/OriginalsIndex.swift       originals/crops.json: crop relative to each kept original, trust rules (docs/06 §6.6)
     Editor/ImageCrop.swift            PixelRect snapping, annotation transform into a crop
     Editor/AnnotationRenderer.swift   CoreGraphics drawing of shapes, badges, handles, crop overlay; IntentPalette
     Editor/EditorSession.swift        editor + files: display images, video poster, save (merge), crop writes, originals/

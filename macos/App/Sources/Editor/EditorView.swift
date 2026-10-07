@@ -49,8 +49,13 @@ struct EditorToolbar: View {
                 .help("Redo (⇧⌘Z)")
                 .disabled(!model.editor.canRedo)
             if let id = model.editor.currentMediaId, model.editor.document.crops[id] != nil {
-                Button("Reset Crop") { model.mutate { _ = $0.resetCrop() } }
-                    .help("Restore this image to its size when the editor opened")
+                if model.session.resetRestoresOriginal(id) {
+                    Button("Restore Original") { model.mutate { _ = $0.resetCrop() } }
+                        .help("Undo every crop of this capture, including earlier sessions'; annotations move back with it")
+                } else {
+                    Button("Reset Crop") { model.mutate { _ = $0.resetCrop() } }
+                        .help("Restore this image to its size when the editor opened")
+                }
             }
             Spacer(minLength: 8)
             StatusLine(model: model)

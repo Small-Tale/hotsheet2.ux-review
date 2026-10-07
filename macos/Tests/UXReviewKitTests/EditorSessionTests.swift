@@ -111,6 +111,122 @@ struct EditorSessionTests {
         #expect(try Data(contentsOf: kept) == original)
     }
 
+    /// RGBA bytes of an image file, for pixel-exact comparisons.
+    static func pixels(_ url: URL) throws -> [UInt8] {
+        let image = try ImageFiles.loadImage(at: url)
+        var bytes = [UInt8](repeating: 0, count: image.width * image.height * 4)
+        let context = try #require(CGContext(
+            data: &bytes, width: image.width, height: image.height, bitsPerComponent: 8, bytesPerRow: image.width * 4,
+            space: CGColorSpace(name: CGColorSpace.sRGB)!, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+        ))
+        context.draw(image, in: CGRect(x: 0, y: 0, width: image.width, height: image.height))
+        return bytes
+    }
+
+    /// Crop and save in one session; a later session restores the original, maps the
+    /// annotations back, and keeps every step undoable; crops in later sessions compose.
+    @Test func aLaterSessionRestoresTheOriginal() throws {
+        let fixture = try Fixture()
+        let file = fixture.draft.directory.appendingPathComponent("capture-1.png")
+        let originalPixels = try Self.pixels(file)
+        let first = try fixture.session()
+        #expect(first.resetRestoresOriginal("m1")) // nothing kept yet: the file is the original
+        AnnotationEditorTests.draw(&first.editor, .rect, [CGPoint(x: 120, y: 60), CGPoint(x: 160, y: 100)])
+        let drawn = first.editor.bundle.annotations[0].shape
+        _ = first.editor.crop(to: CGRect(x: 100, y: 50, width: 200, height: 100))
+        try first.save()
+        let index = OriginalsIndex.load(from: fixture.draft.directory.appendingPathComponent("originals"))
+        #expect(index.crops == ["capture-1.png": PixelRect(x: 100, y: 50, width: 200, height: 100)])
+
+        // Session 2 starts from the original with the crop applied, and is not dirty.
+        let second = try fixture.session()
+        #expect(second.resetRestoresOriginal("m1"))
+        #expect(second.editor.document.crops["m1"] == PixelRect(x: 100, y: 50, width: 200, height: 100))
+        #expect(second.editor.originalSizes["m1"] == PixelRect(x: 0, y: 0, width: 400, height: 200))
+        #expect(!second.editor.isDirty)
+        #expect(second.displayImage("m1")?.width == 200)
+        try second.save() // nothing changed: the file is not rewritten
+        #expect(try fixture.fileSize("capture-1.png") == (200, 100))
+
+        let restored = second.editor.resetCrop()
+        #expect(restored)
+        #expect(second.editor.bundle.annotations[0].shape == drawn) // back where it was drawn
+        try second.save()
+        #expect(try fixture.fileSize("capture-1.png") == (400, 200))
+        #expect(try Self.pixels(file) == originalPixels)
+        #expect(try fixture.onDisk().media[0].pixelWidth == 400)
+
+        // Undo the restore, then crop again: the new crop composes relative to the original.
+        second.editor.undo()
+        _ = second.editor.crop(to: CGRect(x: 10, y: 10, width: 50, height: 40))
+        try second.save()
+        #expect(try fixture.fileSize("capture-1.png") == (50, 40))
+        let composed = OriginalsIndex.load(from: fixture.draft.directory.appendingPathComponent("originals"))
+        #expect(composed.crops["capture-1.png"] == PixelRect(x: 110, y: 60, width: 50, height: 40))
+
+        // Session 3 restores in one step from two sessions of crops; the index then records the full image.
+        let third = try fixture.session()
+        let restoredAgain = third.editor.resetCrop()
+        #expect(restoredAgain)
+        try third.save()
+        #expect(try Self.pixels(file) == originalPixels)
+        let full = OriginalsIndex.load(from: fixture.draft.directory.appendingPathComponent("originals"))
+        #expect(full.crops["capture-1.png"] == PixelRect(x: 0, y: 0, width: 400, height: 200))
+        let fourth = try fixture.session()
+        #expect(fourth.editor.document.crops["m1"] == nil) // nothing to restore any more
+        #expect(fourth.resetRestoresOriginal("m1"))
+    }
+
+    /// Originals kept before crops were recorded, or an index that doesn't match the files, are
+    /// never trusted: editing still works, relative to the file as found.
+    @Test func untrustedOriginalsFallBackToTheCurrentFile() throws {
+        let fixture = try Fixture()
+        let originals = fixture.draft.directory.appendingPathComponent("originals")
+        let first = try fixture.session()
+        _ = first.editor.crop(to: CGRect(x: 100, y: 50, width: 200, height: 100))
+        try first.save()
+
+        let cases: [(String, Data?)] = [
+            ("no index (a legacy draft)", nil),
+            ("unreadable index", Data("{not json".utf8)),
+            ("wrong version", Data(#"{"version": 9, "crops": {"capture-1.png": {"x": 100, "y": 50, "width": 200, "height": 100}}}"#.utf8)),
+            ("size mismatch", Data(#"{"version": 1, "crops": {"capture-1.png": {"x": 0, "y": 0, "width": 300, "height": 100}}}"#.utf8)),
+            (
+                "outside the original",
+                Data(#"{"version": 1, "crops": {"capture-1.png": {"x": 300, "y": 150, "width": 200, "height": 100}}}"#.utf8)
+            ),
+        ]
+        for (name, data) in cases {
+            try? FileManager.default.removeItem(at: OriginalsIndex.url(in: originals))
+            if let data { try data.write(to: OriginalsIndex.url(in: originals)) }
+            let session = try fixture.session()
+            #expect(session.editor.document.crops.isEmpty, "\(name)")
+            #expect(!session.resetRestoresOriginal("m1"), "\(name)")
+            #expect(session.displayImage("m1")?.width == 200, "\(name)")
+        }
+        // Cropping an untrusted image works and drops its (unknown) record.
+        let session = try fixture.session()
+        _ = session.editor.crop(to: CGRect(x: 0, y: 0, width: 100, height: 50))
+        try session.save()
+        #expect(try fixture.fileSize("capture-1.png") == (100, 50))
+        #expect(OriginalsIndex.load(from: originals).crops["capture-1.png"] == nil)
+        #expect(try ImageFiles.pixelSize(of: originals.appendingPathComponent("capture-1.png")) == (400, 200)) // still untouched
+    }
+
+    @Test func priorCropRules() {
+        let index = OriginalsIndex(crops: ["a.png": PixelRect(x: 10, y: 10, width: 50, height: 40)])
+        let original = PixelRect(x: 0, y: 0, width: 100, height: 80)
+        #expect(
+            index.prior(filename: "a.png", originalSize: original, currentWidth: 50, currentHeight: 40)
+                == PriorCrop(originalSize: original, crop: PixelRect(x: 10, y: 10, width: 50, height: 40))
+        )
+        #expect(index.prior(filename: "a.png", originalSize: nil, currentWidth: 50, currentHeight: 40) == nil)
+        #expect(index.prior(filename: "a.png", originalSize: original, currentWidth: 51, currentHeight: 40) == nil)
+        // No record: same size as the original means identical; any other size is unknown.
+        #expect(index.prior(filename: "b.png", originalSize: original, currentWidth: 100, currentHeight: 80)?.crop == original)
+        #expect(index.prior(filename: "b.png", originalSize: original, currentWidth: 60, currentHeight: 80) == nil)
+    }
+
     @Test func aMissingImageFailsTheSaveWithoutWritingTheBundle() throws {
         let fixture = try Fixture()
         let session = try fixture.session()

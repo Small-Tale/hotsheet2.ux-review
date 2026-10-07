@@ -35,6 +35,18 @@ public enum EditorTool: String, CaseIterable, Sendable {
     }
 }
 
+/// An image cropped in an earlier session: its original's size and the crop, relative to the
+/// original, that produced the current file. Spec: docs/06-annotation-editor.md §6.6.
+public struct PriorCrop: Codable, Equatable, Sendable {
+    public var originalSize: PixelRect
+    public var crop: PixelRect
+
+    public init(originalSize: PixelRect, crop: PixelRect) {
+        self.originalSize = originalSize
+        self.crop = crop
+    }
+}
+
 /// What the editor saves: the bundle plus each image's crop, relative to the image as it was
 /// when the session opened.
 public struct EditorDocument: Equatable, Sendable {
@@ -99,11 +111,20 @@ public struct AnnotationEditor: Sendable {
     var gestureBase: Snapshot?
     var savedDocument: EditorDocument
 
-    public init(bundle: ReviewBundle, mediaId: String? = nil) {
-        document = EditorDocument(bundle: bundle)
+    /// `originals` gives, for images cropped in an earlier session, the size of the untouched
+    /// original and the crop (relative to it) that made the current file. The editor then edits
+    /// relative to the original: the crop starts applied, and Reset Crop restores the original.
+    public init(bundle: ReviewBundle, mediaId: String? = nil, originals: [String: PriorCrop] = [:]) {
+        var document = EditorDocument(bundle: bundle)
+        var sizes = Dictionary(bundle.media.map { ($0.id, Self.size(of: $0)) }) { first, _ in first }
+        for (id, prior) in originals where sizes[id] != nil {
+            sizes[id] = prior.originalSize
+            if prior.crop != prior.originalSize { document.crops[id] = prior.crop }
+        }
+        self.document = document
         savedDocument = document
         currentMediaId = mediaId.flatMap { id in bundle.media.contains { $0.id == id } ? id : nil } ?? bundle.media.first?.id
-        originalSizes = Dictionary(bundle.media.map { ($0.id, Self.size(of: $0)) }) { first, _ in first }
+        originalSizes = sizes
     }
 
     static func size(of item: MediaItem) -> PixelRect {
