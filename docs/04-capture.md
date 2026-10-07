@@ -36,10 +36,17 @@ listing each preset for each target. See [05-start-and-settings.md](05-start-and
     selection, or above it near the bottom edge, and is drawn inside only when neither fits.
   - A drag smaller than 4 pt on either side counts as a click, and the overlay waits for a
     new drag.
-- **Window**: the frontmost ordinary window under the pointer is highlighted and labeled
+- **Window**: the frontmost app window under the pointer is highlighted and labeled
   "App · Title". Clicking captures it.
-  - Only layer-0 windows that are visible and at least 40×40 pt can be picked.
+  - Windows are hit-tested in the window server's front-to-back order, so a small window on
+    top always wins over a large window behind it.
+  - App window levels below the Dock can be picked: normal windows (layer 0), floating panels
+    and palettes (3), modal panels (8), and utility windows (19). The Dock, the menu bar,
+    status items, menus, and system overlays never can.
+  - A window must be visible and at least 40×40 pt.
   - UX Review's own windows are skipped.
+  - The default headless window target and the capture context's window name still use the
+    app's frontmost normal (layer-0) window, never a floating palette.
 - **Esc** cancels silently.
 - When picking ends, the app that was frontmost before is reactivated, so its hover and focus
   states survive the delay.

@@ -55,8 +55,11 @@ Each feature gets both unit tests and end-to-end tests. Tests live in
   - the shared display edge
 - **Window selection** (`WindowSelectionTests`):
   - topmost pickable window under a point
-  - skipping our own PID, decorations, non-zero layers, and invisible windows
-  - front window per app
+  - skipping our own PID, decorations, Dock-and-above or desktop layers, and invisible windows
+  - floating windows (layers 1–19) pickable
+  - a realistic front-to-back snapshot: small and floating windows on top win over large
+    windows behind them (HS2-1JWVYC regression)
+  - front window per app, which stays on layer 0
   - coordinate flips
   - parsing window-server dictionaries
 - **Context** (`CaptureContextBuilderTests`): OS version strings, trimming, and dropping blanks.

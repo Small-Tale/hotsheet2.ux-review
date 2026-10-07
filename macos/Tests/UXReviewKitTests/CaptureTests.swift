@@ -190,6 +190,89 @@ struct WindowSelectionTests {
         #expect(WindowSelection.topmostWindow(at: CGPoint(x: 110, y: 110), in: windows, excludingPID: nil)?.windowID == 1)
     }
 
+    /// HS2-1JWVYC regression. Shaped like a real macOS 27 `CGWindowListCopyWindowInfo` list, front
+    /// to back: the menu bar (24) and a screen-wide system overlay (24) first, then a floating
+    /// palette (3) over a small layer-0 window, over maximized windows, then Notification Center
+    /// below the desktop. Small windows on top must win over the large windows behind them.
+    @Test func smallerWindowsOnTopWinOverLargeWindowsBehindThem() {
+        let screen = CGRect(x: 0, y: 33, width: 1728, height: 1084)
+        let snapshot = [
+            WindowSnapshot(
+                windowID: 7,
+                ownerPID: 1,
+                ownerName: "Window Server",
+                title: "Menubar",
+                layer: 24,
+                frame: CGRect(x: 0, y: 0, width: 1728, height: 33)
+            ),
+            WindowSnapshot(
+                windowID: 34962,
+                ownerPID: 2,
+                ownerName: "Screenshot",
+                title: nil,
+                layer: 24,
+                frame: CGRect(x: 0, y: 0, width: 1728, height: 1117)
+            ),
+            WindowSnapshot(
+                windowID: 900,
+                ownerPID: 30,
+                ownerName: "Preview",
+                title: "Inspector",
+                layer: 3,
+                frame: CGRect(x: 1300, y: 120, width: 260, height: 420)
+            ),
+            WindowSnapshot(
+                windowID: 4752,
+                ownerPID: 20,
+                ownerName: "Finder",
+                title: "Downloads",
+                layer: 0,
+                frame: CGRect(x: 644, y: 215, width: 440, height: 719)
+            ),
+            WindowSnapshot(windowID: 92, ownerPID: 21, ownerName: "Hot Sheet", title: "Tickets", layer: 0, frame: screen),
+            WindowSnapshot(windowID: 32477, ownerPID: 30, ownerName: "Preview", title: "Mockup.png", layer: 0, frame: screen),
+            WindowSnapshot(
+                windowID: 28,
+                ownerPID: 3,
+                ownerName: "Notification Center",
+                title: nil,
+                layer: -2_147_483_601,
+                frame: CGRect(x: 67, y: 480, width: 360, height: 180)
+            ),
+        ]
+        func pick(_ x: CGFloat, _ y: CGFloat) -> UInt32? {
+            WindowSelection.topmostWindow(at: CGPoint(x: x, y: y), in: snapshot, excludingPID: Self.ourPID)?.windowID
+        }
+        #expect(pick(800, 500) == 4752) // the small Finder window, not Hot Sheet behind it
+        #expect(pick(1400, 300) == 900) // the floating palette, not the maximized windows behind it
+        #expect(pick(200, 900) == 92) // open screen area: the frontmost maximized window
+        #expect(pick(100, 500) == 92) // Notification Center lies below the desktop
+        #expect(pick(100, 10) == nil) // the menu bar and system overlays are never picked
+        // Reversing the list would pick the backmost window, which is the reported symptom.
+        #expect(WindowSelection.topmostWindow(at: CGPoint(x: 800, y: 500), in: snapshot.reversed(), excludingPID: nil)?.windowID == 32477)
+        // The headless default and capture context still name the document, not the palette.
+        #expect(WindowSelection.frontWindow(ofPID: 30, in: snapshot)?.windowID == 32477)
+    }
+
+    @Test func pickableLayersStopBelowTheDock() {
+        func window(layer: Int) -> WindowSnapshot {
+            WindowSnapshot(
+                windowID: 1,
+                ownerPID: 1,
+                ownerName: "App",
+                title: nil,
+                layer: layer,
+                frame: CGRect(x: 0, y: 0, width: 100, height: 100)
+            )
+        }
+        for layer in [0, 3, 8, 19] {
+            #expect(WindowSelection.isPickable(window(layer: layer), excludingPID: nil), "layer \(layer)")
+        }
+        for layer in [-1, 20, 24, 25, 101, 1000] {
+            #expect(!WindowSelection.isPickable(window(layer: layer), excludingPID: nil), "layer \(layer)")
+        }
+    }
+
     @Test func frontWindowOfAnAppSkipsDecorations() {
         #expect(WindowSelection.frontWindow(ofPID: 10, in: windows)?.title == "Settings")
         #expect(WindowSelection.frontWindow(ofPID: 12, in: windows)?.title == "Desktop")
