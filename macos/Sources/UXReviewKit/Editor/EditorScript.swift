@@ -37,6 +37,9 @@ public struct EditorScript: Decodable, Equatable, Sendable {
         case restoreOriginal
         /// Moves the playhead to `millis` into the current video.
         case time(Int)
+        /// Plays the current video in real time for `millis`, then pauses; the playhead is where
+        /// playback stopped.
+        case play(Int)
         /// Sets the selection's time range (ms); nil means the whole clip.
         case range(TimeRange?)
         /// Keeps `startMs`…`endMs` of the current video.
@@ -109,11 +112,21 @@ extension EditorScript.Step: Decodable {
         case "closed": self = try .closed(container.decode(Bool.self, forKey: .closed))
         case "nudge": self = try .nudge(dx: container.decode(Double.self, forKey: .dx), dy: container.decode(Double.self, forKey: .dy))
         case "crop", "insert": self = try Self.geometry(op, in: container)
-        case "time": self = try .time(container.decode(Int.self, forKey: .millis))
+        case "time", "play": self = try Self.playhead(op, in: container)
         case "range", "trim": self = try Self.timing(op, in: container)
         default:
             throw invalid(.op, "Unknown op \(op)")
         }
+    }
+
+    /// `time` (the playhead) and `play` (how long to play, at most a minute), both in `ms`.
+    private static func playhead(_ op: String, in container: KeyedDecodingContainer<CodingKeys>) throws -> EditorScript.Step {
+        let millis = try container.decode(Int.self, forKey: .millis)
+        guard op == "play" else { return .time(millis) }
+        guard (0 ... 60000).contains(millis) else {
+            throw DecodingError.dataCorruptedError(forKey: .millis, in: container, debugDescription: "play needs 0…60000 ms")
+        }
+        return .play(millis)
     }
 
     /// `range` (optional `start`/`end`, both or neither) and `trim` (`start` and `end`).
@@ -183,7 +196,7 @@ public extension EditorScript {
         case .note, .intent, .closed, .delete, .duplicate, .nudge, .range:
             try applyToSelection(step, in: session)
         case let .crop(rect): session.editor.crop(to: rect)
-        case .resetCrop, .restoreOriginal, .time, .trim, .resetTrim:
+        case .resetCrop, .restoreOriginal, .time, .play, .trim, .resetTrim:
             try applyToMedia(step, in: session)
         case .undo: session.editor.undo()
         case .redo: session.editor.redo()
@@ -199,6 +212,16 @@ public extension EditorScript {
         case let .time(millis):
             guard session.editor.currentDurationMs != nil else { throw StepFailure.reason("the current media is not a video") }
             session.editor.setCurrentTime(millis)
+        case let .play(millis):
+            guard let id = session.editor.currentMediaId, let playback = session.playback(id) else {
+                throw StepFailure.reason("the current media is not a video")
+            }
+            playback.play(fromMs: session.editor.currentTimeMs)
+            let deadline = Date().addingTimeInterval(Double(millis) / 1000)
+            while Date() < deadline, playback.isPlaying {
+                RunLoop.current.run(until: min(deadline, Date().addingTimeInterval(0.01)))
+            }
+            session.editor.setCurrentTime(playback.pause())
         case let .trim(range): session.editor.trim(to: range)
         case .resetTrim: session.editor.resetTrim()
         default: break

@@ -102,6 +102,17 @@ enum EditorPreviews {
             (steps + extra).forEach { apply($0, to: model) }
             written.append(try snapshot(EditorView(model: model), size: size, to: directory.appendingPathComponent("\(name).png")))
         }
+        // Playing (K): the pause button shows and the playhead and canvas follow the player.
+        let model = try EditorModel(session: EditorSession(store: store, directory: draft.directory))
+        (steps + [.time(600)]).forEach { apply($0, to: model) }
+        model.togglePlayback()
+        RunLoop.main.run(until: Date().addingTimeInterval(1.2))
+        written.append(try snapshot(
+            EditorView(model: model),
+            size: CGSize(width: 1240, height: 800),
+            to: directory.appendingPathComponent("editor-video-playing.png")
+        ))
+        model.pause()
         return written
     }
 

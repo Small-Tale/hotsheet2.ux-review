@@ -36,7 +36,7 @@ opens the editor on the current draft.
 | Tool bar | Tools (§6.3), Undo, Redo, **Restore Original** (only while the image is cropped or the video trimmed, §6.6, §6.10), and a status line: "Editing…" / "Saved to draft", the last editor message, or a save error |
 | Media strip (left, only with 2+ captures) | Thumbnails (with the current crop) plus a count badge of annotations on each. Click one to show it. Videos are marked |
 | Canvas | The current capture fitted to the view (at most 2×) or zoomed (§6.2.1), on a dark backdrop, with annotations drawn on top. A video shows the frame at the playhead |
-| Timeline (under the canvas, videos only) | Frame step, playhead time, **Trim Start** / **Trim End**, and the scrubber with each annotation's time range (§6.10) |
+| Timeline (under the canvas, videos only) | Play/pause, frame step, playhead time, **Trim Start** / **Trim End**, and the scrubber with each annotation's time range (§6.10) |
 | Inspector (right) | The selected annotation's number, shape, intents, time (videos, §6.10), and Markdown note, with Duplicate and Delete buttons. Below that, every annotation on this capture in review order: number, shape, intents, time range (videos), and note preview. Click a row to select it |
 
 Videos can be trimmed and their annotations given time ranges (§6.10). They can't be cropped.
@@ -180,6 +180,7 @@ So a small box drawn inside a big one stays selectable.
 | ⌘D | Duplicate the selection (offset 2 %, with the same note and intents) |
 | ⌘S | Save now |
 | ⌘+ / ⌘- / ⌘0 / ⌘1, Space-drag | Zoom in / out / fit / actual pixels, pan (§6.2.1) |
+| K | Videos: play / pause (§6.10) |
 | , / . (⇧: 1 s) | Videos: step the playhead back / forward 0.1 s (§6.10) |
 | Home / End | Videos: move the playhead to the start / end |
 
@@ -354,7 +355,8 @@ on the current draft (or the draft directory named by `--draft`), then saves.
   `<name>-annotated.png`. A video is drawn at the playhead if it is the capture showing when the
   script ends, otherwise at its first frame. Only annotations showing at that time are drawn.
 - It prints one JSON object: `status: "annotated"`, `draftDirectory`, `messages` (editor
-  status messages, for example crop and trim results), `media`, `annotations` (`number`, `id`,
+  status messages, for example crop and trim results), `media`, `currentMediaId` and
+  `currentTimeMs` (the capture showing at the end and its playhead), `annotations` (`number`, `id`,
   `mediaId`, `type`, effective `intents`, `note`, and `timeRange` when set), and `rendered`.
 
 **Script format.** A script is `{"steps": [...]}`. Points are media pixels, from the top left.
@@ -371,6 +373,7 @@ on the current draft (or the draft directory named by `--draft`), then saves.
 | `{"op": "insert", "point": [x, y]}` (point optional; default the media center) | ⏎ with the current drawing tool (§6.4) |
 | `{"op": "crop", "rect": [x, y, w, h]}`, `{"op": "reset-crop"}` | Crop the current image, or restore it (§6.6) |
 | `{"op": "time", "ms": 1500}` | Move the playhead on the current video (fails on an image) |
+| `{"op": "play", "ms": 400}` | Play the current video in real time for up to 0…60000 ms, then pause; it stops early at the clip end (fails on an image) |
 | `{"op": "range", "start": 200, "end": 900}`, `{"op": "range"}` | Set the selection's time range in ms, or make it the whole clip (fails on an image's annotation) |
 | `{"op": "trim", "start": 200, "end": 900}`, `{"op": "reset-trim"}` | Keep that part of the current video, or restore its length (§6.10) |
 | `{"op": "restore-original"}` | Restore Original: the current image's crop or the current video's trim |
@@ -398,6 +401,7 @@ editor offscreen through the real views, on a draft of mock app screenshots:
 - `editor-video-timeline`, `editor-video-narrow`, and `editor-video-trimmed`: a mock screen
   recording with a ranged, an instant, and a whole-clip annotation, the playhead inside the
   first range (§6.10)
+- `editor-video-playing`: the same recording while it plays (the pause button showing)
 
 ## 6.10 Video time and trimming
 
@@ -412,6 +416,24 @@ the clip, and the clip itself can be trimmed.
   undoable, but undo and redo restore the playhead of the step they return to.
 - **Frames** come from `AVAssetImageGenerator` with zero tolerance. The clip's end time shows
   the last frame.
+
+**Playback** (`HS2-QNFCR0`). **K** or the timeline's play button plays the video from the
+playhead, and pauses it again. Space is taken by pan.
+
+- **Following:** the playhead, the annotations showing, and the timeline follow the player
+  about 60 times a second. Annotations draw on top of the playing frame as usual.
+- **Ends:** playback stops at the clip's end, on its last frame. Play from the end restarts at
+  the beginning.
+- **Pausing:** any edit pauses first, so gestures, scrubbing, stepping, trims, undo, and
+  switching captures act on a still frame. Closing the window also pauses. An autosave doesn't,
+  so playing right after an edit keeps playing.
+- **Trims:** it plays exactly the clip as trimmed: the session's base movie from the trim start
+  to the trim end.
+- **Navigation:** like scrubbing, playing is not undoable and doesn't mark the draft dirty. The
+  movie's own audio, if any, plays too.
+- **Implementation:** `VideoPlayback` in `UXReviewKit` (an `AVPlayer` with an
+  `AVPlayerItemVideoOutput` for the frames, and `PlaybackRules` for start, end, and trim
+  offset). `EditorModel` owns the player and its timer.
 
 **Time ranges.** An annotation's `timeRange` ([02-review-bundle.md](02-review-bundle.md) §2.6)
 is inclusive, in ms of the clip as trimmed. Equal ends mark an instant. No range means the

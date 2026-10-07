@@ -55,6 +55,7 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
     }
 
     func windowWillClose(_: Notification) {
+        model.pause()
         model.save()
         Self.open = Self.open.filter { $0.value !== self }
     }

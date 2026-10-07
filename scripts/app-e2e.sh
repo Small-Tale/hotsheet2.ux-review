@@ -302,6 +302,18 @@ echo '{"steps": [{"op": "media", "media": "m1"}, {"op": "time", "ms": 5}]}' >"$T
 run annotate-time-image 2 -- --annotate "$TMP/script-time-image.json" --drafts-dir "$ADRAFTS"
 ok "a time step on an image: exit 2"
 
+# HS2-QNFCR0: play the clip through the real AVPlayer path; playing is navigation, not an edit.
+echo '{"steps": [{"op": "media", "media": "m2"}, {"op": "time", "ms": 100}, {"op": "play", "ms": 400}]}' >"$TMP/script-play.json"
+run annotate-play 0 -- --annotate "$TMP/script-play.json" --drafts-dir "$ADRAFTS"
+[[ "$(json "$TMP/annotate-play.json" "j.currentMediaId == 'm2' && j.currentTimeMs >= 250 && j.currentTimeMs <= $clip_ms")" == true ]] \
+  || die "play: playhead at $(json "$TMP/annotate-play.json" j.currentTimeMs) after 400 ms from 100"
+echo '{"steps": [{"op": "media", "media": "m2"}, {"op": "time", "ms": 600}, {"op": "play", "ms": 3000}]}' >"$TMP/script-play-end.json"
+run annotate-play-end 0 -- --annotate "$TMP/script-play-end.json" --drafts-dir "$ADRAFTS"
+[[ "$(json "$TMP/annotate-play-end.json" j.currentTimeMs)" == "$clip_ms" ]] || die "play: stopped at $(json "$TMP/annotate-play-end.json" j.currentTimeMs), not the end"
+echo '{"steps": [{"op": "media", "media": "m1"}, {"op": "play", "ms": 100}]}' >"$TMP/script-play-image.json"
+run annotate-play-image 2 -- --annotate "$TMP/script-play-image.json" --drafts-dir "$ADRAFTS"
+ok "play: the playhead advanced to $(json "$TMP/annotate-play.json" j.currentTimeMs) ms in real time, stopped at the clip end; images refuse play"
+
 echo '{"steps": [{"op": "paint"}]}' >"$TMP/bad-script.json"
 run annotate-bad 2 -- --annotate "$TMP/bad-script.json" --drafts-dir "$ADRAFTS"
 echo '{"steps": [{"op": "delete"}]}' >"$TMP/bad-step.json"

@@ -26,6 +26,10 @@ final class EditorModel: ObservableObject {
     private(set) var backingScale: CGFloat = 2
     private var viewportMediaId: String?
 
+    /// The player while a video plays (docs/06 §6.10); nil when paused.
+    @Published private(set) var playback: VideoPlayback?
+    private var playbackTimer: Timer?
+
     private var saveTask: Task<Void, Never>?
     private var imageCache: [String: (crop: PixelRect?, image: CGImage?)] = [:]
     private var draftChanges: AnyCancellable?
@@ -46,7 +50,9 @@ final class EditorModel: ObservableObject {
     var editor: AnnotationEditor { session.editor }
 
     /// Applies a change to the editor, redraws, and schedules an autosave once no gesture is running.
+    /// Any change pauses playback first, so edits, gestures, and scrubbing act on a still frame.
     func mutate(_ change: (inout AnnotationEditor) -> Void) {
+        pause()
         change(&session.editor)
         syncViewport()
         revision += 1
@@ -99,9 +105,47 @@ final class EditorModel: ObservableObject {
         viewport = CanvasViewport()
     }
 
+    // MARK: Playback
+
+    var isPlaying: Bool { playback != nil }
+
+    /// K or the timeline's play button: plays the current video from the playhead (from the start
+    /// when it is at the end), or pauses it. Playing moves the playhead, which is navigation, so
+    /// it is not undoable and never marks the draft dirty.
+    func togglePlayback() {
+        if isPlaying { return pause() }
+        guard let id = editor.currentMediaId, editor.gesture == nil, let player = session.playback(id) else { return }
+        player.play(fromMs: editor.currentTimeMs)
+        playback = player
+        let timer = Timer(timeInterval: 1.0 / 60, repeats: true) { [weak self] _ in
+            MainActor.assumeIsolated { self?.playbackTick() }
+        }
+        RunLoop.main.add(timer, forMode: .common)
+        playbackTimer = timer
+    }
+
+    /// Stops playback where it is; the playhead stays on the frame showing.
+    func pause() {
+        guard let player = playback else { return }
+        playbackTimer?.invalidate()
+        playbackTimer = nil
+        playback = nil
+        session.editor.setCurrentTime(player.pause())
+        revision += 1
+    }
+
+    /// Follows the player: the playhead, and with it the visible annotations and the timeline.
+    private func playbackTick() {
+        guard let player = playback else { return }
+        guard player.isPlaying else { return pause() }
+        session.editor.setCurrentTime(player.currentMs)
+        revision += 1
+    }
+
     /// The current image for `mediaId` (cropped as edited), cached per crop. For a video, the
-    /// frame at the playhead (the session caches frames).
+    /// frame at the playhead (the session caches frames), or the player's frame while playing.
     func image(_ mediaId: String) -> CGImage? {
+        if let player = playback, mediaId == editor.currentMediaId, let frame = player.frame() { return frame }
         if editor.media(mediaId)?.kind == .video { return session.displayImage(mediaId) }
         let crop = editor.document.crops[mediaId]
         if let cached = imageCache[mediaId], cached.crop == crop { return cached.image }
@@ -126,7 +170,8 @@ final class EditorModel: ObservableObject {
         }
     }
 
-    /// Saves now (also on window close).
+    /// Saves now (also on window close). Playback keeps going: an autosave from an edit made
+    /// just before pressing K must not stop it.
     func save() {
         saveTask?.cancel()
         guard editor.isDirty else { return }

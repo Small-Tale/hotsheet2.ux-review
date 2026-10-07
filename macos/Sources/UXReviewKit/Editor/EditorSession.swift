@@ -156,6 +156,13 @@ public final class EditorSession {
         return sessionBases[item.id] ?? fileURL(item)
     }
 
+    /// A player for `mediaId` as currently trimmed, playing the same movie the frames come from.
+    /// Nil for images. Make a new one after the trim changes.
+    public func playback(_ mediaId: String) -> VideoPlayback? {
+        guard let item = editor.media(mediaId), item.kind == .video, let duration = item.durationMs else { return nil }
+        return VideoPlayback(url: baseMovie(item), offsetMs: editor.document.trims[item.id]?.startMs ?? 0, durationMs: duration)
+    }
+
     private func frame(_ item: MediaItem, atMs millis: Int) -> CGImage? {
         let base = baseMovie(item)
         if frames[item.id]?.url != base { frames[item.id] = VideoFrames(url: base) }

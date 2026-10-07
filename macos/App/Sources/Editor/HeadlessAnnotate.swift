@@ -24,6 +24,9 @@ enum HeadlessAnnotate {
         var draftDirectory: String
         var messages: [String]
         var media: [MediaItem]
+        /// The capture showing when the script ended, and its playhead (0 for an image).
+        var currentMediaId: String?
+        var currentTimeMs: Int
         var annotations: [Row]
         var rendered: [String]
     }
@@ -70,6 +73,8 @@ enum HeadlessAnnotate {
                 draftDirectory: directory.path,
                 messages: messages,
                 media: bundle.media,
+                currentMediaId: session.editor.currentMediaId,
+                currentTimeMs: session.editor.currentTimeMs,
                 annotations: bundle.annotations.enumerated().map { index, annotation in
                     Row(
                         number: index + 1, id: annotation.id, mediaId: annotation.mediaId, type: annotation.shape.kind,

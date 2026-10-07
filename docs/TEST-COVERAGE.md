@@ -353,3 +353,21 @@ Each feature gets both unit tests and end-to-end tests. Tests live in
 - **Not covered automatically:** live mouse drags on the scrubber and the timeline buttons.
   These are view code over the unit-tested `setCurrentTime`, `stepTime`, and
   `trimStart`/`EndToPlayhead`; live-window automation is `HS2-HA9TW3`.
+
+## HS2-QNFCR0: play and pause videos in the editor
+
+- **Rules** (`VideoPlaybackTests`, pure): start position (the playhead, or 0 at or near the end),
+  player time mapped into the trimmed clip and clamped, and end detection.
+- **Real `AVPlayer`** (`VideoPlaybackTests`, the 2 s red-then-blue movie):
+  - plays monotonically at about real time, and pausing holds the position
+  - the player's frame is the one at its time (red, then blue at the end)
+  - it stops at the clip end, and playing again restarts from 0
+  - a trimmed clip plays only the kept part (offset into the base movie, ending at the trim end)
+  - images have no playback; the script `play` op moves the playhead without dirtying the editor,
+    and malformed `play` ops are rejected
+- **App end to end** (`scripts/app-e2e.sh`): `--annotate` with `play` on the synthetic recording
+  advances the reported `currentTimeMs` in real time, stops at the clip end, and exits 2 on an
+  image.
+- **Visual QA:** `editor-video-playing` (the pause button, and the playhead moved while playing).
+- **Not covered automatically:** pressing K and the play button in a live window, and audio
+  output. Both call the same `togglePlayback`; live-window automation is `HS2-HA9TW3`.

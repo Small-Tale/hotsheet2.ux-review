@@ -1,7 +1,7 @@
 import SwiftUI
 import UXReviewKit
 
-/// Under the canvas for videos: the playhead scrubber, the time ranges of the current video's
+/// Under the canvas for videos: play/pause, the playhead scrubber, the time ranges of the current video's
 /// annotations, frame stepping, and trimming at the playhead. Spec: docs/06-annotation-editor.md §6.10.
 struct TimelineBar: View {
     @ObservedObject var model: EditorModel
@@ -11,6 +11,12 @@ struct TimelineBar: View {
         let duration = editor.currentDurationMs ?? 0
         VStack(spacing: 6) {
             HStack(spacing: 8) {
+                Button { model.togglePlayback() } label: {
+                    Image(systemName: model.isPlaying ? "pause.fill" : "play.fill")
+                        .frame(width: 14)
+                }
+                .help(model.isPlaying ? "Pause (K)" : "Play (K)")
+                .accessibilityLabel(model.isPlaying ? "Pause" : "Play")
                 Button { model.mutate { $0.stepTime(forward: false) } } label: { Image(systemName: "backward.frame") }
                     .help("Step back 0.1 s (,  ⇧ for 1 s)")
                     .accessibilityLabel("Step back")

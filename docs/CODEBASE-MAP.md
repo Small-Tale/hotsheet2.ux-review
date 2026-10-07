@@ -46,6 +46,7 @@ macos/
     Editor/AnnotationEditor+Gestures.swift  draw/move/resize/crop gestures, hit testing, crop + reset crop
     Editor/AnnotationEditor+Time.swift  playhead, annotation time ranges, trim + reset trim, TimeFormat (docs/06 §6.10)
     Editor/VideoTrim.swift            trimmed movie export (AVAssetExportSession), byte-exact restore, frame cache
+    Editor/VideoPlayback.swift        play/pause: AVPlayer on the trimmed clip, player frames, PlaybackRules
     Editor/CanvasViewport.swift       canvas zoom/pan: fit, zoom stops, anchored zoom, clamped pan (docs/06 §6.2.1)
     Editor/ShapeGeometry.swift        MediaFrame pixel ↔ normalized, handles, hit distance, translate/resize
     Editor/OriginalsIndex.swift       originals/crops.json: crop/trim relative to each kept original, trust rules (docs/06 §6.6, §6.10)
@@ -78,7 +79,7 @@ macos/
     Editor/EditorModel.swift          observable wrapper: mutate → redraw + autosave, reload on capture
     Editor/EditorView.swift           tool bar, media strip, layout
     Editor/AnnotationCanvas.swift     NSView canvas: mouse/keyboard → editor, drawing via AnnotationRenderer
-    Editor/TimelineBar.swift          video timeline: scrubber, annotation ranges, frame step, Trim Start/End
+    Editor/TimelineBar.swift          video timeline: play/pause, scrubber, annotation ranges, frame step, Trim Start/End
     Editor/InspectorView.swift        selected annotation (intents, note) + annotation list
     Editor/HeadlessAnnotate.swift     `--annotate` mode with JSON output
     Editor/EditorPreviews.swift       editor states + mock screenshots for --render-ui-previews

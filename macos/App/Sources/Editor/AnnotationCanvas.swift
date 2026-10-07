@@ -276,11 +276,16 @@ final class AnnotationCanvasView: NSView {
     }
 
     /// `,` / `.` step the playhead (Shift: 1 s; on a US layout Shift turns them into `<` / `>`);
-    /// letters choose tools. False when the character means nothing here.
+    /// K plays or pauses a video; letters choose tools. False when the character means nothing here.
     private func handleCharacter(_ character: Character?, shift: Bool) -> Bool {
         guard let model, let character else { return false }
         if ",.<>".contains(character) {
             model.mutate { $0.stepTime(forward: character == "." || character == ">", large: shift) }
+            return true
+        }
+        if character == "k" || character == "K" {
+            guard model.editor.currentDurationMs != nil else { return false }
+            model.togglePlayback()
             return true
         }
         guard let tool = EditorTool.forShortcut(character) else { return false }
@@ -321,7 +326,7 @@ final class AnnotationCanvasView: NSView {
     override func accessibilityHelp() -> String? {
         "Choose a tool with V, R, F, A, I, or S, then press Return to add a shape. "
             + "Arrow keys move the selected annotation, Tab selects the next one, and Return edits its note. "
-            + "On a video, comma and period step the playhead, and Home and End jump to the start and end."
+            + "On a video, K plays and pauses, comma and period step the playhead, and Home and End jump to the start and end."
     }
 
     override func accessibilityChildren() -> [Any]? {
