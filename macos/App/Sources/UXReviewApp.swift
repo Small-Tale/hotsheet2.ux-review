@@ -64,13 +64,14 @@ struct UXReviewApp: App {
     init() {
         let capture = CaptureCoordinator()
         let settings = SettingsModel()
-        // The global hotkey starts the default capture, or cancels a running countdown.
-        settings.hotkeys.onPress = { [weak capture, weak settings] in
+        // A global hotkey starts its capture, or cancels a countdown / stops a recording.
+        settings.hotkeys.onPress = { [weak capture, weak settings] slot in
             guard let capture, let settings else { return }
-            capture.handleHotkey(settings: settings.settings)
+            capture.handleHotkey(slot, settings: settings.settings)
         }
         capture.stopHint = { [weak settings] in
-            settings?.settings.captureHotkey.map { "Stop from the menu bar or press \($0.display)" } ?? "Stop from the menu bar"
+            let hotkey = settings?.activeHotkey(.record) ?? settings?.activeHotkey(.capture)
+            return hotkey.map { "Stop from the menu bar or press \($0.display)" } ?? "Stop from the menu bar"
         }
         _capture = StateObject(wrappedValue: capture)
         _settings = StateObject(wrappedValue: settings)

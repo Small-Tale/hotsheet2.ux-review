@@ -36,8 +36,8 @@ final class CaptureCoordinator: ObservableObject {
 
     /// Global hotkey: start the default capture, cancel a countdown, or stop a recording
     /// (docs/05 §5.2).
-    func handleHotkey(settings: CaptureSettings) {
-        switch HotkeyAction.decide(phase: phase, settings: settings) {
+    func handleHotkey(_ slot: HotkeySlot, settings: CaptureSettings) {
+        switch HotkeyAction.decide(phase: phase, settings: settings, slot: slot) {
         case let .start(request): start(request)
         case .cancelCountdown: cancel()
         case .stopRecording: stopRecording()

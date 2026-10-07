@@ -195,3 +195,28 @@ Each feature gets both unit tests and end-to-end tests. Tests live in
 - **Visual QA:** both renders checked by eye: template tinting follows the strip's appearance,
   and the icon matches the weight and size of neighbouring system symbols.
 - **Not covered automatically:** the live menu bar (needs Screen Recording to capture).
+
+## HS2-SPFXPW: separate capture and record-video hotkeys
+
+- **Unit** (`SettingsTests`):
+  - `HotkeySlotTests`: per-slot read and write, duplicate rules (each direction, the
+    own-problem-first order, a disabled slot blocks nothing), `registrable` for hand-edited
+    duplicates, distinct round-tripping Carbon ids, and the record slot's request (video,
+    default target and delay)
+  - `HotkeyActionTests.recordSlotForEveryPhase`: the record slot's action in every capture phase
+  - `CaptureSettingsTests`: the ⌥⇧⌘V default, the stored JSON, legacy settings without
+    `recordHotkey`, `null`, and unreadable values
+  - `SettingsCommandTests`: `--set-record-hotkey` (set, `none`, bad values), duplicate
+    rejection in both directions, allowed swaps, and target-only changes on already-duplicated
+    settings
+- **App end to end** (`scripts/app-e2e.sh`):
+  - defaults
+  - both hotkeys persist and register with the system
+  - a running menu bar instance holds both (each reports `inUse`)
+  - a duplicate exits 2 and isn't saved
+  - disabling the record hotkey leaves capture registered
+- **Visual QA:** `settings-registered.png` and `settings-in-use.png` show both recorders and
+  their status lines.
+- **Not covered automatically:** physically pressing the hotkeys. Carbon delivers the press
+  to `GlobalHotkeyCenter`, which routes it by `EventHotKeyID.id`, and the routing table
+  (`HotkeySlot(carbonID:)`) is unit-tested.

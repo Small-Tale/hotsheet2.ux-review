@@ -42,7 +42,14 @@ struct CaptureMenuSection: View {
     /// "Screenshot of Screen / Window / Region" plus a submenu of the delay presets.
     @ViewBuilder private func captureItems(_ kind: CaptureKind, title: String, delayedTitle: String) -> some View {
         ForEach(CaptureTarget.allCases, id: \.self) { target in
-            Button("\(title) of \(target.label)") { capture.start(CaptureRequest(kind: kind, target: target)) }
+            let request = CaptureRequest(kind: kind, target: target)
+            let button = Button("\(title) of \(target.label)") { capture.start(request) }
+            // The item the record-video hotkey matches (default target, and only when there is no default delay).
+            if kind == .video, request == HotkeySlot.record.request(in: settings.settings) {
+                button.globalShortcut(settings.activeHotkey(.record))
+            } else {
+                button
+            }
         }
         Menu(delayedTitle) {
             ForEach(CaptureRequest.delayPresets.filter { $0 > 0 }, id: \.self) { delay in
@@ -60,12 +67,18 @@ struct CaptureMenuSection: View {
     /// "Capture Screenshot of Region   ⌥⇧⌘U": the default capture, showing the global shortcut.
     @ViewBuilder private var defaultCaptureButton: some View {
         let request = settings.settings.defaultRequest
-        let button = Button("Capture \(request.summary)") { capture.start(request) }
-        if let hotkey = settings.settings.captureHotkey, case .registered = settings.registration,
-           let shortcut = KeyboardShortcut(hotkey) {
-            button.keyboardShortcut(shortcut)
+        Button("Capture \(request.summary)") { capture.start(request) }
+            .globalShortcut(settings.activeHotkey(.capture))
+    }
+}
+
+extension View {
+    /// Shows a registered global hotkey as the menu item's shortcut, when the menu can render it.
+    @ViewBuilder func globalShortcut(_ hotkey: Hotkey?) -> some View {
+        if let hotkey, let shortcut = KeyboardShortcut(hotkey) {
+            keyboardShortcut(shortcut)
         } else {
-            button
+            self
         }
     }
 }

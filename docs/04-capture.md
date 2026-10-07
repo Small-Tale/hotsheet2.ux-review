@@ -120,14 +120,16 @@ Drafts/
 ## 4.9 Video recording
 
 The menu offers "Record Video of Screen / Window / Region" and "Record Video After Delay". The
-global hotkey also records when Settings sets the default kind to Video.
+record-video hotkey (⌥⇧⌘V by default) records the default target from any app, and the capture
+hotkey also records when Settings sets the default kind to Video
+([05-start-and-settings.md](05-start-and-settings.md) §5.2).
 
 Starting a recording uses the same picking and countdown as a screenshot; the countdown HUD
 reads "Recording in…". Once recording begins:
 
 - The menu bar icon turns into a record symbol.
 - A HUD says "Recording" and explains how to stop.
-- **Stop** with "Stop Recording (m:ss)" at the top of the menu, or with the global hotkey.
+- **Stop** with "Stop Recording (m:ss)" at the top of the menu, or with either global hotkey.
 - If the display or window goes away, the recording stops by itself and keeps what was
   recorded.
 - After stopping, a HUD shows "Saved capture-N.mov", the length, and how many captures the

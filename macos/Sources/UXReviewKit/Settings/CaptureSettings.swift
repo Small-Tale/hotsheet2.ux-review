@@ -7,16 +7,52 @@ public struct CaptureSettings: Codable, Equatable, Sendable {
     public var defaultRequest: CaptureRequest
     /// Global hotkey for the default capture; nil disables it.
     public var captureHotkey: Hotkey?
+    /// Global hotkey that records a video of the default target; nil disables it.
+    public var recordHotkey: Hotkey?
 
     public init(
         defaultRequest: CaptureRequest = CaptureRequest(kind: .screenshot, target: .region),
-        captureHotkey: Hotkey? = .defaultCapture
+        captureHotkey: Hotkey? = .defaultCapture,
+        recordHotkey: Hotkey? = .defaultRecord
     ) {
         self.defaultRequest = defaultRequest
         self.captureHotkey = captureHotkey
+        self.recordHotkey = recordHotkey
     }
 
-    private enum CodingKeys: String, CodingKey { case defaultRequest, captureHotkey }
+    public subscript(slot: HotkeySlot) -> Hotkey? {
+        get {
+            switch slot {
+            case .capture: captureHotkey
+            case .record: recordHotkey
+            }
+        }
+        set {
+            switch slot {
+            case .capture: captureHotkey = newValue
+            case .record: recordHotkey = newValue
+            }
+        }
+    }
+
+    /// Why `hotkey` can't be used for `slot`: unusable on its own, or already the other slot's.
+    public func problem(with hotkey: Hotkey, for slot: HotkeySlot) -> String? {
+        if let problem = hotkey.problem { return problem }
+        for other in HotkeySlot.allCases where other != slot && self[other] == hotkey {
+            return "\(hotkey.display) is already the \(other.title.lowercased()) shortcut."
+        }
+        return nil
+    }
+
+    /// The hotkey to register for `slot`: nil when disabled, or when it duplicates an earlier
+    /// slot's (possible only in hand-edited settings; the earlier slot keeps it).
+    public func registrable(_ slot: HotkeySlot) -> Hotkey? {
+        guard let hotkey = self[slot] else { return nil }
+        let earlier = HotkeySlot.allCases.prefix { $0 != slot }
+        return earlier.contains { self[$0] == hotkey } ? nil : hotkey
+    }
+
+    private enum CodingKeys: String, CodingKey { case defaultRequest, captureHotkey, recordHotkey }
 
     /// Missing fields take their defaults, so older or partial settings still load. An explicit
     /// `null` hotkey stays disabled.
@@ -27,12 +63,55 @@ public struct CaptureSettings: Codable, Equatable, Sendable {
         captureHotkey = container.contains(.captureHotkey)
             ? try container.decodeIfPresent(Hotkey.self, forKey: .captureHotkey)
             : defaults.captureHotkey
+        recordHotkey = container.contains(.recordHotkey)
+            ? try container.decodeIfPresent(Hotkey.self, forKey: .recordHotkey)
+            : defaults.recordHotkey
     }
 
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(defaultRequest, forKey: .defaultRequest)
         try container.encode(captureHotkey, forKey: .captureHotkey) // explicit null = disabled
+        try container.encode(recordHotkey, forKey: .recordHotkey)
+    }
+}
+
+/// The global hotkeys UX Review registers. Spec: docs/05-start-and-settings.md §5.2.
+public enum HotkeySlot: String, CaseIterable, Codable, Sendable {
+    /// Starts the default capture (screenshot or video, per Settings).
+    case capture
+    /// Records a video of the default target, whatever the default kind is.
+    case record
+
+    public var title: String {
+        switch self {
+        case .capture: "Capture"
+        case .record: "Record video"
+        }
+    }
+
+    /// Carbon `EventHotKeyID.id` for this slot (nonzero, stable).
+    public var carbonID: UInt32 {
+        switch self {
+        case .capture: 1
+        case .record: 2
+        }
+    }
+
+    public init?(carbonID: UInt32) {
+        guard let slot = Self.allCases.first(where: { $0.carbonID == carbonID }) else { return nil }
+        self = slot
+    }
+
+    /// What pressing this slot's hotkey starts when idle.
+    public func request(in settings: CaptureSettings) -> CaptureRequest {
+        switch self {
+        case .capture: return settings.defaultRequest
+        case .record:
+            var request = settings.defaultRequest
+            request.kind = .video
+            return request
+        }
     }
 }
 
@@ -69,11 +148,12 @@ public enum HotkeyAction: Equatable, Sendable {
     case stopRecording
     case ignore
 
-    /// Idle → start the default capture. Counting down → cancel (the HUD can't take Esc).
+    /// Idle → start the slot's capture. Counting down → cancel (the HUD can't take Esc).
     /// Recording → stop. Picking, capturing, finishing → ignore (the picker handles Esc itself).
-    public static func decide(phase: CapturePhase, settings: CaptureSettings) -> HotkeyAction {
+    /// Every slot cancels and stops, so either hotkey ends what the other started.
+    public static func decide(phase: CapturePhase, settings: CaptureSettings, slot: HotkeySlot = .capture) -> HotkeyAction {
         switch phase {
-        case .idle: .start(settings.defaultRequest)
+        case .idle: .start(slot.request(in: settings))
         case .countingDown: .cancelCountdown
         case .recording: .stopRecording
         case .picking, .capturing, .finishing: .ignore

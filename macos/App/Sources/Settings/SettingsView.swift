@@ -2,7 +2,7 @@ import AppKit
 import SwiftUI
 import UXReviewKit
 
-/// The Settings window: what the default capture is and which global shortcut starts it.
+/// The Settings window: what the default capture is and which global shortcuts start captures.
 struct SettingsView: View {
     @ObservedObject var model: SettingsModel
 
@@ -19,20 +19,28 @@ struct SettingsView: View {
                 Picker("Delay", selection: binding(\.defaultRequest.delaySeconds)) {
                     ForEach(CaptureRequest.delayPresets, id: \.self) { Text($0 == 0 ? "None" : "\($0) seconds").tag($0) }
                 }
-                Text("Used by the global shortcut and by “Capture \(model.settings.defaultRequest.summary)” in the menu.")
+                Text(defaultCaptureCaption)
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
-            Section("Global shortcut") {
-                LabeledContent("Start capture") {
-                    ShortcutRecorder(model: model)
+            Section("Global shortcuts") {
+                ForEach(HotkeySlot.allCases, id: \.self) { slot in
+                    VStack(alignment: .leading, spacing: 4) {
+                        LabeledContent(slot == .capture ? "Start default capture" : "Record video") {
+                            ShortcutRecorder(model: model, slot: slot)
+                        }
+                        // Color only the icon; caption text stays legible in light and dark mode.
+                        HStack(alignment: .firstTextBaseline, spacing: 6) {
+                            Image(systemName: Self.statusSymbol(model.registration(slot)))
+                                .foregroundStyle(Self.statusColor(model.registration(slot)))
+                            Text(model.registration(slot).message(for: slot)).foregroundStyle(.secondary)
+                        }
+                        .font(.caption)
+                    }
                 }
-                // Color only the icon; caption text stays legible in light and dark mode.
-                HStack(alignment: .firstTextBaseline, spacing: 6) {
-                    Image(systemName: statusSymbol).foregroundStyle(statusColor)
-                    Text(model.registration.message).foregroundStyle(.secondary)
-                }
-                .font(.caption)
+                Text("Either shortcut also cancels a countdown or stops a recording.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
         }
         .formStyle(.grouped)
@@ -41,16 +49,21 @@ struct SettingsView: View {
         .onAppear { NSApp.activate(ignoringOtherApps: true) }
     }
 
-    private var statusSymbol: String {
-        switch model.registration {
+    private var defaultCaptureCaption: String {
+        let item = "“Capture \(model.settings.defaultRequest.summary)”"
+        return "Used by the capture shortcut and by \(item) in the menu. Record video uses the same target and delay."
+    }
+
+    private static func statusSymbol(_ registration: GlobalHotkeyCenter.Registration) -> String {
+        switch registration {
         case .registered: "checkmark.circle.fill"
         case .disabled: "minus.circle"
         default: "exclamationmark.triangle.fill"
         }
     }
 
-    private var statusColor: Color {
-        switch model.registration {
+    private static func statusColor(_ registration: GlobalHotkeyCenter.Registration) -> Color {
+        switch registration {
         case .registered: .green
         case .disabled: .secondary
         default: .orange
@@ -62,9 +75,11 @@ struct SettingsView: View {
     }
 }
 
-/// Click, then press the new shortcut. Esc cancels; Delete clears the shortcut.
+/// Click, then press the new shortcut. Esc cancels; Delete clears the shortcut. A combination
+/// the other slot already uses beeps and explains, like any other unusable one.
 struct ShortcutRecorder: View {
     @ObservedObject var model: SettingsModel
+    let slot: HotkeySlot
     @State private var recording = false
     @State private var problem: String?
     @State private var monitor: Any?
@@ -72,14 +87,14 @@ struct ShortcutRecorder: View {
     var body: some View {
         HStack(spacing: 6) {
             Button(action: toggle) {
-                Text(recording ? "Press shortcut…" : model.settings.captureHotkey?.display ?? "None")
+                Text(recording ? "Press shortcut…" : model.settings[slot]?.display ?? "None")
                     .font(.body.monospaced())
                     .frame(minWidth: 110)
             }
             .buttonStyle(.bordered)
             .tint(recording ? .accentColor : nil)
-            if model.settings.captureHotkey != nil, !recording {
-                Button("Clear") { model.update { $0.captureHotkey = nil } }
+            if model.settings[slot] != nil, !recording {
+                Button("Clear") { model.update { $0[slot] = nil } }
             }
         }
         .help(problem ?? "Click, then press a key combination. Esc cancels; Delete clears.")
@@ -93,7 +108,7 @@ struct ShortcutRecorder: View {
     private func start() {
         problem = nil
         recording = true
-        model.suspendHotkey()
+        model.suspendHotkeys()
         monitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
             handle(event)
             return nil
@@ -103,7 +118,7 @@ struct ShortcutRecorder: View {
     private func stop() {
         if let monitor { NSEvent.removeMonitor(monitor) }
         monitor = nil
-        if recording { model.resumeHotkey() }
+        if recording { model.resumeHotkeys() }
         recording = false
     }
 
@@ -113,16 +128,16 @@ struct ShortcutRecorder: View {
             stop()
         case 51, 117: // Delete, Forward Delete
             stop()
-            model.update { $0.captureHotkey = nil }
+            model.update { $0[slot] = nil }
         default:
             let hotkey = Hotkey(keyCode: UInt32(event.keyCode), modifiers: Self.modifiers(event.modifierFlags))
-            if let issue = hotkey.problem {
+            if let issue = model.settings.problem(with: hotkey, for: slot) {
                 problem = issue
                 NSSound.beep()
                 return
             }
             stop()
-            model.update { $0.captureHotkey = hotkey }
+            model.update { $0[slot] = hotkey }
         }
     }
 

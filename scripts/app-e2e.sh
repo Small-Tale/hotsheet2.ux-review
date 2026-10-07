@@ -131,7 +131,7 @@ ok "start delay honored before a display recording"
 run video-noduration 2 "${SYN[@]}" -- --capture video --drafts-dir "$DRAFTS"
 ok "video without --duration: exit 2"
 
-echo "start a review: settings and global hotkey (HS2-DR107C)"
+echo "start a review: settings and global hotkeys (HS2-DR107C, HS2-SPFXPW)"
 SUITE="uxreview-e2e-$$"
 SUITE_ENV=(UXREVIEW_DEFAULTS_SUITE="$SUITE")
 trap 'defaults delete "$SUITE" >/dev/null 2>&1 || true; rm -rf "$TMP"' EXIT
@@ -139,16 +139,20 @@ trap 'defaults delete "$SUITE" >/dev/null 2>&1 || true; rm -rf "$TMP"' EXIT
 run settings-default 0 "${SUITE_ENV[@]}" -- --settings
 [[ "$(json "$TMP/settings-default.json" j.settings.captureHotkey)" == "⌥⇧⌘U" ]] || die "settings: default hotkey"
 [[ "$(json "$TMP/settings-default.json" j.defaultCapture)" == "Screenshot of Region" ]] || die "settings: default capture"
-ok "fresh settings: ⌥⇧⌘U starts a region screenshot"
+[[ "$(json "$TMP/settings-default.json" j.settings.recordHotkey)" == "⌥⇧⌘V" ]] || die "settings: default record hotkey"
+ok "fresh settings: ⌥⇧⌘U starts a region screenshot, ⌥⇧⌘V records video"
 
-# Pick a combination unlikely to be taken on the test machine.
-run settings-set 0 "${SUITE_ENV[@]}" -- --settings --set-hotkey "ctrl+opt+cmd+F7" --set-target window --set-delay 3
+# Pick combinations unlikely to be taken on the test machine.
+run settings-set 0 "${SUITE_ENV[@]}" -- --settings --set-hotkey "ctrl+opt+cmd+F7" --set-record-hotkey "ctrl+opt+cmd+F8" --set-target window --set-delay 3
 run settings-read 0 "${SUITE_ENV[@]}" -- --settings
 [[ "$(json "$TMP/settings-read.json" j.settings.captureHotkey)" == "⌃⌥⌘F7" ]] || die "settings: hotkey not persisted"
+[[ "$(json "$TMP/settings-read.json" j.settings.recordHotkey)" == "⌃⌥⌘F8" ]] || die "settings: record hotkey not persisted"
 [[ "$(json "$TMP/settings-read.json" j.defaultCapture)" == "Screenshot of Window after 3 s" ]] || die "settings: request not persisted"
 [[ "$(json "$TMP/settings-read.json" j.hotkey.status)" == registered ]] || die "settings: hotkey not registered ($(json "$TMP/settings-read.json" j.hotkey.message))"
+[[ "$(json "$TMP/settings-read.json" j.recordHotkey.status)" == registered ]] || die "settings: record hotkey not registered ($(json "$TMP/settings-read.json" j.recordHotkey.message))"
+json "$TMP/settings-read.json" j.recordHotkey.message | grep -q "records a video" || die "settings: record hotkey message"
 defaults read "$SUITE" captureSettings >/dev/null || die "settings: nothing in the defaults suite"
-ok "settings persist across launches and the hotkey registers with the system"
+ok "settings persist across launches and both hotkeys register with the system"
 
 # A running app instance owns the hotkey, so a second registration must report the conflict.
 env "${SUITE_ENV[@]}" UXREVIEW_DRAFTS_DIR="$TMP/menu-drafts" "$APP_BIN" >/dev/null 2>&1 &
@@ -156,13 +160,22 @@ menu_pid=$!
 registered=""
 for _ in $(seq 1 50); do
   run settings-conflict 0 "${SUITE_ENV[@]}" -- --settings
-  [[ "$(json "$TMP/settings-conflict.json" j.hotkey.status)" == inUse ]] && { registered=1; break; }
+  [[ "$(json "$TMP/settings-conflict.json" '`${j.hotkey.status} ${j.recordHotkey.status}`')" == "inUse inUse" ]] && { registered=1; break; }
   sleep 0.2
 done
 kill "$menu_pid" 2>/dev/null; wait "$menu_pid" 2>/dev/null || true
-[[ -n "$registered" ]] || die "settings: the running app did not hold its hotkey"
+[[ -n "$registered" ]] || die "settings: the running app did not hold both hotkeys"
 json "$TMP/settings-conflict.json" j.hotkey.message | grep -q "already used by another app" || die "settings: conflict message"
-ok "the running menu bar app holds the hotkey; a second registration reports inUse"
+ok "the running menu bar app holds both hotkeys; a second registration reports inUse for each"
+
+run settings-duplicate 2 "${SUITE_ENV[@]}" -- --settings --set-record-hotkey "ctrl+opt+cmd+F7"
+json "$TMP/settings-duplicate.json" j.message | grep -q "already the capture shortcut" || die "settings: duplicate message"
+run settings-after-duplicate 0 "${SUITE_ENV[@]}" -- --settings
+[[ "$(json "$TMP/settings-after-duplicate.json" j.settings.recordHotkey)" == "⌃⌥⌘F8" ]] || die "settings: rejected duplicate was saved"
+run settings-record-off 0 "${SUITE_ENV[@]}" -- --settings --set-record-hotkey none
+[[ "$(json "$TMP/settings-record-off.json" j.recordHotkey.status)" == disabled ]] || die "settings: record hotkey disable"
+[[ "$(json "$TMP/settings-record-off.json" j.hotkey.status)" == registered ]] || die "settings: disabling record touched capture"
+ok "a duplicate of the other shortcut is rejected and not saved; the record hotkey disables on its own"
 
 run settings-disable 0 "${SUITE_ENV[@]}" -- --settings --set-hotkey none
 [[ "$(json "$TMP/settings-disable.json" j.hotkey.status)" == disabled ]] || die "settings: disable"

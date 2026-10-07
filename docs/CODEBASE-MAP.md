@@ -37,7 +37,7 @@ macos/
     Capture/CaptureCommand.swift      `--capture` argument parsing (docs/04 §4.11)
     Review/ReviewDraftStore.swift     draft reviews on disk (docs/04 §4.6)
     Settings/Hotkey.swift             global hotkey model: parse/display, Carbon codes (docs/05 §5.2)
-    Settings/CaptureSettings.swift    settings + KeyValueStoring persistence, HotkeyAction
+    Settings/CaptureSettings.swift    settings + KeyValueStoring persistence, HotkeySlot (capture/record, duplicate rules), HotkeyAction
     Settings/SettingsCommand.swift    `--settings` argument parsing (docs/05 §5.5)
     Editor/AnnotationEditor.swift     editor state machine: document, selection, undo/redo, intent toggle (docs/06)
     Editor/AnnotationEditor+Gestures.swift  draw/move/resize/crop gestures, hit testing, crop + reset crop

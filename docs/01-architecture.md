@@ -51,8 +51,8 @@ client's tests must decode them, and the macOS tests also re-encode them lossles
   [05-start-and-settings.md](05-start-and-settings.md) §5.5, [06-annotation-editor.md](06-annotation-editor.md) §6.9).
 - **Settings**: stored in the app's defaults domain (or `UXREVIEW_DEFAULTS_SUITE`): the project
   folder (`projectDirectory`, overridable with `--project`) and capture settings
-  (`captureSettings`: default request + global hotkey). The hotkey is registered with Carbon
-  `RegisterEventHotKey` (`App/Sources/Settings/`). See [05-start-and-settings.md](05-start-and-settings.md).
+  (`captureSettings`: default request + capture and record-video global hotkeys). The hotkeys
+  are registered with Carbon `RegisterEventHotKey`, one id per slot (`App/Sources/Settings/`). See [05-start-and-settings.md](05-start-and-settings.md).
 
 ## 1.4 Gates
 

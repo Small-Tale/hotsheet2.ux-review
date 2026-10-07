@@ -50,6 +50,8 @@ public struct Hotkey: Equatable, Hashable, Sendable {
 
     /// ⌥⇧⌘U: unlikely to clash with system or common app shortcuts.
     public static let defaultCapture = Hotkey(keyCode: 32, modifiers: [.option, .shift, .command])
+    /// ⌥⇧⌘V: record a video ("V" for video), next to the capture shortcut.
+    public static let defaultRecord = Hotkey(keyCode: 9, modifiers: [.option, .shift, .command])
 
     public var carbonModifiers: UInt32 {
         modifiers.reduce(0) { $0 | $1.carbonMask }

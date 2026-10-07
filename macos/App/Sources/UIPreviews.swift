@@ -80,12 +80,16 @@ enum UIPreviews {
         func set(_ value: Any?, forKey key: String) { values[key] = value }
     }
 
-    /// The Settings window twice: with its shortcut registered, and with the same shortcut
-    /// already taken (the first model still holds it, so the second sees a real conflict).
+    /// The Settings window twice: with its shortcuts registered, and with the same shortcuts
+    /// already taken (the first model still holds them, so the second sees a real conflict).
     private static func renderSettings(to directory: URL) throws -> [URL] {
         let store = MemoryStore()
         try CaptureSettingsStore.save(
-            CaptureSettings(defaultRequest: CaptureRequest(target: .region, delaySeconds: 3), captureHotkey: Hotkey("⌃⌥⌘8")),
+            CaptureSettings(
+                defaultRequest: CaptureRequest(target: .region, delaySeconds: 3),
+                captureHotkey: Hotkey("⌃⌥⌘8"),
+                recordHotkey: Hotkey("⌃⌥⌘9")
+            ),
             to: store
         )
         let owner = SettingsModel(store: store)
