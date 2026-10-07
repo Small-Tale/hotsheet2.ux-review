@@ -253,6 +253,39 @@ run annotate-badstep 2 -- --annotate "$TMP/bad-step.json" --drafts-dir "$ADRAFTS
 run annotate-baddraft 2 -- --annotate "$TMP/bad-step.json" --drafts-dir "$ADRAFTS" --draft ../escape
 ok "invalid scripts, failing steps, and escaping --draft names: exit 2"
 
+echo "open media for annotation (HS2-6A13WZ)"
+IDRAFTS="$TMP/import-drafts"
+mkdir -p "$TMP/media"
+cp "$shot" "$TMP/media/Screenshot 1.png"
+sips -s format jpeg "$shot" --out "$TMP/media/photo.jpg" >/dev/null
+cp "$movie" "$TMP/media/old recording.mov"
+echo hello >"$TMP/media/notes.txt"
+run import 0 -- --import "$TMP/media/Screenshot 1.png" "$TMP/media/photo.jpg" "$TMP/media/old recording.mov" --drafts-dir "$IDRAFTS"
+idraft="$(json "$TMP/import.json" j.draftDirectory)"
+[[ "$(json "$TMP/import.json" 'j.media.map(m => `${m.filename}:${m.kind}:${m.pixelWidth}x${m.pixelHeight}`).join(",")')" == \
+  "capture-1.png:image:300x200,capture-2.png:image:300x200,capture-3.mov:video:${w}x${h}" ]] \
+  || die "import: media $(json "$TMP/import.json" 'j.media.map(m => `${m.filename}:${m.kind}:${m.pixelWidth}x${m.pixelHeight}`).join(",")')"
+[[ "$(png_size "$idraft/capture-2.png")" == 300x200 ]] || die "import: JPEG not re-encoded to a 300x200 PNG"
+cmp -s "$movie" "$idraft/capture-3.mov" || die "import: movie not copied byte for byte"
+[[ -f "$TMP/media/Screenshot 1.png" && -f "$TMP/media/old recording.mov" ]] || die "import: sources were moved"
+validate_bundle "$idraft/review.json"
+ok "imports a PNG, a JPEG (re-encoded to PNG), and a movie into a new draft; sources untouched; review.json validates"
+
+echo '{"steps": [{"op": "media", "media": "m3"}, {"op": "tool", "tool": "rect"}, {"op": "drag", "points": [[10, 10], [80, 50]]}, {"op": "note", "text": "Old bug"}]}' >"$TMP/script-import.json"
+run import-annotate 0 -- --annotate "$TMP/script-import.json" --drafts-dir "$IDRAFTS"
+[[ "$(json "$idraft/review.json" 'j.annotations.map(a => a.mediaId + ":" + a.note).join(",")')" == "m3:Old bug" ]] || die "import: annotating the imported movie"
+ok "the imported media is annotated through the real editor"
+
+run import-bad 2 -- --import "$TMP/media/photo.jpg" "$TMP/media/notes.txt" --drafts-dir "$IDRAFTS" --new-review
+[[ "$(json "$TMP/import-bad.json" j.error)" == unsupportedMedia ]] || die "import: unsupported error code"
+[[ "$(json "$idraft/review.json" j.media.length)" == 3 ]] || die "import: a failed import changed the draft"
+run import-missing 2 -- --import "$TMP/media/gone.png" --drafts-dir "$IDRAFTS"
+[[ "$(json "$TMP/import-missing.json" j.error)" == missingFile ]] || die "import: missing error code"
+run import-none 2 -- --import --drafts-dir "$IDRAFTS"
+run import-new 0 -- --import "$TMP/media/photo.jpg" --drafts-dir "$IDRAFTS" --new-review
+[[ "$(json "$TMP/import-new.json" j.draftDirectory)" != "$idraft" ]] || die "import: --new-review reused the draft"
+ok "unsupported, missing, and absent files: exit 2 and nothing imported; --new-review starts a fresh draft"
+
 run previews 0 -- --render-ui-previews "$TMP/previews"
 for name in overlay-region-hint overlay-region-selection overlay-region-selection-bottom-edge overlay-window-hover hud-countdown hud-saved hud-recording-countdown hud-recording hud-saved-video settings-registered settings-in-use status-bar-icon-light status-bar-icon-dark \
   editor-empty editor-annotated editor-arrow-selected editor-narrow editor-crop-drag editor-cropped; do

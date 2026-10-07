@@ -53,6 +53,12 @@ final class EditorModel: ObservableObject {
         return image
     }
 
+    /// Switches to `mediaId`, first picking up media added to the draft since the editor opened.
+    func show(mediaId: String) {
+        if session.editor.media(mediaId) == nil { draftChanged(session.directory) }
+        mutate { $0.show(mediaId: mediaId) }
+    }
+
     func scheduleSave() {
         saveTask?.cancel()
         guard editor.isDirty, editor.gesture == nil else { return }

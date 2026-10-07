@@ -172,6 +172,7 @@ idle → picking → countingDown(n…1) → capturing → recording → finishi
 ```
 UXReview --capture screenshot|video [--target display|window|region] [--delay N] [--duration S]
          [--display-id N] [--window-id N] [--rect x,y,w,h] [--drafts-dir DIR] [--new-review]
+UXReview --import FILE [FILE…] [--drafts-dir DIR] [--new-review]   (§4.12)
 UXReview --render-ui-previews DIR
 ```
 
@@ -203,3 +204,52 @@ pipeline on machines without Screen Recording permission.
 **`--render-ui-previews`** draws the picker overlays and HUDs offscreen into PNGs, for visual
 QA without screen capture. It also renders the Settings window, the menu bar icon on light and
 dark strips (`status-bar-icon-light.png`, `status-bar-icon-dark.png`), and the annotation editor.
+
+## 4.12 Opening existing media for annotation
+
+Media captured elsewhere, such as a ⇧⌘4 screenshot on the Desktop or an older recording, can
+be annotated without capturing it again (`HS2-6A13WZ`).
+
+**Menu:** **Open Media for Annotation…** (⌘O while the menu is open) shows an open panel for
+images and movies. Several files can be chosen at once. UX Review then:
+
+1. Prepares every chosen file. If any one is missing, isn't an image or movie, or can't be
+   read, an alert names it and **nothing** is added.
+2. **Copies** the files into the current draft review, creating one if needed, in the order
+   chosen, as `capture-N.<ext>` with media ids `mN`, just like captures (§4.6). The source
+   files are never moved or changed.
+3. Opens the annotation editor on the first imported item. If an editor window for that draft
+   is already open, it picks up the new media and switches to it.
+
+What an imported file becomes:
+
+| Source | In the draft |
+| --- | --- |
+| Any image ImageIO reads (PNG, JPEG, HEIC, TIFF, GIF, …) | A PNG, with its EXIF orientation applied so it is upright, at full resolution. GIFs and multi-page files keep their first frame. Re-encoding makes every format behave like a capture in the editor (crop, render). |
+| A movie AVFoundation reads that has a video track (`.mov`, `.mp4`, `.m4v`, …) | A byte-for-byte copy, keeping its extension. `pixelWidth`/`pixelHeight` are the displayed size, with the track's rotation applied, so annotations line up with the poster frame the editor shows. `durationMs` comes from the asset. |
+
+- `capturedAt` is the file's creation date.
+- The media item has no `context`, because nothing is known about where the file came from.
+  The first item of a new draft leaves the bundle context empty, and the title is "UX review".
+- To put imported files in a review of their own, choose **Start New Review** first.
+
+**Headless:**
+
+```
+UXReview --import FILE [FILE…] [--drafts-dir DIR] [--new-review]
+```
+
+This mode does the same import with no UI and prints JSON.
+
+- On success: `status: "imported"`, `draftDirectory`, `files`, and `media`.
+- On failure: `status: "error"`, with `error` set to `missingFile`, `unsupportedMedia`,
+  `unreadableMedia`, `nothingToImport`, `invalidArguments`, or `failed`, plus a `message`.
+- `--new-review` ends the current draft only once every file has been prepared, so a failed
+  import leaves the current draft current.
+
+| Exit code | Meaning |
+| --- | --- |
+| 0 | Imported |
+| 2 | Bad arguments, or a file that is missing, unsupported, or unreadable. Nothing is imported. |
+| 5 | The draft couldn't be written |
+

@@ -35,6 +35,8 @@ struct CaptureMenuSection: View {
         Button("Annotate Current Review…") { capture.annotateCurrentReview() }
             .keyboardShortcut("e")
             .disabled(!capture.hasCurrentReview)
+        Button("Open Media for Annotation…") { capture.openMediaForAnnotation() }
+            .keyboardShortcut("o")
         Button("Show Current Review in Finder") { capture.revealCurrentReview() }
         Button("Start New Review") { capture.startNewReview() }
     }

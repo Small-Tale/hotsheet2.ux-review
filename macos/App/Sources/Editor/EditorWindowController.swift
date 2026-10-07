@@ -10,14 +10,16 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
 
     let model: EditorModel
 
-    /// Opens (or brings forward) the editor for the draft in `directory`.
-    static func show(directory: URL, store: ReviewDraftStore) throws {
+    /// Opens (or brings forward) the editor for the draft in `directory`, showing `mediaId` when given.
+    static func show(directory: URL, store: ReviewDraftStore, mediaId: String? = nil) throws {
         let key = directory.standardizedFileURL
         if let existing = open[key] {
+            if let mediaId { existing.model.show(mediaId: mediaId) }
             existing.present()
             return
         }
-        let controller = try EditorWindowController(model: EditorModel(session: EditorSession(store: store, directory: directory)))
+        let session = try EditorSession(store: store, directory: directory, mediaId: mediaId)
+        let controller = EditorWindowController(model: EditorModel(session: session))
         open[key] = controller
         controller.present()
     }

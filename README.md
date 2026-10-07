@@ -17,7 +17,7 @@ follow and share the same review bundle format.
 > region, optionally after a delay, into a draft review, from its menu or a configurable global hotkey
 > ([docs/04-capture.md](docs/04-capture.md), [docs/05-start-and-settings.md](docs/05-start-and-settings.md)). The annotation editor
 > marks up a draft with every shape, notes, intents, crop, and undo/redo
-> ([docs/06-annotation-editor.md](docs/06-annotation-editor.md)). The submission UI is next. See [docs/README.md](docs/README.md) for the roadmap and tickets.
+> ([docs/06-annotation-editor.md](docs/06-annotation-editor.md)), including screenshots and movies opened from disk. The submission UI is next. See [docs/README.md](docs/README.md) for the roadmap and tickets.
 
 ## Repository layout
 

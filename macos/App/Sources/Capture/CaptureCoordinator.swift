@@ -85,6 +85,40 @@ final class CaptureCoordinator: ObservableObject {
         }
     }
 
+    /// Lets the reviewer pick existing images or movies, copies them into the current draft
+    /// review, and opens the editor on the first one (docs/04 §4.12).
+    func openMediaForAnnotation() {
+        let panel = NSOpenPanel()
+        panel.title = "Open Media for Annotation"
+        panel.message = "Choose screenshots, images, or movies to add to the current review."
+        panel.prompt = "Annotate"
+        panel.allowedContentTypes = MediaImporter.contentTypes
+        panel.allowsMultipleSelection = true
+        panel.canChooseDirectories = false
+        NSApp.activate(ignoringOtherApps: true)
+        guard panel.runModal() == .OK, !panel.urls.isEmpty else { return }
+        let urls = panel.urls
+        Task {
+            do {
+                let (draft, media) = try await MediaImporter.importFiles(urls, into: store)
+                NotificationCenter.default.post(name: .reviewDraftChanged, object: draft.directory)
+                try EditorWindowController.show(directory: draft.directory, store: store, mediaId: media.first?.id)
+            } catch let error as MediaImportError {
+                reportImport(error)
+            } catch {
+                report(.failed(String(describing: error)))
+            }
+        }
+    }
+
+    private func reportImport(_ error: MediaImportError) {
+        let alert = NSAlert()
+        alert.alertStyle = .warning
+        alert.messageText = "Couldn't open that media"
+        alert.informativeText = "\(error.description) Nothing was added to the review."
+        alert.runModal()
+    }
+
     func revealCurrentReview() {
         if let draft = try? store.current() {
             NSWorkspace.shared.activateFileViewerSelecting([lastCapture?.fileURL ?? draft.bundleURL])

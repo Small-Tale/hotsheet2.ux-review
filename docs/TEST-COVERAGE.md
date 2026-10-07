@@ -220,3 +220,25 @@ Each feature gets both unit tests and end-to-end tests. Tests live in
 - **Not covered automatically:** physically pressing the hotkeys. Carbon delivers the press
   to `GlobalHotkeyCenter`, which routes it by `EventHotKeyID.id`, and the routing table
   (`HotkeySlot(carbonID:)`) is unit-tested.
+
+## HS2-6A13WZ: open existing media for annotation
+
+- **Unit** (`MediaImporterTests`, `ImportCommandTests`, on real files):
+  - a PNG is copied into a new draft, and the source is left alone
+  - a JPEG with EXIF orientation 6 arrives as an upright portrait PNG
+  - a real H.264 movie is copied byte for byte, with its size and duration
+  - imports append to the current draft in the order given
+  - unsupported, corrupt, missing, fake-movie, and empty inputs import nothing and create no
+    draft
+  - a failed `newReview` import keeps the current draft current
+  - error codes and messages
+  - `--import` parsing
+- **App end to end** (`scripts/app-e2e.sh`):
+  - `--import` of a PNG, a JPEG (re-encoded to PNG), and a synthetic recording: sizes, kinds,
+    byte-for-byte movie copy, sources untouched, schema-valid `review.json`
+  - annotating the imported movie through `--annotate`
+  - unsupported, missing, and absent files exit 2 and change nothing
+  - `--new-review` starts a fresh draft
+- **Not covered automatically:** the open panel and the editor switching to the imported item
+  in a live window. Both are thin AppKit glue over the tested importer and
+  `AnnotationEditor.show(mediaId:)`.

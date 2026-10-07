@@ -21,8 +21,9 @@ derived from the Hot Sheet 2 design export `docs/design/exports/ux-review-status
    record-video shortcut (§5.2) when the default delay is None, since that is exactly what the
    shortcut does.
 4. Current review status, **Annotate Current Review…** (⌘E; disabled with no draft; see
-   [06-annotation-editor.md](06-annotation-editor.md)), **Show Current Review in Finder**, and
-   **Start New Review**.
+   [06-annotation-editor.md](06-annotation-editor.md)), **Open Media for Annotation…** (⌘O;
+   existing images and movies, [04-capture.md](04-capture.md) §4.12), **Show Current Review in
+   Finder**, and **Start New Review**.
 5. Hot Sheet status, **Choose Project Folder…**, and **Refresh Hot Sheet Status**.
 6. **Settings…** (⌘,), the version, and **Quit**.
 

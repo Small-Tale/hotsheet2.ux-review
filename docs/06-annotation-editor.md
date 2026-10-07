@@ -26,6 +26,8 @@ opens the editor on the current draft.
 
 - With no draft, a HUD says "Nothing to annotate yet".
 - Each draft gets one window. Choosing the item again brings that window forward.
+- **Open Media for Annotation…** copies existing images or movies into the current draft and
+  opens the editor on the first one ([04-capture.md](04-capture.md) §4.12).
 
 **Layout:**
 

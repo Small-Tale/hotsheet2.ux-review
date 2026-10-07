@@ -43,6 +43,15 @@ enum UXReviewMain {
             NSApplication.shared.setActivationPolicy(.prohibited)
             exit(MainActor.assumeIsolated { HeadlessAnnotate.run(arguments: Array(CommandLine.arguments.dropFirst())) })
         }
+        // Headless import used by scripts/app-e2e.sh: add existing files to the draft, JSON result, exit.
+        if CommandLine.arguments.contains("--import") {
+            _ = NSApplication.shared
+            NSApplication.shared.setActivationPolicy(.prohibited)
+            Task { @MainActor in
+                await exit(HeadlessImport.run(arguments: Array(CommandLine.arguments.dropFirst())))
+            }
+            dispatchMain()
+        }
         // Headless capture used by scripts/app-e2e.sh: one capture, JSON result, exit.
         if CommandLine.arguments.contains("--capture") {
             _ = NSApplication.shared

@@ -36,6 +36,7 @@ macos/
     Capture/CapturePhase.swift        capture life-cycle transition rules (docs/04 §4.10)
     Capture/CaptureCommand.swift      `--capture` argument parsing (docs/04 §4.11)
     Review/ReviewDraftStore.swift     draft reviews on disk (docs/04 §4.6)
+    Review/MediaImporter.swift        existing images/movies → draft (PNG re-encode, movie copy), `--import` parsing (docs/04 §4.12)
     Settings/Hotkey.swift             global hotkey model: parse/display, Carbon codes (docs/05 §5.2)
     Settings/CaptureSettings.swift    settings + KeyValueStoring persistence, HotkeySlot (capture/record, duplicate rules), HotkeyAction
     Settings/SettingsCommand.swift    `--settings` argument parsing (docs/05 §5.5)
@@ -62,6 +63,7 @@ macos/
     Capture/CaptureHUD.swift          countdown / saved HUD panel
     Capture/CaptureMenu.swift         capture section of the menu bar menu
     Capture/HeadlessCapture.swift     `--capture` mode with JSON output
+    Capture/HeadlessImport.swift      `--import` mode with JSON output (docs/04 §4.12)
     Settings/GlobalHotkeyCenter.swift Carbon RegisterEventHotKey (exclusive) + press handler
     Settings/SettingsModel.swift      live settings, persistence, hotkey re-registration
     Settings/SettingsView.swift       Settings window + shortcut recorder

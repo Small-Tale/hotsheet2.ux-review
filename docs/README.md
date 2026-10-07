@@ -23,6 +23,7 @@ Repository foundation: `HS2-3ZSBZ9`. The following are tracked as Hot Sheet tick
 | --- | --- |
 | Menu bar actions + global hotkey | `HS2-DR107C` |
 | Separate capture and record-video hotkeys | `HS2-SPFXPW` |
+| Open existing images/movies for annotation | `HS2-6A13WZ` |
 | Screenshot capture (screen/window/region, delay, context) | `HS2-E89PQR` |
 | Video recording | `HS2-W68HWK` |
 | Annotation editor (shapes, notes, intents, crop) | `HS2-9H7WZ8` (done) |
