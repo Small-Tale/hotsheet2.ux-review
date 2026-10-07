@@ -9,35 +9,65 @@ The menu bar icon opens UX Review's menu. It is a flame inside viewfinder corner
 flame, framed for capture), drawn as a template image so it follows the menu bar's light, dark,
 and tinted appearances. The vector source is `macos/App/Resources/Assets.xcassets/StatusBarIcon`,
 derived from the Hot Sheet 2 design export `docs/design/exports/ux-review-status-bar-icon.svg`
-(cropped to its 20-point artwork and sized 18 points). When idle, it lists:
+(cropped to its 20-point artwork and sized 18 points). The menu is short (`HS2-80CTK8`); review
+work happens in UX Review's own windows (§5.1.1). When idle, it lists:
 
-1. **Capture <default>**: for example "Capture Screenshot of Region". It runs the default
-   capture (§5.3) and shows the global shortcut when that shortcut is registered and is a
-   letter, digit, or Space.
-2. **Screenshot of Screen / Window / Region**, and the **Screenshot After Delay** submenu
-   ([04-capture.md](04-capture.md) §4.1).
-3. **Record Video of Screen / Window / Region**, and the **Record Video After Delay** submenu
-   ([04-capture.md](04-capture.md) §4.9). The item for the default target shows the
-   record-video shortcut (§5.2) when the default delay is None, since that is exactly what the
-   shortcut does. Below them, the **Narrate Next Recording with Microphone** checkbox turns
-   narration on or off for the next recording only ([04-capture.md](04-capture.md) §4.9).
-4. Current review status, **Annotate Current Review…** (⌘E; disabled with no draft; see
-   [06-annotation-editor.md](06-annotation-editor.md)), **Open Media for Annotation…** (⌘O;
-   existing images and movies, [04-capture.md](04-capture.md) §4.12), **Submit Current Review…**
-   (⌘↩; disabled with no draft; the review session window,
-   [07-review-session.md](07-review-session.md)), **Show Current Review in Finder**,
-   **Start New Review**, and **Draft Reviews…** (every draft, including older ones,
-   [07-review-session.md](07-review-session.md) §7.9). The status line ("Current review: N capture(s), last …") is hidden once
-   that review has been submitted.
-5. Hot Sheet status, **Choose Project Folder…**, and **Refresh Hot Sheet Status**.
-6. **Settings…** (⌘,), the version, and **Quit**.
+1. **UX Review <version>** (a heading).
+2. **Capture Image ▸** and **Capture Video ▸**. Each submenu names the target it captures
+   ("Image of Region"), which is the default target from Settings (§5.3), and offers:
+   - **Immediate**: captures now. It shows the global shortcut (§5.2) when that shortcut starts
+     exactly this capture (default delay None) and is a letter, digit, or Space.
+   - **Delayed [3 s | 10 s]**: a segmented control in the menu row. Choosing a segment closes
+     the menu and starts a countdown capture ([04-capture.md](04-capture.md) §4.3).
+   - Capture Video also has the **Narrate Next Recording with Microphone** checkbox, which turns
+     narration on or off for the next recording only ([04-capture.md](04-capture.md) §4.9).
 
-The capture items are replaced while a capture runs:
+   Other targets (Screen, Window, Region) and the 5 s delay are in the app menu bar's
+   **Capture** menu (§5.1.1), or set them as the default in Settings.
+3. **Settings…** (⌘,) opens the Settings window.
+4. **Open UX Review** opens the UX Review window (the annotation editor) on the current draft
+   review. With no current draft it brings open UX Review windows forward, or, with none open,
+   starts a new empty review (**New Review**, §5.1.1).
+5. **Quit UX Review** (⌘Q).
+
+The capture submenus are replaced while a capture runs:
 
 - During a countdown, by **Cancel Capture (N s)**.
 - While recording, by **Stop Recording (m:ss)** (plus "Recording microphone narration" when
   narrating), and the menu bar icon becomes a record symbol.
 - While picking, capturing, or saving a recording, by a status line.
+
+The menu entries are described in UXReviewKit (`AppMenus`) and turned into an `NSMenu` by the
+app each time the menu opens.
+
+### 5.1.1 UX Review windows, Dock icon, and app menu bar
+
+UX Review runs as a menu bar app with no Dock icon. While any of its windows is open (a UX
+Review editor window, a Submit Review window, Draft Reviews, or Settings, minimized ones
+included), it becomes a regular app: it has a **Dock icon**, appears in **⌘-Tab**, accepts
+files **dropped on its Dock icon** (like Finder Open With, [04-capture.md](04-capture.md)
+§4.12.1), and shows its **app menu bar**. When the last of those windows closes, it goes back to
+the menu bar only. Capture overlays, HUDs, and alerts don't count (`WindowPresence`). Clicking
+the Dock icon with no window showing does what **Open UX Review** does.
+
+Each draft review has its own UX Review window; other drafts open as separate windows and stay
+until closed. The app menu bar:
+
+| Menu | Items |
+| --- | --- |
+| **UX Review** | About UX Review; Settings… (⌘,); Hide (⌘H), Hide Others (⌥⌘H), Show All; Quit (⌘Q) |
+| **File** | **New Review** (⌘N): a new empty draft becomes current and opens in its own window; the previous draft stays as it is. **Add Media…** (⌘O): images or movies for the front window's draft ([04-capture.md](04-capture.md) §4.12). **Draft Reviews…** (⇧⌘O, [07-review-session.md](07-review-session.md) §7.9). Save (⌘S). **Submit Review…** (⌘↩, [07-review-session.md](07-review-session.md) §7.1). **Show Review in Finder**. Close Window (⌘W) |
+| **Edit** | Undo (⌘Z), Redo (⇧⌘Z), Cut, Copy, Paste, Select All, Duplicate (⌘D) |
+| **Capture** | Screenshot / Record Video of Screen, Window, or Region; the After Delay submenus with every preset (3, 5, 10 s); the narration checkbox. Replaced by Cancel / Stop / a status line while a capture runs, like the menu bar menu |
+| **Window** | Minimize (⌘M), Zoom, Draft Reviews…, Bring All to Front, and the open windows |
+
+File menu items act on the front window's draft: an editor or Submit Review window answers for
+its own draft. With another window in front (Draft Reviews, Settings), they act on the current
+draft. In a Submit Review window, **Submit Review…** is disabled so ⌘↩ reaches the window's own
+Submit button.
+
+The project a review is filed into is chosen when submitting, in the Submit Review window, which
+starts on the last project used ([07-review-session.md](07-review-session.md) §7.6).
 
 ## 5.2 Global hotkeys
 
@@ -90,14 +120,15 @@ those simply take precedence.
 
 ## 5.3 Settings
 
-The Settings window (menu › Settings…) has three sections:
+The Settings window (menu bar menu or app menu › Settings…, ⌘,) has three sections:
 
 - **Default capture**: kind (Screenshot, Video), target (Screen, Window, Region), and delay
   (None, 3, 5, 10 seconds).
-  This is what the Capture hotkey and the "Capture <default>" item do. The Record video hotkey
-  uses the same target and delay. The default is Region with no delay.
+  This is what the Capture hotkey does. The Record video hotkey uses the same target and delay,
+  and the menu bar menu's Capture Image and Capture Video use the target (§5.1). The default is
+  Region with no delay.
 - **Video**: **Record microphone narration**, the narration default for recordings (off). The
-  menu can change it for one recording. See [04-capture.md](04-capture.md) §4.9 for the
+  Capture Video menu's checkbox can change it for one recording. See [04-capture.md](04-capture.md) §4.9 for the
   Microphone permission flow.
 - **Global shortcuts**: one recorder each for **Start default capture** and **Record video**.
   Click one, then press a combination.

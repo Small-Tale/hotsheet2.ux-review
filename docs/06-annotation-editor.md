@@ -21,19 +21,26 @@ prompt. This editor adds:
 
 ## 6.1 Opening and layout
 
-**Opening.** The menu bar menu's **Annotate Current Review…** (⌘E while the menu is open)
-opens the editor on the current draft.
+**Opening.** The editor is the **UX Review window** (`HS2-80CTK8`). The menu bar menu's **Open
+UX Review** (or a click on the Dock icon) opens it on the current draft
+([05-start-and-settings.md](05-start-and-settings.md) §5.1).
 
-- With no draft, a HUD says "Nothing to annotate yet".
-- Each draft gets one window. Choosing the item again brings that window forward.
-- **Open Media for Annotation…** copies existing images or movies into the current draft and
-  opens the editor on the first one ([04-capture.md](04-capture.md) §4.12).
+- With no draft, it starts a new empty review, unless editor windows are already open, which it
+  brings forward instead.
+- **New Review** (File menu, ⌘N) creates an empty draft, makes it current, and opens it in a new
+  window. The canvas then says "No captures in this review yet" and how to add some, and the
+  inspector says "Add an image or movie to start annotating."
+- Each draft gets one window, which stays until closed. Opening it again brings it forward.
+- **Add Media…** (tool bar or File menu, ⌘O) adds existing images or movies to *this window's*
+  draft, like a drop ([04-capture.md](04-capture.md) §4.12.2), and shows the first one.
+- Finder Open With and a drop on the Dock icon add to the current draft and open its editor
+  on the first one ([04-capture.md](04-capture.md) §4.12.1).
 
 **Layout:**
 
 | Area | Contents |
 | --- | --- |
-| Tool bar | Tools (§6.3), Undo, Redo, **Restore Original** (only while the image is cropped or the video trimmed, §6.6, §6.10), a status line ("Editing…" / "Saved to draft", the last editor message, or a save error), zoom, and **Submit Review…** (⌘↩): saves, then opens the Submit Review window on this editor's draft ([07-review-session.md](07-review-session.md) §7.1) |
+| Tool bar | Tools (§6.3), Undo, Redo, **Restore Original** (only while the image is cropped or the video trimmed, §6.6, §6.10), a status line ("Editing…" / "Saved to draft", the last editor message, or a save error), zoom, **Add Media…** (⌘O, see Opening), and **Submit Review…** (⌘↩): saves, then opens the Submit Review window on this editor's draft ([07-review-session.md](07-review-session.md) §7.1) |
 | Media strip (left, only with 2+ captures) | Thumbnails (with the current crop) plus a count badge of annotations on each. Click one to show it. Videos are marked |
 | Canvas | The current capture fitted to the view (at most 2×) or zoomed (§6.2.1), on a dark backdrop, with annotations drawn on top. A video shows the frame at the playhead |
 | Timeline (under the canvas, videos only) | Play/pause, frame step, playhead time, **Trim Start** / **Trim End**, and the scrubber with each annotation's time range (§6.10) |

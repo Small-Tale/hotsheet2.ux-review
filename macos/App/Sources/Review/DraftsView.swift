@@ -42,7 +42,7 @@ struct DraftsView: View {
                 .foregroundStyle(.secondary)
             Text("No Draft Reviews").font(.title3.weight(.semibold))
             Text(
-                "Your first capture starts a draft review. Reviews you set aside with Start New Review "
+                "Your first capture starts a draft review. Reviews you set aside with New Review "
                     + "stay here until you submit or discard them."
             )
             .font(.callout)

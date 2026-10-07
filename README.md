@@ -46,8 +46,8 @@ identity: copy `macos/Signing.local.xcconfig.example` to `macos/Signing.local.xc
 in (see [docs/01-architecture.md](docs/01-architecture.md) §1.3, "Code signing and permissions").
 
 To file reviews, the app needs a project folder that has a Hot Sheet 2 store (linked via
-`.hotsheet2/store`, a sibling `<project>.hs2`, or `HOTSHEET_STORE`). Choose it from the menu, or
-pass `--project <path>`.
+`.hotsheet2/store`, a sibling `<project>.hs2`, or `HOTSHEET_STORE`). Choose it in the Submit Review
+window when you submit (it remembers the last one), or pass `--project <path>`.
 
 ## License
 

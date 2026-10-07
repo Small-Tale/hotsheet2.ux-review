@@ -38,7 +38,7 @@ macos/
     Capture/Narration.swift           MicrophoneAccess, NarrationPlan (permission decision), SyntheticAudio tone buffers
     Capture/CapturePhase.swift        capture life-cycle transition rules (docs/04 §4.10)
     Capture/CaptureCommand.swift      `--capture` argument parsing (docs/04 §4.11)
-    Review/ReviewDraftStore.swift     draft reviews on disk (docs/04 §4.6)
+    Review/ReviewDraftStore.swift     draft reviews on disk, createEmptyDraft for New Review (docs/04 §4.6)
     Review/MediaImporter.swift        existing images/movies → draft (PNG re-encode, movie copy), `--import` parsing (docs/04 §4.12)
     Review/MediaOpenRouting.swift     Finder Open With / editor drop routing plan (dedupe, all-or-nothing), OpenBatch, `--open-media` parsing (docs/04 §4.12.1)
     Review/ReviewSession.swift        session state machine, SessionIssue rules + messages, DraftSubmitter (docs/07)
@@ -50,6 +50,7 @@ macos/
     Settings/CaptureSettings.swift    settings + KeyValueStoring persistence, HotkeySlot (capture/record, duplicate rules), HotkeyAction
     Settings/SettingsCommand.swift    `--settings` argument parsing (docs/05 §5.5)
     Settings/RecentProjects.swift     recent target projects + persistence (docs/07 §7.6)
+    Settings/AppMenus.swift           menu bar menu + app Capture menu as MenuEntry lists per phase, MenuShortcut, WindowPresence (docs/05 §5.1)
     Editor/AnnotationEditor.swift     editor state machine: document, selection, undo/redo, intent toggle (docs/06)
     Editor/AnnotationEditor+Gestures.swift  draw/move/resize/crop gestures, hit testing, crop + reset crop
     Editor/AnnotationEditor+Time.swift  playhead, annotation time ranges, trim + reset trim, TimeFormat (docs/06 §6.10)
@@ -68,8 +69,12 @@ macos/
   Tests/UXReviewKitTests/      Swift Testing unit + end-to-end tests (docs/TEST-COVERAGE.md)
   App/Resources/Assets.xcassets  StatusBarIcon template vector (menu bar icon, docs/05 §5.1)
   App/Sources/
-    UXReviewApp.swift          @main, MenuBarExtra + Settings scenes, StatusBarIcon, hotkey + open-files wiring, headless mode routing
-    AppModel.swift             observable status + project chooser (follows project changes)
+    UXReviewApp.swift          @main: headless mode routing, else an AppKit NSApplication run loop
+    AppDelegate.swift          owns capture + settings, status item, app menu bar; open-files batching; File-menu fallbacks for the current draft (docs/05 §5.1)
+    Menus/MenuRendering.swift  MenuEntry → NSMenuItem (CommandMenuItem, "Delayed [3 s | 10 s]" MenuChoicesView), MenuDump for menus.json
+    Menus/StatusItemController.swift  menu bar icon (StatusBarIcon) + menu rebuilt from AppMenus.statusMenu on open
+    Menus/MainMenu.swift       app menu bar (UX Review, File, Edit, Capture, Window) shown while a window is open (docs/05 §5.1.1)
+    Menus/DockPresence.swift   Dock icon + app menu bar while a UX Review window is open (WindowPresence)
     AppSettings.swift          project folder (defaults / --project), recent projects, folder panel
     UIPreviews.swift           --render-ui-previews offscreen renders for visual QA
     Capture/CaptureBackend.swift      ScreenCaptureKit + synthetic backends, CaptureFailure
@@ -79,15 +84,15 @@ macos/
     Capture/CaptureCoordinator.swift  UI flow: permission (+ microphone), pick, countdown, capture, alerts
     Capture/TargetPicker.swift        region drag + window pick overlays
     Capture/CaptureHUD.swift          countdown / saved HUD panel
-    Capture/CaptureMenu.swift         capture section of the menu bar menu
     Capture/HeadlessCapture.swift     `--capture` mode with JSON output
     Capture/HeadlessImport.swift      `--import` mode with JSON output (docs/04 §4.12)
     Capture/MediaOpening.swift        AppDelegate `application(_:open:)` batching, `--open-media` mode (docs/04 §4.12.1)
     Settings/GlobalHotkeyCenter.swift Carbon RegisterEventHotKey (exclusive) + press handler
     Settings/SettingsModel.swift      live settings, persistence, hotkey re-registration
-    Settings/SettingsView.swift       Settings window + shortcut recorder
+    Settings/SettingsView.swift       Settings window content + shortcut recorder
+    Settings/SettingsWindowController.swift  the one Settings window (⌘,)
     Settings/HeadlessSettings.swift   `--settings` mode with JSON output
-    Editor/EditorWindowController.swift  one window per draft, save on close, hidden Edit menu, file drop target (docs/04 §4.12.2)
+    Editor/EditorWindowController.swift  the UX Review window: one per draft, save on close, Add Media / Submit / Show in Finder for its draft, file drop target (docs/04 §4.12.2), MediaChooser
     Editor/EditorModel.swift          observable wrapper: mutate → redraw + autosave, reload on capture
     Editor/EditorView.swift           tool bar, media strip, layout
     Editor/CanvasAutoScroller.swift   60 Hz auto-scroll timer while a canvas gesture runs near an edge

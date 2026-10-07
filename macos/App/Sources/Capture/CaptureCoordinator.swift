@@ -71,30 +71,31 @@ final class CaptureCoordinator: ObservableObject {
         Task { await finish(recording, startedAt: startedAt) }
     }
 
-    /// Ends the current draft so the next capture starts a new review.
-    func startNewReview() {
+    /// New Review (⌘N): a new, empty draft becomes current and opens in its own window; the
+    /// draft that was current stays on disk and in its window if open (docs/07 §7.9).
+    func newReview() {
         do {
-            try store.startNew()
+            let draft = try store.createEmptyDraft()
             lastCapture = nil
-            // No draft object: only the Draft Reviews window listens for this (its Current badge).
-            NotificationCenter.default.post(name: .reviewDraftChanged, object: nil)
-            hud.flash("New review started", subtitle: "The next capture starts a new draft.")
+            NotificationCenter.default.post(name: .reviewDraftChanged, object: draft.directory)
+            try EditorWindowController.show(directory: draft.directory, store: store)
         } catch {
             report(.failed(String(describing: error)))
         }
     }
 
-    /// True when there is a draft review to annotate (read each time the menu opens).
+    /// True when there is a current draft review.
     var hasCurrentReview: Bool { (try? store.current()) != nil }
 
-    /// Opens the annotation editor on the current draft review.
-    func annotateCurrentReview() {
+    /// Open UX Review (menu bar menu, Dock icon): brings the open review windows forward, or
+    /// opens the current draft, or a new empty one when there is none (docs/05 §5.1).
+    func openUXReview() {
         do {
-            guard let draft = try store.current() else {
-                hud.flash("Nothing to annotate yet", subtitle: "Capture a screenshot or video first.")
-                return
+            if let draft = try store.current() {
+                try EditorWindowController.show(directory: draft.directory, store: store)
+            } else if !EditorWindowController.bringAllForward() {
+                newReview()
             }
-            try EditorWindowController.show(directory: draft.directory, store: store)
         } catch {
             report(.failed(String(describing: error)))
         }
@@ -103,13 +104,7 @@ final class CaptureCoordinator: ObservableObject {
     /// Lets the reviewer pick existing images or movies, copies them into the current draft
     /// review, and opens the editor on the first one (docs/04 §4.12).
     func openMediaForAnnotation() {
-        let panel = NSOpenPanel()
-        panel.title = "Open Media for Annotation"
-        panel.message = "Choose screenshots, images, or movies to add to the current review."
-        panel.prompt = "Annotate"
-        panel.allowedContentTypes = MediaImporter.contentTypes
-        panel.allowsMultipleSelection = true
-        panel.canChooseDirectories = false
+        let panel = MediaChooser.panel()
         NSApp.activate(ignoringOtherApps: true)
         guard panel.runModal() == .OK, !panel.urls.isEmpty else { return }
         openMedia(panel.urls)
@@ -279,9 +274,7 @@ final class CaptureCoordinator: ObservableObject {
     }
 
     /// `m:ss`.
-    static func clock(_ milliseconds: Int) -> String {
-        String(format: "%d:%02d", milliseconds / 60000, (milliseconds / 1000) % 60)
-    }
+    static func clock(_ milliseconds: Int) -> String { AppMenus.clock(milliseconds) }
 
     private func report(_ failure: CaptureFailure) {
         lastError = failure

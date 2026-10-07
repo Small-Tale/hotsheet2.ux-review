@@ -129,6 +129,18 @@ public final class ReviewDraftStore: @unchecked Sendable {
         }
     }
 
+    /// Starts a new, empty draft and makes it current (New Review, ⌘N): captures and added
+    /// media then go into it. The previous draft stays on disk. Spec: docs/07 §7.9.
+    @discardableResult
+    public func createEmptyDraft() throws -> ReviewDraft {
+        lock.lock()
+        defer { lock.unlock() }
+        let draft = try createDraft(context: CaptureContext())
+        try write(draft.bundle, to: draft.bundleURL)
+        try Data(draft.directory.lastPathComponent.utf8).write(to: pointerURL, options: .atomic)
+        return draft
+    }
+
     /// Moves the captured file into the current draft (creating a draft if needed), appends its
     /// `MediaItem`, and rewrites `review.json`. On failure the draft is left unchanged.
     /// With `directory`, adds to that existing draft instead (for example the one an editor

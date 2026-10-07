@@ -58,7 +58,9 @@ final class AnnotationCanvasView: NSView {
         context.fill(bounds)
         reportSize()
         guard let model, let item = model.editor.currentMedia, let renderer = renderer() else {
-            drawPlaceholder("No captures in this review yet.")
+            drawPlaceholder(
+                "No captures in this review yet.\nAdd Media… (⌘O), drop images or movies here, or capture from the menu bar."
+            )
             return
         }
         let imageRect = renderer.imageRect
@@ -89,13 +91,18 @@ final class AnnotationCanvasView: NSView {
     }
 
     private func drawPlaceholder(_ text: String) {
+        let paragraph = NSMutableParagraphStyle()
+        paragraph.alignment = .center
+        paragraph.lineSpacing = 4
         let attributes: [NSAttributedString.Key: Any] = [
             .font: NSFont.systemFont(ofSize: 14),
-            .foregroundColor: NSColor.secondaryLabelColor,
+            // The canvas is always dark, whatever the appearance.
+            .foregroundColor: NSColor(white: 0.72, alpha: 1),
+            .paragraphStyle: paragraph,
         ]
         let string = NSAttributedString(string: text, attributes: attributes)
         let size = string.size()
-        string.draw(at: CGPoint(x: bounds.midX - size.width / 2, y: bounds.midY - size.height / 2))
+        string.draw(in: CGRect(x: bounds.midX - size.width / 2, y: bounds.midY - size.height / 2, width: size.width, height: size.height))
     }
 
     // MARK: Cursor

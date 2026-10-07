@@ -1,9 +1,9 @@
 import AppKit
-import SwiftUI
 import UXReviewKit
 
-/// Menu-bar-only app (`LSUIElement`): capture from the menu or a global hotkey, annotate drafts
-/// in the editor window, and submit them to Hot Sheet from the review session window (docs/07).
+/// Menu bar app (`LSUIElement`): capture from the menu or a global hotkey, annotate drafts in
+/// the UX Review window, and submit them to Hot Sheet from the review session window (docs/07).
+/// It shows a Dock icon and menu bar only while one of its windows is open (docs/05 §5.1.1).
 @main
 enum UXReviewMain {
     static func main() {
@@ -59,8 +59,16 @@ enum UXReviewMain {
             Task { @MainActor in await exit(run(arguments)) }
             dispatchMain()
         }
-        UXReviewApp.main()
+        MainActor.assumeIsolated {
+            let app = NSApplication.shared
+            app.setActivationPolicy(.accessory)
+            app.delegate = appDelegate
+            app.run()
+        }
     }
+
+    /// `NSApplication.delegate` is weak; this keeps the delegate alive for the app's lifetime.
+    @MainActor private static let appDelegate = AppDelegate()
 
     /// An app object without a Dock icon or menu bar item, for the headless modes.
     private static func startHeadless() {
@@ -68,84 +76,5 @@ enum UXReviewMain {
             _ = NSApplication.shared
             NSApplication.shared.setActivationPolicy(.prohibited)
         }
-    }
-}
-
-struct UXReviewApp: App {
-    @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
-    @StateObject private var model = AppModel()
-    @StateObject private var capture: CaptureCoordinator
-    @StateObject private var settings: SettingsModel
-
-    init() {
-        let capture = CaptureCoordinator()
-        let settings = SettingsModel()
-        // A global hotkey starts its capture, or cancels a countdown / stops a recording.
-        settings.hotkeys.onPress = { [weak capture, weak settings] slot in
-            guard let capture, let settings else { return }
-            capture.handleHotkey(slot, settings: settings.settings)
-        }
-        capture.stopHint = { [weak settings] in
-            let hotkey = settings?.activeHotkey(.record) ?? settings?.activeHotkey(.capture)
-            return hotkey.map { "Stop from the menu bar or press \($0.display)" } ?? "Stop from the menu bar"
-        }
-        // Images and movies opened from Finder go into the current draft (docs/04 §4.12.1).
-        AppDelegate.openHandler = { [weak capture] urls in capture?.openMedia(urls) }
-        capture.narrationDefault = { [weak settings] in settings?.settings.narration ?? false }
-        _capture = StateObject(wrappedValue: capture)
-        _settings = StateObject(wrappedValue: settings)
-    }
-
-    var body: some Scene {
-        MenuBarExtra {
-            MenuContent(model: model, capture: capture, settings: settings)
-        } label: {
-            StatusBarIcon(isRecording: capture.phase.isRecording)
-        }
-        Settings {
-            SettingsView(model: settings)
-        }
-    }
-}
-
-/// The menu bar icon: UX Review's flame-in-viewfinder template image (Assets.xcassets), or a
-/// record symbol while recording so the reviewer always sees that it is running. Spec: docs/05 §5.1.
-struct StatusBarIcon: View {
-    static let assetName = "StatusBarIcon"
-    let isRecording: Bool
-
-    var body: some View {
-        Group {
-            if isRecording {
-                Image(systemName: "record.circle.fill")
-            } else {
-                Image(Self.assetName)
-            }
-        }
-        .accessibilityLabel(isRecording ? "UX Review — recording" : "UX Review")
-    }
-}
-
-struct MenuContent: View {
-    @ObservedObject var model: AppModel
-    @ObservedObject var capture: CaptureCoordinator
-    @ObservedObject var settings: SettingsModel
-
-    var body: some View {
-        CaptureMenuSection(capture: capture, settings: settings)
-        Divider()
-        Text(model.status.summary)
-        if let project = model.status.projectDirectory {
-            Text("Project: \((project as NSString).lastPathComponent)")
-        }
-        Divider()
-        Button("Choose Project Folder…") { model.chooseProject() }
-        Button("Refresh Hot Sheet Status") { model.refresh() }
-        Divider()
-        SettingsLink { Text("Settings…") }
-            .keyboardShortcut(",")
-        Text("UX Review \(AppSettings.version)")
-        Button("Quit UX Review") { NSApplication.shared.terminate(nil) }
-            .keyboardShortcut("q")
     }
 }

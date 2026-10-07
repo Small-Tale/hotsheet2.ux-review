@@ -92,10 +92,46 @@ final class ReviewSessionWindowController: NSWindowController, NSWindowDelegate 
     required init?(coder _: NSCoder) { fatalError("not used") }
 
     private func present() {
-        EditMenu.install()
-        if window?.isVisible != true { window?.center() }
+        guard let window else { return }
+        if !window.isVisible { window.center() }
+        DockPresence.track(window)
         NSApp.activate(ignoringOtherApps: true)
-        window?.makeKeyAndOrderFront(nil)
+        window.makeKeyAndOrderFront(nil)
+    }
+
+    // MARK: File menu, for this window's draft
+
+    /// Add Media… (⌘O): adds images or movies to *this* draft, all or nothing (docs/04 §4.12.2).
+    @objc func addMedia(_: Any?) {
+        guard let window else { return }
+        let panel = MediaChooser.panel()
+        panel.beginSheetModal(for: window) { [weak self] response in
+            guard response == .OK, !panel.urls.isEmpty else { return }
+            MainActor.assumeIsolated { self?.add(panel.urls) }
+        }
+    }
+
+    private func add(_ urls: [URL]) {
+        let store = model.store
+        let directory = model.directory
+        Task {
+            do {
+                let (draft, _) = try await MediaOpenRouting.open(urls, into: store, draft: directory)
+                NotificationCenter.default.post(name: .reviewDraftChanged, object: draft.directory)
+            } catch {
+                guard let window else { return }
+                let alert = NSAlert()
+                alert.alertStyle = .warning
+                alert.messageText = "Couldn't add that media"
+                let reason = (error as? MediaImportError)?.description ?? String(describing: error)
+                alert.informativeText = "\(reason) Nothing was added to the review."
+                alert.beginSheetModal(for: window) { _ in }
+            }
+        }
+    }
+
+    @objc func revealReview(_: Any?) {
+        NSWorkspace.shared.activateFileViewerSelecting([model.directory])
     }
 
     func windowWillClose(_: Notification) {

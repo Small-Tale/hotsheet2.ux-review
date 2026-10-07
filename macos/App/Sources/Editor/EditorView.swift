@@ -74,6 +74,11 @@ struct EditorToolbar: View {
             Spacer(minLength: 8)
             StatusLine(model: model)
             ZoomControl(model: model)
+            if let add = model.addMedia {
+                Button("Add Media…", action: add)
+                    .buttonStyle(.bordered)
+                    .help("Add screenshots, images, or movies to this review (⌘O). You can also drop files on the window")
+            }
             if let submit = model.submitReview {
                 Button("Submit Review…", action: submit)
                     .buttonStyle(.bordered)

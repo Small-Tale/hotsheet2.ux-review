@@ -657,3 +657,32 @@ Each feature gets both unit tests and end-to-end tests. Tests live in
 - **Not covered automatically:** clicks in the live windows (the confirmation alert, Open
   Session, Annotate, Show in Finder) and the system Trash itself (`FileManager.trashItem`).
   These are thin view code over the tested store; live-window automation is `HS2-HA9TW3`.
+
+## HS2-80CTK8: UX Review windows, Dock icon, app menu bar, short menu bar menu
+
+- **Menus** (`AppMenusTests`):
+  - the idle menu bar menu's exact layout (version, Capture Image/Video, Settings, Open UX
+    Review, Quit)
+  - Capture Image/Video: the default target, Immediate, and Delayed [3 s | 10 s] with spoken
+    labels; narration checkbox only under Video, following the next-recording choice
+  - hotkey shortcuts shown only on the item a hotkey starts exactly (default delay, an
+    unrenderable key)
+  - every capture phase replaces the capture submenus (picking, countdown, capturing,
+    recording with and without narration, finishing) while the rest stays put
+  - the app Capture menu: every target, every delay preset, shortcuts
+  - `MenuShortcut` rendering and `AppMenus.clock`
+- **Dock presence** (`AppMenusTests.dockIconShowsWhileAnyWindowIsOpen`): a transition walk:
+  open, open more, reopen, close one of two, close unknown and already-closed windows, close the
+  last, refill.
+- **New Review** (`ReviewDraftStoreTests`): an empty draft becomes current and takes the next
+  capture (whose context fills the draft's); a second New Review sets the first aside; Start New
+  afterwards; drafts are listed.
+- **App end to end** (`scripts/app-e2e.sh`): `menus.json` from the real app checks the menu bar
+  menu (idle and recording), the Delayed choices, the app menu bar's menus, and File › New Review
+  ⌘N, Add Media… ⌘O, Draft Reviews… ⇧⌘O, Submit Review… ⌘↩.
+- **Visual QA:** `editor-no-media` (empty New Review window: placeholder and inspector hint),
+  `menu-delayed-row-light/-dark` (the segmented Delayed row), and the editor tool bar with **Add
+  Media…** at 900 pt (`editor-narrow`), all inspected by hand.
+- **Not covered automatically:** the live status item, the real menu bar appearing when the
+  app turns regular, ⌘-Tab, Dock clicks and drops, and the menu closing on a Delayed segment.
+  These need a person at a Mac (`HS2-2EVZWC` follow-up).

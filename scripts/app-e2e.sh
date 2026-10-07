@@ -622,13 +622,31 @@ run discard-final-list 0 -- --drafts --drafts-dir "$DDRAFTS"
 ok "paths outside the drafts folder, links, current, and hidden names: exit 6, nothing moved; a broken draft can be discarded"
 
 run previews 0 -- --render-ui-previews "$TMP/previews"
-for name in overlay-region-hint overlay-region-selection overlay-region-selection-bottom-edge overlay-window-hover hud-countdown hud-saved hud-recording-countdown hud-recording hud-saved-video hud-recording-narration hud-saved-narrated settings-registered settings-in-use status-bar-icon-light status-bar-icon-dark \
-  editor-empty editor-annotated editor-arrow-selected editor-narrow editor-crop-drag editor-cropped editor-zoomed editor-keyboard-insert editor-video-timeline editor-video-narrow editor-video-trimmed editor-video-playing editor-video-range-drag editor-video-trim-drag editor-autoscroll \
+for name in overlay-region-hint overlay-region-selection overlay-region-selection-bottom-edge overlay-window-hover hud-countdown hud-saved hud-recording-countdown hud-recording hud-saved-video hud-recording-narration hud-saved-narrated settings-registered settings-in-use status-bar-icon-light status-bar-icon-dark menu-delayed-row-light menu-delayed-row-dark \
+  editor-empty editor-no-media editor-annotated editor-arrow-selected editor-narrow editor-crop-drag editor-cropped editor-zoomed editor-keyboard-insert editor-video-timeline editor-video-narrow editor-video-trimmed editor-video-playing editor-video-range-drag editor-video-trim-drag editor-autoscroll \
   session-ready session-narrow session-submitting session-failed session-submitted session-issues session-empty \
   drafts-list drafts-narrow drafts-empty; do
   [[ -s "$TMP/previews/$name.png" ]] || die "previews: $name.png missing"
 done
 ok "UI renders offscreen (picker overlays, HUDs, Settings window, status bar icon, annotation editor, review session, draft reviews)"
+
+# HS2-80CTK8: the menus the real app builds (menus.json): the short menu bar menu, and the app menu bar.
+MENUS="$TMP/previews/menus.json"
+TITLES='m => m.map(i => i.separator ? "-" : i.title + (i.shortcut ? "[" + i.shortcut + "]" : "")).join("|")'
+[[ "$(json "$MENUS" "($TITLES)(j.statusMenuIdle)")" == "UX Review "*"|-|Capture Image|Capture Video|-|Settings…[⌘,]|Open UX Review|-|Quit UX Review[⌘Q]" ]] \
+  || die "menus: status menu $(json "$MENUS" "($TITLES)(j.statusMenuIdle)")"
+[[ "$(json "$MENUS" "($TITLES)(j.statusMenuIdle[2].submenu)")" == "Image of Region|Immediate[⌥⇧⌘U]|Delayed" ]] \
+  || die "menus: Capture Image $(json "$MENUS" "($TITLES)(j.statusMenuIdle[2].submenu)")"
+[[ "$(json "$MENUS" 'j.statusMenuIdle[3].submenu[2].choices.join()')" == "3 s,10 s" ]] || die "menus: Delayed choices"
+[[ "$(json "$MENUS" "($TITLES)(j.statusMenuIdle[3].submenu)")" == "Video of Region|Immediate[⌥⇧⌘V]|Delayed|-|Narrate Next Recording with Microphone" ]] \
+  || die "menus: Capture Video $(json "$MENUS" "($TITLES)(j.statusMenuIdle[3].submenu)")"
+[[ "$(json "$MENUS" "($TITLES)(j.statusMenuRecording)")" == *"|Stop Recording (1:12)|Recording microphone narration|-|Settings…[⌘,]|"* ]] \
+  || die "menus: recording $(json "$MENUS" "($TITLES)(j.statusMenuRecording)")"
+[[ "$(json "$MENUS" 'j.mainMenu.map(m => m.title).join()')" == "UX Review,File,Edit,Capture,Window" ]] || die "menus: main menu bar"
+[[ "$(json "$MENUS" "($TITLES)(j.mainMenu[1].submenu)")" == "New Review[⌘N]|Add Media…[⌘O]|Draft Reviews…[⇧⌘O]|-|Save[⌘S]|Submit Review…[⌘↩]|Show Review in Finder|-|Close Window[⌘W]" ]] \
+  || die "menus: File $(json "$MENUS" "($TITLES)(j.mainMenu[1].submenu)")"
+[[ "$(json "$MENUS" 'j.mainMenu[3].submenu.length')" == 11 ]] || die "menus: Capture menu"
+ok "menu bar menu: version, Capture Image/Video (Immediate + Delayed [3 s | 10 s]), Settings, Open UX Review, Quit; app menu bar with File › New Review ⌘N"
 
 # HS2-M8ZFS0: real R + Return key events through the canvas insert a shape; VoiceOver sees every annotation.
 AX="$TMP/previews/editor-accessibility.json"

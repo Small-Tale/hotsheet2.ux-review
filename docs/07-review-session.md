@@ -11,11 +11,10 @@ one Hot Sheet intake ticket ([03-hotsheet-integration.md](03-hotsheet-integratio
 
 ## 7.1 Opening
 
-The menu bar menu's **Submit Current Review…** (⌘↩ while the menu is open; disabled with no
-draft) opens the **Submit Review** window on the current draft. In the annotation editor,
-**Submit Review…** in the tool bar (⌘↩, `HS2-6HA14G`) saves the editor and opens the window on
-*that editor's* draft, which need not be the current one (a file dropped on an editor after
-Start New Review goes to the editor's draft, docs/04 §4.12.2). **Open Session** in the Draft
+In the UX Review (annotation editor) window, **Submit Review…** in the tool bar or the File menu
+(⌘↩, `HS2-6HA14G`) saves the editor and opens the **Submit Review** window on *that editor's*
+draft, which need not be the current one (each draft has its own window, docs/05 §5.1.1). With
+no review window in front, File › Submit Review… opens it on the current draft (`HS2-80CTK8`). **Open Session** in the Draft
 Reviews window (§7.9) opens it on any other draft.
 
 - Each draft gets one window. Choosing the item again brings it forward and re-reads the draft.
@@ -104,8 +103,9 @@ hidden name, a nested folder) is refused.
 
 ## 7.6 Target project
 
-The session files into the project chosen in the menu (**Choose Project Folder…**) or in the
-window (**Change**). Both save it as `projectDirectory` in the app's defaults
+The session files into the project chosen in this window (**Change**), which starts on the last
+project used: project selection happens when submitting (`HS2-80CTK8`; the menu bar menu no
+longer has a project chooser). `UXReview --project <dir>` overrides it for one run. **Change** saves it as `projectDirectory` in the app's defaults
 ([05-start-and-settings.md](05-start-and-settings.md) §5.3) and add it to `recentProjects`:
 
 - JSON `{"paths": [...]}`, most recent first, at most 5, deduplicated after standardizing
@@ -114,8 +114,7 @@ window (**Change**). Both save it as `projectDirectory` in the app's defaults
 - A successful submission also records its project.
 - An unreadable value counts as an empty list.
 
-Changing the project in one place refreshes the menu's Hot Sheet status and every open session
-window.
+Changing the project in one session window refreshes every open session window.
 
 ## 7.7 Not yet
 
@@ -151,9 +150,9 @@ created ticket.
 
 ## 7.9 Draft reviews
 
-The menu bar menu's **Draft Reviews…** opens one **Draft Reviews** window listing every draft
-review on disk ([04-capture.md](04-capture.md) §4.6): the current one, the ones set aside with
-**Start New Review**, one whose ticket was created but whose media wasn't attached (§7.5), and
+**Draft Reviews…** (File or Window menu, ⇧⌘O, docs/05 §5.1.1) opens one **Draft Reviews** window
+listing every draft review on disk ([04-capture.md](04-capture.md) §4.6): the current one, the
+ones set aside with **New Review** (⌘N), one whose ticket was created but whose media wasn't attached (§7.5), and
 one whose folder could not be deleted after submitting (`draftRemoved: false`).
 
 - **Order:** most recently edited first (review.json's modification date, or the folder's when

@@ -33,6 +33,9 @@ final class EditorModel: ObservableObject {
     /// Opens the Submit Review window for this draft (docs/07 §7.1). Set by the editor window;
     /// the tool bar shows **Submit Review…** only when it is.
     var submitReview: (() -> Void)?
+    /// Chooses images or movies to add to this draft (docs/04 §4.12.2). Set by the editor
+    /// window; the tool bar shows **Add Media…** only when it is.
+    var addMedia: (() -> Void)?
 
     private var saveTask: Task<Void, Never>?
     private var imageCache: [String: (crop: PixelRect?, image: CGImage?)] = [:]

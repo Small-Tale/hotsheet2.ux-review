@@ -31,7 +31,7 @@ enum EditorPreviews {
             _ name: String, size: CGSize, script: [EditorScript.Step], cropDrag: Bool = false, viewport: CanvasViewport? = nil
         ) throws {
             let model = try EditorModel(session: EditorSession(store: store, directory: draft.directory))
-            model.submitReview = {} // the editor window always offers it
+            offerWindowButtons(model)
             script.forEach { apply($0, to: model) }
             if let viewport { model.setViewport(viewport) }
             if cropDrag {
@@ -44,6 +44,7 @@ enum EditorPreviews {
         }
         let wide = CGSize(width: 1240, height: 800)
         try capture("editor-empty", size: wide, script: [])
+        written.append(try renderNoMedia(to: directory, scratch: scratch, size: wide))
         try capture("editor-annotated", size: wide, script: annotations + [.select("#1")])
         try capture("editor-arrow-selected", size: wide, script: annotations + [.select("#3")])
         try capture("editor-narrow", size: CGSize(width: 900, height: 560), script: annotations + [.select("#2")])
@@ -52,7 +53,7 @@ enum EditorPreviews {
         // Keyboard only: R, then Return inserts a rectangle at the canvas middle (real key events
         // through the canvas); the canvas's accessibility tree is written next to the render.
         let keyboardModel = try EditorModel(session: EditorSession(store: store, directory: draft.directory))
-        keyboardModel.submitReview = {} // the editor window always offers it
+        offerWindowButtons(keyboardModel)
         annotations.forEach { apply($0, to: keyboardModel) }
         func typeRThenReturn(_ canvas: AnnotationCanvasView) throws {
             for (characters, code) in [("r", UInt16(15)), ("\r", UInt16(36))] {
@@ -78,6 +79,21 @@ enum EditorPreviews {
 
     /// The timeline (docs/06 §6.10) on a draft holding one mock screen recording: annotations with
     /// a range, an instant, and the whole clip, the playhead inside the first range.
+    /// The editor window always offers Add Media… and Submit Review… in the tool bar.
+    private static func offerWindowButtons(_ model: EditorModel) {
+        model.submitReview = {}
+        model.addMedia = {}
+    }
+
+    /// New Review (⌘N): a draft with no media yet.
+    private static func renderNoMedia(to directory: URL, scratch: URL, size: CGSize) throws -> URL {
+        let store = ReviewDraftStore(root: scratch.appendingPathComponent("new"))
+        let draft = try store.createEmptyDraft()
+        let model = try EditorModel(session: EditorSession(store: store, directory: draft.directory))
+        offerWindowButtons(model)
+        return try snapshot(EditorView(model: model), size: size, to: directory.appendingPathComponent("editor-no-media.png"))
+    }
+
     private static func renderVideo(to directory: URL, scratch: URL) throws -> [URL] {
         let store = ReviewDraftStore(root: scratch.appendingPathComponent("video"))
         let movie = scratch.appendingPathComponent("mock-recording.mov")
@@ -102,7 +118,7 @@ enum EditorPreviews {
             ("editor-video-trimmed", CGSize(width: 1240, height: 800), [.trim(TimeRange(startMs: 500, endMs: duration)), .time(1000)]),
         ] {
             let model = try EditorModel(session: EditorSession(store: store, directory: draft.directory))
-            model.submitReview = {} // the editor window always offers it
+            offerWindowButtons(model)
             (steps + extra).forEach { apply($0, to: model) }
             written.append(try snapshot(EditorView(model: model), size: size, to: directory.appendingPathComponent("\(name).png")))
         }
@@ -111,7 +127,7 @@ enum EditorPreviews {
             ("editor-video-range-drag", TimelineHandle.rangeEnd, 2600), ("editor-video-trim-drag", TimelineHandle.trimStart, 700),
         ] {
             let dragging = try EditorModel(session: EditorSession(store: store, directory: draft.directory))
-            dragging.submitReview = {} // the editor window always offers it
+            offerWindowButtons(dragging)
             steps.forEach { apply($0, to: dragging) }
             dragging.mutate { editor in
                 editor.beginTimelineDrag(handle)
@@ -126,7 +142,7 @@ enum EditorPreviews {
         // Playing (K): the pause button shows and the playhead and canvas follow the player. Last,
         // because its autosave writes the scripted annotations into the shared draft.
         let model = try EditorModel(session: EditorSession(store: store, directory: draft.directory))
-        model.submitReview = {} // the editor window always offers it
+        offerWindowButtons(model)
         (steps + [.time(600)]).forEach { apply($0, to: model) }
         model.togglePlayback()
         RunLoop.main.run(until: Date().addingTimeInterval(1.2))
@@ -154,7 +170,7 @@ enum EditorPreviews {
             context: CaptureContext(appName: "Acme Mail")
         )).draft
         let model = try EditorModel(session: EditorSession(store: store, directory: draft.directory))
-        model.submitReview = {} // the editor window always offers it
+        offerWindowButtons(model)
         model.setViewport(CanvasViewport(zoom: 1, center: CGPoint(x: 1300, y: 820)))
         func drag(_ canvas: AnnotationCanvasView) throws {
             guard let renderer = canvas.renderer() else { throw CaptureFailure.failed("no canvas layout") }

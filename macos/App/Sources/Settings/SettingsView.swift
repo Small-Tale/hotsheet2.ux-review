@@ -25,7 +25,7 @@ struct SettingsView: View {
             }
             Section("Video") {
                 Toggle("Record microphone narration", isOn: binding(\.narration))
-                Text("Adds your voice to recordings. Change it for one recording from the menu. Needs Microphone permission.")
+                Text("Adds your voice to recordings. Change it for one recording from the Capture Video menu. Needs Microphone permission.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -56,8 +56,8 @@ struct SettingsView: View {
     }
 
     private var defaultCaptureCaption: String {
-        let item = "“Capture \(model.settings.defaultRequest.summary)”"
-        return "Used by the capture shortcut and by \(item) in the menu. Record video uses the same target and delay."
+        "The capture shortcut starts this capture; Record video uses the same target and delay. "
+            + "Capture Image and Capture Video in the menu bar menu use this target."
     }
 
     private static func statusSymbol(_ registration: GlobalHotkeyCenter.Registration) -> String {

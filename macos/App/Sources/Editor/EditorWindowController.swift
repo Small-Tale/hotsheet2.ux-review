@@ -2,8 +2,10 @@ import AppKit
 import SwiftUI
 import UXReviewKit
 
-/// One editor window per draft review. It saves when it closes, and it supplies undo/redo for the
-/// Edit menu when the canvas (not a text field) has focus. Spec: docs/06-annotation-editor.md §6.1.
+/// One UX Review window per draft review: the annotation editor. It saves when it closes, and it
+/// supplies undo/redo for the Edit menu when the canvas (not a text field) has focus, and the
+/// File menu's Add Media…, Submit Review…, and Show Review in Finder for *its* draft.
+/// Spec: docs/06-annotation-editor.md §6.1.
 @MainActor
 final class EditorWindowController: NSWindowController, NSWindowDelegate {
     private static var open: [URL: EditorWindowController] = [:]
@@ -22,6 +24,16 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
         let controller = EditorWindowController(model: EditorModel(session: session))
         open[key] = controller
         controller.present()
+    }
+
+    /// Brings every open editor window forward; false when none is open.
+    @discardableResult
+    static func bringAllForward() -> Bool {
+        let controllers = open.values.sorted { ($0.window?.orderedIndex ?? 0) > ($1.window?.orderedIndex ?? 0) }
+        for controller in controllers {
+            controller.present()
+        }
+        return !controllers.isEmpty
     }
 
     /// Saves and closes the editor on `directory`, if one is open. The review session does this
@@ -49,18 +61,20 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
         window.delegate = self
         content.onDropFiles = { [weak self] urls in self?.addDroppedFiles(urls) }
         model.submitReview = { [weak self] in self?.submitReview(nil) }
+        model.addMedia = { [weak self] in self?.addMedia(nil) }
     }
 
     @available(*, unavailable)
     required init?(coder _: NSCoder) { fatalError("not used") }
 
     private func present() {
-        EditMenu.install()
-        if window?.isVisible != true { window?.center() }
+        guard let window else { return }
+        if !window.isVisible { window.center() }
+        DockPresence.track(window)
         NSApp.activate(ignoringOtherApps: true)
-        window?.makeKeyAndOrderFront(nil)
-        if let canvas = window?.contentView?.firstDescendant(AnnotationCanvasView.self) {
-            window?.makeFirstResponder(canvas)
+        window.makeKeyAndOrderFront(nil)
+        if let canvas = window.contentView?.firstDescendant(AnnotationCanvasView.self) {
+            window.makeFirstResponder(canvas)
         }
     }
 
@@ -101,6 +115,20 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
     @objc func redo(_: Any?) { model.mutate { $0.redo() } }
     @objc func duplicate(_: Any?) { model.mutate { _ = $0.duplicateSelection() } }
     @objc func saveDocument(_: Any?) { model.save() }
+
+    /// Add Media… (tool bar, ⌘O): choose images or movies to add to *this* draft, like a drop.
+    @objc func addMedia(_: Any?) {
+        guard let window else { return }
+        let panel = MediaChooser.panel()
+        panel.beginSheetModal(for: window) { [weak self] response in
+            guard response == .OK, !panel.urls.isEmpty else { return }
+            MainActor.assumeIsolated { self?.addDroppedFiles(panel.urls) }
+        }
+    }
+
+    @objc func revealReview(_: Any?) {
+        NSWorkspace.shared.activateFileViewerSelecting([model.session.directory])
+    }
 
     /// Submit Review… (tool bar, ⌘↩): saves, then opens the session window on *this* draft,
     /// which may not be the current one (docs/07 §7.1).
@@ -164,31 +192,17 @@ final class EditorHostingView: NSHostingView<EditorView> {
     }
 }
 
-/// UX Review is a menu bar app with no visible main menu, but key equivalents (⌘Z, ⌘C, ⌘V, …)
-/// still route through `NSApp.mainMenu`, so the editor installs a minimal one.
-enum EditMenu {
-    @MainActor static func install() {
-        guard NSApp.mainMenu?.item(withTitle: "Edit") == nil else { return }
-        let main = NSApp.mainMenu ?? NSMenu()
-        let edit = NSMenu(title: "Edit")
-        edit.addItem(withTitle: "Undo", action: #selector(AnnotationCanvasView.undo(_:)), keyEquivalent: "z")
-        let redo = edit.addItem(withTitle: "Redo", action: #selector(AnnotationCanvasView.redo(_:)), keyEquivalent: "z")
-        redo.keyEquivalentModifierMask = [.command, .shift]
-        edit.addItem(.separator())
-        edit.addItem(withTitle: "Cut", action: #selector(NSText.cut(_:)), keyEquivalent: "x")
-        edit.addItem(withTitle: "Copy", action: #selector(NSText.copy(_:)), keyEquivalent: "c")
-        edit.addItem(withTitle: "Paste", action: #selector(NSText.paste(_:)), keyEquivalent: "v")
-        edit.addItem(withTitle: "Select All", action: #selector(NSText.selectAll(_:)), keyEquivalent: "a")
-        edit.addItem(withTitle: "Duplicate", action: #selector(AnnotationCanvasView.duplicate(_:)), keyEquivalent: "d")
-        edit.addItem(withTitle: "Save", action: #selector(AnnotationCanvasView.saveDocument(_:)), keyEquivalent: "s")
-        // Only the editor window answers this, so it is disabled (and ⌘↩ passes through) elsewhere.
-        edit.addItem(withTitle: "Submit Review…", action: #selector(EditorWindowController.submitReview(_:)), keyEquivalent: "\r")
-        edit.addItem(.separator())
-        edit.addItem(withTitle: "Close Window", action: #selector(NSWindow.performClose(_:)), keyEquivalent: "w")
-        let item = NSMenuItem(title: "Edit", action: nil, keyEquivalent: "")
-        item.submenu = edit
-        main.addItem(item)
-        NSApp.mainMenu = main
+/// The open panel for Add Media… and Open Media (docs/04 §4.12).
+enum MediaChooser {
+    @MainActor static func panel() -> NSOpenPanel {
+        let panel = NSOpenPanel()
+        panel.title = "Add Media"
+        panel.message = "Choose screenshots, images, or movies to add to the review."
+        panel.prompt = "Add"
+        panel.allowedContentTypes = MediaImporter.contentTypes
+        panel.allowsMultipleSelection = true
+        panel.canChooseDirectories = false
+        return panel
     }
 }
 

@@ -17,9 +17,11 @@ A capture request (`CaptureRequest`) has three parts:
 | `target` | `display`: the whole display under the pointer. `window`: one window, picked by clicking. `region`: a rectangle dragged out on one display. |
 | `delaySeconds` | `0`–`60`. The menus offer the presets 0, 3, 5, and 10. Values outside the range are clamped. For video, this delays the start of recording. |
 
-The menu bar menu (see [05-start-and-settings.md](05-start-and-settings.md) for its full layout,
-the default capture, and the global hotkey) offers "Screenshot of Screen / Window / Region" and a "Screenshot After
-Delay" submenu, which lists each preset for each target.
+The menu bar menu's **Capture Image** submenu offers **Immediate** and **Delayed [3 s | 10 s]**
+for the default target. The app menu bar's **Capture** menu, shown while a UX Review window is
+open, offers "Screenshot of Screen / Window / Region" and a "Screenshot After Delay" submenu
+listing each preset for each target. See [05-start-and-settings.md](05-start-and-settings.md)
+§5.1 for both layouts, the default capture, and the global hotkeys.
 
 - While a countdown runs, the menu instead offers "Cancel Capture".
 - Captures don't overlap: a new request is ignored while one is already running.
@@ -99,8 +101,9 @@ Drafts/
 - **First capture**: creates a draft. Its title is "<App> review", or "UX review" when the app
   is unknown.
 - **Later captures**: append to the current draft as `capture-N.<ext>` (with media ids `mN`).
-- **"Start New Review"** (menu): ends the current draft. The next capture starts a new one, and
-  old drafts stay on disk. **Draft Reviews…** lists them so they can be reopened, submitted,
+- **New Review** (File menu, ⌘N, `HS2-80CTK8`): creates a new, empty draft and makes it current,
+  so the next captures go into it. Old drafts stay on disk. (`ReviewDraftStore.startNew()`,
+  which only ends the current draft, remains for scripts and tests.) **Draft Reviews…** lists them so they can be reopened, submitted,
   or discarded (moved to the Trash) ([07-review-session.md](07-review-session.md) §7.9).
 - **Pointer problems**: if the `current` pointer is stale (its directory is gone), the next
   capture starts a new draft. A pointer that tries to leave the drafts directory is ignored.
@@ -275,8 +278,9 @@ dark strips (`status-bar-icon-light.png`, `status-bar-icon-dark.png`), and the a
 Media captured elsewhere, such as a ⇧⌘4 screenshot on the Desktop or an older recording, can
 be annotated without capturing it again (`HS2-6A13WZ`).
 
-**Menu:** **Open Media for Annotation…** (⌘O while the menu is open) shows an open panel for
-images and movies. Several files can be chosen at once. UX Review then:
+**Menu:** **Add Media…** (File menu or the editor tool bar, ⌘O) shows an open panel for images
+and movies. Several files can be chosen at once. From an editor or Submit Review window, the
+files go into that window's draft (§4.12.2). Otherwise UX Review:
 
 1. Prepares every chosen file. If any one is missing, isn't an image or movie, or can't be
    read, an alert names it and **nothing** is added.
@@ -296,7 +300,7 @@ What an imported file becomes:
 - `capturedAt` is the file's creation date.
 - The media item has no `context`, because nothing is known about where the file came from.
   The first item of a new draft leaves the bundle context empty, and the title is "UX review".
-- To put imported files in a review of their own, choose **Start New Review** first.
+- To put imported files in a review of their own, choose **New Review** (⌘N) first.
 
 **Headless:**
 
@@ -354,7 +358,7 @@ A rejected batch shows the same alert as the menu, naming the file, and nothing 
 
 Images and movies dragged from Finder onto an open editor window are **added to that window's
 draft**, not to a new one. This holds even when that draft is no longer the current one, for
-example after **Start New Review**. The drop doesn't change which draft is current.
+example after **New Review**. The drop doesn't change which draft is current.
 
 The editor then switches to the first dropped item. The routing and the all-or-nothing rule
 are the same as in §4.12.1.

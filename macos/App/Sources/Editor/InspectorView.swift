@@ -183,7 +183,7 @@ struct AnnotationList: View {
                 .font(.caption).foregroundStyle(.secondary)
                 .padding(.horizontal, 12).padding(.top, 10).padding(.bottom, 4)
             if annotations.isEmpty {
-                EmptyHint()
+                EmptyHint(hasMedia: model.editor.currentMedia != nil)
                     .padding(12)
                 Spacer()
             } else {
@@ -256,9 +256,11 @@ struct NumberBadge: View {
 }
 
 struct EmptyHint: View {
+    var hasMedia = true
+
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text("Pick a tool and drag on the image.").font(.callout)
+            Text(hasMedia ? "Pick a tool and drag on the image." : "Add an image or movie to start annotating.").font(.callout)
             Group {
                 Text("R rectangle · F freehand · A arrow")
                 Text("I insertion · S strike · C crop · V select")

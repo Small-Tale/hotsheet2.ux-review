@@ -7,7 +7,7 @@ import Testing
 struct ReviewDraftStoreTests {
     final class IDQueue: @unchecked Sendable {
         private let lock = NSLock()
-        private var ids = ["draft-a", "draft-b", "draft-c"]
+        private var ids = ["draft-a", "draft-b", "draft-c", "draft-d"]
 
         func next() -> String {
             lock.lock()
@@ -172,6 +172,37 @@ struct ReviewDraftStoreTests {
         let (draft, media) = try fixture.store.add(fixture.capture(context: CaptureContext()))
         #expect(media.context == nil)
         #expect(draft.bundle.title == "UX review")
+    }
+
+    // New Review (⌘N): an empty draft becomes current, and later captures go into it.
+    @Test func createEmptyDraftBecomesCurrentAndTakesTheNextCapture() throws {
+        let fixture = try Fixture()
+        let empty = try fixture.store.createEmptyDraft()
+        #expect(empty.bundle.media.isEmpty)
+        #expect(empty.bundle.title == "UX review")
+        #expect(try fixture.store.current()?.directory == empty.directory)
+        #expect(try fixture.bundleOnDisk("draft-a").media.isEmpty)
+        let (draft, media) = try fixture.store.add(fixture.capture())
+        #expect(draft.directory == empty.directory)
+        #expect(media.filename == "capture-1.png")
+        // The first capture's context fills the empty draft's.
+        #expect(draft.bundle.context.appName == "Safari")
+    }
+
+    @Test func createEmptyDraftSetsTheCurrentOneAside() throws {
+        let fixture = try Fixture()
+        let first = try fixture.store.add(fixture.capture()).draft
+        let empty = try fixture.store.createEmptyDraft()
+        #expect(empty.directory != first.directory)
+        #expect(try fixture.store.current()?.directory == empty.directory)
+        #expect(try fixture.bundleOnDisk("draft-a").media.count == 1)
+        // Twice in a row: two empty drafts, the newest current; then Start New ends it.
+        let second = try fixture.store.createEmptyDraft()
+        #expect(try fixture.store.current()?.directory == second.directory)
+        #expect(try fixture.store.listDrafts().count == 3)
+        try fixture.store.startNew()
+        #expect(try fixture.store.current() == nil)
+        #expect(try fixture.store.add(fixture.capture("b.png")).draft.directory != second.directory)
     }
 
     @Test func defaultIDsAreUniqueAndSortable() {
