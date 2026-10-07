@@ -1,7 +1,8 @@
 # 07 — Review session and submitting
 
-Status: implemented on macOS (`HS2-CRJDJ8`). Opening the ticket in Hot Sheet itself is
-`HS2-ZEF6XD`; browsing and discarding older drafts is `HS2-WE30PY`.
+Status: implemented on macOS (`HS2-CRJDJ8`), with Submit Review from the editor
+(`HS2-6HA14G`) and browsing, reopening, and discarding older drafts (§7.9–7.10, `HS2-WE30PY`).
+Opening the ticket in Hot Sheet itself is `HS2-ZEF6XD`.
 
 A review session is the last step of a review: the captures of the current draft
 ([04-capture.md](04-capture.md) §4.6), annotated in the editor
@@ -14,7 +15,8 @@ The menu bar menu's **Submit Current Review…** (⌘↩ while the menu is open;
 draft) opens the **Submit Review** window on the current draft. In the annotation editor,
 **Submit Review…** in the tool bar (⌘↩, `HS2-6HA14G`) saves the editor and opens the window on
 *that editor's* draft, which need not be the current one (a file dropped on an editor after
-Start New Review goes to the editor's draft, docs/04 §4.12.2).
+Start New Review goes to the editor's draft, docs/04 §4.12.2). **Open Session** in the Draft
+Reviews window (§7.9) opens it on any other draft.
 
 - Each draft gets one window. Choosing the item again brings it forward and re-reads the draft.
 - With no draft, an alert says "Nothing to submit yet".
@@ -28,7 +30,7 @@ Start New Review goes to the editor's draft, docs/04 §4.12.2).
 | Captures (N) | One row per capture in review order: thumbnail (a movie's first frame, with a play badge), file name, pixel size, duration (videos), annotation count, and source app. A capture with a problem shows it in orange under its details (§7.3). **Annotate** opens the editor on that capture; **Annotate…** in the header opens it on the first. The trash button removes the capture after a confirmation |
 | Hot Sheet project | The target project's name and the store it files into, or the problem (§7.6). **Change** lists recent projects and **Choose Folder…** |
 | Before submitting | Only when the review has a problem that belongs to no field or capture (an unsupported format, duplicate ids) |
-| Footer | The counts ("3 captures · 4 annotations"), the only remaining problem, or "N things to fix before submitting"; progress while submitting; the failure (§7.5); and **Submit to Hot Sheet** (default button, Return), which reads **Try Again** after a failure |
+| Footer | **Discard Review…** (§7.9; disabled while submitting), the counts ("3 captures · 4 annotations"), the only remaining problem, or "N things to fix before submitting"; progress while submitting; the failure (§7.5); and **Submit to Hot Sheet** (default button, Return), which reads **Try Again** after a failure |
 
 New captures and editor saves appear while the window is open: it follows the draft-changed
 notification the capture pipeline and the editor already post.
@@ -118,7 +120,7 @@ window.
 ## 7.7 Not yet
 
 - Open the ticket in Hot Sheet (web UI or app) when it is running: `HS2-ZEF6XD`.
-- Reopen, submit, or discard older drafts: `HS2-WE30PY`.
+- Deleting a draft outright when the Trash refuses it (§7.9): `HS2-N10RZS`.
 
 ## 7.8 Headless submit
 
@@ -146,3 +148,80 @@ replace the draft's own before checking.
 `scripts/app-e2e.sh` uses it to file a two-capture session into a throwaway store, including an
 attach failure (a wrapper CLI that fails the first `attach`) followed by a retry that reuses the
 created ticket.
+
+## 7.9 Draft reviews
+
+The menu bar menu's **Draft Reviews…** opens one **Draft Reviews** window listing every draft
+review on disk ([04-capture.md](04-capture.md) §4.6): the current one, the ones set aside with
+**Start New Review**, one whose ticket was created but whose media wasn't attached (§7.5), and
+one whose folder could not be deleted after submitting (`draftRemoved: false`).
+
+- **Order:** most recently edited first (review.json's modification date, or the folder's when
+  review.json is missing). Equal dates sort by folder name in reverse (draft ids start with their date).
+- **Each row:** the title, a **Current** badge for the draft new captures go to, the capture and
+  annotation counts, and when it was last edited. In orange: "HS-… was created; its media isn't
+  attached yet" for a pending submission, or "Can't be opened: review.json is missing." /
+  "… can't be read." for a broken draft. A broken draft is titled by its folder name.
+- **Open Session:** the Submit Review window on that draft (one window per draft, §7.1).
+  Submitting it never changes which draft is current unless it *was* current (§7.5).
+- **Annotate:** the annotation editor on that draft. Disabled with no captures.
+- **Show in Finder** (folder button) reveals the draft folder; **Show Drafts Folder** in the
+  footer reveals the drafts folder.
+- **Discard** (trash button) asks first. Open Session and Annotate are disabled for a broken
+  draft, but Show in Finder and Discard still work.
+- Not listed: hidden entries, the `current` pointer, plain files, and symbolic links.
+- The list re-reads when a draft changes (a capture, a removal, a submission, a discard, Start
+  New Review) and whenever the window comes to the front.
+- With no drafts, the window says "No Draft Reviews" and explains where drafts come from.
+
+**Discarding** (the Draft Reviews window's trash button, or **Discard Review…** in the Submit
+Review window):
+
+1. A confirmation names the review and says its captures and annotations go to the Trash with
+   the folder. When a ticket was already created (§7.5), it adds that discarding doesn't delete
+   that ticket. For the current draft, it adds that the next capture starts a new review.
+   **Move to Trash** is marked destructive; **Cancel** is the default button (Return), so a stray
+   Return never discards.
+2. An open editor on the draft is closed (saving first, docs/06 §6.7), then its Submit Review
+   window (saving the title and summary). Nothing is written into the draft after it moves.
+3. `ReviewDraftStore.discard` moves the folder to the Trash, where it can be put back from
+   Finder. When it was the current draft, the `current` pointer goes too, so the next capture
+   starts a new draft. Other drafts and the current pointer are untouched.
+4. If the Trash refuses (for example, a volume without one), an alert says so and the draft is
+   kept as it was. UX Review never deletes a draft outright instead.
+
+Only a folder directly inside the drafts folder can be discarded. The drafts folder itself,
+`current`, hidden names, nested folders, symbolic links, and paths outside are refused
+(`outsideDrafts`). A folder that is already gone is `noSuchDraft`. A submitted draft is deleted
+rather than trashed (§7.5): its media now lives in Hot Sheet.
+
+`UXREVIEW_TRASH_DIR`, when set, makes discarded drafts move into that folder instead of the
+Trash. Tests and `scripts/app-e2e.sh` use it so they never fill the real Trash.
+
+## 7.10 Headless drafts
+
+```
+UXReview --drafts [--drafts-dir DIR]
+UXReview --discard-draft NAME|PATH [--drafts-dir DIR]
+```
+
+`--drafts` prints `{"status": "listed", "draftsDirectory", "drafts": [...]}`. The drafts are in
+§7.9's order, and each has `name`, `directory`, `title`, `captureCount`, `annotationCount`,
+`createdAt`, `modifiedAt`, `isCurrent`, plus `pendingTicket` or `issue` when they apply. A
+missing drafts folder lists nothing.
+
+`--discard-draft` discards one draft as in §7.9. The value is a folder name in the drafts
+folder, or a path when it contains a `/`. On success it prints `status: "discarded"`,
+`draftDirectory`, `trashedTo`, and `wasCurrent`.
+
+| Exit code | `error` | Meaning |
+| --- | --- | --- |
+| 0 | | Listed, or discarded |
+| 2 | `invalidArguments`, `noDraft` | A missing value, or no such draft folder |
+| 5 | `listFailed`, `discardFailed` | The drafts folder couldn't be read, or the Trash refused; the draft is kept |
+| 6 | `outsideDrafts` | Not a draft folder directly inside the drafts folder (§7.9); nothing moves |
+
+`scripts/app-e2e.sh` lists four drafts (two set aside with `--new-review`, a broken one, and
+clutter that must not be listed), discards an older draft and then the current one into
+`UXREVIEW_TRASH_DIR`, checks that the next capture starts a new draft, and checks that paths
+outside the drafts folder, links, `current`, and hidden names exit 6 with nothing moved.

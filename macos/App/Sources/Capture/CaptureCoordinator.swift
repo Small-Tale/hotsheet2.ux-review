@@ -32,7 +32,10 @@ final class CaptureCoordinator: ObservableObject {
 
     init(
         backend: CaptureBackend = CaptureBackends.make(),
-        store: ReviewDraftStore = ReviewDraftStore(root: AppSettings.draftsDirectory())
+        store: ReviewDraftStore = ReviewDraftStore(
+            root: AppSettings.draftsDirectory(),
+            trash: DraftTrash.from(environment: ProcessInfo.processInfo.environment)
+        )
     ) {
         self.backend = backend
         self.store = store
@@ -73,6 +76,8 @@ final class CaptureCoordinator: ObservableObject {
         do {
             try store.startNew()
             lastCapture = nil
+            // No draft object: only the Draft Reviews window listens for this (its Current badge).
+            NotificationCenter.default.post(name: .reviewDraftChanged, object: nil)
             hud.flash("New review started", subtitle: "The next capture starts a new draft.")
         } catch {
             report(.failed(String(describing: error)))

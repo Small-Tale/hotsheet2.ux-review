@@ -14,7 +14,7 @@ spec/
 docs/                          requirements, source of truth (see docs/README.md)
 scripts/
   check.sh                     repo gate: lint, spec, tests, app build + smoke + app e2e
-  app-e2e.sh                   drives the built app's headless modes (docs/04 §4.11, docs/06 §6.9, docs/07 §7.8)
+  app-e2e.sh                   drives the built app's headless modes (docs/04 §4.11, docs/06 §6.9, docs/07 §7.8, §7.10)
   macos-project.sh             XcodeGen → macos/UXReview.xcodeproj (not committed)
 macos/
   Package.swift                SwiftPM package UXReviewKit (core, no AppKit)
@@ -43,6 +43,8 @@ macos/
     Review/MediaOpenRouting.swift     Finder Open With / editor drop routing plan (dedupe, all-or-nothing), OpenBatch, `--open-media` parsing (docs/04 §4.12.1)
     Review/ReviewSession.swift        session state machine, SessionIssue rules + messages, DraftSubmitter (docs/07)
     Review/ReviewDraftStore+Session.swift  title/summary, remove a capture, submission.json, delete after submit (docs/07 §7.5)
+    Review/ReviewDraftStore+Drafts.swift   list every draft (DraftSummary), discard to the Trash (DraftTrash), draft-folder safety check (docs/07 §7.9)
+    Review/DraftsCommand.swift        `--drafts` / `--discard-draft` parsing (docs/07 §7.10)
     Review/SubmitCommand.swift        `--submit` parsing, MediaThumbnail (capture list previews)
     Settings/Hotkey.swift             global hotkey model: parse/display, Carbon codes (docs/05 §5.2)
     Settings/CaptureSettings.swift    settings + KeyValueStoring persistence, HotkeySlot (capture/record, duplicate rules), HotkeyAction
@@ -99,5 +101,10 @@ macos/
     Review/ReviewSessionView.swift    capture list, title/summary, issues, project, progress, failure, success
     Review/HeadlessSubmit.swift       `--submit` mode with JSON output (docs/07 §7.8)
     Review/ReviewSessionPreviews.swift  session states for --render-ui-previews
+    Review/DraftsWindowController.swift  Draft Reviews window (one) + DraftsModel: list, open, annotate, reveal, discard (docs/07 §7.9)
+    Review/DraftsView.swift           draft rows (title, Current badge, counts, date, problems) and their buttons; empty state
+    Review/DraftDiscarding.swift      discard confirmation, close the draft's editor + session windows, move to the Trash
+    Review/HeadlessDrafts.swift       `--drafts` / `--discard-draft` modes with JSON output (docs/07 §7.10)
+    Review/DraftsPreviews.swift       Draft Reviews window states for --render-ui-previews
 linux/, windows/               future native variants (README placeholders)
 ```

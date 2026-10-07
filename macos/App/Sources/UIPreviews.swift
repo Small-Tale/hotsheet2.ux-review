@@ -80,6 +80,7 @@ enum UIPreviews {
         written += try renderStatusBarIcon(to: directory)
         written += try EditorPreviews.render(to: directory)
         written += try ReviewSessionPreviews.render(to: directory)
+        written += try DraftsPreviews.render(to: directory)
         return written
     }
 

@@ -12,7 +12,7 @@ any behavior change.
 | [04-capture.md](04-capture.md) | Screenshot capture: targets, delay, context, draft reviews, permission, headless modes |
 | [05-start-and-settings.md](05-start-and-settings.md) | Menu bar menu, global hotkey, Settings window, persistence |
 | [06-annotation-editor.md](06-annotation-editor.md) | Annotation editor: shapes, notes, intents, crop, undo/redo, saving, `--annotate` |
-| [07-review-session.md](07-review-session.md) | Review session: capture list, title/summary, blocking issues, target project, submit, staging clean-up, `--submit` |
+| [07-review-session.md](07-review-session.md) | Review session: capture list, title/summary, blocking issues, target project, submit, staging clean-up, `--submit`, draft reviews (list, reopen, discard), `--drafts` / `--discard-draft` |
 | [CODEBASE-MAP.md](CODEBASE-MAP.md) | File-by-file orientation |
 | [TEST-COVERAGE.md](TEST-COVERAGE.md) | Which tests cover which behavior |
 
@@ -32,7 +32,8 @@ Repository foundation: `HS2-3ZSBZ9`. The following are tracked as Hot Sheet tick
 | Freehand smoothing | `HS2-5N1GFW` |
 | Video trim + annotation time ranges | `HS2-GBM8JN` |
 | Review session flow + submit | `HS2-CRJDJ8` |
-| Open in Hot Sheet · Submit from the editor · older drafts · editor drops removed captures | `HS2-ZEF6XD` · `HS2-6HA14G` · `HS2-WE30PY` · `HS2-2QP0GM` |
+| Open in Hot Sheet · Submit from the editor · editor drops removed captures | `HS2-ZEF6XD` · `HS2-6HA14G` · `HS2-2QP0GM` |
+| Browse, reopen, and discard older drafts | `HS2-WE30PY` (done) |
 | Hot Sheet service transport + native annotation projection | `HS2-K1XT5V` |
 | App UI end-to-end tests + visual QA | `HS2-HA9TW3` |
 | Git remote + CI | `HS2-MWKQEP` |

@@ -25,8 +25,9 @@ derived from the Hot Sheet 2 design export `docs/design/exports/ux-review-status
    [06-annotation-editor.md](06-annotation-editor.md)), **Open Media for Annotation…** (⌘O;
    existing images and movies, [04-capture.md](04-capture.md) §4.12), **Submit Current Review…**
    (⌘↩; disabled with no draft; the review session window,
-   [07-review-session.md](07-review-session.md)), **Show Current Review in Finder**, and
-   **Start New Review**. The status line ("Current review: N capture(s), last …") is hidden once
+   [07-review-session.md](07-review-session.md)), **Show Current Review in Finder**,
+   **Start New Review**, and **Draft Reviews…** (every draft, including older ones,
+   [07-review-session.md](07-review-session.md) §7.9). The status line ("Current review: N capture(s), last …") is hidden once
    that review has been submitted.
 5. Hot Sheet status, **Choose Project Folder…**, and **Refresh Hot Sheet Status**.
 6. **Settings…** (⌘,), the version, and **Quit**.

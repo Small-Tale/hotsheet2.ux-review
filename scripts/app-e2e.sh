@@ -565,13 +565,70 @@ run remove-annotate 0 -- --annotate "$TMP/script-remove.json" --drafts-dir "$RDR
 validate_bundle "$rdraft/review.json"
 ok "removing the showing capture under an open editor drops it, its annotations, and its history; undo/redo and saves never bring it back"
 
+echo "draft reviews: list and discard (HS2-WE30PY)"
+DDRAFTS="$TMP/list-drafts"
+TRASH=(UXREVIEW_TRASH_DIR="$TMP/trash")
+names() { json "$1" 'j.drafts.map(d => d.name + (d.isCurrent ? "*" : "")).join(",")'; }
+run drafts-none 0 -- --drafts --drafts-dir "$DDRAFTS"
+[[ "$(json "$TMP/drafts-none.json" '`${j.status}/${j.drafts.length}`')" == listed/0 ]] || die "drafts: a missing drafts folder should list nothing"
+# The oldest entry: a draft folder whose review.json is gone (an interrupted first capture), plus
+# clutter that is never listed (a hidden folder, a link to a folder outside the drafts folder).
+mkdir -p "$DDRAFTS/broken" "$DDRAFTS/.hidden" "$TMP/outside"
+ln -s "$TMP/outside" "$DDRAFTS/link"
+sleep 1
+REGION=(--capture screenshot --target region --rect 100,100,300,200 --drafts-dir "$DDRAFTS")
+run drafts-a1 0 "${SYN[@]}" -- "${REGION[@]}"
+run drafts-a2 0 "${SYN[@]}" -- "${REGION[@]}"
+run drafts-b 0 "${SYN[@]}" -- "${REGION[@]}" --new-review
+run drafts-c 0 "${SYN[@]}" -- "${REGION[@]}" --new-review
+adraft="$(json "$TMP/drafts-a1.json" j.draftDirectory)"; a="$(basename "$adraft")"
+b="$(basename "$(json "$TMP/drafts-b.json" j.draftDirectory)")"
+cdraft="$(json "$TMP/drafts-c.json" j.draftDirectory)"; c="$(basename "$cdraft")"
+run drafts-list 0 -- --drafts --drafts-dir "$DDRAFTS"
+[[ "$(names "$TMP/drafts-list.json")" == "$c*,$b,$a,broken" ]] || die "drafts: list $(names "$TMP/drafts-list.json")"
+[[ "$(json "$TMP/drafts-list.json" 'j.drafts.map(d => d.captureCount).join(",")')" == "1,1,2,0" ]] || die "drafts: capture counts"
+[[ "$(json "$TMP/drafts-list.json" 'j.drafts[2].title.endsWith("review") + "|" + (j.drafts[2].issue ?? "") + "|" + j.drafts[3].issue')" == "true||review.json is missing." ]] \
+  || die "drafts: titles/issues $(json "$TMP/drafts-list.json" 'j.drafts.map(d => d.title + ":" + d.issue).join(",")')"
+ok "--drafts lists every draft (including ones ended with Start New Review) newest first, marks the current one, and reports a broken one"
+
+run discard-old 0 "${TRASH[@]}" -- --discard-draft "$a" --drafts-dir "$DDRAFTS"
+[[ "$(json "$TMP/discard-old.json" '`${j.status}/${j.wasCurrent}`')" == discarded/false ]] || die "discard: old draft result"
+[[ ! -e "$adraft" && -f "$TMP/trash/$a/capture-2.png" ]] || die "discard: the old draft was not moved to the trash folder"
+run discard-old-list 0 -- --drafts --drafts-dir "$DDRAFTS"
+[[ "$(names "$TMP/discard-old-list.json")" == "$c*,$b,broken" ]] || die "discard: list after $(names "$TMP/discard-old-list.json")"
+run discard-twice 2 "${TRASH[@]}" -- --discard-draft "$a" --drafts-dir "$DDRAFTS"
+[[ "$(json "$TMP/discard-twice.json" j.error)" == noDraft ]] || die "discard: second discard error"
+ok "discarding an older draft moves it to the Trash and keeps the current one; discarding it again: exit 2 noDraft"
+
+run discard-current 0 "${TRASH[@]}" -- --discard-draft "$cdraft" --drafts-dir "$DDRAFTS"
+[[ "$(json "$TMP/discard-current.json" j.wasCurrent)" == true && ! -e "$cdraft" && ! -e "$DDRAFTS/current" ]] || die "discard: current draft"
+run discard-current-list 0 -- --drafts --drafts-dir "$DDRAFTS"
+[[ "$(names "$TMP/discard-current-list.json")" == "$b,broken" ]] || die "discard: list after current $(names "$TMP/discard-current-list.json")"
+run drafts-d 0 "${SYN[@]}" -- "${REGION[@]}"
+d="$(basename "$(json "$TMP/drafts-d.json" j.draftDirectory)")"
+[[ "$d" != "$b" && "$(json "$TMP/drafts-d.json" j.media.filename)" == capture-1.png ]] || die "discard: the next capture did not start a new draft"
+ok "discarding the current draft (by path) clears it; the next capture starts a new draft"
+
+for bad in "$TMP/outside" "$DDRAFTS/link" current .hidden "$DDRAFTS" "$DDRAFTS/$b/../.."; do
+  run discard-outside 6 "${TRASH[@]}" -- --discard-draft "$bad" --drafts-dir "$DDRAFTS"
+  [[ "$(json "$TMP/discard-outside.json" j.error)" == outsideDrafts ]] || die "discard: $bad error"
+done
+[[ -d "$TMP/outside" && -L "$DDRAFTS/link" && -d "$DDRAFTS/.hidden" && -f "$DDRAFTS/current" ]] || die "discard: a refused discard moved something"
+run discard-noarg 2 -- --discard-draft --drafts-dir "$DDRAFTS"
+[[ "$(json "$TMP/discard-noarg.json" j.error)" == invalidArguments ]] || die "discard: missing value error"
+run discard-broken 0 "${TRASH[@]}" -- --discard-draft broken --drafts-dir "$DDRAFTS"
+run discard-final-list 0 -- --drafts --drafts-dir "$DDRAFTS"
+[[ "$(names "$TMP/discard-final-list.json")" == "$d*,$b" ]] || die "discard: final list $(names "$TMP/discard-final-list.json")"
+ok "paths outside the drafts folder, links, current, and hidden names: exit 6, nothing moved; a broken draft can be discarded"
+
 run previews 0 -- --render-ui-previews "$TMP/previews"
 for name in overlay-region-hint overlay-region-selection overlay-region-selection-bottom-edge overlay-window-hover hud-countdown hud-saved hud-recording-countdown hud-recording hud-saved-video hud-recording-narration hud-saved-narrated settings-registered settings-in-use status-bar-icon-light status-bar-icon-dark \
   editor-empty editor-annotated editor-arrow-selected editor-narrow editor-crop-drag editor-cropped editor-zoomed editor-keyboard-insert editor-video-timeline editor-video-narrow editor-video-trimmed editor-video-playing editor-video-range-drag editor-video-trim-drag editor-autoscroll \
-  session-ready session-narrow session-submitting session-failed session-submitted session-issues session-empty; do
+  session-ready session-narrow session-submitting session-failed session-submitted session-issues session-empty \
+  drafts-list drafts-narrow drafts-empty; do
   [[ -s "$TMP/previews/$name.png" ]] || die "previews: $name.png missing"
 done
-ok "UI renders offscreen (picker overlays, HUDs, Settings window, status bar icon, annotation editor, review session)"
+ok "UI renders offscreen (picker overlays, HUDs, Settings window, status bar icon, annotation editor, review session, draft reviews)"
 
 # HS2-M8ZFS0: real R + Return key events through the canvas insert a shape; VoiceOver sees every annotation.
 AX="$TMP/previews/editor-accessibility.json"

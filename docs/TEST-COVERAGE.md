@@ -611,3 +611,49 @@ Each feature gets both unit tests and end-to-end tests. Tests live in
   marks it and the silent "old recording" not; the review-session `--submit` path records a
   narrated clip and the real Hot Sheet ticket's media line says "with audio". `ajv` validates
   every written bundle and the example against the schema.
+
+## HS2-WE30PY: browse, reopen, and discard older drafts
+
+- **Listing** (`DraftListingTests`, a real `ReviewDraftStore` in a temp folder):
+  - a missing root, an empty root, and a root holding only an ended pointer list nothing
+  - several drafts (current and set aside with `startNew`): newest-edited first, with title,
+    capture and annotation counts, `createdAt`, `modifiedAt`, and `isCurrent`. Editing an older
+    draft moves it to the top without changing which is current. Equal dates sort by name.
+  - a corrupt and a review.json-less folder are listed with their `issue` (titled by folder
+    name). Hidden folders, `.DS_Store`, stray files, and a symbolic link to a folder outside
+    are skipped. A corrupt current draft is still marked current.
+  - a pending `submission.json` names its ticket; a broken one is ignored
+  - `summary(of:)` matches the listing entry, refuses the root, and reports a discarded draft
+    as `noSuchDraft`
+- **Discarding** (transitions and adversarial sequences, into a test trash folder):
+  - discard current → the pointer is gone, the folder is in the trash, the list is empty, and
+    the next capture starts a fresh draft with `capture-1.png`
+  - discard an older draft → the current draft and the next capture's target are unchanged
+  - discard twice → the second is `noSuchDraft` and changes nothing
+  - a name already in the trash gets a fresh one (`draft-1 2`)
+  - corrupt and empty drafts can be discarded (a corrupt current one clears the pointer)
+  - refused with `outsideDrafts`, nothing moved: the root, its parent, an outside folder, a
+    link to it, a link to a real draft, `current`, a hidden name, `..`, a nested folder, an
+    escaping path, and `/`. A plain file inside the root is `noSuchDraft`.
+  - a trash that refuses keeps the draft and its pointer
+  - an unstandardized path (`sub/../draft-1/`) works
+  - `removeSubmitted` now clears the pointer for a corrupt current draft too
+  - `DraftTrash.from(environment:)` and `DraftsCommand` parsing (list, discard by name or path,
+    missing values)
+- **Submitting a non-current draft** keeps the current one (`DraftSubmitterTests.filingAnOlderDraftKeepsTheCurrentOne`).
+- **App end to end** (`scripts/app-e2e.sh`, `--drafts` / `--discard-draft` with
+  `UXREVIEW_TRASH_DIR`):
+  - an empty list, then four drafts (two set aside with `--new-review`, one broken) in order
+    with the current one marked, counts, titles, and the broken one's issue; clutter is not listed
+  - discard an older draft by name (moved to the trash folder, gone from the list, current
+    kept); discarding it again exits 2 `noDraft`
+  - discard the current draft by path (pointer gone), then a capture starts a new draft
+  - an outside folder, a link, `current`, a hidden name, the drafts folder, and an escaping
+    path exit 6 `outsideDrafts` with nothing moved; a missing value exits 2; a broken draft can
+    be discarded
+- **Visual QA:** `drafts-list`, `drafts-narrow` (the window's minimum width), and `drafts-empty`
+  inspected by hand (also checked for presence by `scripts/app-e2e.sh`). The session previews
+  show the new **Discard Review…** footer button.
+- **Not covered automatically:** clicks in the live windows (the confirmation alert, Open
+  Session, Annotate, Show in Finder) and the system Trash itself (`FileManager.trashItem`).
+  These are thin view code over the tested store; live-window automation is `HS2-HA9TW3`.

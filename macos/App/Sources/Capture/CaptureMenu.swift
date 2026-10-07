@@ -51,6 +51,8 @@ struct CaptureMenuSection: View {
             .keyboardShortcut("o")
         Button("Show Current Review in Finder") { capture.revealCurrentReview() }
         Button("Start New Review") { capture.startNewReview() }
+        // Every draft, including ones set aside with Start New Review (docs/07 §7.9).
+        Button("Draft Reviews…") { DraftsWindowController.show(store: capture.store) }
     }
 
     /// "Screenshot of Screen / Window / Region" plus a submenu of the delay presets.

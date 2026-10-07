@@ -47,6 +47,12 @@ final class ReviewSessionWindowController: NSWindowController, NSWindowDelegate 
         controller.present()
     }
 
+    /// Closes the session window on `directory`, if one is open (it saves the title and
+    /// summary first). Discarding the draft does this (docs/07 §7.9).
+    static func close(directory: URL) {
+        open[directory.standardizedFileURL]?.window?.close()
+    }
+
     init(model: ReviewSessionModel) {
         self.model = model
         let window = NSWindow(
@@ -72,7 +78,12 @@ final class ReviewSessionWindowController: NSWindowController, NSWindowDelegate 
                     NSSound.beep()
                 }
             },
-            done: { [weak window] in window?.close() }
+            done: { [weak window] in window?.close() },
+            discard: { [weak model, weak window] in
+                guard let model else { return }
+                model.saveFields()
+                DraftDiscarding.confirm(model.directory, store: store, window: window)
+            }
         ))
         window.delegate = self
     }

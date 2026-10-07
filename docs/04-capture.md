@@ -100,7 +100,8 @@ Drafts/
   is unknown.
 - **Later captures**: append to the current draft as `capture-N.<ext>` (with media ids `mN`).
 - **"Start New Review"** (menu): ends the current draft. The next capture starts a new one, and
-  old drafts stay on disk.
+  old drafts stay on disk. **Draft Reviews…** lists them so they can be reopened, submitted,
+  or discarded (moved to the Trash) ([07-review-session.md](07-review-session.md) §7.9).
 - **Pointer problems**: if the `current` pointer is stale (its directory is gone), the next
   capture starts a new draft. A pointer that tries to leave the drafts directory is ignored.
 - **Failures**: a failed add leaves the draft unchanged and keeps the captured file.

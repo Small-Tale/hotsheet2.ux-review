@@ -51,6 +51,8 @@ public enum ReviewDraftError: Error, Equatable, CustomStringConvertible {
     case unreadableDraft(URL)
     case unknownMedia(String)
     case outsideDrafts(URL)
+    case noSuchDraft(URL)
+    case trashFailed(URL, String)
 
     public var description: String {
         switch self {
@@ -58,6 +60,8 @@ public enum ReviewDraftError: Error, Equatable, CustomStringConvertible {
         case let .unreadableDraft(url): "The draft review could not be read: \(url.path)"
         case let .unknownMedia(id): "The review has no capture \(id)."
         case let .outsideDrafts(url): "\(url.path) is not a draft review."
+        case let .noSuchDraft(url): "There is no draft review at \(url.path)."
+        case let .trashFailed(url, reason): "\(url.lastPathComponent) couldn't be moved to the Trash: \(reason)"
         }
     }
 }
@@ -72,6 +76,8 @@ public final class ReviewDraftStore: @unchecked Sendable {
     static let currentPointerFilename = "current"
 
     public let root: URL
+    /// Where `discard` puts a draft: the Trash, or a folder (tests). Spec: docs/07 §7.9.
+    public let trash: DraftTrash
     private let now: @Sendable () -> Date
     private let makeID: @Sendable () -> String
     let lock = NSLock()
@@ -79,9 +85,11 @@ public final class ReviewDraftStore: @unchecked Sendable {
     public init(
         root: URL,
         now: @escaping @Sendable () -> Date = Date.init,
-        makeID: @escaping @Sendable () -> String = ReviewDraftStore.makeDraftID
+        makeID: @escaping @Sendable () -> String = ReviewDraftStore.makeDraftID,
+        trash: DraftTrash = .system
     ) {
         self.root = root
+        self.trash = trash
         self.now = now
         self.makeID = makeID
     }

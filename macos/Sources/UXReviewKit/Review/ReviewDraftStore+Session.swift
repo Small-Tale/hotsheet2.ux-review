@@ -86,13 +86,8 @@ public extension ReviewDraftStore {
     func removeSubmitted(_ directory: URL) throws {
         lock.lock()
         defer { lock.unlock() }
-        let target = directory.standardizedFileURL.resolvingSymlinksInPath()
-        let base = root.standardizedFileURL.resolvingSymlinksInPath()
-        guard target.deletingLastPathComponent().path == base.path, target.lastPathComponent != Self.currentPointerFilename,
-              !target.lastPathComponent.hasPrefix(".")
-        else { throw ReviewDraftError.outsideDrafts(directory) }
-        if let current = try? loadCurrent(),
-           current.directory.standardizedFileURL.resolvingSymlinksInPath().path == target.path {
+        let target = try draftDirectory(directory)
+        if currentDirectoryPath() == target.path {
             try FileManager.default.removeItem(at: pointerURL)
         }
         if FileManager.default.fileExists(atPath: target.path) {

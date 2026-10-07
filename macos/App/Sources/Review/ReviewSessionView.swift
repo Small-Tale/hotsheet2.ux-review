@@ -7,6 +7,8 @@ struct ReviewSessionView: View {
     @ObservedObject var model: ReviewSessionModel
     var annotate: (String?) -> Void = { _ in }
     var done: () -> Void = {}
+    /// Discard Review…: asks, then moves the draft to the Trash (docs/07 §7.9).
+    var discard: () -> Void = {}
 
     @State private var pendingRemoval: MediaItem?
 
@@ -141,6 +143,9 @@ struct ReviewSessionView: View {
 
     private var footer: some View {
         HStack(spacing: 12) {
+            Button("Discard Review…", action: discard)
+                .disabled(!editable)
+                .accessibilityIdentifier("session-discard")
             status
             Spacer(minLength: 8)
             Button(submitTitle) { model.submit() }
