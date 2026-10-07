@@ -43,10 +43,12 @@ client's tests must decode them, and the macOS tests also re-encode them lossles
   countdown HUD, and `CaptureCoordinator`. Pure parts (requests, region math, window selection,
   context, draft store, `--capture` parsing) live in `UXReviewKit` (`Capture/`, `Review/`).
   See [04-capture.md](04-capture.md).
-- **Headless capture**: `UXReview --capture …` and `--render-ui-previews DIR`
-  ([04-capture.md](04-capture.md) §4.8).
-- **Settings**: the project folder is stored in `UserDefaults` (`projectDirectory`) and can be
-  overridden with `--project`.
+- **Headless modes**: `UXReview --capture …`, `--settings …`, and `--render-ui-previews DIR`
+  ([04-capture.md](04-capture.md) §4.8, [05-start-and-settings.md](05-start-and-settings.md) §5.5).
+- **Settings**: stored in the app's defaults domain (or `UXREVIEW_DEFAULTS_SUITE`): the project
+  folder (`projectDirectory`, overridable with `--project`) and capture settings
+  (`captureSettings`: default request + global hotkey). The hotkey is registered with Carbon
+  `RegisterEventHotKey` (`App/Sources/Settings/`). See [05-start-and-settings.md](05-start-and-settings.md).
 
 ## 1.4 Gates
 

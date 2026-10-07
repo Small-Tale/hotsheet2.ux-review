@@ -1,7 +1,7 @@
 # 04 — Capture
 
 Status: screenshots implemented on macOS (`HS2-E89PQR`). Video recording is `HS2-W68HWK`.
-Hotkeys and capture settings are `HS2-DR107C`.
+The menu, global hotkey, and settings are in [05-start-and-settings.md](05-start-and-settings.md).
 
 Capture turns "what is on screen right now" into a file in the current **draft review**,
 together with where it came from. Annotating and submitting drafts are separate steps
@@ -17,7 +17,8 @@ A capture request (`CaptureRequest`) has three parts:
 | `target` | `display`: the whole display under the pointer. `window`: one window, picked by clicking. `region`: a rectangle dragged out on one display. |
 | `delaySeconds` | `0`–`60`. The menus offer the presets 0, 3, 5, and 10. Values outside the range are clamped. |
 
-The menu bar menu offers "Screenshot of Screen / Window / Region" and a "Screenshot After
+The menu bar menu (see [05-start-and-settings.md](05-start-and-settings.md) for its full layout,
+the default capture, and the global hotkey) offers "Screenshot of Screen / Window / Region" and a "Screenshot After
 Delay" submenu, which lists each preset for each target.
 
 - While a countdown runs, the menu instead offers "Cancel Capture".

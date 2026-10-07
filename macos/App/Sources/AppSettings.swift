@@ -15,9 +15,9 @@ enum AppSettings {
             if let index = args.firstIndex(of: "--project"), index + 1 < args.count {
                 return URL(fileURLWithPath: args[index + 1], isDirectory: true)
             }
-            return UserDefaults.standard.string(forKey: projectKey).map { URL(fileURLWithPath: $0, isDirectory: true) }
+            return defaults.string(forKey: projectKey).map { URL(fileURLWithPath: $0, isDirectory: true) }
         }
-        set { UserDefaults.standard.set(newValue?.path, forKey: projectKey) }
+        set { defaults.set(newValue?.path, forKey: projectKey) }
     }
 
     static func currentStatus() -> HotSheetStatus {

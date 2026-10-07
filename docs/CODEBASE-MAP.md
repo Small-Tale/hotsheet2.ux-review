@@ -34,11 +34,14 @@ macos/
     Capture/ImageFiles.swift          PNG read/write, test card image (ImageIO)
     Capture/CaptureCommand.swift      `--capture` argument parsing (docs/04 §4.8)
     Review/ReviewDraftStore.swift     draft reviews on disk (docs/04 §4.6)
+    Settings/Hotkey.swift             global hotkey model: parse/display, Carbon codes (docs/05 §5.2)
+    Settings/CaptureSettings.swift    settings + KeyValueStoring persistence, HotkeyAction
+    Settings/SettingsCommand.swift    `--settings` argument parsing (docs/05 §5.5)
   Tests/UXReviewKitTests/      Swift Testing unit + end-to-end tests (docs/TEST-COVERAGE.md)
   App/Sources/
-    UXReviewApp.swift          @main, MenuBarExtra, --status smoke mode
+    UXReviewApp.swift          @main, MenuBarExtra + Settings scenes, hotkey wiring, headless mode routing
     AppModel.swift             observable status + project chooser
-    AppSettings.swift          project folder (UserDefaults / --project)
+    AppSettings.swift          project folder (defaults / --project), UXREVIEW_DEFAULTS_SUITE
     UIPreviews.swift           --render-ui-previews offscreen renders for visual QA
     Capture/CaptureBackend.swift      ScreenCaptureKit + synthetic backends, CaptureFailure
     Capture/CaptureEnvironment.swift  displays, window list, capture context provider
@@ -48,5 +51,9 @@ macos/
     Capture/CaptureHUD.swift          countdown / saved HUD panel
     Capture/CaptureMenu.swift         capture section of the menu bar menu
     Capture/HeadlessCapture.swift     `--capture` mode with JSON output
+    Settings/GlobalHotkeyCenter.swift Carbon RegisterEventHotKey (exclusive) + press handler
+    Settings/SettingsModel.swift      live settings, persistence, hotkey re-registration
+    Settings/SettingsView.swift       Settings window + shortcut recorder
+    Settings/HeadlessSettings.swift   `--settings` mode with JSON output
 linux/, windows/               future native variants (README placeholders)
 ```

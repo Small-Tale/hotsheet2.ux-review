@@ -65,6 +65,47 @@ enum UIPreviews {
                   let card = ImageFiles.testCard(width: image.width, height: image.height, label: 5) else { continue }
             written.append(try write(overlay(image, on: card), to: directory.appendingPathComponent("\(name).png")))
         }
+        written += try renderSettings(to: directory)
+        return written
+    }
+
+    final class MemoryStore: KeyValueStoring {
+        var values: [String: Any] = [:]
+        func data(forKey key: String) -> Data? { values[key] as? Data }
+        func set(_ value: Any?, forKey key: String) { values[key] = value }
+    }
+
+    /// The Settings window twice: with its shortcut registered, and with the same shortcut
+    /// already taken (the first model still holds it, so the second sees a real conflict).
+    private static func renderSettings(to directory: URL) throws -> [URL] {
+        let store = MemoryStore()
+        try CaptureSettingsStore.save(
+            CaptureSettings(defaultRequest: CaptureRequest(target: .region, delaySeconds: 3), captureHotkey: Hotkey("⌃⌥⌘8")),
+            to: store
+        )
+        let owner = SettingsModel(store: store)
+        let conflicted = SettingsModel(store: store)
+        defer {
+            owner.hotkeys.unregister()
+            conflicted.hotkeys.unregister()
+        }
+        var written: [URL] = []
+        for (name, model) in [("settings-registered", owner), ("settings-in-use", conflicted)] {
+            let host = NSHostingView(rootView: SettingsView(model: model))
+            let window = NSWindow(
+                contentRect: CGRect(origin: .zero, size: host.fittingSize),
+                styleMask: [.titled],
+                backing: .buffered,
+                defer: false
+            )
+            window.contentView = host
+            host.layoutSubtreeIfNeeded()
+            guard let rep = host.bitmapImageRepForCachingDisplay(in: host.bounds) else { continue }
+            host.cacheDisplay(in: host.bounds, to: rep)
+            if let image = rep.cgImage {
+                written.append(try write(image, to: directory.appendingPathComponent("\(name).png")))
+            }
+        }
         return written
     }
 

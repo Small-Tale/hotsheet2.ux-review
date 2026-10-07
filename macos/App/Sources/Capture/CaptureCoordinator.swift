@@ -37,6 +37,22 @@ final class CaptureCoordinator: ObservableObject {
         task = Task { await runScreenshot(request) }
     }
 
+    /// Global hotkey: start the default capture, or cancel a countdown (docs/05 §5.2).
+    func handleHotkey(settings: CaptureSettings) {
+        var countingDown = false
+        if case .countingDown = phase { countingDown = true }
+        switch HotkeyAction.decide(isIdle: phase == .idle, isCountingDown: countingDown, settings: settings) {
+        case let .start(request): start(request)
+        case .cancelCountdown: cancel()
+        case .ignore: break
+        }
+    }
+
+    /// Starts any capture request.
+    func start(_ request: CaptureRequest) {
+        screenshot(request)
+    }
+
     /// Cancels a pending countdown (or a picker, which also cancels on Esc).
     func cancel() {
         task?.cancel()

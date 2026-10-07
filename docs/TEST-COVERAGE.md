@@ -81,3 +81,34 @@ Each feature gets both unit tests and end-to-end tests. Tests live in
 - **Not covered automatically:** real-pixel capture and interactive picking in a session with
   Screen Recording granted. That is tracked in `HS2-HA9TW3`. Overlay and HUD visuals were
   checked from `--render-ui-previews` output.
+
+## HS2-DR107C: start from the menu bar and a global hotkey
+
+- **Hotkey model** (`HotkeyTests`):
+  - parsing the symbol and word forms (any order, case, or separator) and displaying in Apple's
+    order
+  - every supported key round-trips
+  - Carbon key codes and masks match the Carbon headers
+  - usability rules (needs ⌘/⌃/⌥, F-keys allowed alone)
+  - Codable as the display string, plus rejected inputs
+- **Settings** (`CaptureSettingsTests`):
+  - defaults
+  - save → load → change → disable → re-enable sequences
+  - the exact stored JSON
+  - partial, broken, or explicit-null values
+  - real `UserDefaults` suites
+- **Hotkey action** (`HotkeyActionTests`): the idle / counting-down / busy transition matrix.
+- **`--settings` parsing** (`SettingsCommandTests`): read-only, apply, `none`, and rejected
+  values.
+- **App end to end** (`scripts/app-e2e.sh`, isolated defaults suite):
+  - fresh defaults
+  - set → relaunch → read shows the change persisted (also checked through `defaults read`) and
+    the hotkey registered with the system
+  - a **real conflict**: a running menu bar instance holds the hotkey, so a second registration
+    reports `inUse`
+  - disabling the hotkey
+  - an unusable hotkey is rejected with exit 2 and not saved
+  - Settings window renders in both registration states (visual QA)
+- **Not covered automatically:** pressing the hotkey. Synthesizing a global key press needs
+  Accessibility permission. Clicking menu items is also untested. Both are tracked in
+  `HS2-HA9TW3`.

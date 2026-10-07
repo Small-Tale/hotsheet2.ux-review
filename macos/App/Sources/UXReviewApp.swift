@@ -31,6 +31,12 @@ enum UXReviewMain {
             }
             exit(code)
         }
+        // Headless settings used by scripts/app-e2e.sh: apply/print settings, check the hotkey.
+        if CommandLine.arguments.contains("--settings") {
+            _ = NSApplication.shared
+            NSApplication.shared.setActivationPolicy(.prohibited)
+            exit(MainActor.assumeIsolated { HeadlessSettings.run(arguments: Array(CommandLine.arguments.dropFirst())) })
+        }
         // Headless capture used by scripts/app-e2e.sh: one capture, JSON result, exit.
         if CommandLine.arguments.contains("--capture") {
             _ = NSApplication.shared
@@ -46,11 +52,27 @@ enum UXReviewMain {
 
 struct UXReviewApp: App {
     @StateObject private var model = AppModel()
-    @StateObject private var capture = CaptureCoordinator()
+    @StateObject private var capture: CaptureCoordinator
+    @StateObject private var settings: SettingsModel
+
+    init() {
+        let capture = CaptureCoordinator()
+        let settings = SettingsModel()
+        // The global hotkey starts the default capture, or cancels a running countdown.
+        settings.hotkeys.onPress = { [weak capture, weak settings] in
+            guard let capture, let settings else { return }
+            capture.handleHotkey(settings: settings.settings)
+        }
+        _capture = StateObject(wrappedValue: capture)
+        _settings = StateObject(wrappedValue: settings)
+    }
 
     var body: some Scene {
         MenuBarExtra("UX Review", systemImage: "viewfinder") {
-            MenuContent(model: model, capture: capture)
+            MenuContent(model: model, capture: capture, settings: settings)
+        }
+        Settings {
+            SettingsView(model: settings)
         }
     }
 }
@@ -58,9 +80,10 @@ struct UXReviewApp: App {
 struct MenuContent: View {
     @ObservedObject var model: AppModel
     @ObservedObject var capture: CaptureCoordinator
+    @ObservedObject var settings: SettingsModel
 
     var body: some View {
-        CaptureMenuSection(capture: capture)
+        CaptureMenuSection(capture: capture, settings: settings)
         Divider()
         Text(model.status.summary)
         if let project = model.status.projectDirectory {
@@ -70,6 +93,8 @@ struct MenuContent: View {
         Button("Choose Project Folder…") { model.chooseProject() }
         Button("Refresh Hot Sheet Status") { model.refresh() }
         Divider()
+        SettingsLink { Text("Settings…") }
+            .keyboardShortcut(",")
         Text("UX Review \(AppSettings.version)")
         Button("Quit UX Review") { NSApplication.shared.terminate(nil) }
             .keyboardShortcut("q")

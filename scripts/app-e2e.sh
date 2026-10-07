@@ -89,10 +89,50 @@ run badargs 2 "${SYN[@]}" -- --capture screenshot --target region --drafts-dir "
 [[ "$(json "$TMP/badargs.json" j.error)" == invalidArguments ]] || die "bad args: error code"
 ok "invalid region and arguments: exit 2 invalidArguments"
 
+echo "start a review: settings and global hotkey (HS2-DR107C)"
+SUITE="uxreview-e2e-$$"
+SUITE_ENV=(UXREVIEW_DEFAULTS_SUITE="$SUITE")
+trap 'defaults delete "$SUITE" >/dev/null 2>&1 || true; rm -rf "$TMP"' EXIT
+
+run settings-default 0 "${SUITE_ENV[@]}" -- --settings
+[[ "$(json "$TMP/settings-default.json" j.settings.captureHotkey)" == "⌥⇧⌘U" ]] || die "settings: default hotkey"
+[[ "$(json "$TMP/settings-default.json" j.defaultCapture)" == "Screenshot of Region" ]] || die "settings: default capture"
+ok "fresh settings: ⌥⇧⌘U starts a region screenshot"
+
+# Pick a combination unlikely to be taken on the test machine.
+run settings-set 0 "${SUITE_ENV[@]}" -- --settings --set-hotkey "ctrl+opt+cmd+F7" --set-target window --set-delay 3
+run settings-read 0 "${SUITE_ENV[@]}" -- --settings
+[[ "$(json "$TMP/settings-read.json" j.settings.captureHotkey)" == "⌃⌥⌘F7" ]] || die "settings: hotkey not persisted"
+[[ "$(json "$TMP/settings-read.json" j.defaultCapture)" == "Screenshot of Window after 3 s" ]] || die "settings: request not persisted"
+[[ "$(json "$TMP/settings-read.json" j.hotkey.status)" == registered ]] || die "settings: hotkey not registered ($(json "$TMP/settings-read.json" j.hotkey.message))"
+defaults read "$SUITE" captureSettings >/dev/null || die "settings: nothing in the defaults suite"
+ok "settings persist across launches and the hotkey registers with the system"
+
+# A running app instance owns the hotkey, so a second registration must report the conflict.
+env "${SUITE_ENV[@]}" UXREVIEW_DRAFTS_DIR="$TMP/menu-drafts" "$APP_BIN" >/dev/null 2>&1 &
+menu_pid=$!
+registered=""
+for _ in $(seq 1 50); do
+  run settings-conflict 0 "${SUITE_ENV[@]}" -- --settings
+  [[ "$(json "$TMP/settings-conflict.json" j.hotkey.status)" == inUse ]] && { registered=1; break; }
+  sleep 0.2
+done
+kill "$menu_pid" 2>/dev/null; wait "$menu_pid" 2>/dev/null || true
+[[ -n "$registered" ]] || die "settings: the running app did not hold its hotkey"
+json "$TMP/settings-conflict.json" j.hotkey.message | grep -q "already used by another app" || die "settings: conflict message"
+ok "the running menu bar app holds the hotkey; a second registration reports inUse"
+
+run settings-disable 0 "${SUITE_ENV[@]}" -- --settings --set-hotkey none
+[[ "$(json "$TMP/settings-disable.json" j.hotkey.status)" == disabled ]] || die "settings: disable"
+run settings-bad 2 "${SUITE_ENV[@]}" -- --settings --set-hotkey "shift+u"
+run settings-after-bad 0 "${SUITE_ENV[@]}" -- --settings
+[[ "$(json "$TMP/settings-after-bad.json" j.settings.captureHotkey)" == null ]] || die "settings: rejected change was saved"
+ok "hotkey can be disabled; an unusable hotkey is rejected and not saved"
+
 run previews 0 -- --render-ui-previews "$TMP/previews"
-for name in overlay-region-hint overlay-region-selection overlay-region-selection-bottom-edge overlay-window-hover hud-countdown hud-saved; do
+for name in overlay-region-hint overlay-region-selection overlay-region-selection-bottom-edge overlay-window-hover hud-countdown hud-saved settings-registered settings-in-use; do
   [[ -s "$TMP/previews/$name.png" ]] || die "previews: $name.png missing"
 done
-ok "capture UI renders offscreen (picker overlays, countdown and saved HUDs)"
+ok "UI renders offscreen (picker overlays, HUDs, Settings window)"
 
 echo "app e2e: $pass checks passed"

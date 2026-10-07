@@ -1,7 +1,8 @@
 # 00 — Vision and principles
 
-Status: foundation in place (`HS2-3ZSBZ9`); screenshot capture implemented (`HS2-E89PQR`,
-[04-capture.md](04-capture.md)); other capture and editing features are tracked in
+Status: foundation in place (`HS2-3ZSBZ9`); screenshot capture and starting from the menu or hotkey implemented
+(`HS2-E89PQR`, `HS2-DR107C`; [04-capture.md](04-capture.md),
+[05-start-and-settings.md](05-start-and-settings.md)); other capture and editing features are tracked in
 [README.md](README.md#roadmap).
 
 ## 0.1 Problem
@@ -13,7 +14,8 @@ each region and attaching files one by one.
 
 ## 0.2 Target workflow
 
-1. **Start**: from the menu bar icon or a global hotkey (`HS2-DR107C`).
+1. **Start**: from the menu bar icon or a global hotkey (`HS2-DR107C`,
+   [05-start-and-settings.md](05-start-and-settings.md)).
 2. **Capture**: screenshots or video of the full screen, a window, or a region, optionally after
    a short delay so menus and hover states can be caught (`HS2-E89PQR`, `HS2-W68HWK`). Several
    captures can belong to one review (`HS2-CRJDJ8`).
