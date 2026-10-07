@@ -19,6 +19,8 @@ scripts/
 macos/
   Package.swift                SwiftPM package UXReviewKit (core, no AppKit)
   project.yml                  XcodeGen spec for UXReview.app (menu bar agent app)
+  Signing.xcconfig             code signing: ad hoc unless the gitignored Signing.local.xcconfig sets an identity (docs/01 §1.3)
+  Signing.local.xcconfig.example  template for the machine-local signing identity
   Sources/UXReviewKit/
     Model/ReviewBundle.swift       bundle, media, shapes, intents, time ranges, Codable
     Model/BundleValidation.swift   ReviewBundle.validate() rules (docs/02 §2.7)

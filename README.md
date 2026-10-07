@@ -41,6 +41,10 @@ scripts/macos-project.sh                 # generate macos/UXReview.xcodeproj, th
 scripts/check.sh                         # full gate: lint, spec, tests, app build + smoke run
 ```
 
+So that macOS keeps Screen Recording permission across rebuilds, sign with your Apple Development
+identity: copy `macos/Signing.local.xcconfig.example` to `macos/Signing.local.xcconfig` and fill it
+in (see [docs/01-architecture.md](docs/01-architecture.md) §1.3, "Code signing and permissions").
+
 To file reviews, the app needs a project folder that has a Hot Sheet 2 store (linked via
 `.hotsheet2/store`, a sibling `<project>.hs2`, or `HOTSHEET_STORE`). Choose it from the menu, or
 pass `--project <path>`.

@@ -1,0 +1,12 @@
+// Code signing for UXReview.app (HS2-7BVW9T). The default is ad hoc, which needs no
+// certificate, but macOS then identifies the app by the hash of each build, so privacy
+// permissions such as Screen Recording stop applying after every rebuild.
+//
+// To keep permissions across rebuilds, copy Signing.local.xcconfig.example to
+// Signing.local.xcconfig (gitignored) and set your Apple Development identity and team.
+// See docs/01-architecture.md, "Code signing and permissions".
+CODE_SIGN_STYLE = Manual
+CODE_SIGN_IDENTITY = -
+DEVELOPMENT_TEAM =
+
+#include? "Signing.local.xcconfig"

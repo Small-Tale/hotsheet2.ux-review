@@ -115,6 +115,9 @@ Drafts/
   prompt.
 - If permission is denied, an alert explains the fix and offers "Open System Settings".
   macOS applies a newly granted permission only after the app relaunches.
+- If System Settings shows UX Review enabled but capture is still refused, the running build is
+  signed differently from the one that was granted (ad hoc builds change identity on every
+  rebuild). See [01-architecture.md](01-architecture.md) §1.3, "Code signing and permissions".
 - A display or window that disappears before capture gives "… is no longer available".
 
 ## 4.9 Video recording

@@ -1,0 +1,4 @@
+// Copy to Signing.local.xcconfig (gitignored), then re-run scripts/macos-project.sh.
+// List your identities with: security find-identity -v -p codesigning
+CODE_SIGN_IDENTITY = Apple Development
+DEVELOPMENT_TEAM = YOURTEAMID

@@ -53,6 +53,17 @@ client's tests must decode them, and the macOS tests also re-encode them lossles
   folder (`projectDirectory`, overridable with `--project`) and capture settings
   (`captureSettings`: default request + capture and record-video global hotkeys). The hotkeys
   are registered with Carbon `RegisterEventHotKey`, one id per slot (`App/Sources/Settings/`). See [05-start-and-settings.md](05-start-and-settings.md).
+- **Code signing and permissions** (`HS2-7BVW9T`): `macos/Signing.xcconfig` signs ad hoc by
+  default, so any clone and CI build without a certificate. macOS then identifies the app by
+  the hash of each build, so privacy permissions such as Screen Recording stop applying after
+  every rebuild: the toggle in System Settings stays on, but the new build is denied.
+  - **Setup:** copy `macos/Signing.local.xcconfig.example` to `macos/Signing.local.xcconfig`
+    (gitignored) and set an Apple Development identity and team. List identities with
+    `security find-identity -v -p codesigning`. Then re-run `scripts/macos-project.sh`. The
+    app's designated requirement becomes its bundle id plus the certificate, so a permission
+    granted once survives rebuilds until the certificate changes.
+  - **After switching signing, or if permission is still refused:** quit UX Review, run
+    `tccutil reset ScreenCapture com.smalltale.uxreview`, relaunch the build, and grant again.
 
 ## 1.4 Gates
 
