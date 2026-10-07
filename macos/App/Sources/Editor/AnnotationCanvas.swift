@@ -254,7 +254,7 @@ final class AnnotationCanvasView: NSView {
         case .tab?, .backTab?:
             model.mutate { $0.selectNext(forward: !shift && event.specialKey != .backTab) }
         case .carriageReturn?, .enter?:
-            if model.editor.selection != nil { model.focusNoteRequest += 1 }
+            pressReturn()
         default:
             if event.keyCode == 53 { // Esc: cancel the gesture, else the tool, else the selection
                 model.mutate { editor in
@@ -274,6 +274,67 @@ final class AnnotationCanvasView: NSView {
             }
         }
         window?.invalidateCursorRects(for: self)
+    }
+
+    /// Return: with a drawing tool, a default shape at the middle of what is visible; with
+    /// Select, focus the selected annotation's note (docs/06 §6.4).
+    private func pressReturn() {
+        guard let model else { return }
+        guard model.editor.tool != .select else {
+            if model.editor.selection != nil { model.focusNoteRequest += 1 }
+            return
+        }
+        let center = renderer()?.pixel(CGPoint(x: bounds.midX, y: bounds.midY))
+        model.mutate { _ = $0.insertDefaultShape(at: center) }
+        if let id = model.editor.selection, let element = accessibilityElements[id] {
+            NSAccessibility.post(element: element, notification: .focusedUIElementChanged)
+        }
+    }
+
+    // MARK: Accessibility
+
+    /// One element per annotation on the current capture, kept by id so VoiceOver's focus survives redraws.
+    private var accessibilityElements: [String: AnnotationAccessibilityElement] = [:]
+
+    override func isAccessibilityElement() -> Bool { true }
+    override func accessibilityRole() -> NSAccessibility.Role? { .group }
+
+    override func accessibilityLabel() -> String? {
+        guard let item = model?.editor.currentMedia else { return "Annotation canvas, no capture" }
+        let count = model?.editor.annotations(on: item.id).count ?? 0
+        return "Annotation canvas, \(item.filename), \(count) annotation\(count == 1 ? "" : "s")"
+    }
+
+    override func accessibilityHelp() -> String? {
+        "Choose a tool with V, R, F, A, I, or S, then press Return to add a shape. "
+            + "Arrow keys move the selected annotation, Tab selects the next one, and Return edits its note."
+    }
+
+    override func accessibilityChildren() -> [Any]? {
+        guard let model, let item = model.editor.currentMedia, let renderer = renderer() else { return [] }
+        let frame = MediaFrame(item)
+        var live: [String: AnnotationAccessibilityElement] = [:]
+        let elements = model.editor.annotations(on: item.id).map { annotation -> AnnotationAccessibilityElement in
+            let element = accessibilityElements[annotation.id] ?? AnnotationAccessibilityElement(annotationID: annotation.id, canvas: self)
+            element.setAccessibilityLabel(model.editor.accessibilityLabel(for: annotation.id))
+            // Points and thin shapes get a minimum target so VoiceOver can outline them.
+            let rect = renderer.rect(frame.pixel(annotation.shape.bounds)).insetBy(dx: -8, dy: -8)
+            element.setAccessibilityFrameInParentSpace(rect.intersection(bounds))
+            element.setAccessibilitySelected(model.editor.selection == annotation.id)
+            live[annotation.id] = element
+            return element
+        }
+        accessibilityElements = live
+        return elements
+    }
+
+    override func accessibilitySelectedChildren() -> [Any]? {
+        guard let id = model?.editor.selection, let element = accessibilityElements[id] else { return [] }
+        return [element]
+    }
+
+    func announceChanges() {
+        NSAccessibility.post(element: self, notification: .layoutChanged)
     }
 
     /// Space (outside a gesture) turns dragging into panning until it is released.
@@ -299,6 +360,33 @@ final class AnnotationCanvasView: NSView {
     }
 }
 
+/// An annotation on the canvas for VoiceOver: its label reads number, shape, intents, and note;
+/// pressing it (VO-Space) selects it, after which the arrow keys move it.
+final class AnnotationAccessibilityElement: NSAccessibilityElement {
+    let annotationID: String
+    private let onPress: @MainActor @Sendable () -> Bool
+
+    @MainActor
+    init(annotationID: String, canvas: AnnotationCanvasView) {
+        self.annotationID = annotationID
+        onPress = { [weak canvas] in
+            guard let canvas, let model = canvas.model else { return false }
+            model.mutate { $0.select(annotationID) }
+            canvas.window?.makeFirstResponder(canvas)
+            return true
+        }
+        super.init()
+        setAccessibilityRole(.button)
+        setAccessibilityRoleDescription("annotation")
+        setAccessibilityParent(canvas)
+    }
+
+    override func accessibilityPerformPress() -> Bool {
+        let press = onPress
+        return MainActor.assumeIsolated { press() }
+    }
+}
+
 /// SwiftUI wrapper; redraws whenever the model's revision changes.
 struct AnnotationCanvas: NSViewRepresentable {
     @ObservedObject var model: EditorModel
@@ -313,5 +401,6 @@ struct AnnotationCanvas: NSViewRepresentable {
         _ = model.revision
         view.model = model
         view.window?.invalidateCursorRects(for: view)
+        view.announceChanges()
     }
 }

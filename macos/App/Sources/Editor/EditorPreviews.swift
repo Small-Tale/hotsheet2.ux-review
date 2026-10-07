@@ -47,6 +47,22 @@ enum EditorPreviews {
         try capture("editor-narrow", size: CGSize(width: 900, height: 560), script: annotations + [.select("#2")])
         try capture("editor-crop-drag", size: wide, script: annotations + [.tool(.crop)], cropDrag: true)
         try capture("editor-cropped", size: wide, script: annotations + [.crop(CGRect(x: 220, y: 90, width: 1180, height: 560))])
+        // Keyboard only: R, then Return inserts a rectangle at the canvas middle (real key events
+        // through the canvas); the canvas's accessibility tree is written next to the render.
+        let keyboardModel = try EditorModel(session: EditorSession(store: store, directory: draft.directory))
+        annotations.forEach { apply($0, to: keyboardModel) }
+        func typeRThenReturn(_ canvas: AnnotationCanvasView) throws {
+            for (characters, code) in [("r", UInt16(15)), ("\r", UInt16(36))] {
+                guard let event = NSEvent.keyEvent(
+                    with: .keyDown, location: .zero, modifierFlags: [], timestamp: 0, windowNumber: canvas.window?.windowNumber ?? 0,
+                    context: nil, characters: characters, charactersIgnoringModifiers: characters, isARepeat: false, keyCode: code
+                ) else { throw CaptureFailure.failed("no key event") }
+                canvas.keyDown(with: event)
+            }
+            written.append(try writeAccessibility(of: canvas, to: directory.appendingPathComponent("editor-accessibility.json")))
+        }
+        let keyboardURL = directory.appendingPathComponent("editor-keyboard-insert.png")
+        written.append(try snapshot(EditorView(model: keyboardModel), size: wide, to: keyboardURL, interact: typeRThenReturn))
         // 300 % (1.5 points per pixel) on the clipped-label box, panned so its corner is near the middle.
         try capture(
             "editor-zoomed", size: wide, script: annotations + [.select("#1")],
@@ -99,12 +115,51 @@ enum EditorPreviews {
         }
     }
 
-    private static func snapshot(_ view: some View, size: CGSize, to url: URL) throws -> URL {
+    /// The canvas's accessibility element and its children, as VoiceOver sees them.
+    private static func writeAccessibility(of canvas: AnnotationCanvasView, to url: URL) throws -> URL {
+        struct Element: Encodable {
+            var label: String
+            var role: String
+            var selected: Bool
+            var frame: [Double]
+        }
+        struct Tree: Encodable {
+            var label: String
+            var help: String
+            var role: String
+            var children: [Element]
+        }
+        let children = (canvas.accessibilityChildren() ?? []).compactMap { $0 as? AnnotationAccessibilityElement }.map { element in
+            let frame = element.accessibilityFrameInParentSpace()
+            return Element(
+                label: element.accessibilityLabel() ?? "", role: element.accessibilityRoleDescription() ?? "",
+                selected: element.isAccessibilitySelected(),
+                frame: [frame.minX, frame.minY, frame.width, frame.height].map { Double($0.rounded()) }
+            )
+        }
+        let tree = Tree(
+            label: canvas.accessibilityLabel() ?? "", help: canvas.accessibilityHelp() ?? "",
+            role: canvas.accessibilityRole()?.rawValue ?? "", children: children
+        )
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
+        try encoder.encode(tree).write(to: url)
+        return url
+    }
+
+    private static func snapshot(
+        _ view: some View, size: CGSize, to url: URL, interact: ((AnnotationCanvasView) throws -> Void)? = nil
+    ) throws -> URL {
         let host = NSHostingView(rootView: view.frame(width: size.width, height: size.height))
         let window = NSWindow(contentRect: CGRect(origin: .zero, size: size), styleMask: [.titled], backing: .buffered, defer: false)
         window.contentView = host
         host.frame = CGRect(origin: .zero, size: size)
         host.layoutSubtreeIfNeeded()
+        if let interact {
+            guard let canvas = host.firstDescendant(AnnotationCanvasView.self) else { throw CaptureFailure.failed("no canvas") }
+            try interact(canvas)
+            host.layoutSubtreeIfNeeded()
+        }
         guard let rep = host.bitmapImageRepForCachingDisplay(in: host.bounds) else { throw CaptureFailure.failed("no bitmap") }
         host.cacheDisplay(in: host.bounds, to: rep)
         guard let image = rep.cgImage else { throw CaptureFailure.failed("render failed") }

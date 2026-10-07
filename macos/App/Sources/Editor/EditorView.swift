@@ -211,13 +211,5 @@ extension EditorTool {
 }
 
 extension UXReviewKit.Shape {
-    var label: String {
-        switch self {
-        case .rect: "Rectangle"
-        case let .freehand(_, closed): closed ? "Outline" : "Open path"
-        case .arrow: "Arrow"
-        case .insertion: "Insertion"
-        case .strike: "Strike"
-        }
-    }
+    var label: String { displayName }
 }

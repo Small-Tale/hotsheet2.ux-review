@@ -173,14 +173,38 @@ So a small box drawn inside a big one stays selectable.
 | ⌫ / ⌦ | Delete the selection |
 | ← → ↑ ↓ | Nudge the selection 1 px (⇧: 10 px) |
 | Tab / ⇧Tab | Select the next / previous annotation on this capture (wraps) |
-| ⏎, double-click | Focus the selected annotation's note |
+| ⏎ with a drawing tool | Insert a default-sized shape at the middle of the visible canvas (see below) |
+| ⏎ (Select tool), double-click | Focus the selected annotation's note |
 | Esc | Cancel the gesture in progress; otherwise return to Select; otherwise deselect |
 | ⌘Z / ⇧⌘Z | Undo / redo |
 | ⌘D | Duplicate the selection (offset 2 %, with the same note and intents) |
 | ⌘S | Save now |
 | ⌘+ / ⌘- / ⌘0 / ⌘1, Space-drag | Zoom in / out / fit / actual pixels, pan (§6.2.1) |
 
-Fuller keyboard and VoiceOver access to the canvas is `HS2-M8ZFS0`.
+**Drawing without a pointer** (`HS2-M8ZFS0`). Choose a tool (R, F, A, I, S), then press ⏎.
+`AnnotationEditor.insertDefaultShape(at:)` adds a shape centered on the middle of what the
+canvas shows (so it lands in view when zoomed):
+
+- **Size:** a fifth of the capture's shorter side, kept inside the capture.
+- **Shapes:** a square for Rectangle and Strike, a diagonal arrow pointing up and right, the
+  point itself for Insertion, and a closed 12-point outline for Freehand.
+- **After inserting:** like a drawn shape, it is one undo step, it is selected, and the tool
+  returns to Select. The arrow keys then move it (⇧ for 10 px), and ⏎ focuses its note.
+- **Crop:** ⏎ only explains that cropping needs a drag.
+- **Script:** the op is `insert`.
+
+**VoiceOver.** The canvas is an accessibility group, for example "Annotation canvas,
+capture-1.png, 6 annotations". Its help text explains the keys above.
+
+- **Elements:** each annotation on the current capture is a child element (role description
+  "annotation") whose label reads the number, shape, intents, and note, for example
+  "Annotation 1: Rectangle, comment, bug. Field label is clipped."
+- **Frame:** the element frame is the shape's bounds plus 8 points, so points and thin
+  shapes stay outlineable.
+- **Pressing** an element (VO-Space) selects that annotation. The selected element is
+  reported as selected, and VoiceOver moves to a shape inserted from the keyboard.
+- **Persistence:** elements are kept by annotation id, so VoiceOver's focus survives redraws.
+  The canvas posts a layout change after each edit.
 
 ## 6.5 Notes and intents
 
@@ -335,6 +359,7 @@ on the current draft (or the draft directory named by `--draft`), then saves.
 | `{"op": "select", "id": "a2"}` / `"#2"` / no id | Select by id or review number, or deselect |
 | `{"op": "note", "text": …}`, `{"op": "intent", "intent": "bug"}`, `{"op": "closed", "closed": false}` | Edit the selection (intent toggles) |
 | `{"op": "delete"}`, `{"op": "duplicate"}`, `{"op": "nudge", "dx": 1, "dy": 0}` | Act on the selection |
+| `{"op": "insert", "point": [x, y]}` (point optional; default the media center) | ⏎ with the current drawing tool (§6.4) |
 | `{"op": "crop", "rect": [x, y, w, h]}`, `{"op": "reset-crop"}` (alias `restore-original`) | Crop the current image, or restore it (§6.6) |
 | `{"op": "undo"}`, `{"op": "redo"}`, `{"op": "save"}` | History and saving |
 
@@ -355,3 +380,5 @@ editor offscreen through the real views, on a draft of mock app screenshots:
 - `editor-crop-drag`
 - `editor-cropped`
 - `editor-zoomed` (300 % with a selection, §6.2.1)
+- `editor-keyboard-insert` (R then ⏎ sent as real key events), with the canvas's accessibility
+  tree written to `editor-accessibility.json`

@@ -21,6 +21,8 @@ public struct EditorScript: Decodable, Equatable, Sendable {
         case drag([CGPoint])
         /// Like `drag`, but Esc before releasing.
         case cancelDrag([CGPoint])
+        /// Return with a drawing tool: a default-sized shape at the point (default the media center).
+        case insert(CGPoint?)
         /// Select by annotation id, or by its number in the review (`"#2"`); nil deselects.
         case select(String?)
         case note(String)
@@ -58,7 +60,7 @@ public enum EditorScriptError: Error, Equatable, CustomStringConvertible {
 }
 
 extension EditorScript.Step: Decodable {
-    private enum CodingKeys: String, CodingKey { case op, media, tool, points, id, text, intent, closed, dx, dy, rect }
+    private enum CodingKeys: String, CodingKey { case op, media, tool, points, point, id, text, intent, closed, dx, dy, rect }
 
     /// Ops that take no arguments.
     private static let bare: [String: EditorScript.Step] = [
@@ -92,13 +94,27 @@ extension EditorScript.Step: Decodable {
         case "intent": self = try .intent(container.decode(Intent.self, forKey: .intent))
         case "closed": self = try .closed(container.decode(Bool.self, forKey: .closed))
         case "nudge": self = try .nudge(dx: container.decode(Double.self, forKey: .dx), dy: container.decode(Double.self, forKey: .dy))
-        case "crop":
-            let values = try container.decode([Double].self, forKey: .rect)
-            guard values.count == 4 else { throw invalid(.rect, "rect must be [x, y, width, height]") }
-            self = .crop(CGRect(x: values[0], y: values[1], width: values[2], height: values[3]))
+        case "crop", "insert": self = try Self.geometry(op, in: container)
         default:
             throw invalid(.op, "Unknown op \(op)")
         }
+    }
+
+    /// `crop` (a rect) and `insert` (an optional point).
+    private static func geometry(_ op: String, in container: KeyedDecodingContainer<CodingKeys>) throws -> EditorScript.Step {
+        func invalid(_ key: CodingKeys, _ reason: String) -> DecodingError {
+            DecodingError.dataCorruptedError(forKey: key, in: container, debugDescription: reason)
+        }
+        if op == "crop" {
+            let values = try container.decode([Double].self, forKey: .rect)
+            guard values.count == 4 else { throw invalid(.rect, "rect must be [x, y, width, height]") }
+            return .crop(CGRect(x: values[0], y: values[1], width: values[2], height: values[3]))
+        }
+        let pair = try container.decodeIfPresent([Double].self, forKey: .point)
+        return try .insert(pair.map { pair in
+            guard pair.count == 2 else { throw invalid(.point, "point must be [x, y]") }
+            return CGPoint(x: pair[0], y: pair[1])
+        })
     }
 }
 
@@ -129,11 +145,8 @@ public extension EditorScript {
             session.editor.show(mediaId: id)
         case let .tool(tool):
             session.editor.setTool(tool)
-        case let .drag(points), let .cancelDrag(points):
-            guard session.editor.currentMedia != nil else { throw StepFailure.reason("no media to draw on") }
-            session.editor.beginGesture(at: points[0])
-            points.dropFirst().forEach { session.editor.updateGesture(to: $0) }
-            if case .cancelDrag = step { session.editor.cancelGesture() } else { session.editor.endGesture() }
+        case .drag, .cancelDrag, .insert:
+            try draw(step, in: session)
         case let .select(reference):
             guard let reference else { return session.editor.select(nil) }
             guard let id = resolve(reference, in: session.editor) else { throw StepFailure.reason("unknown annotation \(reference)") }
@@ -145,6 +158,21 @@ public extension EditorScript {
         case .undo: session.editor.undo()
         case .redo: session.editor.redo()
         case .save: try session.save()
+        }
+    }
+
+    /// Pointer drags and keyboard inserts.
+    private static func draw(_ step: Step, in session: EditorSession) throws {
+        guard session.editor.currentMedia != nil else { throw StepFailure.reason("no media to draw on") }
+        switch step {
+        case let .drag(points), let .cancelDrag(points):
+            session.editor.beginGesture(at: points[0])
+            points.dropFirst().forEach { session.editor.updateGesture(to: $0) }
+            if case .cancelDrag = step { session.editor.cancelGesture() } else { session.editor.endGesture() }
+        case let .insert(point):
+            guard session.editor.insertDefaultShape(at: point) else { throw StepFailure.reason("choose a drawing tool before insert") }
+        default:
+            break
         }
     }
 

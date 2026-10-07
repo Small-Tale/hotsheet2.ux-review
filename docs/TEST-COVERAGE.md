@@ -286,3 +286,21 @@ Each feature gets both unit tests and end-to-end tests. Tests live in
     and the schema validates
 - **Not covered automatically:** the tool bar button's label switch (Restore Original / Reset
   Crop), a one-line view over `EditorSession.resetRestoresOriginal`, which is unit-tested.
+
+## HS2-M8ZFS0: VoiceOver and keyboard-only access to canvas annotations
+
+- **Unit** (`KeyboardAccessTests`):
+  - each tool's default shape at the center (exact geometry), selected, back to Select
+  - insert → nudge ×5 → undo → undo → redo (one step for the insert, one coalesced nudge run)
+  - clamping at the media edges
+  - refusals: Select, Crop (with a message), mid-gesture, no media
+  - accessibility labels (number across captures, intents, note, "No note.", unknown id)
+  - the `insert` script op
+- **App end to end** (`scripts/app-e2e.sh`): `--render-ui-previews` sends real `R` and `⏎`
+  key events to the canvas and dumps its accessibility tree. The e2e asserts the group's role
+  and label, six annotation elements with full labels, the inserted rectangle as the selected
+  element, and minimum element frames.
+- **Visual QA:** `editor-keyboard-insert.png` shows the inserted rectangle selected at the
+  canvas middle.
+- **Not covered automatically:** a live VoiceOver session (speech, VO-Space). Element press
+  calls the same `select` that clicking does.

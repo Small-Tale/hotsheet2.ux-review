@@ -380,3 +380,28 @@ extension ReviewBundle {
         return true
     }
 }
+
+public extension Shape {
+    /// The shape's name in the inspector and for VoiceOver.
+    var displayName: String {
+        switch self {
+        case .rect: "Rectangle"
+        case let .freehand(_, closed): closed ? "Outline" : "Open path"
+        case .arrow: "Arrow"
+        case .insertion: "Insertion"
+        case .strike: "Strike"
+        }
+    }
+}
+
+public extension AnnotationEditor {
+    /// What VoiceOver reads for an annotation on the canvas: number, shape, intents, and note,
+    /// for example "Annotation 1: Rectangle, comment, bug. Field label is clipped."
+    /// Spec: docs/06-annotation-editor.md §6.4.
+    func accessibilityLabel(for id: String) -> String? {
+        guard let annotation = bundle.annotations.first(where: { $0.id == id }), let number = number(of: id) else { return nil }
+        let intents = annotation.effectiveIntents.map(\.rawValue).joined(separator: ", ")
+        let note = annotation.note.trimmingCharacters(in: .whitespacesAndNewlines)
+        return "Annotation \(number): \(annotation.shape.displayName), \(intents)." + (note.isEmpty ? " No note." : " \(note)")
+    }
+}

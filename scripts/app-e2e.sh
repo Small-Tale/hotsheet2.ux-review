@@ -303,9 +303,21 @@ ok "unsupported, missing, and absent files: exit 2 and nothing imported; --new-r
 
 run previews 0 -- --render-ui-previews "$TMP/previews"
 for name in overlay-region-hint overlay-region-selection overlay-region-selection-bottom-edge overlay-window-hover hud-countdown hud-saved hud-recording-countdown hud-recording hud-saved-video settings-registered settings-in-use status-bar-icon-light status-bar-icon-dark \
-  editor-empty editor-annotated editor-arrow-selected editor-narrow editor-crop-drag editor-cropped editor-zoomed; do
+  editor-empty editor-annotated editor-arrow-selected editor-narrow editor-crop-drag editor-cropped editor-zoomed editor-keyboard-insert; do
   [[ -s "$TMP/previews/$name.png" ]] || die "previews: $name.png missing"
 done
 ok "UI renders offscreen (picker overlays, HUDs, Settings window, status bar icon, annotation editor)"
+
+# HS2-M8ZFS0: real R + Return key events through the canvas insert a shape; VoiceOver sees every annotation.
+AX="$TMP/previews/editor-accessibility.json"
+[[ "$(json "$AX" 'j.role + "|" + j.label')" == "AXGroup|Annotation canvas, capture-1.png, 6 annotations" ]] || die "a11y: canvas $(json "$AX" j.label)"
+[[ "$(json "$AX" 'j.children.map(c => c.label.split(":")[0] + "/" + c.role).join(",")')" == \
+  "Annotation 1/annotation,Annotation 2/annotation,Annotation 3/annotation,Annotation 4/annotation,Annotation 5/annotation,Annotation 6/annotation" ]] \
+  || die "a11y: children $(json "$AX" 'j.children.map(c => c.label).join(" | ")')"
+[[ "$(json "$AX" 'j.children[0].label')" == "Annotation 1: Rectangle, comment, bug. Field label is clipped at 200 % text size." ]] || die "a11y: label"
+[[ "$(json "$AX" 'j.children.filter(c => c.selected).map(c => c.label).join()')" == "Annotation 6: Rectangle, comment. No note." ]] \
+  || die "a11y: the keyboard-inserted rectangle is not the selected element"
+[[ "$(json "$AX" 'j.children.every(c => c.frame[2] >= 16 && c.frame[3] >= 16)')" == true ]] || die "a11y: element frames too small"
+ok "keyboard Return inserts a selected rectangle; the canvas exposes every annotation to VoiceOver with number, shape, intents, and note"
 
 echo "app e2e: $pass checks passed"

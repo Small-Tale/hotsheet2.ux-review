@@ -71,13 +71,7 @@ public extension AnnotationEditor {
             guard let shape = drawnShape(tool, points: points) else {
                 return // a click or tiny drag draws nothing
             }
-            let id = nextAnnotationID()
-            pushUndo(base)
-            redoStack.removeAll()
-            coalesceKey = nil
-            document.bundle.annotations.append(Annotation(id: id, mediaId: currentMediaId ?? "", shape: shape, note: ""))
-            selection = id
-            self.tool = .select
+            commitNewShape(shape, base: base)
         case .moving, .resizing:
             guard document != base.document else { return }
             pushUndo(base)
@@ -86,6 +80,61 @@ public extension AnnotationEditor {
         case let .cropping(start, current):
             crop(to: CGRect(x: start.x, y: start.y, width: current.x - start.x, height: current.y - start.y).standardized)
         }
+    }
+
+    /// Adds a finished shape as one undo step, selects it, and returns to the Select tool.
+    private mutating func commitNewShape(_ shape: Shape, base: Snapshot) {
+        let id = nextAnnotationID()
+        pushUndo(base)
+        redoStack.removeAll()
+        coalesceKey = nil
+        document.bundle.annotations.append(Annotation(id: id, mediaId: currentMediaId ?? "", shape: shape, note: ""))
+        selection = id
+        tool = .select
+    }
+
+    /// Keyboard drawing (Return with a drawing tool): adds a default-sized shape of the current
+    /// tool centered on `center` (media pixels; default the media's center), kept inside the
+    /// media. Like a drawn shape it is one undo step, selected, and the tool returns to Select,
+    /// so the arrow keys move it and Return focuses its note. Spec: docs/06 §6.4.
+    @discardableResult
+    mutating func insertDefaultShape(at center: CGPoint? = nil) -> Bool {
+        guard gesture == nil, let frame = currentFrame else { return false }
+        switch tool {
+        case .select:
+            return false
+        case .crop:
+            message = "Drag to crop; keyboard cropping isn't available."
+            return false
+        default:
+            break
+        }
+        // A fifth of the shorter side, so the shape is easy to see and to find with VoiceOver.
+        let side = max(min(frame.width, frame.height) / 5, min(minimumSide * 2, frame.width, frame.height))
+        let half = side / 2
+        let wanted = center ?? CGPoint(x: frame.width / 2, y: frame.height / 2)
+        let middle = CGPoint(
+            x: min(max(wanted.x, half), frame.width - half),
+            y: min(max(wanted.y, half), frame.height - half)
+        )
+        let box = CGRect(x: middle.x - half, y: middle.y - half, width: side, height: side)
+        let shape: Shape
+        switch tool {
+        case .rect: shape = .rect(frame.norm(box))
+        case .strike: shape = .strike(frame.norm(box))
+        case .arrow: shape = .arrow(points: [frame.norm(CGPoint(x: box.minX, y: box.maxY)), frame.norm(CGPoint(x: box.maxX, y: box.minY))])
+        case .insertion: shape = .insertion(frame.norm(middle))
+        case .freehand:
+            let points = (0 ..< 12).map { step -> NormPoint in
+                let angle = Double(step) / 12 * 2 * .pi
+                return frame.norm(CGPoint(x: middle.x + half * cos(angle), y: middle.y + half * sin(angle)))
+            }
+            shape = .freehand(points: points, closed: true)
+        case .select, .crop: return false
+        }
+        commitNewShape(shape, base: snapshot)
+        message = nil
+        return true
     }
 
     /// Esc: abandons the gesture and restores what was there before it began.
