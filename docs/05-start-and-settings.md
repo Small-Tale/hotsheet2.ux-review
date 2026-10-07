@@ -71,18 +71,21 @@ starts on the last project used ([07-review-session.md](07-review-session.md) §
 
 ## 5.2 Global hotkeys
 
-Two system-wide shortcuts start captures from any app (`HS2-SPFXPW`):
+Three system-wide shortcuts work from any app. Two start captures (`HS2-SPFXPW`), and one
+opens UX Review (`HS2-KVMX71`). The app's other shortcuts (⌘N, ⌘O, ⌘↩, …) live in its app
+menu bar and work while a UX Review window is in front (§5.1.1).
 
-| Shortcut | Default | Starts, when idle |
+| Shortcut | Default | Does, when idle |
 | --- | --- | --- |
 | **Capture** | **⌥⇧⌘U** | The default capture: kind, target, and delay from Settings (§5.3) |
 | **Record video** | **⌥⇧⌘V** | A video of the default target with the default delay, whatever the default kind is |
+| **Open UX Review** | **⌥⇧⌘E** | Opens the UX Review window, like the menu bar menu's **Open UX Review** (§5.1) |
 
 So a reviewer who switches between stills and video uses ⌥⇧⌘U for one and ⌥⇧⌘V for the other
 without changing the default. When the default kind is Video, both start the same recording.
 
-Apart from what they start, both shortcuts behave the same way, so either one ends what the
-other started:
+Apart from what they start, both capture shortcuts behave the same way, so either one ends what
+the other started:
 
 - **Idle**: pressing it starts its capture.
 - **Counting down**: pressing it cancels the countdown. The countdown HUD never takes focus,
@@ -90,10 +93,19 @@ other started:
 - **Recording**: pressing it stops the recording and saves it.
 - **Picking, capturing, or saving**: it is ignored. The picker handles Esc itself.
 
-The two shortcuts must differ. The Settings recorder refuses the other shortcut's combination
+**Open UX Review** never starts, cancels, or stops a capture. It opens the window when idle or
+while recording, and is ignored while picking, counting down, capturing, or saving, so the
+window can't land in the capture.
+
+**Globally unique.** The defaults use ⌥⇧⌘ plus a letter, a combination apps rarely claim, and
+each is registered **exclusively**: if another app already owns it, registration fails, and
+Settings shows "already used by another app" so the reviewer can pick another.
+
+The three shortcuts must differ. The Settings recorder refuses another shortcut's combination
 (it beeps and explains, for example "⌥⇧⌘U is already the capture shortcut."), and so does the
-headless mode (§5.5). If hand-edited settings hold the same combination twice anyway, only
-Capture registers it, and Record video reports it as invalid.
+headless mode (§5.5). If hand-edited settings hold the same combination twice anyway, only the
+first slot (Capture, then Record video, then Open UX Review) registers it, and the later one
+reports it as invalid.
 
 Requirements on each shortcut:
 
@@ -105,12 +117,12 @@ Text forms: the display form is `⌃⌥⇧⌘U` (always in Apple's modifier orde
 accepts `ctrl+opt+shift+cmd+u` and `Cmd-Shift-U`, case-insensitive.
 
 Each shortcut is registered with Carbon's `RegisterEventHotKey` as **exclusive**, under its own
-hotkey id (1 for Capture, 2 for Record video), so presses go to the right action. Each one
+hotkey id (1 for Capture, 2 for Record video, 3 for Open UX Review), so presses go to the right action. Each one
 has its own status:
 
 | Status | Shown in Settings |
 | --- | --- |
-| `registered` | "⌥⇧⌘U starts a capture from any app." / "⌥⇧⌘V records a video from any app." |
+| `registered` | "⌥⇧⌘U starts a capture from any app." / "⌥⇧⌘V records a video from any app." / "⌥⇧⌘E opens UX Review from any app." |
 | `inUse` | Another app (or another UX Review instance) already owns the combination. Choose a different shortcut. |
 | `disabled` | No shortcut is set |
 | `invalid` / `failed` | The combination is unusable or duplicated, or the system refused it |
@@ -130,23 +142,25 @@ The Settings window (menu bar menu or app menu › Settings…, ⌘,) has three 
 - **Video**: **Record microphone narration**, the narration default for recordings (off). The
   Capture Video menu's checkbox can change it for one recording. See [04-capture.md](04-capture.md) §4.9 for the
   Microphone permission flow.
-- **Global shortcuts**: one recorder each for **Start default capture** and **Record video**.
+- **Global shortcuts**: one recorder each for **Start default capture**, **Record video**, and
+  **Open UX Review**.
   Click one, then press a combination.
   - Esc cancels recording.
   - Delete clears the shortcut.
   - "Clear" also disables it.
-  - An unusable combination, or the other shortcut's, beeps and explains why.
-  - Both shortcuts are suspended while recording, so pressing one records it instead of
+  - An unusable combination, or another shortcut's, beeps and explains why.
+  - All shortcuts are suspended while recording, so pressing one records it instead of
     starting a capture.
   - Each has a status line showing its registration state from §5.2.
 
 Persistence: settings are saved as JSON under the defaults key `captureSettings`:
 
 ```json
-{"captureHotkey":"⌥⇧⌘U","defaultRequest":{"delaySeconds":0,"kind":"screenshot","target":"region"},"narration":false,"recordHotkey":"⌥⇧⌘V"}
+{"captureHotkey":"⌥⇧⌘U","defaultRequest":{"delaySeconds":0,"kind":"screenshot","target":"region"},"narration":false,"openReviewHotkey":"⌥⇧⌘E","recordHotkey":"⌥⇧⌘V"}
 ```
 
 - Missing fields take their defaults. Settings saved before `recordHotkey` existed get ⌥⇧⌘V,
+  settings saved before `openReviewHotkey` existed get ⌥⇧⌘E,
   and settings saved before `narration` existed record without narration.
 - An explicit `null` for `captureHotkey` or `recordHotkey` means that shortcut is disabled.
 - An unreadable value falls back to all defaults.
@@ -163,18 +177,18 @@ app's own (`com.smalltale.uxreview`), or the suite named by `UXREVIEW_DEFAULTS_S
 
 ```
 UXReview --settings [--set-hotkey ⌥⇧⌘U|none] [--set-record-hotkey ⌥⇧⌘V|none]
-                    [--set-target display|window|region] [--set-delay N]
+                    [--set-open-hotkey ⌥⇧⌘E|none] [--set-target display|window|region] [--set-delay N]
                     [--set-narration on|off]
 ```
 
-This mode applies and saves the changes, registers both hotkeys exactly as the app would, and
-prints JSON: `settings`, `hotkey {status, message}` (Capture), `recordHotkey {status, message}`,
-and `defaultCapture`.
+This mode applies and saves the changes, registers all three hotkeys exactly as the app would,
+and prints JSON: `settings`, `hotkey {status, message}` (Capture), `recordHotkey {status,
+message}`, `openReviewHotkey {status, message}`, and `defaultCapture`.
 
 - Exit 0 on success.
-- Exit 2 on bad arguments, including an unusable hotkey or one that duplicates the other
+- Exit 2 on bad arguments, including an unusable hotkey or one that duplicates another
   shortcut. In that case nothing is saved. Swapping the two in one command is allowed.
 
 `scripts/app-e2e.sh` uses this mode to check persistence across launches (including turning
-narration on and off), registration of both
+narration on and off), registration of all three
 hotkeys, a real conflict for each against a running menu bar instance, and duplicate rejection.

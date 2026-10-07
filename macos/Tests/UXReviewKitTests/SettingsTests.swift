@@ -73,6 +73,8 @@ struct CaptureSettingsTests {
         #expect(settings.captureHotkey == .defaultCapture)
         #expect(settings.recordHotkey == .defaultRecord)
         #expect(Hotkey.defaultRecord.display == "⌥⇧⌘V")
+        #expect(settings.openReviewHotkey == .defaultOpenReview)
+        #expect(Hotkey.defaultOpenReview.display == "⌥⇧⌘E")
         #expect(settings.defaultRequest == CaptureRequest(kind: .screenshot, target: .region, delaySeconds: 0))
         #expect(!settings.narration) // narration is opt-in
     }
@@ -112,7 +114,7 @@ struct CaptureSettingsTests {
         let json = try #require(store.data(forKey: CaptureSettingsStore.key).flatMap { String(data: $0, encoding: .utf8) })
         #expect(
             json == #"{"captureHotkey":"⌥⇧⌘U","defaultRequest":{"delaySeconds":0,"kind":"screenshot","target":"region"},"#
-                + #""narration":false,"recordHotkey":"⌥⇧⌘V"}"#
+                + #""narration":false,"openReviewHotkey":"⌥⇧⌘E","recordHotkey":"⌥⇧⌘V"}"#
         )
     }
 
@@ -133,6 +135,10 @@ struct CaptureSettingsTests {
         (#"{"captureHotkey":"⌥⇧⌘U"}"#, CaptureSettings(narration: false)),
         (#"{"narration":true}"#, CaptureSettings(narration: true)),
         (#"{"narration":"yes"}"#, CaptureSettings()), // wrong type → all defaults
+        // Settings saved before the Open UX Review hotkey existed get its default (HS2-KVMX71).
+        (#"{"recordHotkey":"⌃⌘9"}"#, CaptureSettings(recordHotkey: Hotkey("⌃⌘9"), openReviewHotkey: .defaultOpenReview)),
+        (#"{"openReviewHotkey":null}"#, CaptureSettings(openReviewHotkey: nil)),
+        (#"{"openReviewHotkey":"⌃⌥⌘R"}"#, CaptureSettings(openReviewHotkey: Hotkey("⌃⌥⌘R"))),
     ])
     func loadsPartialOrBrokenValues(json: String, expected: CaptureSettings) {
         let store = MemoryStore()
@@ -159,6 +165,18 @@ struct HotkeySlotTests {
         settings[.capture] = Hotkey("F6")
         #expect(settings.recordHotkey == nil)
         #expect(settings.captureHotkey == Hotkey("F6"))
+        #expect(settings[.openReview] == .defaultOpenReview)
+        settings[.openReview] = Hotkey("⌃⌥⌘R")
+        #expect(settings.openReviewHotkey == Hotkey("⌃⌥⌘R"))
+    }
+
+    /// The three defaults differ from each other, so all of them register out of the box.
+    @Test func defaultsAreDistinctAndUsable() {
+        let defaults = HotkeySlot.allCases.compactMap { CaptureSettings()[$0] }
+        #expect(defaults.count == 3)
+        #expect(Set(defaults).count == 3)
+        #expect(defaults.allSatisfy { $0.problem == nil })
+        #expect(HotkeySlot.allCases.allSatisfy { CaptureSettings().registrable($0) != nil })
     }
 
     @Test func duplicateRules() throws {
@@ -173,6 +191,9 @@ struct HotkeySlotTests {
         // A disabled slot blocks nothing.
         let oneOff = CaptureSettings(captureHotkey: nil)
         #expect(oneOff.problem(with: .defaultCapture, for: .record) == nil)
+        // The Open UX Review slot takes part in the same rules.
+        #expect(settings.problem(with: .defaultOpenReview, for: .capture) == "⌥⇧⌘E is already the Open UX Review shortcut.")
+        #expect(settings.problem(with: .defaultRecord, for: .openReview) == "⌥⇧⌘V is already the record video shortcut.")
     }
 
     @Test func registrableSkipsDisabledAndDuplicateSlots() {
@@ -201,6 +222,7 @@ struct HotkeySlotTests {
         #expect(HotkeySlot.record.request(in: screenshot) == CaptureRequest(kind: .video, target: .window, delaySeconds: 5))
         let video = CaptureSettings(defaultRequest: CaptureRequest(kind: .video, target: .display))
         #expect(HotkeySlot.record.request(in: video) == video.defaultRequest)
+        #expect(HotkeySlot.openReview.request(in: video) == nil)
     }
 }
 
@@ -235,6 +257,23 @@ struct HotkeyActionTests {
         ]
         for (phase, action) in expected {
             #expect(HotkeyAction.decide(phase: phase, settings: settings, slot: .record) == action, "\(phase)")
+        }
+    }
+
+    /// Open UX Review never starts, cancels, or stops a capture; it opens the window when idle
+    /// or recording and is ignored while a capture is set up or taken (HS2-KVMX71).
+    @Test func openReviewSlotForEveryPhase() {
+        let request = CaptureRequest()
+        let expected: [(CapturePhase, HotkeyAction)] = [
+            (.idle, .openReview),
+            (.picking(request), .ignore),
+            (.countingDown(request, remaining: 2), .ignore),
+            (.capturing, .ignore),
+            (.recording(startedAt: Date(timeIntervalSince1970: 0)), .openReview),
+            (.finishing, .ignore),
+        ]
+        for (phase, action) in expected {
+            #expect(HotkeyAction.decide(phase: phase, settings: settings, slot: .openReview) == action, "\(phase)")
         }
     }
 }
@@ -285,6 +324,21 @@ struct SettingsCommandTests {
     @Test func setsTheRecordHotkey() throws {
         let command = try #require(try SettingsCommand.parse(["--settings", "--set-record-hotkey", "ctrl+opt+cmd+F7"]))
         #expect(try command.apply(to: CaptureSettings()).recordHotkey == Hotkey("⌃⌥⌘F7"))
+    }
+
+    @Test func setsAndDisablesTheOpenReviewHotkey() throws {
+        let command = try #require(try SettingsCommand.parse(["--settings", "--set-open-hotkey", "ctrl+opt+cmd+r"]))
+        #expect(command.changesSomething)
+        #expect(try command.apply(to: CaptureSettings()).openReviewHotkey == Hotkey("⌃⌥⌘R"))
+        let off = try #require(try SettingsCommand.parse(["--settings", "--set-open-hotkey", "none"]))
+        #expect(try off.apply(to: CaptureSettings()).openReviewHotkey == nil)
+        let taken = try #require(try SettingsCommand.parse(["--settings", "--set-open-hotkey", "opt+shift+cmd+v"]))
+        #expect(throws: CommandLineError.invalidValue("--set-open-hotkey", "⌥⇧⌘V: ⌥⇧⌘V is already the record video shortcut.")) {
+            try taken.apply(to: CaptureSettings())
+        }
+        #expect(throws: CommandLineError.missingValue("--set-open-hotkey")) {
+            try SettingsCommand.parse(["--settings", "--set-open-hotkey"])
+        }
     }
 
     @Test func rejectsADuplicateOfTheOtherSlot() throws {

@@ -31,6 +31,7 @@ final class GlobalHotkeyCenter {
                 switch slot {
                 case .capture: "\(hotkey.display) starts a capture from any app."
                 case .record: "\(hotkey.display) records a video from any app."
+                case .openReview: "\(hotkey.display) opens UX Review from any app."
                 }
             case let .inUse(hotkey): "\(hotkey.display) is already used by another app. Choose a different shortcut."
             case let .invalid(_, problem): problem

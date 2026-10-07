@@ -52,6 +52,9 @@ public struct Hotkey: Equatable, Hashable, Sendable {
     public static let defaultCapture = Hotkey(keyCode: 32, modifiers: [.option, .shift, .command])
     /// ⌥⇧⌘V: record a video ("V" for video), next to the capture shortcut.
     public static let defaultRecord = Hotkey(keyCode: 9, modifiers: [.option, .shift, .command])
+    /// ⌥⇧⌘E: open the UX Review window ("E" for editor), in the same ⌥⇧⌘ family. Registration is
+    /// exclusive, so if another app already owns it Settings says so (docs/05 §5.2).
+    public static let defaultOpenReview = Hotkey(keyCode: 14, modifiers: [.option, .shift, .command])
 
     public var carbonModifiers: UInt32 {
         modifiers.reduce(0) { $0 | $1.carbonMask }

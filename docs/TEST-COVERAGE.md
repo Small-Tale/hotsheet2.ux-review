@@ -710,3 +710,21 @@ Each feature gets both unit tests and end-to-end tests. Tests live in
     and unexpected stop
   - window and screen recordings showing no dim
   These need Screen Recording permission and a live session (`HS2-HA9TW3`).
+
+## HS2-KVMX71: Open UX Review global shortcut
+
+- **Settings** (`SettingsTests`):
+  - the ⌥⇧⌘E default, persisted JSON, and loading older settings without the field
+  - explicit `null` (disabled), the subscript, and the three defaults distinct and registrable
+  - duplicate rules across all three slots
+  - `HotkeyAction` for the Open UX Review slot in every phase: open when idle or recording,
+    ignored otherwise
+  - `--set-open-hotkey` parsing, `none`, duplicate rejection, and a missing value
+- **Menu** (`AppMenusTests.openUXReviewShowsItsGlobalShortcut`): the menu bar menu's Open UX Review
+  shows the registered shortcut.
+- **App end to end** (`scripts/app-e2e.sh`, `--settings`): the default, persistence, real
+  registration, a real `inUse` conflict against a running app instance for all three, duplicate
+  rejection, and disabling.
+- **Visual QA:** `settings-registered` / `settings-in-use` show the third recorder row.
+- **Not covered automatically:** pressing ⌥⇧⌘E in another app and seeing the window open (live
+  GUI; with `HS2-PPT7E2`).

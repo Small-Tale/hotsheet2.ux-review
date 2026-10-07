@@ -32,7 +32,7 @@ struct SettingsView: View {
             Section("Global shortcuts") {
                 ForEach(HotkeySlot.allCases, id: \.self) { slot in
                     VStack(alignment: .leading, spacing: 4) {
-                        LabeledContent(slot == .capture ? "Start default capture" : "Record video") {
+                        LabeledContent(slot.settingsLabel) {
                             ShortcutRecorder(model: model, slot: slot)
                         }
                         // Color only the icon; caption text stays legible in light and dark mode.
@@ -44,7 +44,7 @@ struct SettingsView: View {
                         .font(.caption)
                     }
                 }
-                Text("Either shortcut also cancels a countdown or stops a recording.")
+                Text("The capture and record shortcuts also cancel a countdown or stop a recording.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }

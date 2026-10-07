@@ -150,7 +150,7 @@ public enum AppMenus {
         entries += [
             .separator,
             .action("Settings…", .openSettings, shortcut: MenuShortcut(",")),
-            .action("Open UX Review", .openUXReview),
+            .action("Open UX Review", .openUXReview, shortcut: MenuShortcut(state.hotkeys[.openReview])),
             .separator,
             .action("Quit UX Review", .quit, shortcut: MenuShortcut("q")),
         ]

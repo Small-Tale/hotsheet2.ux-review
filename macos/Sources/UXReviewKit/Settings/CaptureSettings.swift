@@ -9,6 +9,8 @@ public struct CaptureSettings: Codable, Equatable, Sendable {
     public var captureHotkey: Hotkey?
     /// Global hotkey that records a video of the default target; nil disables it.
     public var recordHotkey: Hotkey?
+    /// Global hotkey that opens the UX Review window; nil disables it.
+    public var openReviewHotkey: Hotkey?
     /// Whether recordings include microphone narration by default (off). The menu can change it
     /// for the next recording only. Spec: docs/04-capture.md §4.9.
     public var narration: Bool
@@ -17,11 +19,13 @@ public struct CaptureSettings: Codable, Equatable, Sendable {
         defaultRequest: CaptureRequest = CaptureRequest(kind: .screenshot, target: .region),
         captureHotkey: Hotkey? = .defaultCapture,
         recordHotkey: Hotkey? = .defaultRecord,
+        openReviewHotkey: Hotkey? = .defaultOpenReview,
         narration: Bool = false
     ) {
         self.defaultRequest = defaultRequest
         self.captureHotkey = captureHotkey
         self.recordHotkey = recordHotkey
+        self.openReviewHotkey = openReviewHotkey
         self.narration = narration
     }
 
@@ -30,12 +34,14 @@ public struct CaptureSettings: Codable, Equatable, Sendable {
             switch slot {
             case .capture: captureHotkey
             case .record: recordHotkey
+            case .openReview: openReviewHotkey
             }
         }
         set {
             switch slot {
             case .capture: captureHotkey = newValue
             case .record: recordHotkey = newValue
+            case .openReview: openReviewHotkey = newValue
             }
         }
     }
@@ -44,7 +50,7 @@ public struct CaptureSettings: Codable, Equatable, Sendable {
     public func problem(with hotkey: Hotkey, for slot: HotkeySlot) -> String? {
         if let problem = hotkey.problem { return problem }
         for other in HotkeySlot.allCases where other != slot && self[other] == hotkey {
-            return "\(hotkey.display) is already the \(other.title.lowercased()) shortcut."
+            return "\(hotkey.display) is already the \(other.shortcutName) shortcut."
         }
         return nil
     }
@@ -57,7 +63,7 @@ public struct CaptureSettings: Codable, Equatable, Sendable {
         return earlier.contains { self[$0] == hotkey } ? nil : hotkey
     }
 
-    private enum CodingKeys: String, CodingKey { case defaultRequest, captureHotkey, recordHotkey, narration }
+    private enum CodingKeys: String, CodingKey { case defaultRequest, captureHotkey, recordHotkey, openReviewHotkey, narration }
 
     /// Missing fields take their defaults, so older or partial settings still load. An explicit
     /// `null` hotkey stays disabled.
@@ -71,6 +77,9 @@ public struct CaptureSettings: Codable, Equatable, Sendable {
         recordHotkey = container.contains(.recordHotkey)
             ? try container.decodeIfPresent(Hotkey.self, forKey: .recordHotkey)
             : defaults.recordHotkey
+        openReviewHotkey = container.contains(.openReviewHotkey)
+            ? try container.decodeIfPresent(Hotkey.self, forKey: .openReviewHotkey)
+            : defaults.openReviewHotkey
         narration = try container.decodeIfPresent(Bool.self, forKey: .narration) ?? defaults.narration
     }
 
@@ -79,6 +88,7 @@ public struct CaptureSettings: Codable, Equatable, Sendable {
         try container.encode(defaultRequest, forKey: .defaultRequest)
         try container.encode(captureHotkey, forKey: .captureHotkey) // explicit null = disabled
         try container.encode(recordHotkey, forKey: .recordHotkey)
+        try container.encode(openReviewHotkey, forKey: .openReviewHotkey)
         try container.encode(narration, forKey: .narration)
     }
 }
@@ -89,11 +99,32 @@ public enum HotkeySlot: String, CaseIterable, Codable, Sendable {
     case capture
     /// Records a video of the default target, whatever the default kind is.
     case record
+    /// Opens the UX Review window on the current review (`HS2-KVMX71`).
+    case openReview
 
     public var title: String {
         switch self {
         case .capture: "Capture"
         case .record: "Record video"
+        case .openReview: "Open UX Review"
+        }
+    }
+
+    /// How messages name this slot's shortcut: "the capture shortcut".
+    public var shortcutName: String {
+        switch self {
+        case .capture: "capture"
+        case .record: "record video"
+        case .openReview: "Open UX Review"
+        }
+    }
+
+    /// The Settings row's label.
+    public var settingsLabel: String {
+        switch self {
+        case .capture: "Start default capture"
+        case .record: "Record video"
+        case .openReview: "Open UX Review"
         }
     }
 
@@ -102,6 +133,7 @@ public enum HotkeySlot: String, CaseIterable, Codable, Sendable {
         switch self {
         case .capture: 1
         case .record: 2
+        case .openReview: 3
         }
     }
 
@@ -110,14 +142,15 @@ public enum HotkeySlot: String, CaseIterable, Codable, Sendable {
         self = slot
     }
 
-    /// What pressing this slot's hotkey starts when idle.
-    public func request(in settings: CaptureSettings) -> CaptureRequest {
+    /// The capture pressing this slot's hotkey starts when idle; nil for Open UX Review.
+    public func request(in settings: CaptureSettings) -> CaptureRequest? {
         switch self {
         case .capture: return settings.defaultRequest
         case .record:
             var request = settings.defaultRequest
             request.kind = .video
             return request
+        case .openReview: return nil
         }
     }
 }
@@ -153,14 +186,24 @@ public enum HotkeyAction: Equatable, Sendable {
     case start(CaptureRequest)
     case cancelCountdown
     case stopRecording
+    /// Open (or bring forward) the UX Review window.
+    case openReview
     case ignore
 
     /// Idle → start the slot's capture. Counting down → cancel (the HUD can't take Esc).
     /// Recording → stop. Picking, capturing, finishing → ignore (the picker handles Esc itself).
-    /// Every slot cancels and stops, so either hotkey ends what the other started.
+    /// Both capture slots cancel and stop, so either hotkey ends what the other started.
+    /// Open UX Review opens the window when idle or recording (it never stops a recording), and
+    /// is ignored while a capture is being set up or taken, so the window can't land in it.
     public static func decide(phase: CapturePhase, settings: CaptureSettings, slot: HotkeySlot = .capture) -> HotkeyAction {
-        switch phase {
-        case .idle: .start(slot.request(in: settings))
+        guard let request = slot.request(in: settings) else {
+            switch phase {
+            case .idle, .recording: return .openReview
+            case .picking, .countingDown, .capturing, .finishing: return .ignore
+            }
+        }
+        return switch phase {
+        case .idle: .start(request)
         case .countingDown: .cancelCountdown
         case .recording: .stopRecording
         case .picking, .capturing, .finishing: .ignore

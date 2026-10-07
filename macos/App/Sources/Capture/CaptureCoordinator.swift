@@ -56,6 +56,7 @@ final class CaptureCoordinator: ObservableObject {
         case let .start(request): start(request)
         case .cancelCountdown: cancel()
         case .stopRecording: stopRecording()
+        case .openReview: openUXReview()
         case .ignore: break
         }
     }

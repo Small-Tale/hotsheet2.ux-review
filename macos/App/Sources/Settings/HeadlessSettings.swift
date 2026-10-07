@@ -15,6 +15,7 @@ enum HeadlessSettings {
         var settings: CaptureSettings
         var hotkey: HotkeyStatus
         var recordHotkey: HotkeyStatus
+        var openReviewHotkey: HotkeyStatus
         var defaultCapture: String
     }
 
@@ -42,6 +43,7 @@ enum HeadlessSettings {
             settings: settings,
             hotkey: status(.capture),
             recordHotkey: status(.record),
+            openReviewHotkey: status(.openReview),
             defaultCapture: settings.defaultRequest.summary
         )))
         return 0

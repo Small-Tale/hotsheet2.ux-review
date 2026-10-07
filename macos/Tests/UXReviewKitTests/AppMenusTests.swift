@@ -87,6 +87,16 @@ struct AppMenusTests {
         ))
     }
 
+    @Test func openUXReviewShowsItsGlobalShortcut() {
+        let entries = AppMenus.statusMenu(MenuState(hotkeys: [.openReview: .defaultOpenReview]))
+        #expect(entries.contains(.action(
+            "Open UX Review",
+            .openUXReview,
+            shortcut: MenuShortcut("e", [.option, .shift, .command])
+        )))
+        #expect(AppMenus.statusMenu(MenuState()).contains(.action("Open UX Review", .openUXReview)))
+    }
+
     @Test func narrationCheckboxFollowsTheNextRecordingChoice() throws {
         let entries = AppMenus.statusMenu(MenuState(narratesNextRecording: true))
         #expect(try #require(submenu("Capture Video", in: entries)).last == .toggle(

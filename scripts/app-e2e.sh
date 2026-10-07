@@ -195,8 +195,9 @@ run settings-default 0 "${SUITE_ENV[@]}" -- --settings
 [[ "$(json "$TMP/settings-default.json" j.settings.captureHotkey)" == "⌥⇧⌘U" ]] || die "settings: default hotkey"
 [[ "$(json "$TMP/settings-default.json" j.defaultCapture)" == "Screenshot of Region" ]] || die "settings: default capture"
 [[ "$(json "$TMP/settings-default.json" j.settings.recordHotkey)" == "⌥⇧⌘V" ]] || die "settings: default record hotkey"
+[[ "$(json "$TMP/settings-default.json" j.settings.openReviewHotkey)" == "⌥⇧⌘E" ]] || die "settings: default open hotkey"
 [[ "$(json "$TMP/settings-default.json" j.settings.narration)" == false ]] || die "settings: narration on by default"
-ok "fresh settings: ⌥⇧⌘U starts a region screenshot, ⌥⇧⌘V records video, no narration"
+ok "fresh settings: ⌥⇧⌘U starts a region screenshot, ⌥⇧⌘V records video, ⌥⇧⌘E opens UX Review, no narration"
 
 run settings-narration-on 0 "${SUITE_ENV[@]}" -- --settings --set-narration on
 run settings-narration-read 0 "${SUITE_ENV[@]}" -- --settings
@@ -207,7 +208,7 @@ run settings-narration-off 0 "${SUITE_ENV[@]}" -- --settings --set-narration off
 ok "narration default persists across launches (on, then off); a bad value is rejected"
 
 # Pick combinations unlikely to be taken on the test machine.
-run settings-set 0 "${SUITE_ENV[@]}" -- --settings --set-hotkey "ctrl+opt+cmd+F7" --set-record-hotkey "ctrl+opt+cmd+F8" --set-target window --set-delay 3
+run settings-set 0 "${SUITE_ENV[@]}" -- --settings --set-hotkey "ctrl+opt+cmd+F7" --set-record-hotkey "ctrl+opt+cmd+F8" --set-open-hotkey "ctrl+opt+cmd+F9" --set-target window --set-delay 3
 run settings-read 0 "${SUITE_ENV[@]}" -- --settings
 [[ "$(json "$TMP/settings-read.json" j.settings.captureHotkey)" == "⌃⌥⌘F7" ]] || die "settings: hotkey not persisted"
 [[ "$(json "$TMP/settings-read.json" j.settings.recordHotkey)" == "⌃⌥⌘F8" ]] || die "settings: record hotkey not persisted"
@@ -215,8 +216,11 @@ run settings-read 0 "${SUITE_ENV[@]}" -- --settings
 [[ "$(json "$TMP/settings-read.json" j.hotkey.status)" == registered ]] || die "settings: hotkey not registered ($(json "$TMP/settings-read.json" j.hotkey.message))"
 [[ "$(json "$TMP/settings-read.json" j.recordHotkey.status)" == registered ]] || die "settings: record hotkey not registered ($(json "$TMP/settings-read.json" j.recordHotkey.message))"
 json "$TMP/settings-read.json" j.recordHotkey.message | grep -q "records a video" || die "settings: record hotkey message"
+[[ "$(json "$TMP/settings-read.json" j.settings.openReviewHotkey)" == "⌃⌥⌘F9" ]] || die "settings: open hotkey not persisted"
+[[ "$(json "$TMP/settings-read.json" j.openReviewHotkey.status)" == registered ]] || die "settings: open hotkey not registered ($(json "$TMP/settings-read.json" j.openReviewHotkey.message))"
+json "$TMP/settings-read.json" j.openReviewHotkey.message | grep -q "opens UX Review" || die "settings: open hotkey message"
 defaults read "$SUITE" captureSettings >/dev/null || die "settings: nothing in the defaults suite"
-ok "settings persist across launches and both hotkeys register with the system"
+ok "settings persist across launches and all three hotkeys register with the system"
 
 # A running app instance owns the hotkey, so a second registration must report the conflict.
 env "${SUITE_ENV[@]}" UXREVIEW_DRAFTS_DIR="$TMP/menu-drafts" "$APP_BIN" >/dev/null 2>&1 &
@@ -224,13 +228,13 @@ menu_pid=$!
 registered=""
 for _ in $(seq 1 50); do
   run settings-conflict 0 "${SUITE_ENV[@]}" -- --settings
-  [[ "$(json "$TMP/settings-conflict.json" '`${j.hotkey.status} ${j.recordHotkey.status}`')" == "inUse inUse" ]] && { registered=1; break; }
+  [[ "$(json "$TMP/settings-conflict.json" '`${j.hotkey.status} ${j.recordHotkey.status} ${j.openReviewHotkey.status}`')" == "inUse inUse inUse" ]] && { registered=1; break; }
   sleep 0.2
 done
 kill "$menu_pid" 2>/dev/null; wait "$menu_pid" 2>/dev/null || true
-[[ -n "$registered" ]] || die "settings: the running app did not hold both hotkeys"
+[[ -n "$registered" ]] || die "settings: the running app did not hold all three hotkeys"
 json "$TMP/settings-conflict.json" j.hotkey.message | grep -q "already used by another app" || die "settings: conflict message"
-ok "the running menu bar app holds both hotkeys; a second registration reports inUse for each"
+ok "the running menu bar app holds all three hotkeys; a second registration reports inUse for each"
 
 run settings-duplicate 2 "${SUITE_ENV[@]}" -- --settings --set-record-hotkey "ctrl+opt+cmd+F7"
 json "$TMP/settings-duplicate.json" j.message | grep -q "already the capture shortcut" || die "settings: duplicate message"
@@ -239,7 +243,12 @@ run settings-after-duplicate 0 "${SUITE_ENV[@]}" -- --settings
 run settings-record-off 0 "${SUITE_ENV[@]}" -- --settings --set-record-hotkey none
 [[ "$(json "$TMP/settings-record-off.json" j.recordHotkey.status)" == disabled ]] || die "settings: record hotkey disable"
 [[ "$(json "$TMP/settings-record-off.json" j.hotkey.status)" == registered ]] || die "settings: disabling record touched capture"
-ok "a duplicate of the other shortcut is rejected and not saved; the record hotkey disables on its own"
+run settings-open-duplicate 2 "${SUITE_ENV[@]}" -- --settings --set-open-hotkey "ctrl+opt+cmd+F7"
+json "$TMP/settings-open-duplicate.json" j.message | grep -q "already the capture shortcut" || die "settings: open duplicate message"
+run settings-open-off 0 "${SUITE_ENV[@]}" -- --settings --set-open-hotkey none
+[[ "$(json "$TMP/settings-open-off.json" j.openReviewHotkey.status)" == disabled ]] || die "settings: open hotkey disable"
+[[ "$(json "$TMP/settings-open-off.json" j.hotkey.status)" == registered ]] || die "settings: disabling open touched capture"
+ok "a duplicate of another shortcut is rejected and not saved; the record and open hotkeys disable on their own"
 
 run settings-disable 0 "${SUITE_ENV[@]}" -- --settings --set-hotkey none
 [[ "$(json "$TMP/settings-disable.json" j.hotkey.status)" == disabled ]] || die "settings: disable"

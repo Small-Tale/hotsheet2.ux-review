@@ -3,7 +3,7 @@ import Foundation
 /// Headless settings invocation of the app, used by scripts and end-to-end tests:
 ///
 ///     UXReview --settings [--set-hotkey ⌥⇧⌘U|none] [--set-record-hotkey ⌥⇧⌘V|none]
-///                         [--set-target display|window|region] [--set-delay N]
+///                         [--set-open-hotkey ⌥⇧⌘E|none] [--set-target display|window|region] [--set-delay N]
 ///                         [--set-narration on|off]
 ///
 /// Applies the changes (if any), saves them, registers the hotkeys, and prints the result.
@@ -13,6 +13,8 @@ public struct SettingsCommand: Equatable, Sendable {
     public var hotkey: Hotkey??
     /// `.some(nil)` disables the record-video hotkey.
     public var recordHotkey: Hotkey??
+    /// `.some(nil)` disables the Open UX Review hotkey.
+    public var openReviewHotkey: Hotkey??
     public var target: CaptureTarget?
     public var delaySeconds: Int?
     /// Records microphone narration by default.
@@ -21,22 +23,35 @@ public struct SettingsCommand: Equatable, Sendable {
     public init(
         hotkey: Hotkey?? = nil,
         recordHotkey: Hotkey?? = nil,
+        openReviewHotkey: Hotkey?? = nil,
         target: CaptureTarget? = nil,
         delaySeconds: Int? = nil,
         narration: Bool? = nil
     ) {
         self.hotkey = hotkey
         self.recordHotkey = recordHotkey
+        self.openReviewHotkey = openReviewHotkey
         self.target = target
         self.delaySeconds = delaySeconds
         self.narration = narration
     }
 
     public var changesSomething: Bool {
-        hotkey != nil || recordHotkey != nil || target != nil || delaySeconds != nil || narration != nil
+        hotkey != nil || recordHotkey != nil || openReviewHotkey != nil || target != nil || delaySeconds != nil || narration != nil
     }
 
-    static let hotkeyFlags: [(HotkeySlot, String)] = [(.capture, "--set-hotkey"), (.record, "--set-record-hotkey")]
+    static let hotkeyFlags: [(HotkeySlot, String)] = [
+        (.capture, "--set-hotkey"), (.record, "--set-record-hotkey"), (.openReview, "--set-open-hotkey"),
+    ]
+
+    /// The change requested for `slot`'s hotkey, if any.
+    func hotkeyChange(_ slot: HotkeySlot) -> Hotkey?? {
+        switch slot {
+        case .capture: hotkey
+        case .record: recordHotkey
+        case .openReview: openReviewHotkey
+        }
+    }
 
     /// Returns nil when `--settings` is absent.
     public static func parse(_ arguments: [String]) throws -> SettingsCommand? {
@@ -45,6 +60,7 @@ public struct SettingsCommand: Equatable, Sendable {
         var command = SettingsCommand()
         command.hotkey = try parseHotkey(values, flag: "--set-hotkey")
         command.recordHotkey = try parseHotkey(values, flag: "--set-record-hotkey")
+        command.openReviewHotkey = try parseHotkey(values, flag: "--set-open-hotkey")
         command.target = try values.optional("--set-target").map { text in
             guard let target = CaptureTarget(rawValue: text) else { throw CommandLineError.invalidValue("--set-target", text) }
             return target
@@ -80,10 +96,11 @@ public struct SettingsCommand: Equatable, Sendable {
         var settings = settings
         if let hotkey { settings.captureHotkey = hotkey }
         if let recordHotkey { settings.recordHotkey = recordHotkey }
+        if let openReviewHotkey { settings.openReviewHotkey = openReviewHotkey }
         if let target { settings.defaultRequest.target = target }
         if let delaySeconds { settings.defaultRequest.delaySeconds = delaySeconds }
         if let narration { settings.narration = narration }
-        for (slot, flag) in Self.hotkeyFlags where (slot == .capture ? hotkey : recordHotkey) != nil {
+        for (slot, flag) in Self.hotkeyFlags where hotkeyChange(slot) != nil {
             if let chosen = settings[slot], let problem = settings.problem(with: chosen, for: slot) {
                 throw CommandLineError.invalidValue(flag, "\(chosen.display): \(problem)")
             }
