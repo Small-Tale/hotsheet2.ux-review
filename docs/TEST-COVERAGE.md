@@ -242,3 +242,25 @@ Each feature gets both unit tests and end-to-end tests. Tests live in
 - **Not covered automatically:** the open panel and the editor switching to the imported item
   in a live window. Both are thin AppKit glue over the tested importer and
   `AnnotationEditor.show(mediaId:)`.
+
+## HS2-9Y9DDY: editor zoom and pan
+
+- **Unit** (`CanvasViewportTests`):
+  - fit and the 2× cap
+  - degenerate sizes
+  - actual pixels and back to fit
+  - walking every ⌘+/⌘- stop, clamped at both ends (including a fit below 5 %)
+  - the anchor pixel stays put while magnifying
+  - panning, clamped at all four edges, responding immediately after hitting one
+  - a fitted capture doesn't pan
+  - single-axis centering
+  - a transition walk: zoom → pan to the edge → narrower and wider window → crop → fit → step
+  - scale range on 1× and 2× displays
+- **App end to end:** `--render-ui-previews` writes `editor-zoomed.png` (300 % with a
+  selection) through the real canvas and model.
+- **Visual QA:** `editor-zoomed.png` checked by eye. The zoomed image is clipped to the canvas
+  (a real bug, found and fixed: since macOS 14 views don't clip by default, so the image
+  painted over the tool bar and media strip). Handles and badges stay at screen size, and the
+  tool bar shows 300 %.
+- **Not covered automatically:** live pinch, scroll, and space-drag events. They are thin
+  adapters onto the tested `CanvasViewport` calls.

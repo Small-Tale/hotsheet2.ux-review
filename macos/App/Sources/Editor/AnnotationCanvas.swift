@@ -2,39 +2,61 @@ import AppKit
 import SwiftUI
 import UXReviewKit
 
-/// The editor's drawing surface: shows the current media fitted to the view and turns mouse and
-/// keyboard input into `AnnotationEditor` calls. Drawing goes through `AnnotationRenderer`, the
-/// same code the previews and `--annotate --render-dir` use. Spec: docs/06-annotation-editor.md §6.2–6.5.
+/// The editor's drawing surface: shows the current media, fitted or zoomed (`CanvasViewport`),
+/// and turns mouse, trackpad, and keyboard input into `AnnotationEditor` and zoom calls. Drawing
+/// goes through `AnnotationRenderer`, the same code the previews and `--annotate --render-dir`
+/// use. Spec: docs/06-annotation-editor.md §6.2–6.5.
 final class AnnotationCanvasView: NSView {
     var model: EditorModel? {
         didSet { needsDisplay = true }
     }
 
-    static let padding: CGFloat = 28
     static let strokeWidth: CGFloat = 2.5
+
+    /// Space is held: dragging pans instead of drawing.
+    private var spaceHeld = false
+    /// The last pointer location of a pan drag (space-drag or middle-button drag).
+    private var panAnchor: CGPoint?
 
     override var isFlipped: Bool { true }
     override var acceptsFirstResponder: Bool { true }
     override func acceptsFirstMouse(for _: NSEvent?) -> Bool { true }
 
-    /// Where the media is drawn: aspect-fit inside the padded bounds, never upscaled past 2×.
+    /// Where the media is drawn: fitted (never upscaled past 2×) or as zoomed and panned.
     func renderer() -> AnnotationRenderer? {
-        guard let model, let item = model.editor.currentMedia else { return nil }
-        let frame = MediaFrame(item)
-        let available = bounds.insetBy(dx: Self.padding, dy: Self.padding)
-        guard available.width > 0, available.height > 0 else { return nil }
-        let scale = min(available.width / frame.width, available.height / frame.height, 2)
-        let size = CGSize(width: frame.width * scale, height: frame.height * scale)
-        let origin = CGPoint(x: available.midX - size.width / 2, y: available.midY - size.height / 2)
-        return AnnotationRenderer(frame: frame, imageRect: CGRect(origin: origin, size: size), lineWidth: Self.strokeWidth)
+        guard let model, let item = model.editor.currentMedia, let layout = model.layout(in: bounds.size) else { return nil }
+        return AnnotationRenderer(frame: MediaFrame(item), imageRect: layout.imageRect, lineWidth: Self.strokeWidth)
+    }
+
+    override func setFrameSize(_ newSize: NSSize) {
+        super.setFrameSize(newSize)
+        reportSize()
+    }
+
+    override func viewDidChangeBackingProperties() {
+        super.viewDidChangeBackingProperties()
+        reportSize()
+    }
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        reportSize()
+    }
+
+    private func reportSize() {
+        model?.canvasDidResize(bounds.size, backingScale: window?.backingScaleFactor ?? 2)
     }
 
     // MARK: Drawing
 
     override func draw(_: NSRect) {
         guard let context = NSGraphicsContext.current?.cgContext else { return }
+        // A zoomed image extends past the canvas; views no longer clip by default (macOS 14).
+        clipsToBounds = true
+        context.clip(to: bounds)
         context.setFillColor(CGColor(gray: 0.13, alpha: 1))
         context.fill(bounds)
+        reportSize()
         guard let model, let item = model.editor.currentMedia, let renderer = renderer() else {
             drawPlaceholder("No captures in this review yet.")
             return
@@ -80,7 +102,83 @@ final class AnnotationCanvasView: NSView {
 
     override func resetCursorRects() {
         guard let model else { return }
-        addCursorRect(bounds, cursor: model.editor.tool == .select ? .arrow : .crosshair)
+        if spaceHeld {
+            addCursorRect(bounds, cursor: panAnchor == nil ? .openHand : .closedHand)
+        } else {
+            addCursorRect(bounds, cursor: model.editor.tool == .select ? .arrow : .crosshair)
+        }
+    }
+
+    // MARK: Zoom and pan
+
+    private func location(_ event: NSEvent) -> CGPoint { convert(event.locationInWindow, from: nil) }
+
+    /// Pinch to zoom about the pointer.
+    override func magnify(with event: NSEvent) {
+        let anchor = location(event)
+        model?.zoom { $0.magnify(by: 1 + event.magnification, anchor: anchor, view: $1, media: $2, backingScale: $3) }
+    }
+
+    /// Two-finger double tap: toggle between fit and actual pixels at the pointer.
+    override func smartMagnify(with event: NSEvent) {
+        guard let model else { return }
+        if model.viewport.isFit {
+            let anchor = location(event)
+            model.zoom { $0.zoom(to: 1 / $3, anchor: anchor, view: $1, media: $2, backingScale: $3) }
+        } else {
+            model.zoomToFit()
+        }
+    }
+
+    /// Scrolling pans a zoomed image; ⌘-scroll (or a mouse wheel with ⌘) zooms about the pointer.
+    override func scrollWheel(with event: NSEvent) {
+        guard let model else { return }
+        if event.modifierFlags.contains(.command) {
+            let delta = event.hasPreciseScrollingDeltas ? event.scrollingDeltaY / 100 : event.scrollingDeltaY / 10
+            let anchor = location(event)
+            model.zoom { $0.magnify(by: exp(delta), anchor: anchor, view: $1, media: $2, backingScale: $3) }
+        } else {
+            let scale: CGFloat = event.hasPreciseScrollingDeltas ? 1 : 10 // wheel "lines" to points
+            let delta = CGVector(dx: event.scrollingDeltaX * scale, dy: event.scrollingDeltaY * scale)
+            model.zoom { viewport, view, media, _ in viewport.pan(by: delta, view: view, media: media) }
+        }
+    }
+
+    private func beginPan(_ event: NSEvent) {
+        panAnchor = location(event)
+        window?.invalidateCursorRects(for: self)
+    }
+
+    private func continuePan(_ event: NSEvent) {
+        guard let model, let last = panAnchor else { return }
+        let point = location(event)
+        panAnchor = point
+        let delta = CGVector(dx: point.x - last.x, dy: point.y - last.y)
+        model.zoom { viewport, view, media, _ in viewport.pan(by: delta, view: view, media: media) }
+    }
+
+    private func endPan() {
+        panAnchor = nil
+        window?.invalidateCursorRects(for: self)
+    }
+
+    override func otherMouseDown(with event: NSEvent) { beginPan(event) }
+    override func otherMouseDragged(with event: NSEvent) { continuePan(event) }
+    override func otherMouseUp(with _: NSEvent) { endPan() }
+
+    /// ⌘+ (or ⌘=), ⌘-, ⌘0 (fit), ⌘1 (actual pixels), whichever control in the window has focus.
+    override func performKeyEquivalent(with event: NSEvent) -> Bool {
+        guard let model, window?.isKeyWindow == true,
+              event.modifierFlags.intersection(.deviceIndependentFlagsMask).subtracting(.shift) == .command
+        else { return super.performKeyEquivalent(with: event) }
+        switch event.charactersIgnoringModifiers {
+        case "=", "+": model.zoomIn()
+        case "-": model.zoomOut()
+        case "0": model.zoomToFit()
+        case "1": model.zoomToActualPixels()
+        default: return super.performKeyEquivalent(with: event)
+        }
+        return true
     }
 
     // MARK: Mouse
@@ -92,6 +190,7 @@ final class AnnotationCanvasView: NSView {
 
     override func mouseDown(with event: NSEvent) {
         window?.makeFirstResponder(self)
+        if spaceHeld { return beginPan(event) }
         guard let model, let point = mediaPoint(event), let scale = renderer()?.scale else { return }
         model.mutate { editor in
             // Sizes are in screen points, so the feel is the same at every zoom.
@@ -105,11 +204,13 @@ final class AnnotationCanvasView: NSView {
     }
 
     override func mouseDragged(with event: NSEvent) {
+        if panAnchor != nil { return continuePan(event) }
         guard let model, let point = mediaPoint(event) else { return }
         model.mutate { $0.updateGesture(to: point) }
     }
 
     override func mouseUp(with event: NSEvent) {
+        if panAnchor != nil { return endPan() }
         guard let model else { return }
         if let point = mediaPoint(event) {
             model.mutate { $0.updateGesture(to: point) }
@@ -139,6 +240,7 @@ final class AnnotationCanvasView: NSView {
 
     override func keyDown(with event: NSEvent) {
         guard let model else { return super.keyDown(with: event) }
+        if holdSpace(event) { return }
         let shift = event.modifierFlags.contains(.shift)
         let step: Double = shift ? 10 : 1
         let command = event.modifierFlags.contains(.command)
@@ -172,6 +274,28 @@ final class AnnotationCanvasView: NSView {
             }
         }
         window?.invalidateCursorRects(for: self)
+    }
+
+    /// Space (outside a gesture) turns dragging into panning until it is released.
+    private func holdSpace(_ event: NSEvent) -> Bool {
+        guard event.charactersIgnoringModifiers == " ", model?.editor.gesture == nil else { return false }
+        if !spaceHeld {
+            spaceHeld = true
+            window?.invalidateCursorRects(for: self)
+        }
+        return true
+    }
+
+    override func keyUp(with event: NSEvent) {
+        guard event.charactersIgnoringModifiers == " " else { return super.keyUp(with: event) }
+        spaceHeld = false
+        endPan()
+    }
+
+    override func resignFirstResponder() -> Bool {
+        spaceHeld = false
+        panAnchor = nil
+        return super.resignFirstResponder()
     }
 }
 

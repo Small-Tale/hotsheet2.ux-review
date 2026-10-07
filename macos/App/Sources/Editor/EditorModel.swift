@@ -18,6 +18,13 @@ final class EditorModel: ObservableObject {
     @Published private(set) var saveError: String?
     /// Asks the inspector to focus the note field (double-click on a shape, Return).
     @Published var focusNoteRequest = 0
+    /// Zoom and pan of the canvas (docs/06 §6.2.1); back to fit whenever other media is shown.
+    @Published private(set) var viewport = CanvasViewport()
+    /// The canvas's size and screen scale, reported by the canvas so tool bar zoom commands
+    /// work in the same coordinates.
+    private(set) var canvasSize = CGSize(width: 900, height: 700)
+    private(set) var backingScale: CGFloat = 2
+    private var viewportMediaId: String?
 
     private var saveTask: Task<Void, Never>?
     private var imageCache: [String: (crop: PixelRect?, image: CGImage?)] = [:]
@@ -27,6 +34,7 @@ final class EditorModel: ObservableObject {
 
     init(session: EditorSession) {
         self.session = session
+        viewportMediaId = session.editor.currentMediaId
         draftChanges = NotificationCenter.default.publisher(for: .reviewDraftChanged)
             .compactMap { $0.object as? URL }
             .receive(on: DispatchQueue.main)
@@ -40,8 +48,55 @@ final class EditorModel: ObservableObject {
     /// Applies a change to the editor, redraws, and schedules an autosave once no gesture is running.
     func mutate(_ change: (inout AnnotationEditor) -> Void) {
         change(&session.editor)
+        syncViewport()
         revision += 1
         scheduleSave()
+    }
+
+    // MARK: Zoom and pan
+
+    /// The current media's size in pixels (as cropped), which the viewport lays out.
+    var mediaSize: CGSize? {
+        editor.currentFrame.map { CGSize(width: $0.width, height: $0.height) }
+    }
+
+    /// Where the current media is drawn in a canvas of `size`.
+    func layout(in size: CGSize) -> CanvasViewport.Layout? {
+        mediaSize.flatMap { viewport.layout(view: size, media: $0) }
+    }
+
+    var zoomPercent: Int? { layout(in: canvasSize)?.percent(backingScale: backingScale) }
+
+    func canvasDidResize(_ size: CGSize, backingScale: CGFloat) {
+        guard size != canvasSize || backingScale != self.backingScale else { return }
+        canvasSize = size
+        self.backingScale = backingScale
+        // The fit percentage shown in the tool bar follows the size; publish outside layout.
+        DispatchQueue.main.async { [weak self] in self?.revision += 1 }
+    }
+
+    /// Applies a zoom/pan change in the canvas's coordinates.
+    func zoom(_ change: (inout CanvasViewport, _ view: CGSize, _ media: CGSize, _ backingScale: CGFloat) -> Void) {
+        guard let media = mediaSize else { return }
+        change(&viewport, canvasSize, media, backingScale)
+        revision += 1
+    }
+
+    func zoomIn(anchor: CGPoint? = nil) { zoom { $0.step(in: true, anchor: anchor, view: $1, media: $2, backingScale: $3) } }
+    func zoomOut(anchor: CGPoint? = nil) { zoom { $0.step(in: false, anchor: anchor, view: $1, media: $2, backingScale: $3) } }
+    func zoomToFit() { zoom { viewport, _, _, _ in viewport.fit() } }
+    func zoomToActualPixels() { zoom { $0.actualPixels(view: $1, media: $2, backingScale: $3) } }
+
+    /// Previews set an exact viewport.
+    func setViewport(_ viewport: CanvasViewport) {
+        self.viewport = viewport
+        revision += 1
+    }
+
+    private func syncViewport() {
+        guard editor.currentMediaId != viewportMediaId else { return }
+        viewportMediaId = editor.currentMediaId
+        viewport = CanvasViewport()
     }
 
     /// The current image for `mediaId` (cropped as edited), cached per crop.
@@ -85,7 +140,10 @@ final class EditorModel: ObservableObject {
     private func draftChanged(_ directory: URL) {
         guard directory.standardizedFileURL == session.directory.standardizedFileURL else { return }
         do {
-            if try !session.reload().isEmpty { revision += 1 }
+            if try !session.reload().isEmpty {
+                syncViewport()
+                revision += 1
+            }
         } catch {
             saveError = "Couldn't reload the review: \(error)"
         }

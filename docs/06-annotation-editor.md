@@ -35,7 +35,7 @@ opens the editor on the current draft.
 | --- | --- |
 | Tool bar | Tools (§6.3), Undo, Redo, **Reset Crop** (only while the image is cropped), and a status line: "Editing…" / "Saved to draft", the last editor message, or a save error |
 | Media strip (left, only with 2+ captures) | Thumbnails (with the current crop) plus a count badge of annotations on each. Click one to show it. Videos are marked |
-| Canvas | The current capture fitted to the view (at most 2×) on a dark backdrop, with annotations drawn on top |
+| Canvas | The current capture fitted to the view (at most 2×) or zoomed (§6.2.1), on a dark backdrop, with annotations drawn on top |
 | Inspector (right) | The selected annotation's number, shape, intents, and Markdown note, with Duplicate and Delete buttons. Below that, every annotation on this capture in review order: number, shape, intents, and note preview. Click a row to select it |
 
 Videos show their first frame. You can annotate them, but they have no time range (the whole
@@ -94,6 +94,41 @@ in the whole review. This is the same `#N` the intake ticket uses
 The same renderer produces the offscreen previews and `--annotate --render-dir` output, so what
 tests inspect is what the reviewer sees.
 
+### 6.2.1 Zoom and pan
+
+The canvas fits the capture to the view by default. To mark small details precisely (for
+example in a 5K screenshot), zoom in (`HS2-9Y9DDY`):
+
+| Input | Action |
+| --- | --- |
+| Pinch | Zoom about the pointer |
+| ⌘-scroll (trackpad or mouse wheel) | Zoom about the pointer |
+| ⌘+ (or ⌘=) / ⌘- | Zoom in / out to the next stop: 5, 10, 25, 33, 50, 67, 100, 150, 200, 300, 400, 600, 800, 1200, 1600 % |
+| ⌘0 | Zoom to fit |
+| ⌘1 | Actual pixels (100 %) |
+| Two-finger double tap | Toggle between fit and actual pixels at the pointer |
+| Scroll (two fingers or wheel) | Pan a zoomed capture |
+| Space-drag, middle-button drag | Pan (the cursor becomes a hand) |
+
+- **Percent** is relative to actual pixels: 100 % is one capture pixel per screen pixel, so
+  on a Retina display 100 % shows a 2× screenshot at its original on-screen size.
+- **Tool bar:** the right end has − / percent / + controls. The percent menu offers Zoom to
+  Fit, Actual Pixels, Zoom In, and Zoom Out.
+- **Shortcuts:** the zoom shortcuts work while the window is key, even if a note field has
+  focus.
+- **Range:** from 5 % (or the fit, if that is smaller) to 1600 %. Zooming keeps the capture
+  pixel under the pointer in place, and the canvas middle for keyboard and tool bar zoom.
+- **Panning** stops when a capture edge reaches the canvas padding. A capture smaller than the
+  canvas on an axis stays centered on that axis.
+- **Resizing** the window keeps the zoom and the pixel at the canvas middle. A fitted capture
+  stays fitted.
+- **Switching** to another capture returns to fit. Cropping keeps the zoom and re-clamps.
+- **Screen-point sizes:** strokes, handles, badges, the 7-point hit tolerance, and the
+  6-point minimum shape size (§6.3) stay the same at every zoom.
+- **Zoom is a view setting.** It isn't saved in the draft.
+- **Implementation:** `CanvasViewport` in `UXReviewKit` holds the layout math (fit, stops,
+  anchored zoom, clamped pan) and is unit-tested. The canvas feeds it events.
+
 ## 6.3 Tools and gestures
 
 | Tool | Key | Gesture |
@@ -143,6 +178,7 @@ So a small box drawn inside a big one stays selectable.
 | ⌘Z / ⇧⌘Z | Undo / redo |
 | ⌘D | Duplicate the selection (offset 2 %, with the same note and intents) |
 | ⌘S | Save now |
+| ⌘+ / ⌘- / ⌘0 / ⌘1, Space-drag | Zoom in / out / fit / actual pixels, pan (§6.2.1) |
 
 Fuller keyboard and VoiceOver access to the canvas is `HS2-M8ZFS0`.
 
@@ -303,3 +339,4 @@ editor offscreen through the real views, on a draft of mock app screenshots:
 - `editor-narrow` (the 900 × 560 minimum)
 - `editor-crop-drag`
 - `editor-cropped`
+- `editor-zoomed` (300 % with a selection, §6.2.1)

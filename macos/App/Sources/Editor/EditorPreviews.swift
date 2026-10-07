@@ -26,9 +26,12 @@ enum EditorPreviews {
 
         var written: [URL] = []
         // Nothing is saved, so every state starts from the same empty draft.
-        func capture(_ name: String, size: CGSize, script: [EditorScript.Step], cropDrag: Bool = false) throws {
+        func capture(
+            _ name: String, size: CGSize, script: [EditorScript.Step], cropDrag: Bool = false, viewport: CanvasViewport? = nil
+        ) throws {
             let model = try EditorModel(session: EditorSession(store: store, directory: draft.directory))
             script.forEach { apply($0, to: model) }
+            if let viewport { model.setViewport(viewport) }
             if cropDrag {
                 model.mutate { editor in
                     editor.beginGesture(at: CGPoint(x: 220, y: 90))
@@ -44,6 +47,11 @@ enum EditorPreviews {
         try capture("editor-narrow", size: CGSize(width: 900, height: 560), script: annotations + [.select("#2")])
         try capture("editor-crop-drag", size: wide, script: annotations + [.tool(.crop)], cropDrag: true)
         try capture("editor-cropped", size: wide, script: annotations + [.crop(CGRect(x: 220, y: 90, width: 1180, height: 560))])
+        // 300 % (1.5 points per pixel) on the clipped-label box, panned so its corner is near the middle.
+        try capture(
+            "editor-zoomed", size: wide, script: annotations + [.select("#1")],
+            viewport: CanvasViewport(zoom: 1.5, center: CGPoint(x: 560, y: 300))
+        )
         return written
     }
 

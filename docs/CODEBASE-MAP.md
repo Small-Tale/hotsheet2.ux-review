@@ -42,6 +42,7 @@ macos/
     Settings/SettingsCommand.swift    `--settings` argument parsing (docs/05 §5.5)
     Editor/AnnotationEditor.swift     editor state machine: document, selection, undo/redo, intent toggle (docs/06)
     Editor/AnnotationEditor+Gestures.swift  draw/move/resize/crop gestures, hit testing, crop + reset crop
+    Editor/CanvasViewport.swift       canvas zoom/pan: fit, zoom stops, anchored zoom, clamped pan (docs/06 §6.2.1)
     Editor/ShapeGeometry.swift        MediaFrame pixel ↔ normalized, handles, hit distance, translate/resize
     Editor/ImageCrop.swift            PixelRect snapping, annotation transform into a crop
     Editor/AnnotationRenderer.swift   CoreGraphics drawing of shapes, badges, handles, crop overlay; IntentPalette

@@ -54,10 +54,43 @@ struct EditorToolbar: View {
             }
             Spacer(minLength: 8)
             StatusLine(model: model)
+            ZoomControl(model: model)
         }
         .buttonStyle(.borderless)
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
+    }
+}
+
+/// − [percent ▾] +, where the menu offers Fit and Actual Pixels. Mirrors ⌘-, ⌘0/⌘1, ⌘+.
+struct ZoomControl: View {
+    @ObservedObject var model: EditorModel
+
+    var body: some View {
+        HStack(spacing: 2) {
+            Button { model.zoomOut() } label: { Image(systemName: "minus.magnifyingglass") }
+                .help("Zoom Out (⌘-)")
+            Menu {
+                Button("Zoom to Fit (⌘0)") { model.zoomToFit() }
+                Button("Actual Pixels (⌘1)") { model.zoomToActualPixels() }
+                Divider()
+                Button("Zoom In (⌘+)") { model.zoomIn() }
+                Button("Zoom Out (⌘-)") { model.zoomOut() }
+            } label: {
+                Text(model.zoomPercent.map { "\($0) %" } ?? "–")
+                    .monospacedDigit()
+                    .frame(minWidth: 52)
+            }
+            .menuStyle(.borderlessButton)
+            .menuIndicator(.hidden)
+            .fixedSize()
+            .help(model.viewport.isFit ? "Fitted to the window. Pinch, ⌘-scroll, or ⌘+ to zoom" : "Scroll or space-drag to pan")
+            .accessibilityLabel("Zoom")
+            .accessibilityValue(model.zoomPercent.map { "\($0) percent" } ?? "")
+            Button { model.zoomIn() } label: { Image(systemName: "plus.magnifyingglass") }
+                .help("Zoom In (⌘+)")
+        }
+        .disabled(model.editor.currentMedia == nil)
     }
 }
 
