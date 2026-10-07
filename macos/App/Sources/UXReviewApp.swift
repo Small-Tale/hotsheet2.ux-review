@@ -94,6 +94,7 @@ struct UXReviewApp: App {
         }
         // Images and movies opened from Finder go into the current draft (docs/04 §4.12.1).
         AppDelegate.openHandler = { [weak capture] urls in capture?.openMedia(urls) }
+        capture.narrationDefault = { [weak settings] in settings?.settings.narration ?? false }
         _capture = StateObject(wrappedValue: capture)
         _settings = StateObject(wrappedValue: settings)
     }

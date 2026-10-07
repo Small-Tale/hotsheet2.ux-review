@@ -74,6 +74,19 @@ struct CaptureSettingsTests {
         #expect(settings.recordHotkey == .defaultRecord)
         #expect(Hotkey.defaultRecord.display == "⌥⇧⌘V")
         #expect(settings.defaultRequest == CaptureRequest(kind: .screenshot, target: .region, delaySeconds: 0))
+        #expect(!settings.narration) // narration is opt-in
+    }
+
+    /// Off → on → off, each surviving a save and reload alongside the other fields.
+    @Test func persistsNarration() throws {
+        let store = MemoryStore()
+        var settings = CaptureSettings(defaultRequest: CaptureRequest(kind: .video, target: .display), narration: true)
+        try CaptureSettingsStore.save(settings, to: store)
+        #expect(CaptureSettingsStore.load(from: store) == settings)
+        #expect(CaptureSettingsStore.load(from: store).narration)
+        settings.narration = false
+        try CaptureSettingsStore.save(settings, to: store)
+        #expect(CaptureSettingsStore.load(from: store) == settings)
     }
 
     /// Save → load → change → save → load, plus disabling and re-enabling the hotkey.
@@ -98,8 +111,8 @@ struct CaptureSettingsTests {
         try CaptureSettingsStore.save(CaptureSettings(), to: store)
         let json = try #require(store.data(forKey: CaptureSettingsStore.key).flatMap { String(data: $0, encoding: .utf8) })
         #expect(
-            json ==
-                #"{"captureHotkey":"⌥⇧⌘U","defaultRequest":{"delaySeconds":0,"kind":"screenshot","target":"region"},"recordHotkey":"⌥⇧⌘V"}"#
+            json == #"{"captureHotkey":"⌥⇧⌘U","defaultRequest":{"delaySeconds":0,"kind":"screenshot","target":"region"},"#
+                + #""narration":false,"recordHotkey":"⌥⇧⌘V"}"#
         )
     }
 
@@ -116,6 +129,10 @@ struct CaptureSettingsTests {
         (#"{"captureHotkey":"⌃⌘9"}"#, CaptureSettings(captureHotkey: Hotkey("⌃⌘9"), recordHotkey: .defaultRecord)),
         (#"{"recordHotkey":null}"#, CaptureSettings(recordHotkey: nil)),
         (#"{"recordHotkey":"⌘?"}"#, CaptureSettings()),
+        // Settings saved before narration existed record without it.
+        (#"{"captureHotkey":"⌥⇧⌘U"}"#, CaptureSettings(narration: false)),
+        (#"{"narration":true}"#, CaptureSettings(narration: true)),
+        (#"{"narration":"yes"}"#, CaptureSettings()), // wrong type → all defaults
     ])
     func loadsPartialOrBrokenValues(json: String, expected: CaptureSettings) {
         let store = MemoryStore()
@@ -253,6 +270,18 @@ struct SettingsCommandTests {
         #expect(try record.apply(to: CaptureSettings()) == CaptureSettings(recordHotkey: nil))
     }
 
+    @Test func setsNarrationOnAndOff() throws {
+        let turnOn = try #require(try SettingsCommand.parse(["--settings", "--set-narration", "on"]))
+        #expect(turnOn.changesSomething)
+        #expect(try turnOn.apply(to: CaptureSettings()) == CaptureSettings(narration: true))
+        let off = try #require(try SettingsCommand.parse(["--settings", "--set-narration", "OFF"]))
+        #expect(try off.apply(to: CaptureSettings(narration: true)) == CaptureSettings())
+        // Absent: unchanged either way.
+        let none = try #require(try SettingsCommand.parse(["--settings", "--set-delay", "3"]))
+        #expect(none.narration == nil)
+        #expect(try none.apply(to: CaptureSettings(narration: true)).narration)
+    }
+
     @Test func setsTheRecordHotkey() throws {
         let command = try #require(try SettingsCommand.parse(["--settings", "--set-record-hotkey", "ctrl+opt+cmd+F7"]))
         #expect(try command.apply(to: CaptureSettings()).recordHotkey == Hotkey("⌃⌥⌘F7"))
@@ -293,6 +322,8 @@ struct SettingsCommandTests {
         (["--settings", "--set-hotkey"], CommandLineError.missingValue("--set-hotkey")),
         (["--settings", "--set-record-hotkey", "cmd+enter"], CommandLineError.invalidValue("--set-record-hotkey", "cmd+enter")),
         (["--settings", "--set-record-hotkey"], CommandLineError.missingValue("--set-record-hotkey")),
+        (["--settings", "--set-narration", "yes"], CommandLineError.invalidValue("--set-narration", "yes")),
+        (["--settings", "--set-narration"], CommandLineError.missingValue("--set-narration")),
     ])
     func rejectsBadValues(arguments: [String], expected: CommandLineError) {
         #expect(throws: expected) { try SettingsCommand.parse(arguments) }

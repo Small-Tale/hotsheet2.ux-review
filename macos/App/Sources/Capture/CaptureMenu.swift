@@ -14,6 +14,11 @@ struct CaptureMenuSection: View {
             captureItems(.screenshot, title: "Screenshot", delayedTitle: "Screenshot After Delay")
             Divider()
             captureItems(.video, title: "Record Video", delayedTitle: "Record Video After Delay")
+            // Applies to the next recording only; Settings holds the default (docs/04 §4.9).
+            Toggle("Narrate Next Recording with Microphone", isOn: Binding(
+                get: { capture.narrationChoice ?? settings.settings.narration },
+                set: { capture.narrationChoice = $0 == settings.settings.narration ? nil : $0 }
+            ))
         case let .countingDown(_, remaining):
             Button("Cancel Capture (\(remaining) s)") { capture.cancel() }
         case .picking:
@@ -24,6 +29,9 @@ struct CaptureMenuSection: View {
             // The menu is rebuilt each time it opens, so the elapsed time is current then.
             Button("Stop Recording (\(CaptureCoordinator.clock(Int(Date().timeIntervalSince(startedAt) * 1000))))") {
                 capture.stopRecording()
+            }
+            if capture.recordingNarration {
+                Text("Recording microphone narration")
             }
         case .finishing:
             Text("Saving recording…")

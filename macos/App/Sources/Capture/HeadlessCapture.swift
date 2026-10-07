@@ -2,8 +2,9 @@ import AppKit
 import UXReviewKit
 
 /// `UXReview --capture …`: one capture (or a fixed-length recording) without any UI, printing a JSON result. Used by
-/// scripts/app-e2e.sh. Exit codes: 0 captured, 2 bad arguments, 4 no Screen Recording
-/// permission, 5 target unavailable or capture failed. Spec: docs/04-capture.md §4.11.
+/// scripts/app-e2e.sh. Exit codes: 0 captured, 2 bad arguments, 4 no Screen Recording (or, with
+/// `--narration`, Microphone) permission, 5 target or microphone unavailable, or capture failed.
+/// Headless mode never shows a permission prompt. Spec: docs/04-capture.md §4.11.
 @MainActor
 enum HeadlessCapture {
     struct Success: Encodable {
@@ -14,6 +15,8 @@ enum HeadlessCapture {
         var media: MediaItem
         var bundleContext: CaptureContext
         var delayMs: Int
+        /// Video only: whether the movie has a narration track.
+        var narration: Bool?
     }
 
     struct Failure: Encodable {
@@ -34,6 +37,13 @@ enum HeadlessCapture {
         let backend = CaptureBackends.make()
         let store = ReviewDraftStore(root: command.draftsDirectory ?? AppSettings.draftsDirectory())
         guard backend.hasPermission() else { return fail(CaptureFailure.permissionDenied) }
+        if case let .blocked(access) = NarrationPlan.decide(
+            requested: command.narration,
+            access: backend.microphoneAccess(),
+            canPrompt: false
+        ) {
+            return fail(CaptureFailure.microphone(access))
+        }
 
         do {
             let source = try resolve(command)
@@ -45,12 +55,19 @@ enum HeadlessCapture {
             if command.newReview { try store.startNew() }
             let pipeline = CapturePipeline(backend: backend, store: store)
             let outcome: CaptureOutcome
+            var narration: Bool?
             if command.request.kind == .video {
                 let context = CaptureContextProvider.context(for: source, displayScale: nil)
                 let startedAt = Date()
-                let recording = try await backend.startRecording(source, to: CapturePipeline.temporaryMovieURL()) {}
+                let recording = try await backend.startRecording(
+                    source,
+                    to: CapturePipeline.temporaryMovieURL(),
+                    narration: command.narration
+                ) {}
                 try await Task.sleep(for: .seconds(command.durationSeconds ?? 1))
-                outcome = try await pipeline.addVideo(try recording.stop(), context: context, startedAt: startedAt)
+                let video = try await recording.stop()
+                narration = video.hasNarration
+                outcome = try pipeline.addVideo(video, context: context, startedAt: startedAt)
             } else {
                 outcome = try await pipeline.screenshot(source)
             }
@@ -60,7 +77,8 @@ enum HeadlessCapture {
                 draftDirectory: outcome.draft.directory.path,
                 media: outcome.media,
                 bundleContext: outcome.draft.bundle.context,
-                delayMs: delayMs
+                delayMs: delayMs,
+                narration: narration
             )))
             return 0
         } catch let failure as CaptureFailure {
@@ -100,7 +118,7 @@ enum HeadlessCapture {
     }
 
     private static func fail(_ failure: CaptureFailure) -> Int32 {
-        fail(failure.code, failure.description, code: failure == .permissionDenied ? 4 : 5)
+        fail(failure.code, failure.description, code: failure == .permissionDenied || failure.code == "microphonePermissionDenied" ? 4 : 5)
     }
 
     private static func fail(_ error: String, _ message: String, code: Int32) -> Int32 {

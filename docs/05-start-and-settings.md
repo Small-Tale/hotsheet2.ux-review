@@ -19,7 +19,8 @@ derived from the Hot Sheet 2 design export `docs/design/exports/ux-review-status
 3. **Record Video of Screen / Window / Region**, and the **Record Video After Delay** submenu
    ([04-capture.md](04-capture.md) §4.9). The item for the default target shows the
    record-video shortcut (§5.2) when the default delay is None, since that is exactly what the
-   shortcut does.
+   shortcut does. Below them, the **Narrate Next Recording with Microphone** checkbox turns
+   narration on or off for the next recording only ([04-capture.md](04-capture.md) §4.9).
 4. Current review status, **Annotate Current Review…** (⌘E; disabled with no draft; see
    [06-annotation-editor.md](06-annotation-editor.md)), **Open Media for Annotation…** (⌘O;
    existing images and movies, [04-capture.md](04-capture.md) §4.12), **Show Current Review in
@@ -30,7 +31,8 @@ derived from the Hot Sheet 2 design export `docs/design/exports/ux-review-status
 The capture items are replaced while a capture runs:
 
 - During a countdown, by **Cancel Capture (N s)**.
-- While recording, by **Stop Recording (m:ss)**, and the menu bar icon becomes a record symbol.
+- While recording, by **Stop Recording (m:ss)** (plus "Recording microphone narration" when
+  narrating), and the menu bar icon becomes a record symbol.
 - While picking, capturing, or saving a recording, by a status line.
 
 ## 5.2 Global hotkeys
@@ -84,12 +86,15 @@ those simply take precedence.
 
 ## 5.3 Settings
 
-The Settings window (menu › Settings…) has two sections:
+The Settings window (menu › Settings…) has three sections:
 
 - **Default capture**: kind (Screenshot, Video), target (Screen, Window, Region), and delay
   (None, 3, 5, 10 seconds).
   This is what the Capture hotkey and the "Capture <default>" item do. The Record video hotkey
   uses the same target and delay. The default is Region with no delay.
+- **Video**: **Record microphone narration**, the narration default for recordings (off). The
+  menu can change it for one recording. See [04-capture.md](04-capture.md) §4.9 for the
+  Microphone permission flow.
 - **Global shortcuts**: one recorder each for **Start default capture** and **Record video**.
   Click one, then press a combination.
   - Esc cancels recording.
@@ -103,10 +108,11 @@ The Settings window (menu › Settings…) has two sections:
 Persistence: settings are saved as JSON under the defaults key `captureSettings`:
 
 ```json
-{"captureHotkey":"⌥⇧⌘U","defaultRequest":{"delaySeconds":0,"kind":"screenshot","target":"region"},"recordHotkey":"⌥⇧⌘V"}
+{"captureHotkey":"⌥⇧⌘U","defaultRequest":{"delaySeconds":0,"kind":"screenshot","target":"region"},"narration":false,"recordHotkey":"⌥⇧⌘V"}
 ```
 
-- Missing fields take their defaults. Settings saved before `recordHotkey` existed get ⌥⇧⌘V.
+- Missing fields take their defaults. Settings saved before `recordHotkey` existed get ⌥⇧⌘V,
+  and settings saved before `narration` existed record without narration.
 - An explicit `null` for `captureHotkey` or `recordHotkey` means that shortcut is disabled.
 - An unreadable value falls back to all defaults.
 
@@ -122,6 +128,7 @@ app's own (`com.smalltale.uxreview`), or the suite named by `UXREVIEW_DEFAULTS_S
 ```
 UXReview --settings [--set-hotkey ⌥⇧⌘U|none] [--set-record-hotkey ⌥⇧⌘V|none]
                     [--set-target display|window|region] [--set-delay N]
+                    [--set-narration on|off]
 ```
 
 This mode applies and saves the changes, registers both hotkeys exactly as the app would, and
@@ -132,5 +139,6 @@ and `defaultCapture`.
 - Exit 2 on bad arguments, including an unusable hotkey or one that duplicates the other
   shortcut. In that case nothing is saved. Swapping the two in one command is allowed.
 
-`scripts/app-e2e.sh` uses this mode to check persistence across launches, registration of both
+`scripts/app-e2e.sh` uses this mode to check persistence across launches (including turning
+narration on and off), registration of both
 hotkeys, a real conflict for each against a running menu bar instance, and duplicate rejection.

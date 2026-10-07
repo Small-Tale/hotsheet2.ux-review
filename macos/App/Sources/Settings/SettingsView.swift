@@ -23,6 +23,12 @@ struct SettingsView: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
+            Section("Video") {
+                Toggle("Record microphone narration", isOn: binding(\.narration))
+                Text("Adds your voice to recordings. Change it for one recording from the menu. Needs Microphone permission.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
             Section("Global shortcuts") {
                 ForEach(HotkeySlot.allCases, id: \.self) { slot in
                     VStack(alignment: .leading, spacing: 4) {

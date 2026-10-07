@@ -60,6 +60,14 @@ enum UIPreviews {
             ("hud-recording-countdown", HUDContent(title: "5", subtitle: "Recording in…", large: true)),
             ("hud-recording", HUDContent(title: "Recording", subtitle: "Stop from the menu bar or press ⌥⇧⌘U", large: false)),
             ("hud-saved-video", HUDContent(title: "Saved capture-3.mov", subtitle: "0:12 · 3 captures in this review", large: false)),
+            (
+                "hud-recording-narration",
+                HUDContent(title: "Recording", subtitle: "Microphone on. Stop from the menu bar or press ⌥⇧⌘V", large: false)
+            ),
+            (
+                "hud-saved-narrated",
+                HUDContent(title: "Saved capture-3.mov", subtitle: "0:12 · narrated · 3 captures in this review", large: false)
+            ),
         ]
         for (name, content) in huds {
             let renderer = ImageRenderer(content: content.padding(40).background(Color.clear))

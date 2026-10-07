@@ -131,6 +131,57 @@ ok "start delay honored before a display recording"
 run video-noduration 2 "${SYN[@]}" -- --capture video --drafts-dir "$DRAFTS"
 ok "video without --duration: exit 2"
 
+echo "microphone narration (HS2-T0EY2W)"
+[[ "$(json "$TMP/video.json" j.narration)" == false ]] || die "narration: a plain recording reports narration"
+# Real backend: headless mode never prompts, so whatever this machine's Screen Recording and
+# Microphone permissions are, the result must be coherent.
+code=0
+timeout 60 "$APP_BIN" --capture video --narration --duration 1 --drafts-dir "$TMP/real-narration" >"$TMP/real-narration.json" 2>/dev/null || code=$?
+case "$code" in
+  4 | 5)
+    err="$(json "$TMP/real-narration.json" j.error)"
+    [[ "$err" =~ ^(permissionDenied|microphonePermissionDenied|microphoneUnavailable)$ ]] || die "real narration: exit $code with $err"
+    [[ ! -e "$TMP/real-narration" ]] || die "real narration: a refused recording wrote drafts"
+    ok "real backend narration without permission or microphone: exit $code $err, nothing written" ;;
+  0) ok "real backend narration with permission: narration=$(json "$TMP/real-narration.json" j.narration)" ;;
+  *) cat "$TMP/real-narration.json" >&2; die "real narration: unexpected exit $code" ;;
+esac
+
+NDRAFTS="$TMP/narration-drafts"
+run narration 0 "${SYN[@]}" -- --capture video --narration --target region --rect 20,20,200,120 --duration 2 --drafts-dir "$NDRAFTS"
+nmovie="$(json "$TMP/narration.json" j.file)"
+[[ "$(json "$TMP/narration.json" j.narration)" == true ]] || die "narration: not reported"
+[[ "$(json "$TMP/narration.json" 'Math.abs(j.media.durationMs - 2000) <= 250')" == true ]] || die "narration: durationMs $(json "$TMP/narration.json" j.media.durationMs)"
+validate_bundle "$(json "$TMP/narration.json" j.draftDirectory)/review.json"
+if command -v ffprobe >/dev/null; then
+  [[ -z "$(ffprobe -v error -select_streams a -show_entries stream=codec_type -of csv=p=0 "$movie")" ]] \
+    || die "narration: the plain recording has an audio stream"
+  audio="$(ffprobe -v error -select_streams a:0 -show_entries stream=codec_name,sample_rate,channels -of csv=p=0 "$nmovie")"
+  [[ "$audio" == "aac,48000,1" ]] || die "narration: ffprobe audio stream is '$audio'"
+  # Packet times (not stream headers) show where sound really starts and ends.
+  span() { ffprobe -v error -select_streams "$1" -show_entries packet=pts_time,duration_time -of csv=p=0 "$nmovie" \
+    | awk -F, 'NR == 1 {s = $1} {e = $1 + $2} END {printf "%.3f %.3f", s, e}'; }
+  read -r vstart vend <<<"$(span v:0)"
+  read -r astart aend <<<"$(span a:0)"
+  node -e "process.exit(Math.abs($astart - $vstart) <= 0.06 && Math.abs($aend - 2) <= 0.25 && Math.abs($vend - 2) <= 0.25 ? 0 : 1)" \
+    || die "narration: audio $astart-$aend s vs video $vstart-$vend s"
+  ok "narrated recording: AAC 48 kHz mono, audio $astart-$aend s with video $vstart-$vend s (ffprobe); plain recording has no audio"
+else
+  ok "narrated recording reports narration (SKIPPED stream checks: ffprobe not installed; brew install ffmpeg)"
+fi
+
+run narration-denied 4 "${SYN[@]}" UXREVIEW_SYNTHETIC_MICROPHONE=denied -- --capture video --narration --duration 1 --drafts-dir "$TMP/denied-drafts"
+[[ "$(json "$TMP/narration-denied.json" j.error)" == microphonePermissionDenied ]] || die "narration: denied error code"
+json "$TMP/narration-denied.json" j.message | grep -q "Privacy & Security › Microphone" || die "narration: denial message does not explain the fix"
+run narration-undetermined 4 "${SYN[@]}" UXREVIEW_SYNTHETIC_MICROPHONE=notDetermined -- --capture video --narration --duration 1 --drafts-dir "$TMP/denied-drafts"
+run narration-nomic 5 "${SYN[@]}" UXREVIEW_SYNTHETIC_MICROPHONE=unavailable -- --capture video --narration --duration 1 --drafts-dir "$TMP/denied-drafts"
+[[ "$(json "$TMP/narration-nomic.json" j.error)" == microphoneUnavailable ]] || die "narration: no-microphone error code"
+[[ ! -e "$TMP/denied-drafts" ]] || die "narration: a refused recording wrote drafts"
+run narration-ignored 0 "${SYN[@]}" UXREVIEW_SYNTHETIC_MICROPHONE=denied -- --capture video --duration 1 --drafts-dir "$TMP/plain-drafts"
+[[ "$(json "$TMP/narration-ignored.json" j.narration)" == false ]] || die "narration: microphone state affected a plain recording"
+run narration-screenshot 2 "${SYN[@]}" -- --capture screenshot --narration --drafts-dir "$DRAFTS"
+ok "denied / not determined: exit 4 (no prompt); no microphone: exit 5; nothing written; plain video unaffected; screenshots reject --narration"
+
 echo "start a review: settings and global hotkeys (HS2-DR107C, HS2-SPFXPW)"
 SUITE="uxreview-e2e-$$"
 SUITE_ENV=(UXREVIEW_DEFAULTS_SUITE="$SUITE")
@@ -140,7 +191,16 @@ run settings-default 0 "${SUITE_ENV[@]}" -- --settings
 [[ "$(json "$TMP/settings-default.json" j.settings.captureHotkey)" == "⌥⇧⌘U" ]] || die "settings: default hotkey"
 [[ "$(json "$TMP/settings-default.json" j.defaultCapture)" == "Screenshot of Region" ]] || die "settings: default capture"
 [[ "$(json "$TMP/settings-default.json" j.settings.recordHotkey)" == "⌥⇧⌘V" ]] || die "settings: default record hotkey"
-ok "fresh settings: ⌥⇧⌘U starts a region screenshot, ⌥⇧⌘V records video"
+[[ "$(json "$TMP/settings-default.json" j.settings.narration)" == false ]] || die "settings: narration on by default"
+ok "fresh settings: ⌥⇧⌘U starts a region screenshot, ⌥⇧⌘V records video, no narration"
+
+run settings-narration-on 0 "${SUITE_ENV[@]}" -- --settings --set-narration on
+run settings-narration-read 0 "${SUITE_ENV[@]}" -- --settings
+[[ "$(json "$TMP/settings-narration-read.json" j.settings.narration)" == true ]] || die "settings: narration not persisted"
+run settings-narration-bad 2 "${SUITE_ENV[@]}" -- --settings --set-narration maybe
+run settings-narration-off 0 "${SUITE_ENV[@]}" -- --settings --set-narration off
+[[ "$(json "$TMP/settings-narration-off.json" j.settings.narration)" == false ]] || die "settings: narration not turned off"
+ok "narration default persists across launches (on, then off); a bad value is rejected"
 
 # Pick combinations unlikely to be taken on the test machine.
 run settings-set 0 "${SUITE_ENV[@]}" -- --settings --set-hotkey "ctrl+opt+cmd+F7" --set-record-hotkey "ctrl+opt+cmd+F8" --set-target window --set-delay 3
@@ -407,7 +467,7 @@ run open-missing 2 -- --open-media "$TMP/media/photo.jpg" "$TMP/media/gone.mov" 
 ok "a batch with a text file, a folder, or a missing file: exit 2 and no draft changes"
 
 run previews 0 -- --render-ui-previews "$TMP/previews"
-for name in overlay-region-hint overlay-region-selection overlay-region-selection-bottom-edge overlay-window-hover hud-countdown hud-saved hud-recording-countdown hud-recording hud-saved-video settings-registered settings-in-use status-bar-icon-light status-bar-icon-dark \
+for name in overlay-region-hint overlay-region-selection overlay-region-selection-bottom-edge overlay-window-hover hud-countdown hud-saved hud-recording-countdown hud-recording hud-saved-video hud-recording-narration hud-saved-narrated settings-registered settings-in-use status-bar-icon-light status-bar-icon-dark \
   editor-empty editor-annotated editor-arrow-selected editor-narrow editor-crop-drag editor-cropped editor-zoomed editor-keyboard-insert editor-video-timeline editor-video-narrow editor-video-trimmed editor-video-playing editor-video-range-drag editor-video-trim-drag; do
   [[ -s "$TMP/previews/$name.png" ]] || die "previews: $name.png missing"
 done

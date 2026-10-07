@@ -1,4 +1,5 @@
 import AppKit
+import AVFoundation
 import CoreGraphics
 import ScreenCaptureKit
 import UXReviewKit
@@ -24,11 +25,15 @@ enum CaptureFailure: Error, Equatable, CustomStringConvertible {
     case cancelled
     /// The display or window to capture no longer exists.
     case targetUnavailable(String)
+    /// Narration was asked for but the microphone can't be used (docs/04 §4.9).
+    case microphone(MicrophoneAccess)
     case failed(String)
 
     var code: String {
         switch self {
         case .permissionDenied: "permissionDenied"
+        case .microphone(.unavailable): "microphoneUnavailable"
+        case .microphone: "microphonePermissionDenied"
         case .cancelled: "cancelled"
         case .targetUnavailable: "targetUnavailable"
         case .failed: "captureFailed"
@@ -42,6 +47,7 @@ enum CaptureFailure: Error, Equatable, CustomStringConvertible {
                 + "Screen & System Audio Recording, then quit and reopen UX Review."
         case .cancelled: "Capture cancelled."
         case let .targetUnavailable(what): "\(what) is no longer available."
+        case let .microphone(access): access.problem ?? "The microphone could not be used."
         case let .failed(message): "Capture failed: \(message)"
         }
     }
@@ -58,10 +64,19 @@ protocol CaptureBackend {
     /// Asks the OS for permission, showing its prompt the first time. Returns the current state.
     func requestPermission() -> Bool
     func screenshot(_ source: CaptureSource) async throws -> CapturedImage
-    /// Starts recording `source` into a QuickTime movie at `url`. `onUnexpectedStop` runs on the
-    /// main actor if the recording ends by itself (display unplugged, window closed).
-    func startRecording(_ source: CaptureSource, to url: URL, onUnexpectedStop: @escaping @MainActor () -> Void) async throws
-        -> ActiveRecording
+    /// Whether narration can be recorded right now. Never shows UI.
+    func microphoneAccess() -> MicrophoneAccess
+    /// Shows the system Microphone prompt (only while `notDetermined`). Returns whether access was granted.
+    func requestMicrophoneAccess() async -> Bool
+    /// Starts recording `source` into a QuickTime movie at `url`, with a microphone narration
+    /// track when `narration` is set (access must already be granted). `onUnexpectedStop` runs on
+    /// the main actor if the recording ends by itself (display unplugged, window closed).
+    func startRecording(
+        _ source: CaptureSource,
+        to url: URL,
+        narration: Bool,
+        onUnexpectedStop: @escaping @MainActor () -> Void
+    ) async throws -> ActiveRecording
 }
 
 enum CaptureBackends {
@@ -136,11 +151,36 @@ struct ScreenCaptureKitBackend: CaptureBackend {
         }
     }
 
-    func startRecording(_ source: CaptureSource, to url: URL, onUnexpectedStop: @escaping @MainActor () -> Void) async throws
-        -> ActiveRecording {
+    func microphoneAccess() -> MicrophoneAccess {
+        guard AVCaptureDevice.default(for: .audio) != nil else { return .unavailable }
+        switch AVCaptureDevice.authorizationStatus(for: .audio) {
+        case .authorized: return .authorized
+        case .notDetermined: return .notDetermined
+        case .restricted: return .restricted
+        default: return .denied
+        }
+    }
+
+    func requestMicrophoneAccess() async -> Bool {
+        await AVCaptureDevice.requestAccess(for: .audio)
+    }
+
+    func startRecording(
+        _ source: CaptureSource,
+        to url: URL,
+        narration: Bool,
+        onUnexpectedStop: @escaping @MainActor () -> Void
+    ) async throws -> ActiveRecording {
         guard hasPermission() else { throw CaptureFailure.permissionDenied }
+        if narration, microphoneAccess() != .authorized { throw CaptureFailure.microphone(microphoneAccess()) }
         let (filter, configuration) = try await Self.makeFilter(for: source)
-        return try await StreamRecorder.start(filter: filter, configuration: configuration, url: url, onUnexpectedStop: onUnexpectedStop)
+        return try await StreamRecorder.start(
+            filter: filter,
+            configuration: configuration,
+            url: url,
+            narration: narration,
+            onUnexpectedStop: onUnexpectedStop
+        )
     }
 
     nonisolated static func map(_ error: Error) -> CaptureFailure {
@@ -153,13 +193,19 @@ struct ScreenCaptureKitBackend: CaptureBackend {
     }
 }
 
-/// Renders a test card with the exact pixel size the real capture would have.
+/// Renders a test card with the exact pixel size the real capture would have, and stands in a
+/// sine tone for the microphone. `UXREVIEW_SYNTHETIC_MICROPHONE` (a `MicrophoneAccess` raw value,
+/// default `authorized`) simulates the microphone's permission state for tests.
 @MainActor
 struct SyntheticCaptureBackend: CaptureBackend {
     let name = "synthetic"
+    var microphone: MicrophoneAccess = ProcessInfo.processInfo.environment["UXREVIEW_SYNTHETIC_MICROPHONE"]
+        .flatMap(MicrophoneAccess.init(rawValue:)) ?? .authorized
 
     func hasPermission() -> Bool { true }
     func requestPermission() -> Bool { true }
+    func microphoneAccess() -> MicrophoneAccess { microphone }
+    func requestMicrophoneAccess() async -> Bool { microphone == .authorized }
 
     func screenshot(_ source: CaptureSource) async throws -> CapturedImage {
         let (width, height, scale) = try Self.pixelSize(for: source)
@@ -169,10 +215,15 @@ struct SyntheticCaptureBackend: CaptureBackend {
         return CapturedImage(image: image, displayScale: scale)
     }
 
-    func startRecording(_ source: CaptureSource, to url: URL, onUnexpectedStop _: @escaping @MainActor () -> Void) async throws
-        -> ActiveRecording {
+    func startRecording(
+        _ source: CaptureSource,
+        to url: URL,
+        narration: Bool,
+        onUnexpectedStop _: @escaping @MainActor () -> Void
+    ) async throws -> ActiveRecording {
+        if narration, microphone != .authorized { throw CaptureFailure.microphone(microphone) }
         let (width, height, scale) = try Self.pixelSize(for: source)
-        return try SyntheticRecorder(url: url, width: width, height: height, scale: scale)
+        return try SyntheticRecorder(url: url, width: width, height: height, scale: scale, narration: narration)
     }
 
     static func pixelSize(for source: CaptureSource) throws -> (Int, Int, Double) {

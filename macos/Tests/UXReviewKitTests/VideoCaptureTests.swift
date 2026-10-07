@@ -36,6 +36,12 @@ struct VideoCaptureTests {
         #expect(throws: CommandLineError.invalidValue("--duration", "only valid with --capture video")) {
             try CaptureCommand.parse(["--capture", "screenshot", "--duration", "2"])
         }
+        #expect(!command.narration)
+        let narrated = try #require(try CaptureCommand.parse(["--capture", "video", "--duration", "1", "--narration"]))
+        #expect(narrated.narration)
+        #expect(throws: CommandLineError.invalidValue("--narration", "only valid with --capture video")) {
+            try CaptureCommand.parse(["--capture", "screenshot", "--narration"])
+        }
         for bad in ["0", "-1", "601", "soon"] {
             #expect(throws: CommandLineError.invalidValue("--duration", bad)) {
                 try CaptureCommand.parse(["--capture", "video", "--duration", bad])

@@ -9,6 +9,11 @@ final class CaptureCoordinator: ObservableObject {
     @Published private(set) var phase: CapturePhase = .idle
     @Published private(set) var lastCapture: CaptureOutcome?
     @Published private(set) var lastError: CaptureFailure?
+    /// The menu's narration toggle: overrides the Settings default for the next recording only
+    /// (nil = use the default). Spec: docs/04-capture.md §4.9.
+    @Published var narrationChoice: Bool?
+    /// Whether the recording in progress includes microphone narration.
+    @Published private(set) var recordingNarration = false
 
     let backend: CaptureBackend
     let store: ReviewDraftStore
@@ -19,6 +24,11 @@ final class CaptureCoordinator: ObservableObject {
 
     /// Shown in the "recording started" HUD so the reviewer knows how to stop.
     var stopHint: @MainActor () -> String = { "Stop from the menu bar" }
+    /// The Settings default for narration (`CaptureSettings.narration`).
+    var narrationDefault: @MainActor () -> Bool = { false }
+
+    /// Whether the next recording will include narration.
+    var narratesNextRecording: Bool { narrationChoice ?? narrationDefault() }
 
     init(
         backend: CaptureBackend = CaptureBackends.make(),
@@ -143,6 +153,8 @@ final class CaptureCoordinator: ObservableObject {
         defer { task = nil }
         do {
             guard backend.requestPermission() else { throw CaptureFailure.permissionDenied }
+            // Settle narration before picking, so a permission question never interrupts a countdown.
+            let narration = request.kind == .video ? try await resolveNarration(requested: narratesNextRecording) : false
             let source = try await TargetPicker.pick(request.target)
             apply(.picked)
             let screen = screen(for: source)
@@ -163,11 +175,17 @@ final class CaptureCoordinator: ObservableObject {
                 apply(.finished)
             case .video:
                 recordingContext = CaptureContextProvider.context(for: source, displayScale: nil)
-                recording = try await backend.startRecording(source, to: CapturePipeline.temporaryMovieURL()) { [weak self] in
+                recording = try await backend.startRecording(
+                    source,
+                    to: CapturePipeline.temporaryMovieURL(),
+                    narration: narration
+                ) { [weak self] in
                     self?.stopRecording() // the display or window went away: keep what was recorded
                 }
                 apply(.recordingStarted(Date()))
-                hud.flash("Recording", subtitle: stopHint(), on: screen)
+                recordingNarration = narration
+                narrationChoice = nil // the menu toggle applies to one recording
+                hud.flash("Recording", subtitle: narration ? "Microphone on. \(stopHint())" : stopHint(), on: screen)
             }
         } catch {
             hud.hide()
@@ -176,6 +194,8 @@ final class CaptureCoordinator: ObservableObject {
     }
 
     private func finish(_ recording: ActiveRecording, startedAt: Date) async {
+        let narrated = recordingNarration
+        recordingNarration = false
         do {
             let video = try await recording.stop()
             let outcome = try CapturePipeline(backend: backend, store: store).addVideo(
@@ -183,19 +203,52 @@ final class CaptureCoordinator: ObservableObject {
                 context: recordingContext,
                 startedAt: startedAt
             )
-            saved(outcome)
+            saved(outcome, narration: narrated ? (video.hasNarration ? "narrated" : "no microphone audio received") : nil)
             apply(.finished)
         } catch {
             fail(error)
         }
     }
 
-    private func saved(_ outcome: CaptureOutcome) {
+    /// Before a narrated recording: asks for Microphone permission the first time; when it is
+    /// denied, restricted, or there is no microphone, offers to record without narration.
+    /// Returns whether to narrate; throws `.cancelled` when the reviewer cancels.
+    private func resolveNarration(requested: Bool) async throws -> Bool {
+        var plan = NarrationPlan.decide(requested: requested, access: backend.microphoneAccess(), canPrompt: true)
+        if plan == .askPermission {
+            NSApp.activate(ignoringOtherApps: true)
+            _ = await backend.requestMicrophoneAccess()
+            plan = NarrationPlan.decide(requested: true, access: backend.microphoneAccess(), canPrompt: false)
+        }
+        switch plan {
+        case .off, .askPermission: return false
+        case .record: return true
+        case let .blocked(access):
+            let alert = NSAlert()
+            alert.alertStyle = .warning
+            alert.messageText = access == .unavailable ? "No microphone for narration" : "Microphone permission needed"
+            alert.informativeText = (access.problem ?? "") + " You can record this video without narration."
+            alert.addButton(withTitle: "Record Without Narration")
+            if access == .denied { alert.addButton(withTitle: "Open System Settings") }
+            alert.addButton(withTitle: "Cancel")
+            NSApp.activate(ignoringOtherApps: true)
+            switch alert.runModal() {
+            case .alertFirstButtonReturn: return false
+            case .alertSecondButtonReturn where access == .denied:
+                Self.openMicrophoneSettings()
+                throw CaptureFailure.cancelled
+            default: throw CaptureFailure.cancelled
+            }
+        }
+    }
+
+    private func saved(_ outcome: CaptureOutcome, narration: String? = nil) {
         lastCapture = outcome
         lastError = nil
         NotificationCenter.default.post(name: .reviewDraftChanged, object: outcome.draft.directory)
         let count = outcome.draft.bundle.media.count
         var subtitle = "\(count) capture\(count == 1 ? "" : "s") in this review"
+        if let narration { subtitle = "\(narration) · " + subtitle }
         if let duration = outcome.media.durationMs { subtitle = "\(Self.clock(duration)) · " + subtitle }
         hud.flash("Saved \(outcome.media.filename)", subtitle: subtitle)
     }
@@ -208,6 +261,7 @@ final class CaptureCoordinator: ObservableObject {
             phase = .idle
         }
         recording = nil
+        recordingNarration = false
         guard !cancelled else { return }
         report(error as? CaptureFailure ?? .failed(String(describing: error)))
     }
@@ -228,7 +282,10 @@ final class CaptureCoordinator: ObservableObject {
         lastError = failure
         let alert = NSAlert()
         alert.alertStyle = .warning
-        if failure == .permissionDenied {
+        if case .microphone = failure {
+            alert.messageText = "Microphone unavailable"
+            alert.informativeText = failure.description
+        } else if failure == .permissionDenied {
             alert.messageText = "Screen Recording permission needed"
             alert.informativeText = failure.description
             alert.addButton(withTitle: "Open System Settings")
@@ -240,6 +297,12 @@ final class CaptureCoordinator: ObservableObject {
         NSApp.activate(ignoringOtherApps: true)
         if alert.runModal() == .alertFirstButtonReturn, failure == .permissionDenied {
             Self.openScreenRecordingSettings()
+        }
+    }
+
+    static func openMicrophoneSettings() {
+        if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone") {
+            NSWorkspace.shared.open(url)
         }
     }
 

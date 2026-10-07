@@ -150,9 +150,54 @@ How the movie is made:
 - The capture context is taken when recording starts. `capturedAt` is the start time.
 - The `MediaItem` has `kind: "video"`, its pixel size, and `durationMs`.
 
-**Microphone narration** is deliberately not included yet. ScreenCaptureKit only captures the
-microphone on macOS 15+, and narration needs its own permission flow. It is tracked as
-`HS2-T0EY2W`.
+### Microphone narration
+
+A recording can include the reviewer's voice as an AAC audio track (`HS2-T0EY2W`). It is opt-in:
+
+- **Default:** Settings › Video › **Record microphone narration**, off unless turned on
+  ([05-start-and-settings.md](05-start-and-settings.md) §5.3).
+- **One recording:** the menu's **Narrate Next Recording with Microphone** checkbox shows the
+  default and can flip it for the next recording only. Once that recording starts, it reverts to
+  the default.
+- While narrating, the "Recording" HUD says "Microphone on.", and the menu shows "Recording
+  microphone narration" under Stop. The saved HUD says "narrated", or "no microphone audio
+  received" if narration was on but no audio arrived.
+
+**Permission.** Narration needs Microphone permission (`NSMicrophoneUsageDescription`, and the
+hardened-runtime entitlement `com.apple.security.device.audio-input`). It is settled before the
+target picker, so no question interrupts a countdown:
+
+| Microphone state | What happens |
+| --- | --- |
+| Allowed | Records with narration. |
+| Not asked yet | The system prompt appears. Allowing records with narration. Refusing continues as "Denied". |
+| Denied | Alert "Microphone permission needed": **Record Without Narration**, **Open System Settings** (opens Privacy & Security › Microphone and cancels), or **Cancel**. |
+| Restricted (e.g. by a profile) | The same alert without Open System Settings. |
+| No microphone | Alert "No microphone for narration": **Record Without Narration** or **Cancel**. |
+
+The recording never silently loses narration it was asked for: the reviewer chooses. Headless
+mode never prompts and fails instead (§4.11).
+
+**How the audio is recorded.** The deployment target is macOS 14, so UX Review does not use
+ScreenCaptureKit's `captureMicrophone` (macOS 15+). One code path serves every version:
+
+- An `AVCaptureSession` on the default audio input delivers 48 kHz mono 16-bit LPCM.
+- Each buffer's timestamp is converted from the session's clock to the host clock, which
+  ScreenCaptureKit frames use.
+- `VideoFileWriter` appends the buffers to a second, AAC input (96 kbps) of the same
+  `AVAssetWriter`.
+
+The tracks stay in sync because they share one timeline:
+
+- Audio from before the first video frame is dropped, since the movie starts at that frame.
+- Audio after the stop time is trimmed with the video (`endSession`).
+- At the stop, the last frame is repeated at the stop time, so the video track itself reaches
+  the end. Without that, AVFoundation ends a movie that has audio at its last sample, and a
+  static screen whose audio ended early would be cut short.
+- If the microphone fails or is unplugged mid-recording, the video carries on, and the narration
+  ends there.
+- Trimming in the editor ([06-annotation-editor.md](06-annotation-editor.md) §6.10) keeps the
+  narration.
 
 ## 4.10 Capture life cycle
 
@@ -174,7 +219,7 @@ idle → picking → countingDown(n…1) → capturing → recording → finishi
 
 ```
 UXReview --capture screenshot|video [--target display|window|region] [--delay N] [--duration S]
-         [--display-id N] [--window-id N] [--rect x,y,w,h] [--drafts-dir DIR] [--new-review]
+         [--narration] [--display-id N] [--window-id N] [--rect x,y,w,h] [--drafts-dir DIR] [--new-review]
 UXReview --import FILE [FILE…] [--drafts-dir DIR] [--new-review]   (§4.12)
 UXReview --open-media FILE [FILE…] [--drafts-dir DIR] [--into-draft DIR]   (§4.12.1)
 UXReview --render-ui-previews DIR
@@ -183,7 +228,7 @@ UXReview --render-ui-previews DIR
 **`--capture`** makes one capture with no UI and prints one JSON object.
 
 - On success: `status: "captured"`, `file`, `draftDirectory`, `media`, `bundleContext`,
-  `delayMs`, `backend`.
+  `delayMs`, `backend`, and for video `narration` (whether the movie has a narration track).
 - On failure: `status: "error"`, `error`, `message`.
 - Target flags:
   - `region` needs `--rect`, in display-local, top-left points.
@@ -191,17 +236,24 @@ UXReview --render-ui-previews DIR
   - `--display-id` defaults to the main display.
 - Video needs `--duration` (seconds, up to 600). The recording runs for that long after the
   delay.
+- `--narration` (video only) adds the microphone track (§4.9). Headless mode never shows the
+  Microphone prompt: unless access is already granted, it fails with
+  `microphonePermissionDenied` (exit 4), or `microphoneUnavailable` (exit 5) with no microphone,
+  before recording anything.
 
 | Exit code | Meaning |
 | --- | --- |
 | 0 | Captured |
 | 2 | `invalidArguments` (also for a region that is off the display or too small) |
-| 4 | `permissionDenied` |
-| 5 | `targetUnavailable` or `captureFailed` |
+| 4 | `permissionDenied` or `microphonePermissionDenied` |
+| 5 | `targetUnavailable`, `microphoneUnavailable`, or `captureFailed` |
 
 **`UXREVIEW_CAPTURE_BACKEND=synthetic`** replaces ScreenCaptureKit with a test card of the
 exact pixel size the real capture would have. For video, it feeds 10 fps of test-card frames,
-host-clock timestamped, through the real `VideoFileWriter`. Target resolution, delay, context, PNG writing,
+host-clock timestamped, through the real `VideoFileWriter`. With `--narration` it also feeds a
+440 Hz tone in 100 ms LPCM buffers from the first frame on, standing in for the microphone.
+`UXREVIEW_SYNTHETIC_MICROPHONE` (`authorized`, the default, or `notDetermined`, `denied`,
+`restricted`, `unavailable`) simulates the microphone's state. Target resolution, delay, context, PNG writing,
 and the draft store all still run for real. It exists so `scripts/app-e2e.sh` can cover the
 pipeline on machines without Screen Recording permission.
 

@@ -9,15 +9,20 @@ public struct CaptureSettings: Codable, Equatable, Sendable {
     public var captureHotkey: Hotkey?
     /// Global hotkey that records a video of the default target; nil disables it.
     public var recordHotkey: Hotkey?
+    /// Whether recordings include microphone narration by default (off). The menu can change it
+    /// for the next recording only. Spec: docs/04-capture.md §4.9.
+    public var narration: Bool
 
     public init(
         defaultRequest: CaptureRequest = CaptureRequest(kind: .screenshot, target: .region),
         captureHotkey: Hotkey? = .defaultCapture,
-        recordHotkey: Hotkey? = .defaultRecord
+        recordHotkey: Hotkey? = .defaultRecord,
+        narration: Bool = false
     ) {
         self.defaultRequest = defaultRequest
         self.captureHotkey = captureHotkey
         self.recordHotkey = recordHotkey
+        self.narration = narration
     }
 
     public subscript(slot: HotkeySlot) -> Hotkey? {
@@ -52,7 +57,7 @@ public struct CaptureSettings: Codable, Equatable, Sendable {
         return earlier.contains { self[$0] == hotkey } ? nil : hotkey
     }
 
-    private enum CodingKeys: String, CodingKey { case defaultRequest, captureHotkey, recordHotkey }
+    private enum CodingKeys: String, CodingKey { case defaultRequest, captureHotkey, recordHotkey, narration }
 
     /// Missing fields take their defaults, so older or partial settings still load. An explicit
     /// `null` hotkey stays disabled.
@@ -66,6 +71,7 @@ public struct CaptureSettings: Codable, Equatable, Sendable {
         recordHotkey = container.contains(.recordHotkey)
             ? try container.decodeIfPresent(Hotkey.self, forKey: .recordHotkey)
             : defaults.recordHotkey
+        narration = try container.decodeIfPresent(Bool.self, forKey: .narration) ?? defaults.narration
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -73,6 +79,7 @@ public struct CaptureSettings: Codable, Equatable, Sendable {
         try container.encode(defaultRequest, forKey: .defaultRequest)
         try container.encode(captureHotkey, forKey: .captureHotkey) // explicit null = disabled
         try container.encode(recordHotkey, forKey: .recordHotkey)
+        try container.encode(narration, forKey: .narration)
     }
 }
 

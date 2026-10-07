@@ -41,6 +41,12 @@ targets:
             CFBundleTypeRole: Viewer
             LSHandlerRank: Alternate
             LSItemContentTypes: [public.movie]
+        NSMicrophoneUsageDescription: UX Review records your voice as narration for screen recordings when you turn narration on.
+    # The hardened runtime blocks the microphone without this entitlement (narration, docs/04 §4.9).
+    entitlements:
+      path: App/UXReview.entitlements
+      properties:
+        com.apple.security.device.audio-input: true
     # Signing comes from Signing.xcconfig (ad hoc unless Signing.local.xcconfig sets an identity).
     configFiles:
       Debug: Signing.xcconfig

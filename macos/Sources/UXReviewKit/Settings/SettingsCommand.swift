@@ -4,6 +4,7 @@ import Foundation
 ///
 ///     UXReview --settings [--set-hotkey ⌥⇧⌘U|none] [--set-record-hotkey ⌥⇧⌘V|none]
 ///                         [--set-target display|window|region] [--set-delay N]
+///                         [--set-narration on|off]
 ///
 /// Applies the changes (if any), saves them, registers the hotkeys, and prints the result.
 /// Spec: docs/05-start-and-settings.md §5.5.
@@ -14,15 +15,26 @@ public struct SettingsCommand: Equatable, Sendable {
     public var recordHotkey: Hotkey??
     public var target: CaptureTarget?
     public var delaySeconds: Int?
+    /// Records microphone narration by default.
+    public var narration: Bool?
 
-    public init(hotkey: Hotkey?? = nil, recordHotkey: Hotkey?? = nil, target: CaptureTarget? = nil, delaySeconds: Int? = nil) {
+    public init(
+        hotkey: Hotkey?? = nil,
+        recordHotkey: Hotkey?? = nil,
+        target: CaptureTarget? = nil,
+        delaySeconds: Int? = nil,
+        narration: Bool? = nil
+    ) {
         self.hotkey = hotkey
         self.recordHotkey = recordHotkey
         self.target = target
         self.delaySeconds = delaySeconds
+        self.narration = narration
     }
 
-    public var changesSomething: Bool { hotkey != nil || recordHotkey != nil || target != nil || delaySeconds != nil }
+    public var changesSomething: Bool {
+        hotkey != nil || recordHotkey != nil || target != nil || delaySeconds != nil || narration != nil
+    }
 
     static let hotkeyFlags: [(HotkeySlot, String)] = [(.capture, "--set-hotkey"), (.record, "--set-record-hotkey")]
 
@@ -42,6 +54,13 @@ public struct SettingsCommand: Equatable, Sendable {
                 throw CommandLineError.invalidValue("--set-delay", text)
             }
             return seconds
+        }
+        command.narration = try values.optional("--set-narration").map { text in
+            switch text.lowercased() {
+            case "on": return true
+            case "off": return false
+            default: throw CommandLineError.invalidValue("--set-narration", text)
+            }
         }
         return command
     }
@@ -63,6 +82,7 @@ public struct SettingsCommand: Equatable, Sendable {
         if let recordHotkey { settings.recordHotkey = recordHotkey }
         if let target { settings.defaultRequest.target = target }
         if let delaySeconds { settings.defaultRequest.delaySeconds = delaySeconds }
+        if let narration { settings.narration = narration }
         for (slot, flag) in Self.hotkeyFlags where (slot == .capture ? hotkey : recordHotkey) != nil {
             if let chosen = settings[slot], let problem = settings.problem(with: chosen, for: slot) {
                 throw CommandLineError.invalidValue(flag, "\(chosen.display): \(problem)")

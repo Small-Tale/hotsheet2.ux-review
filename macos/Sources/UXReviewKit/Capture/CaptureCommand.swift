@@ -4,12 +4,13 @@ import Foundation
 /// Headless capture invocation of the app, used by scripts and end-to-end tests:
 ///
 ///     UXReview --capture screenshot|video [--target display|window|region] [--delay N] [--duration S]
-///              [--display-id N] [--window-id N] [--rect x,y,w,h]
+///              [--narration] [--display-id N] [--window-id N] [--rect x,y,w,h]
 ///              [--drafts-dir DIR] [--new-review]
 ///
 /// There is no interactive picking: `region` needs `--rect` (display-local, top-left points),
 /// and `window` uses `--window-id` or else the frontmost app's front window. Video needs
-/// `--duration` (seconds, up to `maxDurationSeconds`). Spec: docs/04 §4.11.
+/// `--duration` (seconds, up to `maxDurationSeconds`); `--narration` (video only) adds the
+/// microphone track. Spec: docs/04 §4.11.
 public struct CaptureCommand: Equatable, Sendable {
     public var request: CaptureRequest
     public var displayID: UInt32?
@@ -19,6 +20,8 @@ public struct CaptureCommand: Equatable, Sendable {
     public var newReview: Bool
     /// Video only: how long to record, in seconds.
     public var durationSeconds: Double?
+    /// Video only: also record microphone narration (docs/04 §4.9).
+    public var narration: Bool
 
     public static let maxDurationSeconds: Double = 600
 
@@ -29,7 +32,8 @@ public struct CaptureCommand: Equatable, Sendable {
         rect: CGRect? = nil,
         draftsDirectory: URL? = nil,
         newReview: Bool = false,
-        durationSeconds: Double? = nil
+        durationSeconds: Double? = nil,
+        narration: Bool = false
     ) {
         self.request = request
         self.displayID = displayID
@@ -38,6 +42,7 @@ public struct CaptureCommand: Equatable, Sendable {
         self.draftsDirectory = draftsDirectory
         self.newReview = newReview
         self.durationSeconds = durationSeconds
+        self.narration = narration
     }
 
     /// Parses the arguments after the executable. Returns nil when `--capture` is absent.
@@ -73,6 +78,10 @@ public struct CaptureCommand: Equatable, Sendable {
         if kind == .video, command.durationSeconds == nil { throw CommandLineError.missing("--duration (required for --capture video)") }
         if kind == .screenshot, command.durationSeconds != nil {
             throw CommandLineError.invalidValue("--duration", "only valid with --capture video")
+        }
+        command.narration = arguments.contains("--narration")
+        if kind == .screenshot, command.narration {
+            throw CommandLineError.invalidValue("--narration", "only valid with --capture video")
         }
 
         if target == .region, command.rect == nil { throw CommandLineError.missing("--rect (required for --target region)") }

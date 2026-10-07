@@ -34,7 +34,8 @@ macos/
     Capture/WindowSelection.swift     window-server snapshots, pick/frontmost window rules
     Capture/CaptureContextBuilder.swift  CaptureContext mapping, OS version string
     Capture/ImageFiles.swift          PNG read/write, test card image (ImageIO)
-    Capture/VideoFileWriter.swift     H.264 .mov writer (AVAssetWriter), ends at the stop time (docs/04 §4.9)
+    Capture/VideoFileWriter.swift     H.264 .mov writer (AVAssetWriter) + optional AAC narration track, ends at the stop time (docs/04 §4.9)
+    Capture/Narration.swift           MicrophoneAccess, NarrationPlan (permission decision), SyntheticAudio tone buffers
     Capture/CapturePhase.swift        capture life-cycle transition rules (docs/04 §4.10)
     Capture/CaptureCommand.swift      `--capture` argument parsing (docs/04 §4.11)
     Review/ReviewDraftStore.swift     draft reviews on disk (docs/04 §4.6)
@@ -66,8 +67,8 @@ macos/
     Capture/CaptureBackend.swift      ScreenCaptureKit + synthetic backends, CaptureFailure
     Capture/CaptureEnvironment.swift  displays, window list, capture context provider
     Capture/CapturePipeline.swift     capture → PNG / recorded movie → draft store
-    Capture/VideoRecording.swift      SCStream recorder + synthetic recorder
-    Capture/CaptureCoordinator.swift  UI flow: permission, pick, countdown, capture, alerts
+    Capture/VideoRecording.swift      SCStream recorder, microphone recorder (AVCaptureSession → host clock), synthetic recorder
+    Capture/CaptureCoordinator.swift  UI flow: permission (+ microphone), pick, countdown, capture, alerts
     Capture/TargetPicker.swift        region drag + window pick overlays
     Capture/CaptureHUD.swift          countdown / saved HUD panel
     Capture/CaptureMenu.swift         capture section of the menu bar menu

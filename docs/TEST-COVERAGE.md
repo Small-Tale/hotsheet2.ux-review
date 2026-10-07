@@ -434,3 +434,38 @@ Each feature gets both unit tests and end-to-end tests. Tests live in
 - **Not covered automatically:** live mouse drags and hover cursors on the timeline, and typing
   into the fields in a live window. These are view code over the tested state machine, hit
   test, and parser; live-window automation is `HS2-HA9TW3`.
+
+## HS2-T0EY2W: microphone narration
+
+- **Writer** (`NarrationTests`, real movies with synthetic 48 kHz LPCM tone buffers on a
+  host-like clock):
+  - audio that starts before the first frame and runs past the stop: earlier audio is refused,
+    the AAC track starts with the video (within 30 ms) and ends at the stop time (within 60 ms)
+  - a static screen (one frame, then 3 s of audio): the audio input never stalls
+  - regression: audio that ends early no longer shortens the movie (the last frame is held to
+    the stop time)
+  - narration on but no audio: the movie is still written, without an audio track
+  - refused audio: no audio track, the same or an earlier time, after finish (all counted)
+  - trimming a narrated movie (`VideoTrim.export`) keeps the audio
+  - tone buffers have the right sample count, duration, and format
+- **Permission decision** (`NarrationPlan`): the full requested × access × can-prompt matrix.
+- **Settings** (`CaptureSettingsTests`, `SettingsCommandTests`): off by default, persists on
+  and off, older settings load without it, a wrong type falls back to defaults, the stored JSON,
+  and `--set-narration on|off` (bad and missing values rejected).
+- **`--capture`**: `--narration` parses for video and is rejected for screenshots.
+- **App end to end** (`scripts/app-e2e.sh`):
+  - The real backend with `--narration` gives a coherent result for whatever permissions the
+    machine has (exit 4/5 writes nothing), without a prompt.
+  - A synthetic 2 s narrated region recording reports `narration: true`, and ffprobe shows an
+    AAC 48 kHz mono stream whose packets start with the video's (within 60 ms; AAC priming
+    makes them start about 44 ms early) and end near 2 s. A plain recording has no audio
+    stream.
+  - Simulated denied and not-determined microphones exit 4 (`microphonePermissionDenied`, with
+    the fix explained), no microphone exits 5, and nothing is written. A plain recording ignores
+    the microphone state.
+  - Settings: narration is off when fresh, persists on, then off, and a bad value exits 2.
+- **Visual QA:** `hud-recording-narration`, `hud-saved-narrated`, and the Settings window's
+  Video section (`settings-registered`), inspected by hand.
+- **Not covered automatically:** a real microphone (system prompt, real audio sync, unplugging
+  mid-recording), the permission alerts, and the menu checkbox. A test must never trigger a real
+  Microphone prompt, and clicking menus is `HS2-HA9TW3`. Manual QA is `HS2-2T9RMA`.
