@@ -174,8 +174,10 @@ final class MicrophoneRecorder: NSObject, AVCaptureAudioDataOutputSampleBufferDe
 
     /// `startRunning`/`stopRunning` block, so they run on the microphone queue.
     func start() async {
+        // AVCaptureSession isn't Sendable; it is only touched on the microphone queue here.
+        nonisolated(unsafe) let session = session
         await withCheckedContinuation { continuation in
-            queue.async { [session] in
+            queue.async {
                 session.startRunning()
                 continuation.resume()
             }
@@ -183,8 +185,10 @@ final class MicrophoneRecorder: NSObject, AVCaptureAudioDataOutputSampleBufferDe
     }
 
     func stop() async {
+        // AVCaptureSession isn't Sendable; it is only touched on the microphone queue here.
+        nonisolated(unsafe) let session = session
         await withCheckedContinuation { continuation in
-            queue.async { [session] in
+            queue.async {
                 session.stopRunning()
                 continuation.resume() // buffers already delivered on this queue ran before this
             }

@@ -31,52 +31,40 @@ enum UXReviewMain {
             }
             exit(code)
         }
-        // Headless settings used by scripts/app-e2e.sh: apply/print settings, check the hotkey.
-        if CommandLine.arguments.contains("--settings") {
-            _ = NSApplication.shared
-            NSApplication.shared.setActivationPolicy(.prohibited)
-            exit(MainActor.assumeIsolated { HeadlessSettings.run(arguments: Array(CommandLine.arguments.dropFirst())) })
+        // Headless modes used by scripts/app-e2e.sh: run once, print a JSON result, and exit.
+        // Synchronous: --settings (apply/print settings, check the hotkey), --annotate (run an
+        // editing script on a draft), --submit (file a draft in Hot Sheet, docs/07 §7.8).
+        let arguments = Array(CommandLine.arguments.dropFirst())
+        let synchronous: [(String, @MainActor @Sendable ([String]) -> Int32)] = [
+            ("--settings", HeadlessSettings.run(arguments:)),
+            ("--annotate", HeadlessAnnotate.run(arguments:)),
+            ("--submit", HeadlessSubmit.run(arguments:)),
+        ]
+        for (flag, run) in synchronous where CommandLine.arguments.contains(flag) {
+            startHeadless()
+            exit(MainActor.assumeIsolated { run(arguments) })
         }
-        // Headless annotation used by scripts/app-e2e.sh: run an editing script on a draft, JSON result, exit.
-        if CommandLine.arguments.contains("--annotate") {
-            _ = NSApplication.shared
-            NSApplication.shared.setActivationPolicy(.prohibited)
-            exit(MainActor.assumeIsolated { HeadlessAnnotate.run(arguments: Array(CommandLine.arguments.dropFirst())) })
-        }
-        // Headless submit used by scripts/app-e2e.sh: file a draft in Hot Sheet, JSON result, exit (docs/07 §7.8).
-        if CommandLine.arguments.contains("--submit") {
-            _ = NSApplication.shared
-            NSApplication.shared.setActivationPolicy(.prohibited)
-            exit(MainActor.assumeIsolated { HeadlessSubmit.run(arguments: Array(CommandLine.arguments.dropFirst())) })
-        }
-        // Headless import used by scripts/app-e2e.sh: add existing files to the draft, JSON result, exit.
-        if CommandLine.arguments.contains("--import") {
-            _ = NSApplication.shared
-            NSApplication.shared.setActivationPolicy(.prohibited)
-            Task { @MainActor in
-                await exit(HeadlessImport.run(arguments: Array(CommandLine.arguments.dropFirst())))
-            }
-            dispatchMain()
-        }
-        // Headless open used by scripts/app-e2e.sh: route files like Finder "Open With" or an editor drop.
-        if CommandLine.arguments.contains("--open-media") {
-            _ = NSApplication.shared
-            NSApplication.shared.setActivationPolicy(.prohibited)
-            Task { @MainActor in
-                await exit(HeadlessOpenMedia.run(arguments: Array(CommandLine.arguments.dropFirst())))
-            }
-            dispatchMain()
-        }
-        // Headless capture used by scripts/app-e2e.sh: one capture, JSON result, exit.
-        if CommandLine.arguments.contains("--capture") {
-            _ = NSApplication.shared
-            NSApplication.shared.setActivationPolicy(.prohibited)
-            Task { @MainActor in
-                await exit(HeadlessCapture.run(arguments: Array(CommandLine.arguments.dropFirst())))
-            }
+        // Asynchronous: --import (add existing files to the draft), --open-media (route files like
+        // Finder "Open With" or an editor drop), --capture (one capture).
+        let asynchronous: [(String, @MainActor @Sendable ([String]) async -> Int32)] = [
+            ("--import", HeadlessImport.run(arguments:)),
+            ("--open-media", HeadlessOpenMedia.run(arguments:)),
+            ("--capture", HeadlessCapture.run(arguments:)),
+        ]
+        for (flag, run) in asynchronous where CommandLine.arguments.contains(flag) {
+            startHeadless()
+            Task { @MainActor in await exit(run(arguments)) }
             dispatchMain()
         }
         UXReviewApp.main()
+    }
+
+    /// An app object without a Dock icon or menu bar item, for the headless modes.
+    private static func startHeadless() {
+        MainActor.assumeIsolated {
+            _ = NSApplication.shared
+            NSApplication.shared.setActivationPolicy(.prohibited)
+        }
     }
 }
 
