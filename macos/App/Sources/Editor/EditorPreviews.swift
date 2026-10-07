@@ -139,6 +139,7 @@ enum EditorPreviews {
                 to: directory.appendingPathComponent("\(name).png")
             ))
         }
+        written.append(try renderFrameStep(store: store, draft: draft, steps: steps, to: directory))
         // Playing (K): the pause button shows and the playhead and canvas follow the player. Last,
         // because its autosave writes the scripted annotations into the shared draft.
         let model = try EditorModel(session: EditorSession(store: store, directory: draft.directory))
@@ -153,6 +154,44 @@ enum EditorPreviews {
         ))
         model.pause()
         return written
+    }
+
+    /// Frame steps (HS2-8FTZ09): the selected range's end grip pressed and released in place (so
+    /// it is the last-used timeline target), then ⇧→ and ← as real key events through the canvas:
+    /// 10 frames forward and 1 back at 10 fps, so the range ends at 2.9 s and the playhead follows.
+    private static func renderFrameStep(
+        store: ReviewDraftStore, draft: ReviewDraft, steps: [EditorScript.Step], to directory: URL
+    ) throws -> URL {
+        let stepping = try EditorModel(session: EditorSession(store: store, directory: draft.directory))
+        offerWindowButtons(stepping)
+        steps.forEach { apply($0, to: stepping) }
+        stepping.mutate { editor in
+            editor.beginTimelineDrag(.rangeEnd)
+            editor.endTimelineDrag()
+        }
+        func stepFrames(_ canvas: AnnotationCanvasView) throws {
+            for (key, code, flags) in [
+                (NSRightArrowFunctionKey, UInt16(124), NSEvent.ModifierFlags.shift), (
+                    NSLeftArrowFunctionKey,
+                    UInt16(123),
+                    NSEvent.ModifierFlags()
+                ),
+            ] {
+                let characters = String(Character(UnicodeScalar(UInt32(key))!))
+                guard let event = NSEvent.keyEvent(
+                    with: .keyDown, location: .zero, modifierFlags: flags.union([.function, .numericPad]), timestamp: 0,
+                    windowNumber: canvas.window?.windowNumber ?? 0, context: nil, characters: characters,
+                    charactersIgnoringModifiers: characters, isARepeat: false, keyCode: code
+                ) else { throw CaptureFailure.failed("no key event") }
+                canvas.keyDown(with: event)
+            }
+        }
+        return try snapshot(
+            EditorView(model: stepping),
+            size: CGSize(width: 1240, height: 800),
+            to: directory.appendingPathComponent("editor-video-frame-step.png"),
+            interact: stepFrames
+        )
     }
 
     /// Auto-scroll (docs/06 §6.2.1): a rectangle drawn on a 5K capture at 400 %, the pointer parked

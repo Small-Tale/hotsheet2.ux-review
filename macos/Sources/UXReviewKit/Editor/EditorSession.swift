@@ -58,6 +58,15 @@ public final class EditorSession {
         editor = AnnotationEditor(bundle: bundle, mediaId: mediaId, originals: priors, trims: trims)
         savedCrops = editor.document.crops
         savedTrims = editor.document.trims
+        loadFrameRates(bundle.media.map(\.id))
+    }
+
+    /// Reads each video's frame rate from its base movie, for ← / → frame steps (docs/06 §6.10).
+    private func loadFrameRates(_ ids: [String]) {
+        for id in ids {
+            guard let item = editor.media(id), item.kind == .video else { continue }
+            editor.setFrameRate(VideoTrim.frameRate(of: baseMovie(item)), for: id)
+        }
     }
 
     deinit {
@@ -139,7 +148,9 @@ public final class EditorSession {
             tracked.remove(id)
             frames[id] = nil
             if let copy = sessionBases.removeValue(forKey: id) { try? FileManager.default.removeItem(at: copy) }
+            editor.setFrameRate(nil, for: id)
         }
+        loadFrameRates(changes.added)
         return changes
     }
 

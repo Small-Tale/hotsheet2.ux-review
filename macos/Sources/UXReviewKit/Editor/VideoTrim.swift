@@ -55,6 +55,29 @@ public enum VideoTrim {
         _ = try FileManager.default.replaceItemAt(destination, withItemAt: temporary)
     }
 
+    /// The movie's frame rate (its video track's nominal frames per second), for frame stepping.
+    /// Nil when the file has no readable video track. Blocks until AVFoundation has loaded it.
+    public static func frameRate(of url: URL) -> Double? {
+        let box = RateBox()
+        let done = DispatchSemaphore(value: 0)
+        Task.detached {
+            let asset = AVURLAsset(url: url)
+            if let track = try? await asset.loadTracks(withMediaType: .video).first,
+               let rate = try? await track.load(.nominalFrameRate), rate.isFinite, rate > 0 {
+                box.rate = Double(rate)
+            }
+            done.signal()
+        }
+        done.wait()
+        return box.rate
+    }
+
+    /// Carries the loaded rate out of the detached task; written before the semaphore signals,
+    /// read after it.
+    private final class RateBox: @unchecked Sendable {
+        var rate: Double?
+    }
+
     /// Copies `source` over `destination` byte for byte (restoring a kept original).
     public static func restore(_ source: URL, to destination: URL) throws {
         let temporary = destination.deletingLastPathComponent()

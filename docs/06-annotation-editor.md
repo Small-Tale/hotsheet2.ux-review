@@ -1,7 +1,8 @@
 # 06 — Annotation editor
 
 Status: implemented on macOS (`HS2-9H7WZ8`). Freehand smoothing is `HS2-5N1GFW`. Zoom/pan is
-`HS2-9Y9DDY`. Video trim and annotation time ranges are `HS2-GBM8JN` (§6.10).
+`HS2-9Y9DDY`. Video trim and annotation time ranges are `HS2-GBM8JN` (§6.10). Arrow-key frame steps are
+`HS2-8FTZ09` (§6.4, §6.10).
 
 The editor marks up the captures of a draft review ([04-capture.md](04-capture.md) §4.6). It
 writes shapes, notes, and intents into the draft's `review.json`
@@ -200,7 +201,8 @@ So a small box drawn inside a big one stays selectable.
 | --- | --- |
 | V R F A I S C | Choose a tool |
 | ⌫ / ⌦ | Delete the selection |
-| ← → ↑ ↓ | Nudge the selection 1 px (⇧: 10 px) |
+| ↑ ↓ | Nudge the selection 1 px (⇧: 10 px) |
+| ← → | Videos: step one frame (⇧: 10 frames) of the last-used timeline target (see **Arrow keys** below). Otherwise nudge the selection 1 px (⇧: 10 px) |
 | Tab / ⇧Tab | Select the next / previous annotation on this capture (wraps) |
 | ⏎ with a drawing tool | Insert a default-sized shape at the middle of the visible canvas (see below) |
 | ⏎ (Select tool), double-click | Focus the selected annotation's note |
@@ -212,6 +214,26 @@ So a small box drawn inside a big one stays selectable.
 | K | Videos: play / pause (§6.10) |
 | , / . (⇧: 1 s) | Videos: step the playhead back / forward 0.1 s (§6.10) |
 | Home / End | Videos: move the playhead to the start / end |
+
+**Arrow keys** (`HS2-8FTZ09`). ← / → act on what the reviewer used last, the canvas or the
+timeline (`AnnotationEditor.arrowKey`, `frameStepTarget`):
+
+- **Timeline targets:** the playhead (scrubbing, typing the playhead time, `,` / `.`, Home / End,
+  an inspector target button), the trim start or end (dragging a trim bracket, Trim Start / Trim
+  End), or an end of the selected annotation's range (dragging its grip, typing From / To, Set to
+  Playhead). After one of these, ← / → step that target frame by frame (§6.10), even while a shape
+  is selected.
+- **Canvas:** a press on the canvas (selecting, moving, or drawing), inserting a shape with ⏎,
+  ⌘D, ↑ / ↓, choosing another annotation (click, Tab, a list row), or showing other media hands
+  ← / → back to the canvas: they nudge the selected shape, as on images. With nothing selected on
+  a video they step the playhead.
+- **Fallback:** a range target whose annotation was deleted, deselected, or set to the whole clip
+  falls back to the playhead. Images have no timeline, so ← / → always nudge there.
+- **Focus:** text fields keep their arrows while the reviewer types in them. A time field
+  (the playhead time, From, To) that has focus but no typed change gives ← / → to the canvas,
+  which takes focus, so a field SwiftUI focused on its own never swallows them. When the window
+  opens, the canvas takes focus back from such a field. Pressing the scrubber and pressing Return
+  in a time field also focus the canvas.
 
 **Drawing without a pointer** (`HS2-M8ZFS0`). Choose a tool (R, F, A, I, S), then press ⏎.
 `AnnotationEditor.insertDefaultShape(at:)` adds a shape centered on the middle of what the
@@ -233,6 +255,7 @@ capture-1.png, 6 annotations". Its help text explains the keys above.
   "Annotation 1: Rectangle, comment, bug. Field label is clipped." An annotation with a time
   range adds it, for example "…, comment, shows 0:01.00–0:02.50. …". On a video the canvas label
   ends with the playhead time, for example "… 2 annotations showing at 0:01.50".
+- **Help:** the canvas's help text also explains the ← / → frame steps.
 - **Timeline:** the scrubber is an adjustable element ("Playhead", value "0:01.50 of 0:03.00");
   VoiceOver's increment and decrement step it 0.1 s.
 - **Frame:** the element frame is the shape's bounds plus 8 points, so points and thin
@@ -375,6 +398,7 @@ and capturing again reuses its id and file name, and that is a removal plus an a
 | --- | --- |
 | State machine, gestures, crop, intent toggle | `UXReviewKit/Editor/AnnotationEditor.swift`, `AnnotationEditor+Gestures.swift` |
 | Playhead, time ranges, trim | `UXReviewKit/Editor/AnnotationEditor+Time.swift` |
+| ← / → frame steps, last-used timeline target | `UXReviewKit/Editor/AnnotationEditor+FrameStep.swift` |
 | Following captures added or removed while open | `UXReviewKit/Editor/AnnotationEditor+Media.swift` |
 | Movie frames and trimmed export | `UXReviewKit/Editor/VideoTrim.swift` |
 | Pixel ↔ normalized space, handles, hit testing, move/resize | `UXReviewKit/Editor/ShapeGeometry.swift` |
@@ -414,7 +438,8 @@ on the current draft (or the draft directory named by `--draft`), then saves.
 | `{"op": "delete"}`, `{"op": "duplicate"}`, `{"op": "nudge", "dx": 1, "dy": 0}` | Act on the selection |
 | `{"op": "insert", "point": [x, y]}` (point optional; default the media center) | ⏎ with the current drawing tool (§6.4) |
 | `{"op": "crop", "rect": [x, y, w, h]}`, `{"op": "reset-crop"}` | Crop the current image, or restore it (§6.6) |
-| `{"op": "time", "ms": 1500}` | Move the playhead on the current video (fails on an image) |
+| `{"op": "time", "ms": 1500}` | Move the playhead on the current video, as the scrubber does (fails on an image) |
+| `{"op": "arrow-key", "key": "right", "shift": true}` | ← / → on the canvas (`shift` optional): a frame step of the last-used timeline target, or a nudge (§6.4) |
 | `{"op": "timeline-drag", "handle": "range-end", "ms": [900, 700]}`, `cancel-timeline-drag` | Press a timeline handle (`range-start`, `range-end`, `trim-start`, `trim-end`), drag through those times, then release (or press Esc). Range handles need a selection with a time range |
 | `{"op": "play", "ms": 400}` | Play the current video in real time for up to 0…60000 ms, then pause; it stops early at the clip end (fails on an image) |
 | `{"op": "range", "start": 200, "end": 900}`, `{"op": "range"}` | Set the selection's time range in ms, or make it the whole clip (fails on an image's annotation) |
@@ -450,6 +475,8 @@ editor offscreen through the real views, on a draft of mock app screenshots:
   the right edge for 1.5 s of timer ticks (§6.2.1)
 - `editor-video-range-drag` and `editor-video-trim-drag`: mid-drag of the selected range's end
   grip, and of the start trim handle (the cut part dimmed)
+- `editor-video-frame-step`: the selected range's end grip pressed in place, then ⇧→ and ← sent
+  as real key events through the canvas (the range ends at 0:02.90 and the playhead follows)
 
 ## 6.10 Video time and trimming
 
@@ -458,13 +485,32 @@ the clip, and the clip itself can be trimmed.
 
 **Playhead.** The canvas shows the frame at the playhead.
 
-- **Moving it:** click or drag the scrubber; ← / → buttons or `,` / `.` step 0.1 s (⇧: 1 s);
+- **Moving it:** click or drag the scrubber; the step buttons or `,` / `.` step 0.1 s (⇧: 1 s);
+  ← / → step one frame (⇧: 10) once the scrubber is the last-used target (§6.4);
   Home / End jump to the ends. The time reads `0:01.50 / 0:03.00`, and the playhead time is a
   field: type a time and press Return to move there (see **Typing times** below).
 - **Resets:** showing another capture puts it back at 0. It is navigation, so it is not
   undoable, but undo and redo restore the playhead of the step they return to.
 - **Frames** come from `AVAssetImageGenerator` with zero tolerance. The clip's end time shows
   the last frame.
+
+**Frame steps** (`HS2-8FTZ09`). ← / → move the last-used timeline target (§6.4) one frame,
+⇧← / ⇧→ ten frames:
+
+- **Frames:** each video's frame rate comes from its movie's video track (nominal frames per
+  second, read by `EditorSession` from the base movie); an unknown rate counts as 30 fps. Steps
+  snap to the movie's own frames: frame k starts at ⌈k · 1000 / fps⌉ ms of the base movie, so a
+  trimmed clip keeps the grid. Forward goes to the start of a later frame; back from inside a
+  frame goes to that frame's start first.
+- **Playhead:** clamps to the clip. Navigation, so not undoable.
+- **Trim start / end:** trims through the same rules and message as the trim handles. Stepping
+  outward brings back trimmed-away time, up to the original's ends; reaching the whole original
+  drops the trim (as Restore Original would). The kept clip never gets shorter than the minimum.
+  The playhead shows the new first frame (start) or the new end, as after a handle drag.
+- **Range ends:** like typing From / To: an end moved past the other drags it along, ends clamp
+  to the clip, and the playhead moves to the moved end.
+- **Undo:** consecutive steps of the same end are one undo step, like nudges. Another end,
+  undo, or any other edit starts a new step. A step abandons a timeline drag in progress.
 
 **Playback** (`HS2-QNFCR0`). **K** or the timeline's play button plays the video from the
 playhead, and pauses it again. Space is taken by pan.

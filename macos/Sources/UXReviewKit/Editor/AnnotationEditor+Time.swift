@@ -30,26 +30,25 @@ public extension AnnotationEditor {
         currentTimeMs = min(max(millis, 0), duration)
     }
 
+    /// The reviewer moves the playhead (scrubber, typed time, Home / End, a target button): like
+    /// `setCurrentTime`, and the scrubber becomes the timeline target ← / → step (docs/06 §6.10).
+    mutating func movePlayhead(to millis: Int) {
+        guard currentDurationMs != nil else { return }
+        setCurrentTime(millis)
+        timelineTarget = .playhead
+    }
+
     /// `,` / `.`: steps the playhead back or forward.
     mutating func stepTime(forward: Bool, large: Bool = false) {
         let step = large ? Self.largeTimeStepMs : Self.timeStepMs
-        setCurrentTime(currentTimeMs + (forward ? step : -step))
+        movePlayhead(to: currentTimeMs + (forward ? step : -step))
     }
 
     /// Sets when an annotation on a video shows, clamped into the clip (`nil`: the whole clip).
     /// Endpoints in the wrong order are swapped. Refused for images.
     @discardableResult
     mutating func setTimeRange(_ range: TimeRange?, for id: String) -> Bool {
-        guard let target = annotation(id), let item = media(target.mediaId), item.kind == .video else { return false }
-        let clamped = range.map { range -> TimeRange in
-            let duration = item.durationMs ?? Int.max
-            let low = min(max(min(range.startMs, range.endMs), 0), duration)
-            let high = min(max(max(range.startMs, range.endMs), 0), duration)
-            return TimeRange(startMs: low, endMs: high)
-        }
-        return perform { snapshot in
-            snapshot.document.bundle.update(id) { $0.timeRange = clamped }
-        }
+        setTimeRange(range, for: id, coalescing: nil)
     }
 
     /// Keeps only `range` (millis into the current video as trimmed: the clip runs from `startMs` to
@@ -70,45 +69,22 @@ public extension AnnotationEditor {
             return false
         }
         guard start > 0 || end < duration else { return false }
-        let kept = end - start
-        var removed = 0
-        let changed = perform { snapshot in
-            let previous = snapshot.document.trims[item.id]?.startMs ?? 0
-            snapshot.document.trims[item.id] = TimeRange(startMs: previous + start, endMs: previous + end)
-            snapshot.document.bundle.setDuration(item.id, kept)
-            snapshot.document.bundle.annotations = snapshot.document.bundle.annotations.compactMap { annotation in
-                guard annotation.mediaId == item.id, let range = annotation.timeRange else { return annotation }
-                guard range.endMs >= start, range.startMs <= end else {
-                    removed += 1
-                    return nil
-                }
-                var moved = annotation
-                moved.timeRange = TimeRange(startMs: max(range.startMs, start) - start, endMs: min(range.endMs, end) - start)
-                return moved
-            }
-            if let selected = snapshot.selection, !snapshot.document.bundle.annotations.contains(where: { $0.id == selected }) {
-                snapshot.selection = nil
-            }
-            snapshot.timeMs = min(max(snapshot.timeMs - start, 0), kept)
-            return true
-        }
-        guard changed else { return false }
-        message = "Trimmed to \(TimeFormat.seconds(kept))."
-            + (removed > 0 ? " Removed \(removed) annotation\(removed == 1 ? "" : "s") outside the trim." : "")
-        return true
+        return applyTrim(item, startMs: start, endMs: end)
     }
 
     /// Trims away everything before the playhead.
     @discardableResult
     mutating func trimStartToPlayhead() -> Bool {
         guard let duration = currentDurationMs else { return trim(to: TimeRange(startMs: 0, endMs: 0)) }
+        timelineTarget = .trimStart
         return trim(to: TimeRange(startMs: currentTimeMs, endMs: duration))
     }
 
     /// Trims away everything after the playhead.
     @discardableResult
     mutating func trimEndToPlayhead() -> Bool {
-        trim(to: TimeRange(startMs: 0, endMs: currentTimeMs))
+        if currentDurationMs != nil { timelineTarget = .trimEnd }
+        return trim(to: TimeRange(startMs: 0, endMs: currentTimeMs))
     }
 
     /// Restores the current video's full length from when the session opened (or its kept
@@ -144,6 +120,57 @@ public extension AnnotationEditor {
 }
 
 extension AnnotationEditor {
+    mutating func setTimeRange(_ range: TimeRange?, for id: String, coalescing key: CoalesceKey?) -> Bool {
+        guard let target = annotation(id), let item = media(target.mediaId), item.kind == .video else { return false }
+        let clamped = range.map { range -> TimeRange in
+            let duration = item.durationMs ?? Int.max
+            let low = min(max(min(range.startMs, range.endMs), 0), duration)
+            let high = min(max(max(range.startMs, range.endMs), 0), duration)
+            return TimeRange(startMs: low, endMs: high)
+        }
+        return perform(coalescing: key) { snapshot in
+            snapshot.document.bundle.update(id) { $0.timeRange = clamped }
+        }
+    }
+
+    /// Keeps `startMs`…`endMs` of `item` (millis into the clip as trimmed). Unlike `trim(to:)`,
+    /// the ends may lie outside the clip, down to `-trim start` and up to the original's end, which
+    /// brings back trimmed-away time (a frame step outward); a trim back to the whole original
+    /// drops the trim. Ranges move with the clip and are clamped into it; annotations entirely
+    /// outside it are removed. The playhead stays on the same frame. The caller checks the limits.
+    mutating func applyTrim(_ item: MediaItem, startMs start: Int, endMs end: Int, coalescing key: CoalesceKey? = nil) -> Bool {
+        guard let duration = item.durationMs else { return false }
+        let previous = document.trims[item.id] ?? TimeRange(startMs: 0, endMs: duration)
+        let original = max(originalDurations[item.id] ?? 0, previous.endMs)
+        let base = TimeRange(startMs: previous.startMs + start, endMs: previous.startMs + end)
+        guard base.startMs >= 0, base.endMs <= original, base != previous else { return false }
+        let kept = end - start
+        var removed = 0
+        let changed = perform(coalescing: key) { snapshot in
+            snapshot.document.trims[item.id] = base == TimeRange(startMs: 0, endMs: original) ? nil : base
+            snapshot.document.bundle.setDuration(item.id, kept)
+            snapshot.document.bundle.annotations = snapshot.document.bundle.annotations.compactMap { annotation in
+                guard annotation.mediaId == item.id, let range = annotation.timeRange else { return annotation }
+                guard range.endMs >= start, range.startMs <= end else {
+                    removed += 1
+                    return nil
+                }
+                var moved = annotation
+                moved.timeRange = TimeRange(startMs: max(range.startMs, start) - start, endMs: min(range.endMs, end) - start)
+                return moved
+            }
+            if let selected = snapshot.selection, !snapshot.document.bundle.annotations.contains(where: { $0.id == selected }) {
+                snapshot.selection = nil
+            }
+            snapshot.timeMs = min(max(snapshot.timeMs - start, 0), kept)
+            return true
+        }
+        guard changed else { return false }
+        message = "Trimmed to \(TimeFormat.seconds(kept))."
+            + (removed > 0 ? " Removed \(removed) annotation\(removed == 1 ? "" : "s") outside the trim." : "")
+        return true
+    }
+
     /// Keeps the playhead inside the current video (0 for images).
     mutating func clampTime() {
         currentTimeMs = min(max(currentTimeMs, 0), currentDurationMs ?? 0)

@@ -8,6 +8,8 @@ public extension AnnotationEditor {
     mutating func beginGesture(at point: CGPoint) {
         cancelGesture()
         guard let item = currentMedia else { return }
+        // A canvas press hands ← / → back to the canvas (docs/06 §6.4).
+        timelineTarget = nil
         let frame = MediaFrame(item)
         let start = clamp(point, frame)
         message = nil
@@ -134,6 +136,7 @@ public extension AnnotationEditor {
         }
         commitNewShape(shape, base: snapshot)
         message = nil
+        timelineTarget = nil
         return true
     }
 

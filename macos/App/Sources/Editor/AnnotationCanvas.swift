@@ -13,6 +13,9 @@ final class AnnotationCanvasView: NSView {
 
     static let strokeWidth: CGFloat = 2.5
 
+    /// ← / → typed into an unedited time field go to the canvas (`redirectArrow`).
+    private var arrowMonitor: Any?
+
     /// Space is held: dragging pans instead of drawing.
     private var spaceHeld = false
     /// The last pointer location of a pan drag (space-drag or middle-button drag).
@@ -41,6 +44,13 @@ final class AnnotationCanvasView: NSView {
     override func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()
         reportSize()
+        installArrowMonitor()
+        // SwiftUI may focus the first text field when the window appears; the canvas takes over
+        // from a time field the reviewer hasn't typed in, so its keys work (docs/06 §6.4).
+        DispatchQueue.main.async { [weak self] in
+            guard let self, let window, TimeField.focusedUnedited, Self.isFieldEditor(window.firstResponder) else { return }
+            window.makeFirstResponder(self)
+        }
     }
 
     private func reportSize() {
@@ -88,21 +98,6 @@ final class AnnotationCanvasView: NSView {
             crop: model.editor.previewCrop,
             in: context
         )
-    }
-
-    private func drawPlaceholder(_ text: String) {
-        let paragraph = NSMutableParagraphStyle()
-        paragraph.alignment = .center
-        paragraph.lineSpacing = 4
-        let attributes: [NSAttributedString.Key: Any] = [
-            .font: NSFont.systemFont(ofSize: 14),
-            // The canvas is always dark, whatever the appearance.
-            .foregroundColor: NSColor(white: 0.72, alpha: 1),
-            .paragraphStyle: paragraph,
-        ]
-        let string = NSAttributedString(string: text, attributes: attributes)
-        let size = string.size()
-        string.draw(in: CGRect(x: bounds.midX - size.width / 2, y: bounds.midY - size.height / 2, width: size.width, height: size.height))
     }
 
     // MARK: Cursor
@@ -242,11 +237,10 @@ final class AnnotationCanvasView: NSView {
         switch event.specialKey {
         case .delete?, .deleteForward?, .backspace?:
             model.mutate { _ = $0.deleteSelection() }
-        case .leftArrow?: model.mutate { _ = $0.nudgeSelection(dx: -step, dy: 0) }
-        case .rightArrow?: model.mutate { _ = $0.nudgeSelection(dx: step, dy: 0) }
+        case .leftArrow?, .rightArrow?: pressArrow(forward: event.specialKey == .rightArrow, shift: shift)
         case .upArrow?: model.mutate { _ = $0.nudgeSelection(dx: 0, dy: -step) }
         case .downArrow?: model.mutate { _ = $0.nudgeSelection(dx: 0, dy: step) }
-        case .home?, .end?: model.mutate { $0.setCurrentTime(event.specialKey == .home ? 0 : Int.max) }
+        case .home?, .end?: model.mutate { $0.movePlayhead(to: event.specialKey == .home ? 0 : Int.max) }
         case .tab?, .backTab?:
             model.mutate { $0.selectNext(forward: !shift && event.specialKey != .backTab) }
         case .carriageReturn?, .enter?:
@@ -321,7 +315,9 @@ final class AnnotationCanvasView: NSView {
     override func accessibilityHelp() -> String? {
         "Choose a tool with V, R, F, A, I, or S, then press Return to add a shape. "
             + "Arrow keys move the selected annotation, Tab selects the next one, and Return edits its note. "
-            + "On a video, K plays and pauses, comma and period step the playhead, and Home and End jump to the start and end."
+            + "On a video, K plays and pauses, comma and period step the playhead, and Home and End jump to the start and end. "
+            + "Left and right arrows step one frame (Shift: 10) of whatever you used last on the timeline: "
+            + "the playhead, a trim end, or the selected annotation's range end."
     }
 
     override func accessibilityChildren() -> [Any]? {
@@ -371,6 +367,45 @@ final class AnnotationCanvasView: NSView {
         spaceHeld = false
         panAnchor = nil
         return super.resignFirstResponder()
+    }
+}
+
+extension AnnotationCanvasView {
+    // MARK: ← / → frame steps (docs/06 §6.4, §6.10)
+
+    /// ← / →: on a video, a frame step (⇧: 10) of the timeline target used last (the scrubber, a
+    /// trim end, or the selected range's end); after a canvas press or selection, a nudge of the
+    /// selected shape (⇧: 10 px). `AnnotationEditor.arrowKey` holds the rule (docs/06 §6.4).
+    func pressArrow(forward: Bool, shift: Bool) {
+        model?.mutate { _ = $0.arrowKey(forward: forward, large: shift) }
+    }
+
+    /// While the editor window is open: ← / → typed into a time field the reviewer hasn't edited
+    /// (for example one SwiftUI focused on its own) go to the canvas instead, and the canvas
+    /// takes focus. A field with typed text keeps its arrows for moving the caret.
+    func installArrowMonitor() {
+        if let arrowMonitor { NSEvent.removeMonitor(arrowMonitor) }
+        arrowMonitor = nil
+        guard window != nil else { return }
+        arrowMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
+            self?.redirectArrow(event) ?? event
+        }
+    }
+
+    /// The event to deliver: nil when it became a canvas arrow press. Monitors run on the main thread.
+    private func redirectArrow(_ event: NSEvent) -> NSEvent? {
+        guard let window, event.window === window, model != nil,
+              event.specialKey == .leftArrow || event.specialKey == .rightArrow,
+              event.modifierFlags.isDisjoint(with: [.command, .option, .control]),
+              Self.isFieldEditor(window.firstResponder), TimeField.focusedUnedited
+        else { return event }
+        window.makeFirstResponder(self)
+        pressArrow(forward: event.specialKey == .rightArrow, shift: event.modifierFlags.contains(.shift))
+        return nil
+    }
+
+    static func isFieldEditor(_ responder: NSResponder?) -> Bool {
+        (responder as? NSTextView)?.isFieldEditor == true
     }
 }
 
@@ -435,5 +470,23 @@ struct AnnotationCanvas: NSViewRepresentable {
         view.model = model
         view.window?.invalidateCursorRects(for: view)
         view.announceChanges()
+    }
+}
+
+extension AnnotationCanvasView {
+    /// Centered text on the empty canvas (no media, or a file that can't be read).
+    func drawPlaceholder(_ text: String) {
+        let paragraph = NSMutableParagraphStyle()
+        paragraph.alignment = .center
+        paragraph.lineSpacing = 4
+        let attributes: [NSAttributedString.Key: Any] = [
+            .font: NSFont.systemFont(ofSize: 14),
+            // The canvas is always dark, whatever the appearance.
+            .foregroundColor: NSColor(white: 0.72, alpha: 1),
+            .paragraphStyle: paragraph,
+        ]
+        let string = NSAttributedString(string: text, attributes: attributes)
+        let size = string.size()
+        string.draw(in: CGRect(x: bounds.midX - size.width / 2, y: bounds.midY - size.height / 2, width: size.width, height: size.height))
     }
 }

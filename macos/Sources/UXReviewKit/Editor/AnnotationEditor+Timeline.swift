@@ -37,6 +37,7 @@ public extension AnnotationEditor {
         cancelGesture()
         guard let duration = currentDurationMs else { return false }
         if handle.isTrim {
+            timelineTarget = handle == .trimStart ? .trimStart : .trimEnd
             timelineDrag = TimelineDrag(
                 handle: handle, annotationId: nil, anchorMs: 0,
                 pendingTrim: TimeRange(startMs: 0, endMs: duration), base: snapshot
@@ -44,6 +45,7 @@ public extension AnnotationEditor {
             return true
         }
         guard let selected = selectedAnnotation, selected.mediaId == currentMediaId, let range = selected.timeRange else { return false }
+        timelineTarget = TimelineStepTarget(handle, annotationId: selected.id)
         timelineDrag = TimelineDrag(
             handle: handle, annotationId: selected.id,
             anchorMs: handle == .rangeStart ? range.endMs : range.startMs, pendingTrim: nil, base: snapshot
@@ -106,15 +108,22 @@ public extension AnnotationEditor {
     /// Moving From past To (or To before From) drags the other end along. One undo step.
     @discardableResult
     mutating func setRangeEnd(_ handle: TimelineHandle, toMs millis: Int, for id: String) -> Bool {
-        guard let range = annotation(id)?.timeRange, !handle.isTrim else { return false }
-        let next = handle == .rangeStart
-            ? TimeRange(startMs: millis, endMs: max(range.endMs, millis))
-            : TimeRange(startMs: min(range.startMs, millis), endMs: millis)
-        return setTimeRange(next, for: id)
+        setRangeEnd(handle, toMs: millis, for: id, coalescing: nil)
     }
 }
 
 extension AnnotationEditor {
+    /// `setRangeEnd`, coalescing with the previous change when `key` matches (frame steps). The
+    /// end becomes the timeline target ← / → step.
+    mutating func setRangeEnd(_ handle: TimelineHandle, toMs millis: Int, for id: String, coalescing key: CoalesceKey?) -> Bool {
+        guard let range = annotation(id)?.timeRange, !handle.isTrim else { return false }
+        let next = handle == .rangeStart
+            ? TimeRange(startMs: millis, endMs: max(range.endMs, millis))
+            : TimeRange(startMs: min(range.startMs, millis), endMs: millis)
+        timelineTarget = TimelineStepTarget(handle, annotationId: id)
+        return setTimeRange(next, for: id, coalescing: key)
+    }
+
     /// The playhead without cancelling anything (used while finishing a drag).
     mutating func setPlayhead(_ millis: Int) {
         currentTimeMs = millis

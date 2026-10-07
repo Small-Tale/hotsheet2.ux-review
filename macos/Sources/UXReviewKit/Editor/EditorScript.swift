@@ -35,8 +35,11 @@ public struct EditorScript: Decodable, Equatable, Sendable {
         case resetCrop
         /// Restore Original: the current image's crop or the current video's trim.
         case restoreOriginal
-        /// Moves the playhead to `millis` into the current video.
+        /// Moves the playhead to `millis` into the current video, as the scrubber does.
         case time(Int)
+        /// ← / → on the canvas (`shift`: ⇧): a frame step of the last-used timeline target, or a
+        /// nudge of the selection (docs/06 §6.4).
+        case arrowKey(forward: Bool, shift: Bool)
         /// Plays the current video in real time for `millis`, then pauses; the playhead is where
         /// playback stopped.
         case play(Int)
@@ -79,7 +82,7 @@ public enum EditorScriptError: Error, Equatable, CustomStringConvertible {
 
 extension EditorScript.Step: Decodable {
     private enum CodingKeys: String,
-        CodingKey { case op, media, tool, points, point, id, text, intent, closed, dx, dy, rect, start, end, handle
+        CodingKey { case op, media, tool, points, point, id, text, intent, closed, dx, dy, rect, start, end, handle, key, shift
         case millis = "ms"
     }
 
@@ -120,16 +123,24 @@ extension EditorScript.Step: Decodable {
         case "closed": self = try .closed(container.decode(Bool.self, forKey: .closed))
         case "nudge": self = try .nudge(dx: container.decode(Double.self, forKey: .dx), dy: container.decode(Double.self, forKey: .dy))
         case "crop", "insert": self = try Self.geometry(op, in: container)
-        case "time", "play", "timeline-drag", "cancel-timeline-drag": self = try Self.playhead(op, in: container)
+        case "time", "play", "timeline-drag", "cancel-timeline-drag", "arrow-key": self = try Self.playhead(op, in: container)
         case "range", "trim": self = try Self.timing(op, in: container)
         default:
             throw invalid(.op, "Unknown op \(op)")
         }
     }
 
-    /// `time` (the playhead) and `play` (how long to play, at most a minute), both in `ms`; and
-    /// `timeline-drag` / `cancel-timeline-drag` (a `handle` and a list of times in `ms`).
+    /// `time` (the playhead) and `play` (how long to play, at most a minute), both in `ms`;
+    /// `timeline-drag` / `cancel-timeline-drag` (a `handle` and a list of times in `ms`); and
+    /// `arrow-key` (`key` left or right, optional `shift`).
     private static func playhead(_ op: String, in container: KeyedDecodingContainer<CodingKeys>) throws -> EditorScript.Step {
+        if op == "arrow-key" {
+            let key = try container.decode(String.self, forKey: .key)
+            guard key == "left" || key == "right" else {
+                throw DecodingError.dataCorruptedError(forKey: .key, in: container, debugDescription: "key must be left or right")
+            }
+            return try .arrowKey(forward: key == "right", shift: container.decodeIfPresent(Bool.self, forKey: .shift) ?? false)
+        }
         if op.hasSuffix("timeline-drag") {
             let name = try container.decode(String.self, forKey: .handle)
             guard let handle = TimelineHandle(rawValue: name) else {
@@ -216,7 +227,7 @@ public extension EditorScript {
         case .note, .intent, .closed, .delete, .duplicate, .nudge, .range:
             try applyToSelection(step, in: session)
         case let .crop(rect): session.editor.crop(to: rect)
-        case .resetCrop, .restoreOriginal, .time, .play, .timelineDrag, .trim, .resetTrim:
+        case .resetCrop, .restoreOriginal, .time, .play, .timelineDrag, .trim, .resetTrim, .arrowKey:
             try applyToMedia(step, in: session)
         case let .removeMedia(id):
             guard session.editor.media(id) != nil else { throw StepFailure.reason("unknown media \(id)") }
@@ -228,14 +239,14 @@ public extension EditorScript {
         }
     }
 
-    /// Crop/trim resets and video time on the current media.
+    /// Crop/trim resets, video time, and ← / → on the current media.
     private static func applyToMedia(_ step: Step, in session: EditorSession) throws {
         switch step {
         case .resetCrop: session.editor.resetCrop()
         case .restoreOriginal: session.editor.restoreOriginal()
         case let .time(millis):
             guard session.editor.currentDurationMs != nil else { throw StepFailure.reason("the current media is not a video") }
-            session.editor.setCurrentTime(millis)
+            session.editor.movePlayhead(to: millis)
         case let .timelineDrag(handle, times, cancel):
             guard session.editor.currentDurationMs != nil else { throw StepFailure.reason("the current media is not a video") }
             guard session.editor.beginTimelineDrag(handle) else { throw StepFailure.reason("no selected time range to drag") }
@@ -253,6 +264,9 @@ public extension EditorScript {
             session.editor.setCurrentTime(playback.pause())
         case let .trim(range): session.editor.trim(to: range)
         case .resetTrim: session.editor.resetTrim()
+        case let .arrowKey(forward, shift):
+            // Like the key itself: a press that changes nothing (at a clip edge, on an image) is fine.
+            session.editor.arrowKey(forward: forward, large: shift)
         default: break
         }
     }

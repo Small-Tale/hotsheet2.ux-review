@@ -408,6 +408,30 @@ run annotate-timeline-whole 2 -- --annotate "$TMP/script-timeline-whole.json" --
 validate_bundle "$adraft/review.json"
 ok "timeline drags: a range end moved to 300-700, Esc restored the other end, a trim handle trimmed to 0.8 s and undid; whole-clip annotations have no handles"
 
+# HS2-8FTZ09: ← / → step one frame of the last-used timeline target (the synthetic clip is 10 fps).
+echo '{"steps": [{"op": "media", "media": "m2"}, {"op": "time", "ms": 100}, {"op": "arrow-key", "key": "right"}]}' >"$TMP/script-frame-playhead.json"
+run annotate-frame-playhead 0 -- --annotate "$TMP/script-frame-playhead.json" --drafts-dir "$ADRAFTS"
+[[ "$(json "$TMP/annotate-frame-playhead.json" 'j.currentTimeMs > 100 && j.currentTimeMs <= 250')" == true ]] \
+  || die "frame step: playhead at $(json "$TMP/annotate-frame-playhead.json" j.currentTimeMs) after → from 100"
+cat >"$TMP/script-frames.json" <<'JSON'
+{"steps": [
+  {"op": "media", "media": "m2"}, {"op": "select", "id": "#6"},
+  {"op": "timeline-drag", "handle": "range-end", "ms": [700]},
+  {"op": "arrow-key", "key": "left"},
+  {"op": "timeline-drag", "handle": "trim-end", "ms": [99999]},
+  {"op": "arrow-key", "key": "left"}, {"op": "arrow-key", "key": "right"}, {"op": "arrow-key", "key": "left"},
+  {"op": "undo"}
+]}
+JSON
+run annotate-frames 0 -- --annotate "$TMP/script-frames.json" --drafts-dir "$ADRAFTS"
+[[ "$(json "$adraft/review.json" 'j.annotations[5].timeRange.startMs == 300 && j.annotations[5].timeRange.endMs >= 590 && j.annotations[5].timeRange.endMs < 700')" == true ]] \
+  || die "frame step: range $(json "$adraft/review.json" 'JSON.stringify(j.annotations[5].timeRange)')"
+json "$TMP/annotate-frames.json" 'j.messages.join("|")' | grep -q "Trimmed to" || die "frame step: the trim end did not step"
+[[ "$(json "$adraft/review.json" j.media[1].durationMs)" == "$clip_ms" ]] || die "frame step: one undo did not restore the stepped trim"
+cmp -s "$clip" "$TMP/clip-before-trim.mov" || die "frame step: the undone trim rewrote the movie"
+validate_bundle "$adraft/review.json"
+ok "frame steps: → moved the playhead one frame, ← moved the range end one frame, trim-end steps were one undo step"
+
 echo '{"steps": [{"op": "paint"}]}' >"$TMP/bad-script.json"
 run annotate-bad 2 -- --annotate "$TMP/bad-script.json" --drafts-dir "$ADRAFTS"
 echo '{"steps": [{"op": "delete"}]}' >"$TMP/bad-step.json"

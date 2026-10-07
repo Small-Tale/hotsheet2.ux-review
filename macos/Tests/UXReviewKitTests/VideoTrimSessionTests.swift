@@ -196,6 +196,38 @@ extension EncodingTests {
             #expect(throws: EditorScriptError.failed(step: 1, "nothing selected")) { try bad.run(on: session) }
         }
 
+        /// ← / → (HS2-8FTZ09) end to end: the session reads the movie's 10 fps, and scripted arrow
+        /// keys step the scrubber, then the trim end, frame by frame; the trim is exported on save.
+        @Test func arrowKeysStepFramesOfTheRealMovie() async throws {
+            let fixture = try await Fixture()
+            let session = try fixture.session()
+            let id = try #require(session.editor.currentMediaId)
+            #expect(abs(session.editor.frameRate(of: id) - 10) < 0.5, "read from the movie: \(session.editor.frameRate(of: id))")
+            let script = try EditorScript.parse(Data(#"""
+            {"steps": [
+              {"op": "time", "ms": 450},
+              {"op": "arrow-key", "key": "right"}, {"op": "arrow-key", "key": "right", "shift": true},
+              {"op": "timeline-drag", "handle": "trim-end", "ms": [2000]},
+              {"op": "arrow-key", "key": "left", "shift": true}, {"op": "arrow-key", "key": "left"}
+            ]}
+            """#.utf8))
+            session.editor.setFrameRate(10, for: id) // exact, so the times below are whole frames
+            let messages = try script.run(on: session)
+            #expect(messages.last == "Trimmed to 0.9 s.")
+            #expect(session.editor.currentTimeMs == 900, "the playhead shows the new end")
+            #expect(try fixture.onDisk().media[0].durationMs == 900)
+            let length = try await Self.duration(fixture.movieURL)
+            #expect(abs(length - 900) <= 50, "exported \(length) ms")
+            #expect(try Self.color(session.displayImage(id, atMs: 850)) == "red", "frames 0…8 are red")
+
+            let scrub = try fixture.session()
+            scrub.editor.setFrameRate(10, for: id)
+            try EditorScript
+                .parse(Data(#"{"steps": [{"op": "time", "ms": 450}, {"op": "arrow-key", "key": "right", "shift": true}]}"#.utf8))
+                .run(on: scrub)
+            #expect(scrub.editor.currentTimeMs == 900, "clamped to the trimmed clip's end")
+        }
+
         @Test func renderAnnotatedDrawsOnlyAnnotationsShowingAtThePlayhead() async throws {
             let fixture = try await Fixture()
             let session = try fixture.session()

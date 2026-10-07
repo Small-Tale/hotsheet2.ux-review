@@ -121,7 +121,7 @@ struct TimeRangeEditor: View {
             Text(label).frame(width: 36, alignment: .leading)
             TimeField(label: label, millis: millis) { set(handle, to: $0) }
                 .help("Type a time, for example 1.5 or 0:01.50")
-            Button { model.mutate { $0.setCurrentTime(millis) } } label: { Image(systemName: "scope") }
+            Button { model.mutate { $0.movePlayhead(to: millis) } } label: { Image(systemName: "scope") }
                 .buttonStyle(.borderless)
                 .help("Move the playhead here")
                 .accessibilityLabel("Show \(label.lowercased()) \(TimeFormat.clock(millis))")

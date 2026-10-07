@@ -441,6 +441,37 @@ Each feature gets both unit tests and end-to-end tests. Tests live in
   into the fields in a live window. These are view code over the tested state machine, hit
   test, and parser; live-window automation is `HS2-HA9TW3`.
 
+## HS2-8FTZ09: ← / → frame steps of the last-used timeline target
+
+- **Frame grid** (`FrameStepTests`): steps snap to the movie's frames (30, 25, 10 fps; back
+  from inside a frame lands on its start), a trim keeps the movie's grid, and an unknown or
+  nonsense rate falls back to 30 fps.
+- **Target transition matrix** (`FrameStepTests`): every timeline action (scrub, `,` / `.`,
+  trim and range handle drags, typed From/To, Trim Start/End, a frame step) sets its target
+  from every starting target; every canvas action (press, draw, keyboard insert, duplicate,
+  nudge, another selection, Tab) hands the arrows back to the shape; re-selecting keeps the
+  target; undo, redo, and playback-style `setCurrentTime` keep it; a media switch clears it.
+- **Fallbacks** (`FrameStepTests`): a range target falls back to the playhead when its
+  annotation is deleted, deselected, or made whole-clip (and comes back with undo); a removed
+  video or an image leaves no timeline target, where ← / → nudge (⇧: 10 px).
+- **Edits** (`FrameStepEditTests`): trim-end and trim-start steps (⇧ ×10) trim, move ranges,
+  remove annotations outside, show the new end, step back outward to the original (dropping the
+  trim at full length), stop at the 100 ms minimum and the original's ends, and compose with
+  earlier mid-frame trims; range ends step, drag the other end along, clamp to the clip, and
+  move the playhead. Consecutive steps of one end are one undo step; another end, undo, or
+  another edit starts a new one. A step cancels a timeline drag first; images refuse steps.
+- **Real movie** (`VideoTrimSessionTests`): the session reads the movie's 10 fps; a scripted
+  scrub step and trim-end steps export a 0.9 s movie whose last frame is right.
+- **Script** (`FrameStepTests`): `arrow-key` parses `left` / `right` with optional `shift` and
+  rejects other keys.
+- **App end to end** (`scripts/app-e2e.sh`): `--annotate` steps the playhead one frame, a range
+  end one frame back, and the trim end (one undo step restores the duration and the movie).
+- **Visual QA:** `editor-video-frame-step`: a range end grip pressed in place, then ⇧→ and ← sent
+  as real key events through the canvas (range to 0:02.90, playhead following).
+- **Not covered automatically:** focus in a live window: the canvas taking focus from a time
+  field SwiftUI focused on its own, the key monitor redirecting ← / → from an unedited time
+  field, and a scrubber press focusing the canvas. Live-window automation is `HS2-HA9TW3`.
+
 ## HS2-T0EY2W: microphone narration
 
 - **Writer** (`NarrationTests`, real movies with synthetic 48 kHz LPCM tone buffers on a

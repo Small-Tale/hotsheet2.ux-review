@@ -104,6 +104,8 @@ public struct AnnotationEditor: Sendable {
     enum CoalesceKey: Equatable, Sendable {
         case note(String)
         case nudge(String)
+        /// Consecutive ← / → frame steps of the same trim or range end (docs/06 §6.10).
+        case frameStep(TimelineStepTarget)
     }
 
     public static let undoLimit = 200
@@ -124,6 +126,13 @@ public struct AnnotationEditor: Sendable {
     /// The playhead: how far into the current video (as trimmed) the canvas shows, in ms. Always 0
     /// for images. Annotations with a time range show only while it is inside their range.
     public internal(set) var currentTimeMs = 0
+    /// The timeline target the reviewer used last (scrubber, a trim end, or a range end), which
+    /// ← / → step frame by frame; nil after a canvas press or selection, when the arrows move the
+    /// selected shape. Navigation state, never undone. Resolve it with `frameStepTarget`.
+    public internal(set) var timelineTarget: TimelineStepTarget?
+    /// Each video's frame rate (frames per second), from its movie; frame steps fall back to
+    /// `defaultFrameRate` without one.
+    public internal(set) var frameRates: [String: Double] = [:]
     /// Smallest box or arrow a drag creates, in media pixels. The view sets it from its zoom.
     public var minimumSide: Double = 6
     /// How far from a stroke or handle a click still hits, in media pixels.
@@ -200,11 +209,14 @@ public struct AnnotationEditor: Sendable {
         currentMediaId = mediaId
         selection = nil
         currentTimeMs = 0
+        timelineTarget = nil
     }
 
     /// Selects an annotation (showing its media) or clears the selection.
     public mutating func select(_ id: String?) {
         cancelGesture()
+        // Choosing another annotation (or none) hands ← / → back to the canvas.
+        if id != selection { timelineTarget = nil }
         guard let id, let target = annotation(id) else {
             selection = nil
             return
@@ -275,6 +287,7 @@ public struct AnnotationEditor: Sendable {
     public mutating func duplicateSelection() -> Bool {
         guard let original = selectedAnnotation else { return false }
         let copyID = nextAnnotationID()
+        timelineTarget = nil
         return perform { snapshot in
             var copy = original
             copy.id = copyID
@@ -292,6 +305,8 @@ public struct AnnotationEditor: Sendable {
         let scale = Double(NormalizedSpace.max)
         let ndx = Int((dx / Double(max(item.pixelWidth, 1)) * scale).rounded())
         let ndy = Int((dy / Double(max(item.pixelHeight, 1)) * scale).rounded())
+        // Moving the shape hands ← / → back to the canvas.
+        timelineTarget = nil
         return perform(coalescing: .nudge(original.id)) { snapshot in
             snapshot.document.bundle.update(original.id) { $0.shape = $0.shape.translated(dx: ndx, dy: ndy) }
         }

@@ -28,7 +28,7 @@ struct TimelineBar: View {
                     .accessibilityLabel("Step forward")
                 HStack(spacing: 4) {
                     TimeField(label: "Playhead time", millis: editor.currentTimeMs) { millis in
-                        model.mutate { $0.setCurrentTime(millis) }
+                        model.mutate { $0.movePlayhead(to: millis) }
                     }
                     .help("Type a time to move the playhead, for example 1.5 or 0:01.50")
                     Text("/ \(TimeFormat.clock(duration))")
@@ -124,6 +124,8 @@ struct TimelineTrack: View {
 
     private func drag(_ value: DragGesture.Value, width: CGFloat) {
         if grabbed == nil {
+            // ← / → step what was pressed here, so the canvas takes the keys back.
+            focusEditorCanvas()
             let handle = TimelineHitTest.handle(
                 x: value.startLocation.x, y: value.startLocation.y, width: width, durationMs: duration, selectedRange: selectedRange
             )
@@ -134,7 +136,7 @@ struct TimelineTrack: View {
         if case .some(.some) = grabbed {
             model.mutate { $0.updateTimelineDrag(toMs: millis) }
         } else {
-            model.mutate { $0.setCurrentTime(millis) }
+            model.mutate { $0.movePlayhead(to: millis) }
         }
     }
 
@@ -242,15 +244,31 @@ struct TrimBracket: SwiftUI.Shape {
     }
 }
 
+/// Makes the key window's annotation canvas first responder, so its keys (← / →, tools) work.
+@MainActor
+func focusEditorCanvas() {
+    guard let window = NSApp.keyWindow, let canvas = window.contentView?.firstDescendant(AnnotationCanvasView.self) else { return }
+    window.makeFirstResponder(canvas)
+}
+
 /// A time the reviewer can type (`1.5`, `0:01.50`, `1500 ms`; `TimeFormat.parse`). It shows
 /// `millis` while not being edited. Return commits; a time that doesn't parse beeps and reverts.
-/// Afterwards focus goes back to the canvas, so its keys work again.
+/// Afterwards focus goes back to the canvas, so its keys work again. While it has focus but no
+/// typed change, ← / → go to the canvas (`focusedUnedited`, docs/06 §6.4).
 struct TimeField: View {
     let label: String
     let millis: Int
     let commit: (Int) -> Void
     @State private var text = ""
     @FocusState private var focused: Bool
+
+    /// True while a time field has focus and still shows its time unchanged. Only one field has
+    /// focus at a time, so one flag serves every editor window.
+    @MainActor static var focusedUnedited = false
+
+    private func reportEditing() {
+        Self.focusedUnedited = focused && text == TimeFormat.clock(millis)
+    }
 
     var body: some View {
         TextField(label, text: $text)
@@ -262,16 +280,23 @@ struct TimeField: View {
             .focused($focused)
             .accessibilityLabel(label)
             .onAppear { text = TimeFormat.clock(millis) }
-            .onChange(of: millis) { if !focused { text = TimeFormat.clock(millis) } }
-            .onChange(of: focused) { if !focused { text = TimeFormat.clock(millis) } }
+            .onDisappear { if focused { Self.focusedUnedited = false } }
+            .onChange(of: millis) { old, new in
+                // An unedited field follows the time even while focused.
+                if !focused || text == TimeFormat.clock(old) { text = TimeFormat.clock(new) }
+                reportEditing()
+            }
+            .onChange(of: focused) {
+                if !focused { text = TimeFormat.clock(millis) }
+                reportEditing()
+            }
+            .onChange(of: text) { reportEditing() }
             .onSubmit {
                 let typed = TimeFormat.parse(text)
                 focused = false
                 text = TimeFormat.clock(millis)
                 if let typed { commit(typed) } else { NSSound.beep() }
-                if let window = NSApp.keyWindow, let canvas = window.contentView?.firstDescendant(AnnotationCanvasView.self) {
-                    window.makeFirstResponder(canvas)
-                }
+                focusEditorCanvas()
             }
     }
 }
