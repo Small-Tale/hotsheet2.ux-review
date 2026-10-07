@@ -31,6 +31,7 @@ enum EditorPreviews {
             _ name: String, size: CGSize, script: [EditorScript.Step], cropDrag: Bool = false, viewport: CanvasViewport? = nil
         ) throws {
             let model = try EditorModel(session: EditorSession(store: store, directory: draft.directory))
+            model.submitReview = {} // the editor window always offers it
             script.forEach { apply($0, to: model) }
             if let viewport { model.setViewport(viewport) }
             if cropDrag {
@@ -51,6 +52,7 @@ enum EditorPreviews {
         // Keyboard only: R, then Return inserts a rectangle at the canvas middle (real key events
         // through the canvas); the canvas's accessibility tree is written next to the render.
         let keyboardModel = try EditorModel(session: EditorSession(store: store, directory: draft.directory))
+        keyboardModel.submitReview = {} // the editor window always offers it
         annotations.forEach { apply($0, to: keyboardModel) }
         func typeRThenReturn(_ canvas: AnnotationCanvasView) throws {
             for (characters, code) in [("r", UInt16(15)), ("\r", UInt16(36))] {
@@ -100,6 +102,7 @@ enum EditorPreviews {
             ("editor-video-trimmed", CGSize(width: 1240, height: 800), [.trim(TimeRange(startMs: 500, endMs: duration)), .time(1000)]),
         ] {
             let model = try EditorModel(session: EditorSession(store: store, directory: draft.directory))
+            model.submitReview = {} // the editor window always offers it
             (steps + extra).forEach { apply($0, to: model) }
             written.append(try snapshot(EditorView(model: model), size: size, to: directory.appendingPathComponent("\(name).png")))
         }
@@ -108,6 +111,7 @@ enum EditorPreviews {
             ("editor-video-range-drag", TimelineHandle.rangeEnd, 2600), ("editor-video-trim-drag", TimelineHandle.trimStart, 700),
         ] {
             let dragging = try EditorModel(session: EditorSession(store: store, directory: draft.directory))
+            dragging.submitReview = {} // the editor window always offers it
             steps.forEach { apply($0, to: dragging) }
             dragging.mutate { editor in
                 editor.beginTimelineDrag(handle)
@@ -122,6 +126,7 @@ enum EditorPreviews {
         // Playing (K): the pause button shows and the playhead and canvas follow the player. Last,
         // because its autosave writes the scripted annotations into the shared draft.
         let model = try EditorModel(session: EditorSession(store: store, directory: draft.directory))
+        model.submitReview = {} // the editor window always offers it
         (steps + [.time(600)]).forEach { apply($0, to: model) }
         model.togglePlayback()
         RunLoop.main.run(until: Date().addingTimeInterval(1.2))
@@ -149,6 +154,7 @@ enum EditorPreviews {
             context: CaptureContext(appName: "Acme Mail")
         )).draft
         let model = try EditorModel(session: EditorSession(store: store, directory: draft.directory))
+        model.submitReview = {} // the editor window always offers it
         model.setViewport(CanvasViewport(zoom: 1, center: CGPoint(x: 1300, y: 820)))
         func drag(_ canvas: AnnotationCanvasView) throws {
             guard let renderer = canvas.renderer() else { throw CaptureFailure.failed("no canvas layout") }
@@ -248,7 +254,12 @@ enum EditorPreviews {
     private static func snapshot(
         _ view: some View, size: CGSize, to url: URL, interact: ((AnnotationCanvasView) throws -> Void)? = nil
     ) throws -> URL {
-        let host = NSHostingView(rootView: view.frame(width: size.width, height: size.height))
+        // cacheDisplay skips the window's own background, so paint it (else the tool bar's
+        // text sits on transparent pixels).
+        let host = NSHostingView(
+            rootView: view.frame(width: size.width, height: size.height)
+                .background(Color(nsColor: .windowBackgroundColor))
+        )
         let window = NSWindow(contentRect: CGRect(origin: .zero, size: size), styleMask: [.titled], backing: .buffered, defer: false)
         window.contentView = host
         host.frame = CGRect(origin: .zero, size: size)

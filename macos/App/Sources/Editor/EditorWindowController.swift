@@ -48,6 +48,7 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
         super.init(window: window)
         window.delegate = self
         content.onDropFiles = { [weak self] urls in self?.addDroppedFiles(urls) }
+        model.submitReview = { [weak self] in self?.submitReview(nil) }
     }
 
     @available(*, unavailable)
@@ -100,6 +101,24 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
     @objc func redo(_: Any?) { model.mutate { $0.redo() } }
     @objc func duplicate(_: Any?) { model.mutate { _ = $0.duplicateSelection() } }
     @objc func saveDocument(_: Any?) { model.save() }
+
+    /// Submit Review… (tool bar, ⌘↩): saves, then opens the session window on *this* draft,
+    /// which may not be the current one (docs/07 §7.1).
+    @objc func submitReview(_: Any?) {
+        model.pause()
+        model.save()
+        let session = model.session
+        do {
+            try ReviewSessionWindowController.show(draft: session.store.load(session.directory), store: session.store)
+        } catch {
+            guard let window else { return }
+            let alert = NSAlert()
+            alert.alertStyle = .warning
+            alert.messageText = "Couldn't open the review"
+            alert.informativeText = ReviewSubmitter.describe(error)
+            alert.beginSheetModal(for: window)
+        }
+    }
 
     @objc func validateMenuItem(_ item: NSMenuItem) -> Bool {
         switch item.action {
@@ -162,6 +181,8 @@ enum EditMenu {
         edit.addItem(withTitle: "Select All", action: #selector(NSText.selectAll(_:)), keyEquivalent: "a")
         edit.addItem(withTitle: "Duplicate", action: #selector(AnnotationCanvasView.duplicate(_:)), keyEquivalent: "d")
         edit.addItem(withTitle: "Save", action: #selector(AnnotationCanvasView.saveDocument(_:)), keyEquivalent: "s")
+        // Only the editor window answers this, so it is disabled (and ⌘↩ passes through) elsewhere.
+        edit.addItem(withTitle: "Submit Review…", action: #selector(EditorWindowController.submitReview(_:)), keyEquivalent: "\r")
         edit.addItem(.separator())
         edit.addItem(withTitle: "Close Window", action: #selector(NSWindow.performClose(_:)), keyEquivalent: "w")
         let item = NSMenuItem(title: "Edit", action: nil, keyEquivalent: "")

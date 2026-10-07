@@ -30,6 +30,10 @@ final class EditorModel: ObservableObject {
     @Published private(set) var playback: VideoPlayback?
     private var playbackTimer: Timer?
 
+    /// Opens the Submit Review window for this draft (docs/07 §7.1). Set by the editor window;
+    /// the tool bar shows **Submit Review…** only when it is.
+    var submitReview: (() -> Void)?
+
     private var saveTask: Task<Void, Never>?
     private var imageCache: [String: (crop: PixelRect?, image: CGImage?)] = [:]
     private var draftChanges: AnyCancellable?

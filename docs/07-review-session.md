@@ -1,8 +1,7 @@
 # 07 — Review session and submitting
 
 Status: implemented on macOS (`HS2-CRJDJ8`). Opening the ticket in Hot Sheet itself is
-`HS2-ZEF6XD`; a Submit button in the editor is `HS2-6HA14G`; browsing and discarding older
-drafts is `HS2-WE30PY`.
+`HS2-ZEF6XD`; browsing and discarding older drafts is `HS2-WE30PY`.
 
 A review session is the last step of a review: the captures of the current draft
 ([04-capture.md](04-capture.md) §4.6), annotated in the editor
@@ -12,7 +11,10 @@ one Hot Sheet intake ticket ([03-hotsheet-integration.md](03-hotsheet-integratio
 ## 7.1 Opening
 
 The menu bar menu's **Submit Current Review…** (⌘↩ while the menu is open; disabled with no
-draft) opens the **Submit Review** window on the current draft.
+draft) opens the **Submit Review** window on the current draft. In the annotation editor,
+**Submit Review…** in the tool bar (⌘↩, `HS2-6HA14G`) saves the editor and opens the window on
+*that editor's* draft, which need not be the current one (a file dropped on an editor after
+Start New Review goes to the editor's draft, docs/04 §4.12.2).
 
 - Each draft gets one window. Choosing the item again brings it forward and re-reads the draft.
 - With no draft, an alert says "Nothing to submit yet".
@@ -116,7 +118,6 @@ window.
 ## 7.7 Not yet
 
 - Open the ticket in Hot Sheet (web UI or app) when it is running: `HS2-ZEF6XD`.
-- A Submit Review button in the editor: `HS2-6HA14G`.
 - Reopen, submit, or discard older drafts: `HS2-WE30PY`.
 
 ## 7.8 Headless submit

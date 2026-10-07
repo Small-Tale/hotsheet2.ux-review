@@ -74,6 +74,11 @@ struct EditorToolbar: View {
             Spacer(minLength: 8)
             StatusLine(model: model)
             ZoomControl(model: model)
+            if let submit = model.submitReview {
+                Button("Submit Review…", action: submit)
+                    .buttonStyle(.bordered)
+                    .help("Save and open the Submit Review window for this review (⌘↩)")
+            }
         }
         .buttonStyle(.borderless)
         .padding(.horizontal, 12)

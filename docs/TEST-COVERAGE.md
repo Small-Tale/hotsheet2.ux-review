@@ -543,6 +543,15 @@ Each feature gets both unit tests and end-to-end tests. Tests live in
 - **App end to end** (`scripts/app-e2e.sh`): `--annotate` with `{"op": "remove-media"}` removes
   the showing, cropped capture mid-script; undo/redo and the final save never bring it back,
   and `review.json` validates.
+## HS2-6HA14G: Submit Review from the editor
+
+- **Visual QA:** every editor preview from `--render-ui-previews` shows **Submit Review…** at
+  the end of the tool bar (wide, narrow, cropped with a long status message, video). The
+  previews now paint the window background, so the tool bar is legible in dark mode.
+- **Not automated:** the button and ⌘↩ call `EditorWindowController.submitReview`, which saves
+  and then opens the existing session window (`ReviewSessionWindowController.show`, covered in
+  HS2-CRJDJ8). Clicking it in a live window is part of the live-window automation in `HS2-HA9TW3`.
+
 ## HS2-SF72JS: auto-scroll near the canvas edges when zoomed
 
 - **Rule** (`AutoScrollTests`): still in the middle and up to the zone's inner edge; each edge
