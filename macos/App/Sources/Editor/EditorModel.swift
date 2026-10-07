@@ -93,6 +93,23 @@ final class EditorModel: ObservableObject {
     func zoomToFit() { zoom { viewport, _, _, _ in viewport.fit() } }
     func zoomToActualPixels() { zoom { $0.actualPixels(view: $1, media: $2, backingScale: $3) } }
 
+    /// Auto-scroll while a gesture runs (docs/06 §6.2.1): pans when `pointer` (canvas
+    /// coordinates) is near or past an edge, then moves the gesture to the media point now under
+    /// the pointer, so the shape follows even while the mouse is still. False when nothing moved.
+    @discardableResult
+    func autoScrollStep(pointer: CGPoint, elapsed: TimeInterval) -> Bool {
+        guard editor.gesture != nil, let media = mediaSize else { return false }
+        var moved = false
+        zoom { viewport, view, media, _ in moved = viewport.autoScroll(pointer: pointer, elapsed: elapsed, view: view, media: media) }
+        guard moved, let layout = viewport.layout(view: canvasSize, media: media) else { return false }
+        let point = CGPoint(
+            x: (pointer.x - layout.imageRect.minX) / layout.scale,
+            y: (pointer.y - layout.imageRect.minY) / layout.scale
+        )
+        mutate { $0.updateGesture(to: point) }
+        return true
+    }
+
     /// Previews set an exact viewport.
     func setViewport(_ viewport: CanvasViewport) {
         self.viewport = viewport

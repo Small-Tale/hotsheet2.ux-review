@@ -135,3 +135,45 @@ public struct CanvasViewport: Equatable, Sendable {
         if let layout = layout(view: view, media: media) { center = layout.center }
     }
 }
+
+/// Panning on its own while a gesture's pointer is near or past a canvas edge, so a shape can be
+/// drawn, moved, or resized beyond what a zoomed canvas shows. Spec: docs/06-annotation-editor.md
+/// §6.2.1.
+public enum AutoScroll {
+    /// How far inside the canvas edge scrolling starts, in points.
+    public static let edgeZone: CGFloat = 20
+    /// How far past the inner edge of the zone (out of the canvas) the speed keeps growing.
+    public static let ramp: CGFloat = 100
+    /// Points per second at full depth.
+    public static let maxSpeed: CGFloat = 1500
+
+    /// The pan velocity (points per second, as `CanvasViewport.pan` takes them) for a pointer at
+    /// `pointer` in a canvas with `bounds`. Zero in the middle; near the right edge the media moves
+    /// left to show what lies past it. Each axis is proportional to how deep the pointer is in
+    /// that edge's zone, and capped.
+    public static func velocity(pointer: CGPoint, in bounds: CGRect) -> CGVector {
+        guard bounds.width > 2 * edgeZone, bounds.height > 2 * edgeZone else { return .zero }
+        func axis(_ position: CGFloat, _ low: CGFloat, _ high: CGFloat) -> CGFloat {
+            let towardLow = (low + edgeZone) - position
+            let towardHigh = position - (high - edgeZone)
+            let speed = { (depth: CGFloat) in min(depth / (edgeZone + ramp), 1) * maxSpeed }
+            if towardLow > 0 { return speed(towardLow) } // near the left/top: the media moves right/down
+            if towardHigh > 0 { return -speed(towardHigh) }
+            return 0
+        }
+        return CGVector(dx: axis(pointer.x, bounds.minX, bounds.maxX), dy: axis(pointer.y, bounds.minY, bounds.maxY))
+    }
+}
+
+public extension CanvasViewport {
+    /// One auto-scroll step: pans by the pointer's `AutoScroll` velocity over `elapsed` seconds.
+    /// Returns false when nothing moved (the pointer is away from the edges, the media is fitted,
+    /// or it already shows its edge in that direction).
+    mutating func autoScroll(pointer: CGPoint, elapsed: TimeInterval, view: CGSize, media: CGSize) -> Bool {
+        let velocity = AutoScroll.velocity(pointer: pointer, in: CGRect(origin: .zero, size: view))
+        guard velocity != .zero, elapsed > 0, let before = layout(view: view, media: media), before.canPan else { return false }
+        pan(by: CGVector(dx: velocity.dx * elapsed, dy: velocity.dy * elapsed), view: view, media: media)
+        guard let after = layout(view: view, media: media) else { return false }
+        return abs(after.imageRect.minX - before.imageRect.minX) > 0.01 || abs(after.imageRect.minY - before.imageRect.minY) > 0.01
+    }
+}

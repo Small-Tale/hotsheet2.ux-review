@@ -207,9 +207,14 @@ final class AnnotationCanvasView: NSView {
         if panAnchor != nil { return continuePan(event) }
         guard let model, let point = mediaPoint(event) else { return }
         model.mutate { $0.updateGesture(to: point) }
+        autoScroller.track(convert(event.locationInWindow, from: nil), model: model)
     }
 
+    /// Pans near the edges while a gesture runs (docs/06 §6.2.1).
+    private let autoScroller = CanvasAutoScroller()
+
     override func mouseUp(with event: NSEvent) {
+        autoScroller.stop()
         if panAnchor != nil { return endPan() }
         guard let model else { return }
         if let point = mediaPoint(event) {
@@ -217,23 +222,6 @@ final class AnnotationCanvasView: NSView {
         }
         model.mutate { $0.endGesture() }
         window?.invalidateCursorRects(for: self)
-    }
-
-    // MARK: Edit menu (the canvas is first responder; text fields keep their own undo)
-
-    @objc func undo(_: Any?) { model?.mutate { $0.undo() } }
-    @objc func redo(_: Any?) { model?.mutate { $0.redo() } }
-    @objc func duplicate(_: Any?) { model?.mutate { _ = $0.duplicateSelection() } }
-    @objc func saveDocument(_: Any?) { model?.save() }
-
-    @objc func validateMenuItem(_ item: NSMenuItem) -> Bool {
-        guard let editor = model?.editor else { return false }
-        switch item.action {
-        case #selector(undo(_:)): return editor.canUndo
-        case #selector(redo(_:)): return editor.canRedo
-        case #selector(duplicate(_:)): return editor.selection != nil
-        default: return true
-        }
     }
 
     // MARK: Keyboard
@@ -376,6 +364,25 @@ final class AnnotationCanvasView: NSView {
         spaceHeld = false
         panAnchor = nil
         return super.resignFirstResponder()
+    }
+}
+
+extension AnnotationCanvasView {
+    // MARK: Edit menu (the canvas is first responder; text fields keep their own undo)
+
+    @objc func undo(_: Any?) { model?.mutate { $0.undo() } }
+    @objc func redo(_: Any?) { model?.mutate { $0.redo() } }
+    @objc func duplicate(_: Any?) { model?.mutate { _ = $0.duplicateSelection() } }
+    @objc func saveDocument(_: Any?) { model?.save() }
+
+    @objc func validateMenuItem(_ item: NSMenuItem) -> Bool {
+        guard let editor = model?.editor else { return false }
+        switch item.action {
+        case #selector(undo(_:)): return editor.canUndo
+        case #selector(redo(_:)): return editor.canRedo
+        case #selector(duplicate(_:)): return editor.selection != nil
+        default: return true
+        }
     }
 }
 

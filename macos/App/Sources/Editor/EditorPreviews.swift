@@ -70,6 +70,7 @@ enum EditorPreviews {
             viewport: CanvasViewport(zoom: 1.5, center: CGPoint(x: 560, y: 300))
         )
         written += try renderVideo(to: directory, scratch: scratch)
+        written += try renderAutoScroll(to: directory, scratch: scratch)
         return written
     }
 
@@ -131,6 +132,38 @@ enum EditorPreviews {
         ))
         model.pause()
         return written
+    }
+
+    /// Auto-scroll (docs/06 §6.2.1): a rectangle drawn on a 5K capture at 400 %, the pointer parked
+    /// at the canvas's right edge for 1.5 s of timer ticks, so the canvas has scrolled and the box
+    /// kept growing past what was visible when the drag began. Driven through `autoScrollStep`, as
+    /// the canvas timer drives it.
+    private static func renderAutoScroll(to directory: URL, scratch: URL) throws -> [URL] {
+        let store = ReviewDraftStore(root: scratch.appendingPathComponent("autoscroll"))
+        let url = scratch.appendingPathComponent("mock-5k.png")
+        guard let image = MockScreenshot.settingsPage(width: 5120, height: 2880, variant: 0)
+        else { throw CaptureFailure.failed("no 5K mock") }
+        try ImageFiles.writePNG(image, to: url)
+        let draft = try store.add(DraftCapture(
+            fileURL: url, kind: .image, pixelWidth: 5120, pixelHeight: 2880, capturedAt: Date(),
+            context: CaptureContext(appName: "Acme Mail")
+        )).draft
+        let model = try EditorModel(session: EditorSession(store: store, directory: draft.directory))
+        model.setViewport(CanvasViewport(zoom: 1, center: CGPoint(x: 1300, y: 820)))
+        func drag(_ canvas: AnnotationCanvasView) throws {
+            guard let renderer = canvas.renderer() else { throw CaptureFailure.failed("no canvas layout") }
+            let pointer = CGPoint(x: canvas.bounds.maxX - 4, y: canvas.bounds.midY + 60)
+            model.mutate { editor in
+                editor.setTool(.rect)
+                editor.beginGesture(at: renderer.pixel(CGPoint(x: canvas.bounds.midX - 120, y: canvas.bounds.midY - 80)))
+                editor.updateGesture(to: renderer.pixel(pointer))
+            }
+            for _ in 0 ..< 90 {
+                model.autoScrollStep(pointer: pointer, elapsed: 1.0 / 60)
+            }
+        }
+        let url2 = directory.appendingPathComponent("editor-autoscroll.png")
+        return [try snapshot(EditorView(model: model), size: CGSize(width: 1240, height: 800), to: url2, interact: drag)]
     }
 
     /// A realistic review of the mock settings page: one of each shape, notes, and intents.

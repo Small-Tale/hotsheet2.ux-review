@@ -126,6 +126,15 @@ example in a 5K screenshot), zoom in (`HS2-9Y9DDY`):
 - **Screen-point sizes:** strokes, handles, badges, the 7-point hit tolerance, and the
   6-point minimum shape size (§6.3) stay the same at every zoom.
 - **Zoom is a view setting.** It isn't saved in the draft.
+- **Auto-scroll** (`HS2-SF72JS`): while a shape is drawn, moved, or resized (or a crop is
+  dragged) on a zoomed capture, the canvas pans when the pointer is within 20 pt of an edge or
+  past it. The visible part reveals what lies past that edge, and corners scroll diagonally.
+  - **Speed** grows with how deep the pointer is: from 0 at the zone's inner edge to 1500 pt/s
+    at 100 pt past it (`AutoScroll.velocity`).
+  - **Holding still** keeps scrolling: a 60 Hz timer (`CanvasAutoScroller`) pans and moves the
+    gesture to the media point now under the pointer, so the shape keeps following.
+  - **Stopping:** scrolling stops at the capture's edge (the usual pan clamp), and ends with the
+    gesture (release or Esc). A fitted capture never auto-scrolls.
 - **Implementation:** `CanvasViewport` in `UXReviewKit` holds the layout math (fit, stops,
   anchored zoom, clamped pan) and is unit-tested. The canvas feeds it events.
 
@@ -403,6 +412,8 @@ editor offscreen through the real views, on a draft of mock app screenshots:
   recording with a ranged, an instant, and a whole-clip annotation, the playhead inside the
   first range (§6.10)
 - `editor-video-playing`: the same recording while it plays (the pause button showing)
+- `editor-autoscroll`: a rectangle drawn on a 5K capture at 200 %, with the pointer held at
+  the right edge for 1.5 s of timer ticks (§6.2.1)
 - `editor-video-range-drag` and `editor-video-trim-drag`: mid-drag of the selected range's end
   grip, and of the start trim handle (the cut part dimmed)
 

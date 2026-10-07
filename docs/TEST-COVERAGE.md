@@ -522,3 +522,21 @@ Each feature gets both unit tests and end-to-end tests. Tests live in
 - **Not covered automatically:** clicks in the live window (remove confirmation, Change menu,
   Copy Slug, Show Ticket File) and the editor being closed before a removal or submit. These
   are thin view code over the tested model; live-window automation is `HS2-HA9TW3`.
+
+## HS2-SF72JS: auto-scroll near the canvas edges when zoomed
+
+- **Rule** (`AutoScrollTests`): still in the middle and up to the zone's inner edge; each edge
+  reveals what lies past it, corners diagonally; speed grows with depth, matches the formula,
+  and is capped far outside; a tiny canvas never scrolls.
+- **Viewport** (`AutoScrollTests`, a 5K capture at 400 %):
+  - a pointer held at the right edge scrolls monotonically until the media's edge shows, then
+    idles, and responds at once the other way
+  - the distance is speed × time on the right axis only
+  - fitted media, the middle, and zero elapsed time never move
+- **Through the editor** (`AutoScrollTests`): a rectangle drawn with the pointer parked at the
+  edge grows by exactly the scrolled distance.
+- **Visual QA:** `editor-autoscroll` drives the same `EditorModel.autoScrollStep` the canvas
+  timer uses, on a 5K mock at 200 %: the box reaches the edge and the capture has scrolled
+  under it.
+- **Not covered automatically:** the timer under live mouse drags in a window. It is a thin
+  loop over the tested step; live-window automation is `HS2-HA9TW3`.
