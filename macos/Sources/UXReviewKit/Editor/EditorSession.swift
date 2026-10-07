@@ -89,10 +89,12 @@ public final class EditorSession {
         return ImageCrop.apply(crop, to: base)
     }
 
-    /// Writes changed crops and the bundle. Returns the ids of media that were captured while the
-    /// editor was open (now part of the editor too).
+    /// Writes changed crops and the bundle. It first catches up with the draft (`reload`), so a
+    /// capture removed meanwhile is never written back: no annotations on it, no crop or trim
+    /// file. Returns how the editor's media changed (captures added or removed meanwhile).
     @discardableResult
-    public func save() throws -> [String] {
+    public func save() throws -> MediaChanges {
+        let before = try reload()
         let document = editor.document
         for item in document.bundle.media where item.kind == .image && document.crops[item.id] != savedCrops[item.id] {
             try writeCrop(item, crop: document.crops[item.id])
@@ -111,16 +113,34 @@ public final class EditorSession {
                     disk.media[index].durationMs = item.durationMs
                 }
             }
-            disk.annotations = document.bundle.annotations
+            // A capture removed between the reload above and this write keeps its annotations out.
+            let present = Set(disk.media.map(\.id))
+            disk.annotations = document.bundle.annotations.filter { present.contains($0.mediaId) }
         }
         editor.markSaved()
-        return editor.mergeMedia(from: saved.bundle)
+        let after = apply(editor.syncMedia(with: saved.bundle))
+        return MediaChanges(added: before.added + after.added, removed: before.removed + after.removed)
     }
 
-    /// Picks up media captured into this draft since the editor opened. Returns the new ids.
+    /// Catches up with the draft on disk: picks up media captured since the editor opened and
+    /// drops media removed from the draft (with its annotations, history, and cached files).
+    /// Spec: docs/06-annotation-editor.md §6.7.
     @discardableResult
-    public func reload() throws -> [String] {
-        try editor.mergeMedia(from: store.load(directory).bundle)
+    public func reload() throws -> MediaChanges {
+        try apply(editor.syncMedia(with: store.load(directory).bundle))
+    }
+
+    /// Forgets what the session kept for removed media (a later capture may reuse the id).
+    private func apply(_ changes: MediaChanges) -> MediaChanges {
+        for id in changes.removed {
+            baseImages[id] = nil
+            savedCrops[id] = nil
+            savedTrims[id] = nil
+            tracked.remove(id)
+            frames[id] = nil
+            if let copy = sessionBases.removeValue(forKey: id) { try? FileManager.default.removeItem(at: copy) }
+        }
+        return changes
     }
 
     /// The annotations of one media item that show at its time (the playhead for the current

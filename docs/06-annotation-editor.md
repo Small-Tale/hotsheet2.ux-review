@@ -337,17 +337,29 @@ records the crop that produced the current file, relative to that original:
 **Autosave.** Changes autosave to the draft 0.6 s after the last edit (never mid-gesture). The
 editor also saves on ⌘S and when the window closes. `EditorSession.save()` runs in this order:
 
-1. Rewrite the image files whose crop changed, and the movies whose trim changed (§6.10).
-2. Save through `ReviewDraftStore.update`. Under the store's lock, this re-reads `review.json`,
-   replaces the annotations, updates edited media sizes and durations, and keeps media appended
-   since the editor opened.
-3. Merge any such new captures into the editor.
+1. Catch up with the draft on disk (`EditorSession.reload()`, below), so a capture removed
+   meanwhile gets no crop or trim file and no annotations written back.
+2. Rewrite the image files whose crop changed, and the movies whose trim changed (§6.10).
+3. Save through `ReviewDraftStore.update`. Under the store's lock, this re-reads `review.json`,
+   replaces the annotations (leaving out any on media that is no longer in the draft), updates
+   edited media sizes and durations, and keeps media appended since the editor opened.
+4. Catch up again with what was saved.
 
-**Captures while the editor is open.** A capture made while the editor is open is picked up
-right away (`.reviewDraftChanged` notification).
+**Captures added or removed while the editor is open.** The editor follows the draft on disk
+(`.reviewDraftChanged` notification, `AnnotationEditor.syncMedia(with:)`). A media item counts
+as the same only when its id, file name, and capture time all match: removing the last capture
+and capturing again reuses its id and file name, and that is a removal plus an addition.
 
-- New media is also merged into the undo/redo history and the saved state.
-- So undo never removes a capture, and a merge alone never marks the editor dirty.
+- **Added** (a capture, a drop, Open With): new media is also merged into the undo/redo
+  history and the saved state. So undo never removes a capture, and a merge alone never marks
+  the editor dirty.
+- **Removed** (the review session's Remove, docs/07 §7.2): the media, every annotation on it,
+  and its crop or trim leave the document, the saved state, and the undo/redo history. History
+  steps that only changed removed media no longer change anything and are dropped, so every
+  remaining undo still does something and undo never brings a removed capture back. A running
+  gesture or timeline drag is cancelled, playback of the removed video stops, and when the
+  showing capture was removed the editor shows the next one (else the previous, else nothing).
+  Edits to other captures, saved or not, are kept.
 
 ## 6.8 Code
 
@@ -355,6 +367,7 @@ right away (`.reviewDraftChanged` notification).
 | --- | --- |
 | State machine, gestures, crop, intent toggle | `UXReviewKit/Editor/AnnotationEditor.swift`, `AnnotationEditor+Gestures.swift` |
 | Playhead, time ranges, trim | `UXReviewKit/Editor/AnnotationEditor+Time.swift` |
+| Following captures added or removed while open | `UXReviewKit/Editor/AnnotationEditor+Media.swift` |
 | Movie frames and trimmed export | `UXReviewKit/Editor/VideoTrim.swift` |
 | Pixel ↔ normalized space, handles, hit testing, move/resize | `UXReviewKit/Editor/ShapeGeometry.swift` |
 | Crop math | `UXReviewKit/Editor/ImageCrop.swift` |
@@ -399,6 +412,7 @@ on the current draft (or the draft directory named by `--draft`), then saves.
 | `{"op": "range", "start": 200, "end": 900}`, `{"op": "range"}` | Set the selection's time range in ms, or make it the whole clip (fails on an image's annotation) |
 | `{"op": "trim", "start": 200, "end": 900}`, `{"op": "reset-trim"}` | Keep that part of the current video, or restore its length (§6.10) |
 | `{"op": "restore-original"}` | Restore Original: the current image's crop or the current video's trim |
+| `{"op": "remove-media", "media": "m1"}` | Remove a capture from the draft as the review session does, then let the editor catch up (§6.7) |
 | `{"op": "undo"}`, `{"op": "redo"}`, `{"op": "save"}` | History and saving |
 
 | Exit code | `error` | Meaning |

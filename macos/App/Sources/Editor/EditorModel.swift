@@ -3,8 +3,8 @@ import Combine
 import UXReviewKit
 
 extension Notification.Name {
-    /// Posted (object: the draft directory URL) after a capture is added to a draft, so an open
-    /// editor on that draft picks it up.
+    /// Posted (object: the draft directory URL) after a capture is added to or removed from a
+    /// draft, so an open editor and session window on that draft catch up.
     static let reviewDraftChanged = Notification.Name("UXReviewDraftChanged")
 }
 
@@ -202,13 +202,25 @@ final class EditorModel: ObservableObject {
         revision += 1
     }
 
+    /// Catches up with captures added to or removed from the draft (docs/06 §6.7). Playback of a
+    /// removed video stops where it is, without moving the playhead of what shows next.
     private func draftChanged(_ directory: URL) {
         guard directory.standardizedFileURL == session.directory.standardizedFileURL else { return }
         do {
-            if try !session.reload().isEmpty {
-                syncViewport()
-                revision += 1
+            let playing = isPlaying ? editor.currentMediaId : nil
+            let changes = try session.reload()
+            guard !changes.isEmpty else { return }
+            if let playing, changes.removed.contains(playing), let player = playback {
+                playbackTimer?.invalidate()
+                playbackTimer = nil
+                playback = nil
+                _ = player.pause()
             }
+            for id in changes.removed {
+                imageCache[id] = nil
+            }
+            syncViewport()
+            revision += 1
         } catch {
             saveError = "Couldn't reload the review: \(error)"
         }

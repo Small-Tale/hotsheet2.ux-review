@@ -20,16 +20,18 @@ struct EditorSessionTests {
 
         deinit { try? FileManager.default.removeItem(at: base) }
 
-        func capture(width: Int = 400, height: Int = 200) throws -> DraftCapture {
-            try Self.capture(in: base, width: width, height: height)
+        func capture(width: Int = 400, height: Int = 200, capturedAt: Date = Date(timeIntervalSince1970: 0)) throws -> DraftCapture {
+            try Self.capture(in: base, width: width, height: height, capturedAt: capturedAt)
         }
 
-        static func capture(in base: URL, width: Int, height: Int) throws -> DraftCapture {
+        static func capture(
+            in base: URL, width: Int, height: Int, capturedAt: Date = Date(timeIntervalSince1970: 0)
+        ) throws -> DraftCapture {
             let url = base.appendingPathComponent("shot-\(UUID().uuidString).png")
             try ImageFiles.writePNG(#require(ImageFiles.testCard(width: width, height: height)), to: url)
             return DraftCapture(
                 fileURL: url, kind: .image, pixelWidth: width, pixelHeight: height,
-                capturedAt: Date(timeIntervalSince1970: 0), context: CaptureContext(appName: "Safari")
+                capturedAt: capturedAt, context: CaptureContext(appName: "Safari")
             )
         }
 
@@ -67,8 +69,8 @@ struct EditorSessionTests {
         let session = try fixture.session()
         AnnotationEditorTests.draw(&session.editor, .insertion, [CGPoint(x: 5, y: 5)])
         try fixture.store.add(fixture.capture(width: 100, height: 100)) // captured meanwhile
-        let added = try session.save()
-        #expect(added == ["m2"])
+        let changes = try session.save()
+        #expect(changes == MediaChanges(added: ["m2"]))
         let disk = try fixture.onDisk()
         #expect(disk.media.map(\.filename) == ["capture-1.png", "capture-2.png"])
         #expect(disk.annotations.count == 1)

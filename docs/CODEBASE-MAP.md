@@ -52,6 +52,7 @@ macos/
     Editor/AnnotationEditor+Gestures.swift  draw/move/resize/crop gestures, hit testing, crop + reset crop
     Editor/AnnotationEditor+Time.swift  playhead, annotation time ranges, trim + reset trim, TimeFormat (docs/06 §6.10)
     Editor/AnnotationEditor+Timeline.swift  timeline drags (range ends, trim handles), TimelineHitTest, TimeFormat.parse
+    Editor/AnnotationEditor+Media.swift  syncMedia/dropMedia: follow captures added to or removed from the draft (docs/06 §6.7)
     Editor/VideoTrim.swift            trimmed movie export (AVAssetExportSession), byte-exact restore, frame cache
     Editor/VideoPlayback.swift        play/pause: AVPlayer on the trimmed clip, player frames, PlaybackRules
     Editor/CanvasViewport.swift       canvas zoom/pan: fit, zoom stops, anchored zoom, clamped pan, AutoScroll near edges (docs/06 §6.2.1)
@@ -60,7 +61,7 @@ macos/
     Editor/OriginalsIndex.swift       originals/crops.json: crop/trim relative to each kept original, trust rules (docs/06 §6.6, §6.10)
     Editor/ImageCrop.swift            PixelRect snapping, annotation transform into a crop
     Editor/AnnotationRenderer.swift   CoreGraphics drawing of shapes, badges, handles, crop overlay; IntentPalette
-    Editor/EditorSession.swift        editor + files: display images, video frames, save (merge), crop + trim writes, originals/
+    Editor/EditorSession.swift        editor + files: display images, video frames, save + reload (follow added/removed media), crop + trim writes, originals/
     Editor/EditorScript.swift         JSON editing scripts + `--annotate` parsing (docs/06 §6.9)
   Tests/UXReviewKitTests/      Swift Testing unit + end-to-end tests (docs/TEST-COVERAGE.md)
   App/Resources/Assets.xcassets  StatusBarIcon template vector (menu bar icon, docs/05 §5.1)

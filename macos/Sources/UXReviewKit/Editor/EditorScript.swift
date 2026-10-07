@@ -48,6 +48,9 @@ public struct EditorScript: Decodable, Equatable, Sendable {
         /// Keeps `startMs`…`endMs` of the current video.
         case trim(TimeRange)
         case resetTrim
+        /// Removes a capture from the draft the way the review session does
+        /// (`ReviewDraftStore.removeMedia`), then lets the open editor catch up (docs/06 §6.7).
+        case removeMedia(String)
         case undo
         case redo
         case save
@@ -99,7 +102,9 @@ extension EditorScript.Step: Decodable {
             DecodingError.dataCorruptedError(forKey: key, in: container, debugDescription: reason)
         }
         switch op {
-        case "media": self = try .media(container.decode(String.self, forKey: .media))
+        case "media", "remove-media":
+            let id = try container.decode(String.self, forKey: .media)
+            self = op == "media" ? .media(id) : .removeMedia(id)
         case "tool":
             let name = try container.decode(String.self, forKey: .tool)
             guard let tool = EditorTool(rawValue: name) else { throw invalid(.tool, "Unknown tool \(name)") }
@@ -213,6 +218,10 @@ public extension EditorScript {
         case let .crop(rect): session.editor.crop(to: rect)
         case .resetCrop, .restoreOriginal, .time, .play, .timelineDrag, .trim, .resetTrim:
             try applyToMedia(step, in: session)
+        case let .removeMedia(id):
+            guard session.editor.media(id) != nil else { throw StepFailure.reason("unknown media \(id)") }
+            try session.store.removeMedia(id, from: session.directory)
+            try session.reload()
         case .undo: session.editor.undo()
         case .redo: session.editor.redo()
         case .save: try session.save()

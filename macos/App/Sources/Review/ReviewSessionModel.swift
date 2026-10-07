@@ -23,7 +23,7 @@ final class ReviewSessionModel: ObservableObject {
     @Published private(set) var notice: String?
 
     let store: ReviewDraftStore
-    /// Saves and closes an open editor on the draft before it is changed underneath it.
+    /// Saves and closes an open editor on the draft before it is submitted (and deleted).
     var closeEditor: (URL) -> Void = { _ in }
     /// Where the Hot Sheet target comes from (the app settings; previews pass a fixed one).
     var statusProvider: () -> HotSheetStatus = AppSettings.currentStatus
@@ -128,14 +128,15 @@ final class ReviewSessionModel: ObservableObject {
         }
     }
 
-    /// Removes a capture (its file and annotations) from the review.
+    /// Removes a capture (its file and annotations) from the review. An open editor on the draft
+    /// stays open and drops the capture when it hears about the change (docs/06 §6.7).
     func remove(mediaId: String) {
         guard session.isEditable else { return }
-        closeEditor(directory)
         do {
             try store.removeMedia(mediaId, from: directory)
             thumbnails[mediaId] = nil
             thumbnailKeys[mediaId] = nil
+            NotificationCenter.default.post(name: .reviewDraftChanged, object: directory)
             reload()
         } catch {
             notice = "Couldn't remove the capture: \(ReviewSubmitter.describe(error))"

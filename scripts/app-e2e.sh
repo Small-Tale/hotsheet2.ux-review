@@ -528,6 +528,30 @@ run submit-again 2 -- --submit "${SUB[@]}"
 [[ "$(json "$TMP/submit-again.json" j.error)" == noDraft ]] || die "submit: the filed draft is still current"
 ok "attach failure keeps the draft (exit 5, ticket named); retry attaches to the same ticket; the draft is deleted; ticket has both captures, the summary, and review.json"
 
+# HS2-2QP0GM: a capture removed by the review session leaves an open editor consistent.
+RDRAFTS="$TMP/remove-drafts"
+run remove-shot1 0 "${SYN[@]}" -- --capture screenshot --target region --rect 100,100,300,200 --drafts-dir "$RDRAFTS"
+run remove-shot2 0 "${SYN[@]}" -- --capture screenshot --target region --rect 120,120,300,200 --drafts-dir "$RDRAFTS"
+rdraft="$(json "$TMP/remove-shot1.json" j.draftDirectory)"
+cat >"$TMP/script-remove.json" <<'JSON'
+{"steps": [
+  {"op": "media", "media": "m2"}, {"op": "tool", "tool": "rect"}, {"op": "drag", "points": [[10, 10], [80, 60]]},
+  {"op": "media", "media": "m1"}, {"op": "tool", "tool": "arrow"}, {"op": "drag", "points": [[20, 20], [120, 90]]},
+  {"op": "crop", "rect": [10, 10, 200, 150]},
+  {"op": "remove-media", "media": "m1"},
+  {"op": "undo"}, {"op": "undo"}, {"op": "undo"},
+  {"op": "redo"},
+  {"op": "tool", "tool": "insertion"}, {"op": "drag", "points": [[50, 50]]}
+]}
+JSON
+run remove-annotate 0 -- --annotate "$TMP/script-remove.json" --drafts-dir "$RDRAFTS"
+[[ "$(json "$rdraft/review.json" 'j.media.map(m => m.id).join(",")')" == m2 ]] || die "remove: media $(json "$rdraft/review.json" 'j.media.map(m => m.id).join(",")')"
+[[ "$(json "$rdraft/review.json" 'j.annotations.map(a => a.mediaId + ":" + a.shape.type).join(",")')" == "m2:rect,m2:insertion" ]] \
+  || die "remove: annotations $(json "$rdraft/review.json" 'j.annotations.map(a => a.mediaId + ":" + a.shape.type).join(",")')"
+[[ ! -e "$rdraft/capture-1.png" && ! -e "$rdraft/originals/capture-1.png" ]] || die "remove: the removed capture's file came back"
+validate_bundle "$rdraft/review.json"
+ok "removing the showing capture under an open editor drops it, its annotations, and its history; undo/redo and saves never bring it back"
+
 run previews 0 -- --render-ui-previews "$TMP/previews"
 for name in overlay-region-hint overlay-region-selection overlay-region-selection-bottom-edge overlay-window-hover hud-countdown hud-saved hud-recording-countdown hud-recording hud-saved-video hud-recording-narration hud-saved-narrated settings-registered settings-in-use status-bar-icon-light status-bar-icon-dark \
   editor-empty editor-annotated editor-arrow-selected editor-narrow editor-crop-drag editor-cropped editor-zoomed editor-keyboard-insert editor-video-timeline editor-video-narrow editor-video-trimmed editor-video-playing editor-video-range-drag editor-video-trim-drag editor-autoscroll \

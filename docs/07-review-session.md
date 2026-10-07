@@ -32,8 +32,9 @@ New captures and editor saves appear while the window is open: it follows the dr
 notification the capture pipeline and the editor already post.
 
 **Removing a capture** deletes its file, every annotation on it, and its kept original under
-`originals/` with its crop/trim record. An open editor on the draft is saved and closed first,
-because the editor can't yet drop media that vanished (`HS2-2QP0GM`). Numbering of later
+`originals/` with its crop/trim record. An open editor on the draft stays open and drops that
+capture, its annotations, and its undo history (docs/06 §6.7); its unsaved edits to other
+captures are kept. Numbering of later
 captures continues (a removed `capture-2.png` leaves a gap).
 
 After a successful submission the window shows **Filed as HS-…**, the title, what was attached,
@@ -117,7 +118,6 @@ window.
 - Open the ticket in Hot Sheet (web UI or app) when it is running: `HS2-ZEF6XD`.
 - A Submit Review button in the editor: `HS2-6HA14G`.
 - Reopen, submit, or discard older drafts: `HS2-WE30PY`.
-- Removing a capture without closing an open editor: `HS2-2QP0GM`.
 
 ## 7.8 Headless submit
 

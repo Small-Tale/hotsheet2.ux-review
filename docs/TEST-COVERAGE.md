@@ -523,6 +523,23 @@ Each feature gets both unit tests and end-to-end tests. Tests live in
   Copy Slug, Show Ticket File) and the editor being closed before a removal or submit. These
   are thin view code over the tested model; live-window automation is `HS2-HA9TW3`.
 
+
+## HS2-2QP0GM: the editor follows captures removed under it
+
+- **State machine** (`EditorMediaSyncTests`), transition matrix of which media goes (the
+  showing one, another, the last, all) × what the editor is doing (idle, a selection, a
+  gesture, a timeline drag, unsaved edits) × history (undo/redo entries on removed or kept
+  media). Every case checks that nothing in the document, saved state, or history refers to the
+  removed media and that the bundle validates. Adversarial: repeated syncs, unknown ids,
+  remove-everything-then-refill, interleaved adds and removals, and a removed id (and file
+  name) reused by a later capture.
+- **Session and files** (`EditorSessionTests`, real PNGs): a capture removed by
+  `ReviewDraftStore.removeMedia` with unsaved edits on it and on another capture, caught up by
+  `reload()` or directly by `save()`: no file, original, or annotation comes back, the other
+  capture's edit is kept, and undo then save stays consistent. A reused id shows the new file.
+- **App end to end** (`scripts/app-e2e.sh`): `--annotate` with `{"op": "remove-media"}` removes
+  the showing, cropped capture mid-script; undo/redo and the final save never bring it back,
+  and `review.json` validates.
 ## HS2-SF72JS: auto-scroll near the canvas edges when zoomed
 
 - **Rule** (`AutoScrollTests`): still in the middle and up to the zone's inner edge; each edge
