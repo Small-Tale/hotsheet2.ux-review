@@ -4,7 +4,7 @@ import Foundation
 import ImageIO
 import UniformTypeIdentifiers
 
-public enum MediaImportError: Error, Equatable, CustomStringConvertible {
+public enum MediaImportError: Error, Equatable, Sendable, CustomStringConvertible {
     case nothingToImport
     case missing(URL)
     case unsupported(URL)
@@ -40,10 +40,13 @@ public enum MediaImporter {
 
     /// Prepares every file first and only then adds them (after ending the current draft when
     /// `newReview` is set), so one bad file changes nothing. Returns the updated draft and the
-    /// new media items, in the given order.
+    /// new media items, in the given order. With `draft`, the files go into that existing draft
+    /// (the one an editor window shows, docs/04 §4.12.2) rather than the current one, and
+    /// `newReview` is ignored.
     public static func importFiles(
         _ urls: [URL],
         into store: ReviewDraftStore,
+        draft directory: URL? = nil,
         newReview: Bool = false,
         now: Date = Date()
     ) async throws -> (draft: ReviewDraft, media: [MediaItem]) {
@@ -53,11 +56,11 @@ public enum MediaImporter {
             try await prepared.append(prepare(url, now: now))
         }
         guard !prepared.isEmpty else { throw MediaImportError.nothingToImport }
-        if newReview { try store.startNew() }
+        if newReview, directory == nil { try store.startNew() }
         var draft: ReviewDraft?
         var media: [MediaItem] = []
         for capture in prepared {
-            let added = try store.add(capture)
+            let added = try store.add(capture, to: directory)
             draft = added.draft
             media.append(added.media)
         }
@@ -68,15 +71,22 @@ public enum MediaImporter {
     /// A temporary copy of `url` ready for `ReviewDraftStore.add` (which moves it into the draft).
     public static func prepare(_ url: URL, now: Date = Date()) async throws -> DraftCapture {
         guard FileManager.default.fileExists(atPath: url.path) else { throw MediaImportError.missing(url) }
-        let type = (try? url.resourceValues(forKeys: [.contentTypeKey]).contentType) ?? UTType(filenameExtension: url.pathExtension)
         let created = (try? url.resourceValues(forKeys: [.creationDateKey]).creationDate) ?? now
-        if type?.conforms(to: .image) == true {
-            return try prepareImage(url, capturedAt: created)
+        switch kind(of: url) {
+        case .image: return try prepareImage(url, capturedAt: created)
+        case .video: return try await prepareMovie(url, capturedAt: created)
+        case nil: throw MediaImportError.unsupported(url)
         }
-        if type?.conforms(to: .movie) == true || type?.conforms(to: .audiovisualContent) == true {
-            return try await prepareMovie(url, capturedAt: created)
-        }
-        throw MediaImportError.unsupported(url)
+    }
+
+    /// Whether `url` is an image or a movie by its type (the file's own content type, or its
+    /// extension), or nil for anything else, directories included. Contents aren't read.
+    public static func kind(of url: URL) -> MediaKind? {
+        let type = (try? url.resourceValues(forKeys: [.contentTypeKey]).contentType) ?? UTType(filenameExtension: url.pathExtension)
+        guard let type else { return nil }
+        if type.conforms(to: .image) { return .image }
+        if type.conforms(to: .movie) || type.conforms(to: .audiovisualContent) { return .video }
+        return nil
     }
 
     private static func prepareImage(_ url: URL, capturedAt: Date) throws -> DraftCapture {

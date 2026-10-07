@@ -97,10 +97,15 @@ final class CaptureCoordinator: ObservableObject {
         panel.canChooseDirectories = false
         NSApp.activate(ignoringOtherApps: true)
         guard panel.runModal() == .OK, !panel.urls.isEmpty else { return }
-        let urls = panel.urls
+        openMedia(panel.urls)
+    }
+
+    /// Imports files opened from Finder ("Open With", the app icon) or the open panel into the
+    /// current draft, all or nothing, and opens the editor on the first one (docs/04 §4.12.1).
+    func openMedia(_ urls: [URL]) {
         Task {
             do {
-                let (draft, media) = try await MediaImporter.importFiles(urls, into: store)
+                let (draft, media) = try await MediaOpenRouting.open(urls, into: store)
                 NotificationCenter.default.post(name: .reviewDraftChanged, object: draft.directory)
                 try EditorWindowController.show(directory: draft.directory, store: store, mediaId: media.first?.id)
             } catch let error as MediaImportError {
@@ -112,6 +117,7 @@ final class CaptureCoordinator: ObservableObject {
     }
 
     private func reportImport(_ error: MediaImportError) {
+        NSApp.activate(ignoringOtherApps: true)
         let alert = NSAlert()
         alert.alertStyle = .warning
         alert.messageText = "Couldn't open that media"

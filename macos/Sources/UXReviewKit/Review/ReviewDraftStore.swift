@@ -115,15 +115,17 @@ public final class ReviewDraftStore: @unchecked Sendable {
 
     /// Moves the captured file into the current draft (creating a draft if needed), appends its
     /// `MediaItem`, and rewrites `review.json`. On failure the draft is left unchanged.
+    /// With `directory`, adds to that existing draft instead (for example the one an editor
+    /// window shows) and leaves which draft is current alone.
     @discardableResult
-    public func add(_ capture: DraftCapture) throws -> (draft: ReviewDraft, media: MediaItem) {
+    public func add(_ capture: DraftCapture, to directory: URL? = nil) throws -> (draft: ReviewDraft, media: MediaItem) {
         lock.lock()
         defer { lock.unlock() }
         let fileManager = FileManager.default
         guard fileManager.fileExists(atPath: capture.fileURL.path) else {
             throw ReviewDraftError.missingCaptureFile(capture.fileURL)
         }
-        var draft = try loadCurrent() ?? createDraft(context: capture.context)
+        var draft = try directory.map(read) ?? loadCurrent() ?? createDraft(context: capture.context)
 
         let number = nextCaptureNumber(in: draft)
         let ext = capture.fileURL.pathExtension.isEmpty ? (capture.kind == .image ? "png" : "mov") : capture.fileURL.pathExtension
@@ -150,7 +152,9 @@ public final class ReviewDraftStore: @unchecked Sendable {
             throw error
         }
         draft.bundle = bundle
-        try Data(draft.directory.lastPathComponent.utf8).write(to: pointerURL, options: .atomic)
+        if directory == nil {
+            try Data(draft.directory.lastPathComponent.utf8).write(to: pointerURL, options: .atomic)
+        }
         return (draft, item)
     }
 

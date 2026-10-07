@@ -39,6 +39,7 @@ macos/
     Capture/CaptureCommand.swift      `--capture` argument parsing (docs/04 §4.11)
     Review/ReviewDraftStore.swift     draft reviews on disk (docs/04 §4.6)
     Review/MediaImporter.swift        existing images/movies → draft (PNG re-encode, movie copy), `--import` parsing (docs/04 §4.12)
+    Review/MediaOpenRouting.swift     Finder Open With / editor drop routing plan (dedupe, all-or-nothing), OpenBatch, `--open-media` parsing (docs/04 §4.12.1)
     Settings/Hotkey.swift             global hotkey model: parse/display, Carbon codes (docs/05 §5.2)
     Settings/CaptureSettings.swift    settings + KeyValueStoring persistence, HotkeySlot (capture/record, duplicate rules), HotkeyAction
     Settings/SettingsCommand.swift    `--settings` argument parsing (docs/05 §5.5)
@@ -57,7 +58,7 @@ macos/
   Tests/UXReviewKitTests/      Swift Testing unit + end-to-end tests (docs/TEST-COVERAGE.md)
   App/Resources/Assets.xcassets  StatusBarIcon template vector (menu bar icon, docs/05 §5.1)
   App/Sources/
-    UXReviewApp.swift          @main, MenuBarExtra + Settings scenes, StatusBarIcon, hotkey wiring, headless mode routing
+    UXReviewApp.swift          @main, MenuBarExtra + Settings scenes, StatusBarIcon, hotkey + open-files wiring, headless mode routing
     AppModel.swift             observable status + project chooser
     AppSettings.swift          project folder (defaults / --project), UXREVIEW_DEFAULTS_SUITE
     UIPreviews.swift           --render-ui-previews offscreen renders for visual QA
@@ -71,11 +72,12 @@ macos/
     Capture/CaptureMenu.swift         capture section of the menu bar menu
     Capture/HeadlessCapture.swift     `--capture` mode with JSON output
     Capture/HeadlessImport.swift      `--import` mode with JSON output (docs/04 §4.12)
+    Capture/MediaOpening.swift        AppDelegate `application(_:open:)` batching, `--open-media` mode (docs/04 §4.12.1)
     Settings/GlobalHotkeyCenter.swift Carbon RegisterEventHotKey (exclusive) + press handler
     Settings/SettingsModel.swift      live settings, persistence, hotkey re-registration
     Settings/SettingsView.swift       Settings window + shortcut recorder
     Settings/HeadlessSettings.swift   `--settings` mode with JSON output
-    Editor/EditorWindowController.swift  one window per draft, save on close, hidden Edit menu
+    Editor/EditorWindowController.swift  one window per draft, save on close, hidden Edit menu, file drop target (docs/04 §4.12.2)
     Editor/EditorModel.swift          observable wrapper: mutate → redraw + autosave, reload on capture
     Editor/EditorView.swift           tool bar, media strip, layout
     Editor/AnnotationCanvas.swift     NSView canvas: mouse/keyboard → editor, drawing via AnnotationRenderer

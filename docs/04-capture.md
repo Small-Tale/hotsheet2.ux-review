@@ -176,6 +176,7 @@ idle → picking → countingDown(n…1) → capturing → recording → finishi
 UXReview --capture screenshot|video [--target display|window|region] [--delay N] [--duration S]
          [--display-id N] [--window-id N] [--rect x,y,w,h] [--drafts-dir DIR] [--new-review]
 UXReview --import FILE [FILE…] [--drafts-dir DIR] [--new-review]   (§4.12)
+UXReview --open-media FILE [FILE…] [--drafts-dir DIR] [--into-draft DIR]   (§4.12.1)
 UXReview --render-ui-previews DIR
 ```
 
@@ -255,4 +256,64 @@ This mode does the same import with no UI and prints JSON.
 | 0 | Imported |
 | 2 | Bad arguments, or a file that is missing, unsupported, or unreadable. Nothing is imported. |
 | 5 | The draft couldn't be written |
+
+### 4.12.1 Opening from Finder
+
+UX Review also accepts images and movies from outside the menu (`HS2-H1RNGK`):
+
+- **Finder "Open With".** The app declares `public.image` and `public.movie` as document
+  types, with role Viewer and `LSHandlerRank` Alternate (`macos/project.yml`). It is offered
+  under **Open With**, but it never becomes the default app for those files.
+- **Dropping files on the app icon** in the Dock or Finder.
+
+Both arrive in `application(_:open:)` (`AppDelegate`). URLs delivered within 0.3 s of each
+other are coalesced into **one batch**, because Launch Services may split a multi-file open
+across several calls. The batch then goes through the same steps as the menu (§4.12): it is
+imported into the **current** draft, creating one if needed, and the editor opens on the first
+new item. This works when the app is already running, and also when the open launches it.
+
+Before anything is copied, a pure routing step (`MediaOpenRouting.plan`) checks the batch:
+
+- Duplicate files are dropped, and the first occurrence keeps its place. Paths are compared
+  after standardizing and resolving symlinks.
+- The **whole batch is rejected**, and nothing is imported, when any item is one of these:
+  - not a file URL
+  - missing
+  - a folder, even one named like media (`shots.png/`)
+  - not an image or movie by type (`notes.txt`, a file with no extension)
+- The first problem in the order given is the one reported.
+- An empty batch is rejected as `nothingToImport`.
+
+A batch that passes the check goes through `MediaImporter.importFiles`, which is also all or
+nothing. A file that looks like media but can't be read is rejected there.
+
+A rejected batch shows the same alert as the menu, naming the file, and nothing is added.
+
+### 4.12.2 Dragging files onto an editor window
+
+Images and movies dragged from Finder onto an open editor window are **added to that window's
+draft**, not to a new one. This holds even when that draft is no longer the current one, for
+example after **Start New Review**. The drop doesn't change which draft is current.
+
+The editor then switches to the first dropped item. The routing and the all-or-nothing rule
+are the same as in §4.12.1.
+
+- The window accepts every file drag, so a wrong file gets an explanation instead of just
+  bouncing back.
+- A rejected drop shows a sheet on the window, for example: "Couldn't add that media.
+  notes.txt isn't an image or a movie. Nothing was added to the review."
+- Drags that aren't files go to the editor as usual.
+
+**Headless:** this mode routes files through the same plan and import, with no UI, and prints
+JSON:
+
+```
+UXReview --open-media FILE [FILE…] [--drafts-dir DIR] [--into-draft DIR]
+```
+
+- Without `--into-draft`, files go into the current draft, as with Finder "Open With".
+- With `--into-draft`, files go into that draft, as with a drop on its editor.
+- On success: `status: "opened"`, `draftDirectory`, `editorMediaId` (the item the editor
+  would show), and `media`.
+- Errors and exit codes match `--import`. A missing `--into-draft` draft exits 5 (`failed`).
 

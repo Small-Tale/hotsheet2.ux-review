@@ -52,6 +52,15 @@ enum UXReviewMain {
             }
             dispatchMain()
         }
+        // Headless open used by scripts/app-e2e.sh: route files like Finder "Open With" or an editor drop.
+        if CommandLine.arguments.contains("--open-media") {
+            _ = NSApplication.shared
+            NSApplication.shared.setActivationPolicy(.prohibited)
+            Task { @MainActor in
+                await exit(HeadlessOpenMedia.run(arguments: Array(CommandLine.arguments.dropFirst())))
+            }
+            dispatchMain()
+        }
         // Headless capture used by scripts/app-e2e.sh: one capture, JSON result, exit.
         if CommandLine.arguments.contains("--capture") {
             _ = NSApplication.shared
@@ -66,6 +75,7 @@ enum UXReviewMain {
 }
 
 struct UXReviewApp: App {
+    @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @StateObject private var model = AppModel()
     @StateObject private var capture: CaptureCoordinator
     @StateObject private var settings: SettingsModel
@@ -82,6 +92,8 @@ struct UXReviewApp: App {
             let hotkey = settings?.activeHotkey(.record) ?? settings?.activeHotkey(.capture)
             return hotkey.map { "Stop from the menu bar or press \($0.display)" } ?? "Stop from the menu bar"
         }
+        // Images and movies opened from Finder go into the current draft (docs/04 §4.12.1).
+        AppDelegate.openHandler = { [weak capture] urls in capture?.openMedia(urls) }
         _capture = StateObject(wrappedValue: capture)
         _settings = StateObject(wrappedValue: settings)
     }

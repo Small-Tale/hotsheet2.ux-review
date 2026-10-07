@@ -33,12 +33,14 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
             defer: false
         )
         window.title = "\(model.editor.bundle.title) — Annotate"
-        window.contentView = NSHostingView(rootView: EditorView(model: model))
+        let content = EditorHostingView(rootView: EditorView(model: model))
+        window.contentView = content
         window.contentMinSize = CGSize(width: 900, height: 560)
         window.isReleasedWhenClosed = false
         window.setFrameAutosaveName("UXReviewEditor")
         super.init(window: window)
         window.delegate = self
+        content.onDropFiles = { [weak self] urls in self?.addDroppedFiles(urls) }
     }
 
     @available(*, unavailable)
@@ -52,6 +54,31 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
         if let canvas = window?.contentView?.firstDescendant(AnnotationCanvasView.self) {
             window?.makeFirstResponder(canvas)
         }
+    }
+
+    /// Files dragged onto the window go into *this* draft (not the current one), all or nothing,
+    /// and the editor switches to the first of them (docs/04 §4.12.2).
+    func addDroppedFiles(_ urls: [URL]) {
+        let session = model.session
+        Task {
+            do {
+                let (draft, media) = try await MediaOpenRouting.open(urls, into: session.store, draft: session.directory)
+                NotificationCenter.default.post(name: .reviewDraftChanged, object: draft.directory)
+                if let first = media.first { model.show(mediaId: first.id) }
+            } catch {
+                showDropError(error)
+            }
+        }
+    }
+
+    private func showDropError(_ error: Error) {
+        guard let window else { return }
+        let alert = NSAlert()
+        alert.alertStyle = .warning
+        alert.messageText = "Couldn't add that media"
+        let reason = (error as? MediaImportError)?.description ?? String(describing: error)
+        alert.informativeText = "\(reason) Nothing was added to the review. Drop images or movies."
+        alert.beginSheetModal(for: window)
     }
 
     func windowWillClose(_: Notification) {
@@ -74,6 +101,40 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
         case #selector(duplicate(_:)): model.editor.selection != nil
         default: true
         }
+    }
+}
+
+/// The editor window's content: the SwiftUI editor plus a drop target for image and movie
+/// files from Finder. Other drags go to SwiftUI as usual. Spec: docs/04-capture.md §4.12.2.
+final class EditorHostingView: NSHostingView<EditorView> {
+    var onDropFiles: (([URL]) -> Void)?
+
+    required init(rootView: EditorView) {
+        super.init(rootView: rootView)
+        registerForDraggedTypes([.fileURL])
+    }
+
+    @available(*, unavailable)
+    required init?(coder _: NSCoder) { fatalError("not used") }
+
+    private func fileURLs(_ info: NSDraggingInfo) -> [URL] {
+        info.draggingPasteboard.readObjects(forClasses: [NSURL.self], options: [.urlReadingFileURLsOnly: true]) as? [URL] ?? []
+    }
+
+    override func draggingEntered(_ sender: NSDraggingInfo) -> NSDragOperation {
+        // Every file drag is accepted so a wrong type gets an explanation on drop, not just a bounce.
+        fileURLs(sender).isEmpty ? super.draggingEntered(sender) : .copy
+    }
+
+    override func draggingUpdated(_ sender: NSDraggingInfo) -> NSDragOperation {
+        fileURLs(sender).isEmpty ? super.draggingUpdated(sender) : .copy
+    }
+
+    override func performDragOperation(_ sender: NSDraggingInfo) -> Bool {
+        let urls = fileURLs(sender)
+        guard !urls.isEmpty else { return super.performDragOperation(sender) }
+        onDropFiles?(urls)
+        return true
     }
 }
 

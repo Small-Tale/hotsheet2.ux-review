@@ -243,6 +243,40 @@ Each feature gets both unit tests and end-to-end tests. Tests live in
   in a live window. Both are thin AppKit glue over the tested importer and
   `AnnotationEditor.show(mediaId:)`.
 
+## HS2-H1RNGK: open media from Finder and editor drops
+
+- **Unit** (`MediaOpenRoutingTests`, `OpenBatchTests`, `OpenMediaCommandTests`):
+  - The routing plan:
+    - empty input
+    - images and movies in the order given, with mixed-case extensions
+    - duplicates, including `./` paths and symlinks: the first occurrence wins
+    - an unsupported file first, middle, or last rejects the whole batch
+    - files with no extension
+    - missing files, and folders (including one named `shots.png`)
+    - the first problem in the order given is reported
+    - a file deleted between two plans
+    - non-file URLs
+  - Imports through the plan, on real PNGs:
+    - Open With goes into the current draft, and a duplicate is imported once
+    - a drop goes into an older draft's directory and leaves the current draft current
+    - `newReview` is ignored when a draft is named
+    - rejected batches, empty batches, and a deleted target draft change nothing and create
+      no draft
+  - `OpenBatch` transitions: empty adds, start, join, flush, flush again, then empty and refill
+  - `--open-media` parsing and its errors
+- **App end to end** (`scripts/app-e2e.sh`):
+  - the built `Info.plist` declares image and movie document types as Viewer/Alternate
+  - `--open-media` with a duplicate imports two items into a new current draft, with
+    `editorMediaId` `m1`
+  - `--into-draft` adds a movie to an older draft and keeps the newer draft current
+  - a text file, a folder, or a missing file exits 2 and changes no draft
+- **Not covered automatically:**
+  - a real Finder "Open With", or a drop on the Dock icon. Both need Launch Services, which
+    the test sandbox blocks.
+  - a live drag onto the editor window
+  - Both are thin AppKit glue (`AppDelegate`, `EditorHostingView`) over the tested
+    `MediaOpenRouting.open`. Manual check: `HS2-2EVZWC`.
+
 ## HS2-9Y9DDY: editor zoom and pan
 
 - **Unit** (`CanvasViewportTests`):

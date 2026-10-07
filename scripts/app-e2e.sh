@@ -355,6 +355,36 @@ run import-new 0 -- --import "$TMP/media/photo.jpg" --drafts-dir "$IDRAFTS" --ne
 [[ "$(json "$TMP/import-new.json" j.draftDirectory)" != "$idraft" ]] || die "import: --new-review reused the draft"
 ok "unsupported, missing, and absent files: exit 2 and nothing imported; --new-review starts a fresh draft"
 
+echo "open media from Finder and editor drops (HS2-H1RNGK)"
+PLIST="$(dirname "$APP_BIN")/../Info.plist"
+[[ "$(plutil -extract CFBundleDocumentTypes json -o - "$PLIST" | node -e 'const t = JSON.parse(require("fs").readFileSync(0, "utf8"));
+  console.log(t.map(d => `${d.LSItemContentTypes.join("+")}:${d.CFBundleTypeRole}:${d.LSHandlerRank}`).join(","))')" == \
+  "public.image:Viewer:Alternate,public.movie:Viewer:Alternate" ]] || die "open: Info.plist document types"
+ok "Info.plist offers UX Review as an alternate viewer for images and movies (Finder Open With)"
+ODRAFTS="$TMP/open-drafts"
+run open 0 -- --open-media "$TMP/media/Screenshot 1.png" "$TMP/media/photo.jpg" "$TMP/media/Screenshot 1.png" --drafts-dir "$ODRAFTS"
+odraft="$(json "$TMP/open.json" j.draftDirectory)"
+[[ "$(json "$TMP/open.json" '`${j.status}:${j.editorMediaId}:` + j.media.map(m => m.id + "/" + m.filename).join(",")')" == "opened:m1:m1/capture-1.png,m2/capture-2.png" ]] \
+  || die "open: $(cat "$TMP/open.json")"
+[[ "$(cat "$ODRAFTS/current")" == "$(basename "$odraft")" ]] || die "open: the opened draft is not current"
+validate_bundle "$odraft/review.json"
+ok "Open With routing: two files (one duplicate dropped) import into a new current draft; the editor opens on m1"
+run open-other 0 -- --import "$TMP/media/photo.jpg" --drafts-dir "$ODRAFTS" --new-review
+other="$(json "$TMP/open-other.json" j.draftDirectory)"
+run open-drop 0 -- --open-media "$TMP/media/old recording.mov" --drafts-dir "$ODRAFTS" --into-draft "$odraft"
+[[ "$(json "$TMP/open-drop.json" '`${j.draftDirectory}:${j.editorMediaId}:${j.media[0].kind}`')" == "$odraft:m3:video" ]] || die "open: drop $(cat "$TMP/open-drop.json")"
+[[ "$(json "$odraft/review.json" j.media.length)" == 3 && "$(json "$other/review.json" j.media.length)" == 1 ]] || die "open: drop went to the wrong draft"
+[[ "$(cat "$ODRAFTS/current")" == "$(basename "$other")" ]] || die "open: a drop changed the current draft"
+ok "editor drop routing: a movie dropped on an older draft's editor joins that draft; the current draft stays current"
+run open-bad 2 -- --open-media "$TMP/media/photo.jpg" "$TMP/media/notes.txt" --drafts-dir "$ODRAFTS" --into-draft "$odraft"
+[[ "$(json "$TMP/open-bad.json" j.error)" == unsupportedMedia ]] || die "open: unsupported error code"
+run open-dir 2 -- --open-media "$TMP/media" --drafts-dir "$ODRAFTS"
+[[ "$(json "$TMP/open-dir.json" j.error)" == unsupportedMedia ]] || die "open: a folder was not rejected"
+run open-missing 2 -- --open-media "$TMP/media/photo.jpg" "$TMP/media/gone.mov" --drafts-dir "$ODRAFTS"
+[[ "$(json "$TMP/open-missing.json" j.error)" == missingFile ]] || die "open: missing error code"
+[[ "$(json "$odraft/review.json" j.media.length)" == 3 && "$(json "$other/review.json" j.media.length)" == 1 ]] || die "open: a rejected batch changed a draft"
+ok "a batch with a text file, a folder, or a missing file: exit 2 and no draft changes"
+
 run previews 0 -- --render-ui-previews "$TMP/previews"
 for name in overlay-region-hint overlay-region-selection overlay-region-selection-bottom-edge overlay-window-hover hud-countdown hud-saved hud-recording-countdown hud-recording hud-saved-video settings-registered settings-in-use status-bar-icon-light status-bar-icon-dark \
   editor-empty editor-annotated editor-arrow-selected editor-narrow editor-crop-drag editor-cropped editor-zoomed editor-keyboard-insert editor-video-timeline editor-video-narrow editor-video-trimmed; do

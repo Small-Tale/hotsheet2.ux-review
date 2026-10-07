@@ -30,6 +30,17 @@ targets:
         LSUIElement: true
         LSApplicationCategoryType: public.app-category.developer-tools
         NSHumanReadableCopyright: Copyright © 2026 Small Tale Inc.
+        # Finder "Open With" and drops on the app icon for images and movies (docs/04 §4.12.1).
+        # Alternate rank: offered, never the default app for these files.
+        CFBundleDocumentTypes:
+          - CFBundleTypeName: Image
+            CFBundleTypeRole: Viewer
+            LSHandlerRank: Alternate
+            LSItemContentTypes: [public.image]
+          - CFBundleTypeName: Movie
+            CFBundleTypeRole: Viewer
+            LSHandlerRank: Alternate
+            LSItemContentTypes: [public.movie]
     # Signing comes from Signing.xcconfig (ad hoc unless Signing.local.xcconfig sets an identity).
     configFiles:
       Debug: Signing.xcconfig

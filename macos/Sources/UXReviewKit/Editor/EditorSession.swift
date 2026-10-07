@@ -19,7 +19,7 @@ public final class EditorSession {
 
     public var editor: AnnotationEditor
     public let directory: URL
-    let store: ReviewDraftStore
+    public let store: ReviewDraftStore
     /// Image files as they were when the session opened, loaded before anything overwrites them.
     private var baseImages: [String: CGImage] = [:]
     private var savedCrops: [String: PixelRect] = [:]
