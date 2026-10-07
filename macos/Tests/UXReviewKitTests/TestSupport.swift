@@ -1,4 +1,5 @@
 import Foundation
+import Testing
 @testable import UXReviewKit
 
 enum TestSupport {
@@ -77,3 +78,9 @@ final class FakeHotSheetClient: HotSheetClient, @unchecked Sendable {
         attached.append((files, slug, batchLabel, purpose))
     }
 }
+
+/// Suites that encode or decode movies (AVAssetWriter, export sessions, AVPlayer) run one after
+/// another: in parallel they exhaust the machine's video encoder sessions, and writers then wait
+/// forever for `isReadyForMoreMediaData`. Nest such suites in an `extension EncodingTests`.
+@Suite(.serialized)
+enum EncodingTests {}
