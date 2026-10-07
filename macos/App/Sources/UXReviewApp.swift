@@ -80,13 +80,29 @@ struct UXReviewApp: App {
         MenuBarExtra {
             MenuContent(model: model, capture: capture, settings: settings)
         } label: {
-            // A record symbol while recording, so the reviewer always sees that it is running.
-            Image(systemName: capture.phase.isRecording ? "record.circle.fill" : "viewfinder")
-                .accessibilityLabel(capture.phase.isRecording ? "UX Review — recording" : "UX Review")
+            StatusBarIcon(isRecording: capture.phase.isRecording)
         }
         Settings {
             SettingsView(model: settings)
         }
+    }
+}
+
+/// The menu bar icon: UX Review's flame-in-viewfinder template image (Assets.xcassets), or a
+/// record symbol while recording so the reviewer always sees that it is running. Spec: docs/05 §5.1.
+struct StatusBarIcon: View {
+    static let assetName = "StatusBarIcon"
+    let isRecording: Bool
+
+    var body: some View {
+        Group {
+            if isRecording {
+                Image(systemName: "record.circle.fill")
+            } else {
+                Image(Self.assetName)
+            }
+        }
+        .accessibilityLabel(isRecording ? "UX Review — recording" : "UX Review")
     }
 }
 

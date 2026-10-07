@@ -69,6 +69,7 @@ enum UIPreviews {
             written.append(try write(overlay(image, on: card), to: directory.appendingPathComponent("\(name).png")))
         }
         written += try renderSettings(to: directory)
+        written += try renderStatusBarIcon(to: directory)
         written += try EditorPreviews.render(to: directory)
         return written
     }
@@ -107,6 +108,34 @@ enum UIPreviews {
             guard let rep = host.bitmapImageRepForCachingDisplay(in: host.bounds) else { continue }
             host.cacheDisplay(in: host.bounds, to: rep)
             if let image = rep.cgImage {
+                written.append(try write(image, to: directory.appendingPathComponent("\(name).png")))
+            }
+        }
+        return written
+    }
+
+    /// The menu bar icon (idle and recording) on light and dark menu bar strips, at 4x so the
+    /// template's detail can be inspected.
+    private static func renderStatusBarIcon(to directory: URL) throws -> [URL] {
+        guard NSImage(named: StatusBarIcon.assetName) != nil else {
+            throw CaptureFailure.failed("asset \(StatusBarIcon.assetName) missing from the app bundle")
+        }
+        var written: [URL] = []
+        for (name, scheme) in [("status-bar-icon-light", ColorScheme.light), ("status-bar-icon-dark", .dark)] {
+            let strip = HStack(spacing: 16) {
+                StatusBarIcon(isRecording: false)
+                StatusBarIcon(isRecording: true)
+                Image(systemName: "wifi")
+                Text("Wed 9:41").font(.system(size: 13))
+            }
+            .foregroundStyle(scheme == .dark ? Color.white : Color.black)
+            .frame(height: 24)
+            .padding(.horizontal, 12)
+            .background(scheme == .dark ? Color(white: 0.16) : Color(white: 0.93))
+            .environment(\.colorScheme, scheme)
+            let renderer = ImageRenderer(content: strip)
+            renderer.scale = 4
+            if let image = renderer.cgImage {
                 written.append(try write(image, to: directory.appendingPathComponent("\(name).png")))
             }
         }

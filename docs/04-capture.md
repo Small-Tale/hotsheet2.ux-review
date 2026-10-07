@@ -199,4 +199,5 @@ and the draft store all still run for real. It exists so `scripts/app-e2e.sh` ca
 pipeline on machines without Screen Recording permission.
 
 **`--render-ui-previews`** draws the picker overlays and HUDs offscreen into PNGs, for visual
-QA without screen capture.
+QA without screen capture. It also renders the Settings window, the menu bar icon on light and
+dark strips (`status-bar-icon-light.png`, `status-bar-icon-dark.png`), and the annotation editor.

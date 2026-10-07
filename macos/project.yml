@@ -20,6 +20,7 @@ targets:
     platform: macOS
     sources:
       - App/Sources
+      - App/Resources
     dependencies:
       - package: UXReviewKit
     info:

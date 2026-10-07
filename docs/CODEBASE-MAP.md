@@ -47,8 +47,9 @@ macos/
     Editor/EditorSession.swift        editor + files: display images, video poster, save (merge), crop writes, originals/
     Editor/EditorScript.swift         JSON editing scripts + `--annotate` parsing (docs/06 §6.9)
   Tests/UXReviewKitTests/      Swift Testing unit + end-to-end tests (docs/TEST-COVERAGE.md)
+  App/Resources/Assets.xcassets  StatusBarIcon template vector (menu bar icon, docs/05 §5.1)
   App/Sources/
-    UXReviewApp.swift          @main, MenuBarExtra + Settings scenes, hotkey wiring, headless mode routing
+    UXReviewApp.swift          @main, MenuBarExtra + Settings scenes, StatusBarIcon, hotkey wiring, headless mode routing
     AppModel.swift             observable status + project chooser
     AppSettings.swift          project folder (defaults / --project), UXREVIEW_DEFAULTS_SUITE
     UIPreviews.swift           --render-ui-previews offscreen renders for visual QA

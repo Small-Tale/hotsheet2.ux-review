@@ -186,3 +186,12 @@ Each feature gets both unit tests and end-to-end tests. Tests live in
   selected rect, selected arrow, the 900 × 560 minimum, crop drag, cropped), each inspected by
   hand.
   - Live-window mouse/keyboard automation is part of `HS2-HA9TW3`.
+
+## HS2-ZMXAP9: status bar icon
+
+- **E2E** (`scripts/app-e2e.sh`): `--render-ui-previews` must write `status-bar-icon-light.png`
+  and `status-bar-icon-dark.png`. The renderer fails if the `StatusBarIcon` asset is missing
+  from the built app's asset catalog, so a dropped resource breaks the gate.
+- **Visual QA:** both renders checked by eye: template tinting follows the strip's appearance,
+  and the icon matches the weight and size of neighbouring system symbols.
+- **Not covered automatically:** the live menu bar (needs Screen Recording to capture).

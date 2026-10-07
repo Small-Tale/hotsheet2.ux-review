@@ -241,10 +241,10 @@ run annotate-baddraft 2 -- --annotate "$TMP/bad-step.json" --drafts-dir "$ADRAFT
 ok "invalid scripts, failing steps, and escaping --draft names: exit 2"
 
 run previews 0 -- --render-ui-previews "$TMP/previews"
-for name in overlay-region-hint overlay-region-selection overlay-region-selection-bottom-edge overlay-window-hover hud-countdown hud-saved hud-recording-countdown hud-recording hud-saved-video settings-registered settings-in-use \
+for name in overlay-region-hint overlay-region-selection overlay-region-selection-bottom-edge overlay-window-hover hud-countdown hud-saved hud-recording-countdown hud-recording hud-saved-video settings-registered settings-in-use status-bar-icon-light status-bar-icon-dark \
   editor-empty editor-annotated editor-arrow-selected editor-narrow editor-crop-drag editor-cropped; do
   [[ -s "$TMP/previews/$name.png" ]] || die "previews: $name.png missing"
 done
-ok "UI renders offscreen (picker overlays, HUDs, Settings window, annotation editor)"
+ok "UI renders offscreen (picker overlays, HUDs, Settings window, status bar icon, annotation editor)"
 
 echo "app e2e: $pass checks passed"

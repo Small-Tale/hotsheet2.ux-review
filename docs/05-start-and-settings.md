@@ -5,7 +5,11 @@ Status: implemented on macOS (`HS2-DR107C`). Capture itself is specified in
 
 ## 5.1 Menu bar
 
-The menu bar icon (a viewfinder) opens UX Review's menu. When idle, it lists:
+The menu bar icon opens UX Review's menu. It is a flame inside viewfinder corners (Hot Sheet's
+flame, framed for capture), drawn as a template image so it follows the menu bar's light, dark,
+and tinted appearances. The vector source is `macos/App/Resources/Assets.xcassets/StatusBarIcon`,
+derived from the Hot Sheet 2 design export `docs/design/exports/ux-review-status-bar-icon.svg`
+(cropped to its 20-point artwork and sized 18 points). When idle, it lists:
 
 1. **Capture <default>**: for example "Capture Screenshot of Region". It runs the default
    capture (§5.3) and shows the global shortcut when that shortcut is registered and is a
