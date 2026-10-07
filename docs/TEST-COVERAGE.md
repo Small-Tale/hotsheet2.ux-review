@@ -688,4 +688,25 @@ Each feature gets both unit tests and end-to-end tests. Tests live in
   Media…** at 900 pt (`editor-narrow`), all inspected by hand.
 - **Not covered automatically:** the live status item, the real menu bar appearing when the
   app turns regular, ⌘-Tab, Dock clicks and drops, and the menu closing on a Delayed segment.
-  These need a person at a Mac (`HS2-2EVZWC` follow-up).
+  These need a person at a Mac (`HS2-PPT7E2`).
+
+## HS2-122ZFZ: dim outside a region while recording it
+
+- **Dim geometry** (`RecordingDimTests`):
+  - a region in the middle gives four bands and flips from the display's top-left origin
+  - the hole is the even-sized area that is actually recorded
+  - regions on corners, full-width strips, and the whole display drop empty bands
+  - regions partly off the display are clipped; a region wholly off it gives no dim
+  - degenerate holes and bounds, reversed rects, and offset bounds
+  - every layout checks that the bands never overlap each other or the hole and, with the
+    hole, tile the display
+  - the outline stroke lies just outside the hole, and the dim stays slight (alpha 0.25–0.35)
+- **Visual QA:** `recording-dim-region.png` from `--render-ui-previews` (presence checked by
+  `scripts/app-e2e.sh`, look inspected by hand): the region is clear with a thin red outline,
+  and the rest of the test card is slightly dimmed.
+- **Not covered automatically:**
+  - the live overlay during a real recording: it is click-through, it is absent from the
+    movie (filter exclusion plus `sharingType = .none`), and it is torn down on stop, failure,
+    and unexpected stop
+  - window and screen recordings showing no dim
+  These need Screen Recording permission and a live session (`HS2-HA9TW3`).

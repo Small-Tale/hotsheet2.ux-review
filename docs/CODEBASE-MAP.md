@@ -32,6 +32,7 @@ macos/
     Capture/CaptureRequest.swift      kind/target/delay of a capture (docs/04 §4.1)
     Capture/RegionGeometry.swift      AppKit rect → display-local, pixel-snapped capture area
     Capture/WindowSelection.swift     window-server snapshots, pick/frontmost window rules
+    Capture/RecordingDim.swift        dim bands + outline around a region being recorded (docs/04 §4.9)
     Capture/CaptureContextBuilder.swift  CaptureContext mapping, OS version string
     Capture/ImageFiles.swift          PNG read/write, test card image (ImageIO)
     Capture/VideoFileWriter.swift     H.264 .mov writer (AVAssetWriter) + optional AAC narration track, ends at the stop time (docs/04 §4.9)
@@ -84,9 +85,10 @@ macos/
     Capture/CaptureCoordinator.swift  UI flow: permission (+ microphone), pick, countdown, capture, alerts
     Capture/TargetPicker.swift        region drag + window pick overlays
     Capture/CaptureHUD.swift          countdown / saved HUD panel
+    Capture/RecordingDimOverlay.swift click-through dim window shown during a region recording
     Capture/HeadlessCapture.swift     `--capture` mode with JSON output
     Capture/HeadlessImport.swift      `--import` mode with JSON output (docs/04 §4.12)
-    Capture/MediaOpening.swift        AppDelegate `application(_:open:)` batching, `--open-media` mode (docs/04 §4.12.1)
+    Capture/MediaOpening.swift        `--open-media` headless mode (docs/04 §4.12.1); Finder batching lives in AppDelegate
     Settings/GlobalHotkeyCenter.swift Carbon RegisterEventHotKey (exclusive) + press handler
     Settings/SettingsModel.swift      live settings, persistence, hotkey re-registration
     Settings/SettingsView.swift       Settings window content + shortcut recorder

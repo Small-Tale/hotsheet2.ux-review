@@ -147,6 +147,15 @@ reads "Recording in…". Once recording begins:
 
 - The menu bar icon turns into a record symbol.
 - A HUD says "Recording" and explains how to stop.
+- **Region recordings** dim the rest of that display slightly (black at 30 %), with a thin red
+  outline just outside the recorded area, until the recording stops or fails (`HS2-122ZFZ`).
+  - The dim sits above app windows and the Dock but below the menu bar, so the menu bar and
+    the Stop control stay undimmed.
+  - It ignores the mouse, so the reviewer keeps working in the region and anywhere else.
+  - It never appears in the movie. ScreenCaptureKit's filter excludes all of UX Review's
+    windows, and the dim window's `sharingType` is `.none` as well.
+  - The clear area is the even-sized area that is actually recorded.
+  - Window and screen recordings get no dim, and neither does headless `--capture video`.
 - **Stop** with "Stop Recording (m:ss)" at the top of the menu, or with either global hotkey.
 - If the display or window goes away, the recording stops by itself and keeps what was
   recorded.
@@ -276,8 +285,9 @@ host-clock timestamped, through the real `VideoFileWriter`. With `--narration` i
 and the draft store all still run for real. It exists so `scripts/app-e2e.sh` can cover the
 pipeline on machines without Screen Recording permission.
 
-**`--render-ui-previews`** draws the picker overlays and HUDs offscreen into PNGs, for visual
-QA without screen capture. It also renders the Settings window, the menu bar icon on light and
+**`--render-ui-previews`** draws the picker overlays, the region-recording dim
+(`recording-dim-region.png`), and the HUDs offscreen into PNGs, for visual QA without screen
+capture. It also renders the Settings window, the menu bar icon on light and
 dark strips (`status-bar-icon-light.png`, `status-bar-icon-dark.png`), and the annotation editor.
 
 ## 4.12 Opening existing media for annotation

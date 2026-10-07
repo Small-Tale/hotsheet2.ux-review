@@ -48,7 +48,7 @@ enum UIPreviews {
                 )
             )),
         ]
-        var written: [URL] = []
+        var written = try [renderRecordingDim(size: size, to: directory)]
         for (name, state) in overlays {
             let view = OverlayView(display: display, session: nil, state: state)
             view.frame = CGRect(origin: .zero, size: size)
@@ -89,6 +89,16 @@ enum UIPreviews {
             written.append(try write(overlay(image, on: card), to: directory.appendingPathComponent("\(name).png")))
         }
         return written
+    }
+
+    /// HS2-122ZFZ: the dim around a region while it is recorded (display-local, top-left).
+    private static func renderRecordingDim(size: CGSize, to directory: URL) throws -> URL {
+        let recorded = DisplayRegion(sourceRect: CGRect(x: 320, y: 220, width: 560, height: 320), pixelWidth: 1120, pixelHeight: 640)
+        guard let layout = RecordingDim.layout(region: recorded, displaySize: size) else {
+            throw CaptureFailure.failed("recording dim layout failed")
+        }
+        let view = RecordingDimView(frame: CGRect(origin: .zero, size: size), layout: layout)
+        return try write(composite(view, size: size), to: directory.appendingPathComponent("recording-dim-region.png"))
     }
 
     final class MemoryStore: KeyValueStoring {

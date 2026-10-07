@@ -18,6 +18,8 @@ final class CaptureCoordinator: ObservableObject {
     let backend: CaptureBackend
     let store: ReviewDraftStore
     private let hud = CaptureHUD()
+    /// Dims the rest of the display during a region recording (docs/04 §4.9).
+    private let recordingDim = RecordingDimOverlay()
     private var task: Task<Void, Never>?
     private var recording: ActiveRecording?
     private var recordingContext = CaptureContext()
@@ -68,6 +70,7 @@ final class CaptureCoordinator: ObservableObject {
         guard case let .recording(startedAt) = phase, let recording, apply(.stopRequested) else { return }
         self.recording = nil
         hud.hide()
+        recordingDim.hide()
         Task { await finish(recording, startedAt: startedAt) }
     }
 
@@ -183,6 +186,7 @@ final class CaptureCoordinator: ObservableObject {
                     self?.stopRecording() // the display or window went away: keep what was recorded
                 }
                 apply(.recordingStarted(Date()))
+                showRecordingDim(for: source)
                 recordingNarration = narration
                 narrationChoice = nil // the menu toggle applies to one recording
                 hud.flash("Recording", subtitle: narration ? "Microphone on. \(stopHint())" : stopHint(), on: screen)
@@ -262,8 +266,17 @@ final class CaptureCoordinator: ObservableObject {
         }
         recording = nil
         recordingNarration = false
+        recordingDim.hide()
         guard !cancelled else { return }
         report(error as? CaptureFailure ?? .failed(String(describing: error)))
+    }
+
+    /// Region recordings only: dim everything outside the recorded area until the recording
+    /// stops, is cancelled, or fails.
+    private func showRecordingDim(for source: CaptureSource) {
+        guard case let .display(id, region?) = source,
+              let display = DisplayDirectory.displays().first(where: { $0.id == id }) else { return }
+        recordingDim.show(region: region, on: display)
     }
 
     private func screen(for source: CaptureSource) -> NSScreen? {
