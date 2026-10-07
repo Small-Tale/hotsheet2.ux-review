@@ -83,6 +83,7 @@ enum EditorPreviews {
     private static func offerWindowButtons(_ model: EditorModel) {
         model.submitReview = {}
         model.addMedia = {}
+        model.confirmRemoval = { _ in }
     }
 
     /// New Review (⌘N): a draft with no media yet.

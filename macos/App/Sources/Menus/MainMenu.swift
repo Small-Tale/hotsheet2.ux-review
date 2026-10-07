@@ -66,6 +66,13 @@ enum MainMenu {
         menu.addItem(withTitle: "Paste", action: #selector(NSText.paste(_:)), keyEquivalent: "v")
         menu.addItem(withTitle: "Select All", action: #selector(NSText.selectAll(_:)), keyEquivalent: "a")
         menu.addItem(withTitle: "Duplicate", action: #selector(AnnotationCanvasView.duplicate(_:)), keyEquivalent: "d")
+        menu.addItem(.separator())
+        // No shortcut: ⌘⌫ must keep deleting text in the note field.
+        menu.addItem(
+            withTitle: "Remove Capture from Review…",
+            action: #selector(EditorWindowController.removeCapture(_:)),
+            keyEquivalent: ""
+        )
         return menu
     }
 

@@ -11,7 +11,8 @@ struct EditorView: View {
             EditorToolbar(model: model)
             Divider()
             HStack(spacing: 0) {
-                if model.editor.bundle.media.count > 1 {
+                // Shown with one capture too, so it can be removed (HS2-SSM1E7).
+                if !model.editor.bundle.media.isEmpty {
                     MediaStrip(model: model)
                         .frame(width: 112)
                     Divider()
@@ -187,6 +188,25 @@ struct MediaStrip: View {
                         }
                     }
                     .buttonStyle(.plain)
+                    .overlay(alignment: .topLeading) {
+                        if selected, let confirm = model.confirmRemoval {
+                            Button { confirm(item) } label: {
+                                Image(systemName: "xmark.circle.fill")
+                                    .symbolRenderingMode(.palette)
+                                    .foregroundStyle(.white, Color.black.opacity(0.6))
+                                    .font(.system(size: 15))
+                            }
+                            .buttonStyle(.plain)
+                            .offset(x: -5, y: -5)
+                            .help("Remove \(item.filename) from the review")
+                            .accessibilityLabel("Remove \(item.filename) from the review")
+                        }
+                    }
+                    .contextMenu {
+                        if let confirm = model.confirmRemoval {
+                            Button("Remove from Review…") { confirm(item) }
+                        }
+                    }
                 }
             }
             .padding(10)

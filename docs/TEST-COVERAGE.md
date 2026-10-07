@@ -759,3 +759,16 @@ Each feature gets both unit tests and end-to-end tests. Tests live in
 - **Visual QA:** `settings-registered` / `settings-in-use` show the third recorder row.
 - **Not covered automatically:** pressing ⌥⇧⌘E in another app and seeing the window open (live
   GUI; with `HS2-PPT7E2`).
+
+## HS2-SSM1E7: remove a capture in the editor
+
+- **Unit** (`EditorSessionTests.removingFromTheEditorKeepsUnsavedWorkOnOtherCaptures`): unsaved
+  work on the other capture (an annotation and a crop) is saved before removal; the file is
+  deleted; the editor shows the neighbor; removing the last capture leaves an empty editor; an
+  unknown id throws. `scriptRemoveCaptureSavesBeforeRemoving` covers the `remove-capture` op.
+- **App end to end** (`scripts/app-e2e.sh`): `--annotate` with `remove-capture` keeps the
+  unsaved rectangle on m2 and deletes `capture-1.png`; the bundle validates.
+- **Visual QA:** `editor-annotated` / `editor-video-timeline` show the strip with the ✕ on the
+  selected thumbnail (a single-capture video now has the strip too).
+- **Not covered automatically:** clicking ✕ or the context menu and the confirmation sheet in a
+  live window (`HS2-PPT7E2`-style manual QA).

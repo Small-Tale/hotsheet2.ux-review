@@ -54,6 +54,9 @@ public struct EditorScript: Decodable, Equatable, Sendable {
         /// Removes a capture from the draft the way the review session does
         /// (`ReviewDraftStore.removeMedia`), then lets the open editor catch up (docs/06 §6.7).
         case removeMedia(String)
+        /// Remove from Review in the editor: saves the editor first, then removes the capture
+        /// (`EditorSession.removeCapture`, docs/06 §6.7).
+        case removeCapture(String)
         case undo
         case redo
         case save
@@ -94,6 +97,14 @@ extension EditorScript.Step: Decodable {
         "save": .save,
     ]
 
+    private static func mediaStep(_ op: String, id: String) -> EditorScript.Step {
+        switch op {
+        case "media": .media(id)
+        case "remove-media": .removeMedia(id)
+        default: .removeCapture(id)
+        }
+    }
+
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         let op = try container.decode(String.self, forKey: .op)
@@ -105,9 +116,8 @@ extension EditorScript.Step: Decodable {
             DecodingError.dataCorruptedError(forKey: key, in: container, debugDescription: reason)
         }
         switch op {
-        case "media", "remove-media":
-            let id = try container.decode(String.self, forKey: .media)
-            self = op == "media" ? .media(id) : .removeMedia(id)
+        case "media", "remove-media", "remove-capture":
+            self = try Self.mediaStep(op, id: container.decode(String.self, forKey: .media))
         case "tool":
             let name = try container.decode(String.self, forKey: .tool)
             guard let tool = EditorTool(rawValue: name) else { throw invalid(.tool, "Unknown tool \(name)") }
@@ -213,9 +223,8 @@ public extension EditorScript {
 
     private static func apply(_ step: Step, to session: EditorSession) throws {
         switch step {
-        case let .media(id):
-            guard session.editor.media(id) != nil else { throw StepFailure.reason("unknown media \(id)") }
-            session.editor.show(mediaId: id)
+        case .media, .removeMedia, .removeCapture:
+            try applyMediaStep(step, in: session)
         case let .tool(tool):
             session.editor.setTool(tool)
         case .drag, .cancelDrag, .insert:
@@ -229,13 +238,25 @@ public extension EditorScript {
         case let .crop(rect): session.editor.crop(to: rect)
         case .resetCrop, .restoreOriginal, .time, .play, .timelineDrag, .trim, .resetTrim, .arrowKey:
             try applyToMedia(step, in: session)
-        case let .removeMedia(id):
-            guard session.editor.media(id) != nil else { throw StepFailure.reason("unknown media \(id)") }
-            try session.store.removeMedia(id, from: session.directory)
-            try session.reload()
         case .undo: session.editor.undo()
         case .redo: session.editor.redo()
         case .save: try session.save()
+        }
+    }
+
+    /// Showing a capture, or removing one (as the review session does, or from the editor).
+    private static func applyMediaStep(_ step: Step, in session: EditorSession) throws {
+        switch step {
+        case let .media(id), let .removeMedia(id), let .removeCapture(id):
+            guard session.editor.media(id) != nil else { throw StepFailure.reason("unknown media \(id)") }
+            switch step {
+            case .removeMedia:
+                try session.store.removeMedia(id, from: session.directory)
+                try session.reload()
+            case .removeCapture: try session.removeCapture(id)
+            default: session.editor.show(mediaId: id)
+            }
+        default: return
         }
     }
 

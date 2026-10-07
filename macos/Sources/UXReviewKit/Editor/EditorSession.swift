@@ -131,6 +131,18 @@ public final class EditorSession {
         return MediaChanges(added: before.added + after.added, removed: before.removed + after.removed)
     }
 
+    /// Remove from Review in the editor (`HS2-SSM1E7`): saves this session's edits first, so
+    /// unsaved work on the other captures is kept, then removes the capture from the draft
+    /// (`ReviewDraftStore.removeMedia`: its file, annotations, and kept original) and catches up.
+    /// The editor then shows a neighboring capture. It can't be undone.
+    @discardableResult
+    public func removeCapture(_ mediaId: String) throws -> MediaChanges {
+        guard editor.media(mediaId) != nil else { throw ReviewDraftError.unknownMedia(mediaId) }
+        try save()
+        try store.removeMedia(mediaId, from: directory)
+        return try reload()
+    }
+
     /// Catches up with the draft on disk: picks up media captured since the editor opened and
     /// drops media removed from the draft (with its annotations, history, and cached files).
     /// Spec: docs/06-annotation-editor.md §6.7.

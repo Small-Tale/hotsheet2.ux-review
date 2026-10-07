@@ -42,7 +42,7 @@ UX Review** (or a click on the Dock icon) opens it on the current draft
 | Area | Contents |
 | --- | --- |
 | Tool bar | Tools (§6.3), Undo, Redo, **Restore Original** (only while the image is cropped or the video trimmed, §6.6, §6.10), a status line ("Editing…" / "Saved to draft", the last editor message, or a save error), zoom, **Add Media…** (⌘O, see Opening), and **Submit Review…** (⌘↩): saves, then opens the Submit Review window on this editor's draft ([07-review-session.md](07-review-session.md) §7.1) |
-| Media strip (left, only with 2+ captures) | Thumbnails (with the current crop) plus a count badge of annotations on each. Click one to show it. Videos are marked |
+| Media strip (left, whenever the review has a capture) | Thumbnails (with the current crop) plus a count badge of annotations on each. Click one to show it. Videos are marked. The selected thumbnail has a ✕ button, and every thumbnail a **Remove from Review…** context menu item (§6.7.1) |
 | Canvas | The current capture fitted to the view (at most 2×) or zoomed (§6.2.1), on a dark backdrop, with annotations drawn on top. A video shows the frame at the playhead |
 | Timeline (under the canvas, videos only) | Play/pause, frame step, playhead time, **Trim Start** / **Trim End**, and the scrubber with each annotation's time range (§6.10) |
 | Inspector (right) | The selected annotation's number, shape, intents, time (videos, §6.10), and Markdown note, with Duplicate and Delete buttons. Below that, every annotation on this capture in review order: number, shape, intents, time range (videos), and note preview. Click a row to select it |
@@ -376,6 +376,22 @@ editor also saves on ⌘S and when the window closes. `EditorSession.save()` run
    edited media sizes and durations, and keeps media appended since the editor opened.
 4. Catch up again with what was saved.
 
+### 6.7.1 Removing a capture in the editor
+
+`HS2-SSM1E7`. A capture can be removed from the review in the UX Review window: the ✕ on the
+selected thumbnail, a thumbnail's **Remove from Review…** context menu item, or **Edit › Remove
+Capture from Review…** (the capture on screen; no shortcut, so ⌘⌫ keeps deleting text in the
+note field). A sheet asks first ("Remove capture-2.png from this review?", naming how many
+annotations go with it), because it can't be undone. Then `EditorSession.removeCapture`:
+
+1. saves the editor, so unsaved work on the other captures is kept;
+2. removes the capture as the review session does (`ReviewDraftStore.removeMedia`: its media
+   item, its annotations, its file, and its kept original);
+3. catches up, so the editor shows a neighboring capture, or the empty state after the last one.
+
+Open Submit Review and Draft Reviews windows refresh. The Submit Review window's trash button
+does the same from there ([07-review-session.md](07-review-session.md) §7.2).
+
 **Captures added or removed while the editor is open.** The editor follows the draft on disk
 (`.reviewDraftChanged` notification, `AnnotationEditor.syncMedia(with:)`). A media item counts
 as the same only when its id, file name, and capture time all match: removing the last capture
@@ -446,6 +462,7 @@ on the current draft (or the draft directory named by `--draft`), then saves.
 | `{"op": "trim", "start": 200, "end": 900}`, `{"op": "reset-trim"}` | Keep that part of the current video, or restore its length (§6.10) |
 | `{"op": "restore-original"}` | Restore Original: the current image's crop or the current video's trim |
 | `{"op": "remove-media", "media": "m1"}` | Remove a capture from the draft as the review session does, then let the editor catch up (§6.7) |
+| `{"op": "remove-capture", "media": "m1"}` | Remove from Review in the editor: save first, then remove (§6.7.1) |
 | `{"op": "undo"}`, `{"op": "redo"}`, `{"op": "save"}` | History and saving |
 
 | Exit code | `error` | Meaning |

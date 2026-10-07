@@ -598,6 +598,25 @@ run remove-annotate 0 -- --annotate "$TMP/script-remove.json" --drafts-dir "$RDR
 validate_bundle "$rdraft/review.json"
 ok "removing the showing capture under an open editor drops it, its annotations, and its history; undo/redo and saves never bring it back"
 
+# HS2-SSM1E7: Remove from Review in the editor saves the editor's unsaved work on the other
+# capture first, then removes the chosen one.
+EDRAFTS="$TMP/editor-remove-drafts"
+run eremove-shot1 0 "${SYN[@]}" -- --capture screenshot --target region --rect 100,100,300,200 --drafts-dir "$EDRAFTS"
+run eremove-shot2 0 "${SYN[@]}" -- --capture screenshot --target region --rect 120,120,300,200 --drafts-dir "$EDRAFTS"
+edraft="$(json "$TMP/eremove-shot1.json" j.draftDirectory)"
+cat >"$TMP/script-editor-remove.json" <<'JSON'
+{"steps": [
+  {"op": "media", "media": "m2"}, {"op": "tool", "tool": "rect"}, {"op": "drag", "points": [[10, 10], [80, 60]]},
+  {"op": "remove-capture", "media": "m1"}
+]}
+JSON
+run eremove-annotate 0 -- --annotate "$TMP/script-editor-remove.json" --drafts-dir "$EDRAFTS"
+[[ "$(json "$edraft/review.json" 'j.media.map(m => m.id).join(",")')" == m2 ]] || die "editor remove: media"
+[[ "$(json "$edraft/review.json" 'j.annotations.map(a => a.mediaId + ":" + a.shape.type).join(",")')" == "m2:rect" ]] || die "editor remove: annotations"
+[[ ! -e "$edraft/capture-1.png" && -e "$edraft/capture-2.png" ]] || die "editor remove: files"
+validate_bundle "$edraft/review.json"
+ok "Remove from Review in the editor keeps unsaved work on the other capture and deletes the removed capture's file"
+
 echo "draft reviews: list and discard (HS2-WE30PY)"
 DDRAFTS="$TMP/list-drafts"
 TRASH=(UXREVIEW_TRASH_DIR="$TMP/trash")

@@ -44,6 +44,53 @@ extension EditorSessionTests {
         #expect(try fixture.onDisk().annotations.isEmpty)
     }
 
+    /// HS2-SSM1E7: Remove from Review in the editor saves first, so unsaved work on the other
+    /// capture (an annotation and a crop) reaches disk, then removes the chosen capture.
+    @Test func removingFromTheEditorKeepsUnsavedWorkOnOtherCaptures() throws {
+        let fixture = try Fixture()
+        try fixture.store.add(fixture.capture(width: 300, height: 300))
+        let session = try fixture.session()
+        session.editor.show(mediaId: "m2")
+        AnnotationEditorTests.draw(&session.editor, .rect, [CGPoint(x: 20, y: 20), CGPoint(x: 120, y: 120)])
+        let cropped = session.editor.crop(to: CGRect(x: 0, y: 0, width: 200, height: 200))
+        #expect(cropped)
+        session.editor.show(mediaId: "m1")
+        AnnotationEditorTests.draw(&session.editor, .insertion, [CGPoint(x: 5, y: 5)])
+        #expect(session.editor.isDirty)
+
+        #expect(try session.removeCapture("m1") == MediaChanges(removed: ["m1"]))
+
+        let directory = fixture.draft.directory
+        #expect(!FileManager.default.fileExists(atPath: directory.appendingPathComponent("capture-1.png").path))
+        let disk = try fixture.onDisk()
+        #expect(disk.media.map(\.id) == ["m2"])
+        #expect(disk.media.first?.pixelWidth == 200) // m2's unsaved crop was saved first
+        #expect(disk.annotations.map(\.mediaId) == ["m2"])
+        #expect(disk.validate().isEmpty)
+        #expect(session.editor.currentMediaId == "m2")
+        #expect(!session.editor.isDirty)
+        // Removing the last capture leaves an empty review the editor still shows.
+        try session.removeCapture("m2")
+        #expect(try fixture.onDisk().media.isEmpty)
+        #expect(session.editor.currentMediaId == nil)
+        #expect(throws: ReviewDraftError.unknownMedia("m2")) { try session.removeCapture("m2") }
+    }
+
+    @Test func scriptRemoveCaptureSavesBeforeRemoving() throws {
+        let fixture = try Fixture()
+        try fixture.store.add(fixture.capture(width: 300, height: 300))
+        let steps = try JSONDecoder().decode([EditorScript.Step].self, from: Data(#"""
+        [{"op": "media", "media": "m2"}, {"op": "tool", "tool": "rect"},
+         {"op": "drag", "points": [[10, 10], [90, 90]]},
+         {"op": "remove-capture", "media": "m1"}]
+        """#.utf8))
+        #expect(steps.last == .removeCapture("m1"))
+        let session = try fixture.session()
+        _ = try EditorScript(steps: steps).run(on: session)
+        #expect(try fixture.onDisk().media.map(\.id) == ["m2"])
+        #expect(try fixture.onDisk().annotations.count == 1)
+    }
+
     @Test func aRemovedIdReusedByTheNextCaptureShowsTheNewFile() throws {
         let fixture = try Fixture()
         try fixture.store.add(fixture.capture(width: 300, height: 300))

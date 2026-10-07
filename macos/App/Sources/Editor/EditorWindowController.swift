@@ -62,6 +62,7 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
         content.onDropFiles = { [weak self] urls in self?.addDroppedFiles(urls) }
         model.submitReview = { [weak self] in self?.submitReview(nil) }
         model.addMedia = { [weak self] in self?.addMedia(nil) }
+        model.confirmRemoval = { [weak self] item in self?.confirmRemoval(item) }
     }
 
     @available(*, unavailable)
@@ -126,6 +127,28 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
         }
     }
 
+    /// Edit › Remove Capture from Review…: the capture on screen.
+    @objc func removeCapture(_: Any?) {
+        if let item = model.editor.currentMedia { confirmRemoval(item) }
+    }
+
+    /// Asks, as a sheet, before deleting a capture's file and annotations; it can't be undone.
+    func confirmRemoval(_ item: MediaItem) {
+        guard let window else { return }
+        let count = model.editor.annotations(on: item.id).count
+        let alert = NSAlert()
+        alert.alertStyle = .warning
+        alert.messageText = "Remove \(item.filename) from this review?"
+        let annotations = count == 0 ? "" : count == 1 ? " and its annotation" : " and its \(count) annotations"
+        alert.informativeText = "The capture\(annotations) will be deleted from the draft. You can't undo this."
+        alert.addButton(withTitle: "Remove Capture").hasDestructiveAction = true
+        alert.addButton(withTitle: "Cancel")
+        alert.beginSheetModal(for: window) { [weak self] response in
+            guard response == .alertFirstButtonReturn else { return }
+            MainActor.assumeIsolated { self?.model.removeCapture(item.id) }
+        }
+    }
+
     @objc func revealReview(_: Any?) {
         NSWorkspace.shared.activateFileViewerSelecting([model.session.directory])
     }
@@ -153,6 +176,7 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
         case #selector(undo(_:)): model.editor.canUndo
         case #selector(redo(_:)): model.editor.canRedo
         case #selector(duplicate(_:)): model.editor.selection != nil
+        case #selector(removeCapture(_:)): model.editor.currentMedia != nil
         default: true
         }
     }
