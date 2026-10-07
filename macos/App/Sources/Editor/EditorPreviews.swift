@@ -102,7 +102,24 @@ enum EditorPreviews {
             (steps + extra).forEach { apply($0, to: model) }
             written.append(try snapshot(EditorView(model: model), size: size, to: directory.appendingPathComponent("\(name).png")))
         }
-        // Playing (K): the pause button shows and the playhead and canvas follow the player.
+        // Timeline drags (HS2-MAH7NK), caught mid-drag: a range end, and a trim handle's preview.
+        for (name, handle, millis) in [
+            ("editor-video-range-drag", TimelineHandle.rangeEnd, 2600), ("editor-video-trim-drag", TimelineHandle.trimStart, 700),
+        ] {
+            let dragging = try EditorModel(session: EditorSession(store: store, directory: draft.directory))
+            steps.forEach { apply($0, to: dragging) }
+            dragging.mutate { editor in
+                editor.beginTimelineDrag(handle)
+                editor.updateTimelineDrag(toMs: millis)
+            }
+            written.append(try snapshot(
+                EditorView(model: dragging),
+                size: CGSize(width: 1240, height: 800),
+                to: directory.appendingPathComponent("\(name).png")
+            ))
+        }
+        // Playing (K): the pause button shows and the playhead and canvas follow the player. Last,
+        // because its autosave writes the scripted annotations into the shared draft.
         let model = try EditorModel(session: EditorSession(store: store, directory: draft.directory))
         (steps + [.time(600)]).forEach { apply($0, to: model) }
         model.togglePlayback()

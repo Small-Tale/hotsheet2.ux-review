@@ -139,6 +139,7 @@ public extension AnnotationEditor {
 
     /// Esc: abandons the gesture and restores what was there before it began.
     mutating func cancelGesture() {
+        cancelTimelineDrag()
         guard gesture != nil else { return }
         if let base = gestureBase {
             document = base.document

@@ -259,7 +259,7 @@ final class AnnotationCanvasView: NSView {
         default:
             if event.keyCode == 53 { // Esc: cancel the gesture, else the tool, else the selection
                 model.mutate { editor in
-                    if editor.gesture != nil {
+                    if editor.gesture != nil || editor.timelineDrag != nil {
                         editor.cancelGesture()
                     } else if editor.tool != .select {
                         editor.setTool(.select)

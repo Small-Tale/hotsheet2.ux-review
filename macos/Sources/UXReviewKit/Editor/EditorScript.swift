@@ -40,6 +40,9 @@ public struct EditorScript: Decodable, Equatable, Sendable {
         /// Plays the current video in real time for `millis`, then pauses; the playhead is where
         /// playback stopped.
         case play(Int)
+        /// Presses a timeline handle, drags it through the times (ms), then releases (or, with
+        /// `cancel`, presses Esc).
+        case timelineDrag(TimelineHandle, [Int], cancel: Bool)
         /// Sets the selection's time range (ms); nil means the whole clip.
         case range(TimeRange?)
         /// Keeps `startMs`…`endMs` of the current video.
@@ -73,7 +76,7 @@ public enum EditorScriptError: Error, Equatable, CustomStringConvertible {
 
 extension EditorScript.Step: Decodable {
     private enum CodingKeys: String,
-        CodingKey { case op, media, tool, points, point, id, text, intent, closed, dx, dy, rect, start, end
+        CodingKey { case op, media, tool, points, point, id, text, intent, closed, dx, dy, rect, start, end, handle
         case millis = "ms"
     }
 
@@ -112,15 +115,27 @@ extension EditorScript.Step: Decodable {
         case "closed": self = try .closed(container.decode(Bool.self, forKey: .closed))
         case "nudge": self = try .nudge(dx: container.decode(Double.self, forKey: .dx), dy: container.decode(Double.self, forKey: .dy))
         case "crop", "insert": self = try Self.geometry(op, in: container)
-        case "time", "play": self = try Self.playhead(op, in: container)
+        case "time", "play", "timeline-drag", "cancel-timeline-drag": self = try Self.playhead(op, in: container)
         case "range", "trim": self = try Self.timing(op, in: container)
         default:
             throw invalid(.op, "Unknown op \(op)")
         }
     }
 
-    /// `time` (the playhead) and `play` (how long to play, at most a minute), both in `ms`.
+    /// `time` (the playhead) and `play` (how long to play, at most a minute), both in `ms`; and
+    /// `timeline-drag` / `cancel-timeline-drag` (a `handle` and a list of times in `ms`).
     private static func playhead(_ op: String, in container: KeyedDecodingContainer<CodingKeys>) throws -> EditorScript.Step {
+        if op.hasSuffix("timeline-drag") {
+            let name = try container.decode(String.self, forKey: .handle)
+            guard let handle = TimelineHandle(rawValue: name) else {
+                throw DecodingError.dataCorruptedError(forKey: .handle, in: container, debugDescription: "Unknown handle \(name)")
+            }
+            let times = try container.decode([Int].self, forKey: .millis)
+            guard !times.isEmpty else {
+                throw DecodingError.dataCorruptedError(forKey: .millis, in: container, debugDescription: "timeline-drag needs ms: [t, …]")
+            }
+            return .timelineDrag(handle, times, cancel: op.hasPrefix("cancel"))
+        }
         let millis = try container.decode(Int.self, forKey: .millis)
         guard op == "play" else { return .time(millis) }
         guard (0 ... 60000).contains(millis) else {
@@ -196,7 +211,7 @@ public extension EditorScript {
         case .note, .intent, .closed, .delete, .duplicate, .nudge, .range:
             try applyToSelection(step, in: session)
         case let .crop(rect): session.editor.crop(to: rect)
-        case .resetCrop, .restoreOriginal, .time, .play, .trim, .resetTrim:
+        case .resetCrop, .restoreOriginal, .time, .play, .timelineDrag, .trim, .resetTrim:
             try applyToMedia(step, in: session)
         case .undo: session.editor.undo()
         case .redo: session.editor.redo()
@@ -212,6 +227,11 @@ public extension EditorScript {
         case let .time(millis):
             guard session.editor.currentDurationMs != nil else { throw StepFailure.reason("the current media is not a video") }
             session.editor.setCurrentTime(millis)
+        case let .timelineDrag(handle, times, cancel):
+            guard session.editor.currentDurationMs != nil else { throw StepFailure.reason("the current media is not a video") }
+            guard session.editor.beginTimelineDrag(handle) else { throw StepFailure.reason("no selected time range to drag") }
+            times.forEach { session.editor.updateTimelineDrag(toMs: $0) }
+            if cancel { session.editor.cancelTimelineDrag() } else { session.editor.endTimelineDrag() }
         case let .play(millis):
             guard let id = session.editor.currentMediaId, let playback = session.playback(id) else {
                 throw StepFailure.reason("the current media is not a video")

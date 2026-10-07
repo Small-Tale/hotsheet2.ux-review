@@ -314,6 +314,27 @@ echo '{"steps": [{"op": "media", "media": "m1"}, {"op": "play", "ms": 100}]}' >"
 run annotate-play-image 2 -- --annotate "$TMP/script-play-image.json" --drafts-dir "$ADRAFTS"
 ok "play: the playhead advanced to $(json "$TMP/annotate-play.json" j.currentTimeMs) ms in real time, stopped at the clip end; images refuse play"
 
+# HS2-MAH7NK: drag a range end and a trim handle on the timeline (one undo step each, Esc restores).
+cat >"$TMP/script-timeline.json" <<'JSON'
+{"steps": [
+  {"op": "media", "media": "m2"}, {"op": "select", "id": "#6"},
+  {"op": "timeline-drag", "handle": "range-end", "ms": [900, 700]},
+  {"op": "cancel-timeline-drag", "handle": "range-start", "ms": [0]},
+  {"op": "timeline-drag", "handle": "trim-end", "ms": [500, 800]},
+  {"op": "undo"}
+]}
+JSON
+run annotate-timeline 0 -- --annotate "$TMP/script-timeline.json" --drafts-dir "$ADRAFTS"
+[[ "$(json "$adraft/review.json" 'j.annotations[5].timeRange.startMs + "-" + j.annotations[5].timeRange.endMs')" == "300-700" ]] \
+  || die "timeline drag: range $(json "$adraft/review.json" 'JSON.stringify(j.annotations[5].timeRange)')"
+json "$TMP/annotate-timeline.json" 'j.messages.join("|")' | grep -q "Trimmed to 0.8 s." || die "timeline drag: trim handle did not trim"
+[[ "$(json "$adraft/review.json" j.media[1].durationMs)" == "$clip_ms" ]] || die "timeline drag: undo did not restore the trim"
+cmp -s "$clip" "$TMP/clip-before-trim.mov" || die "timeline drag: the undone trim rewrote the movie"
+echo '{"steps": [{"op": "media", "media": "m2"}, {"op": "select", "id": "#1"}, {"op": "timeline-drag", "handle": "range-end", "ms": [5]}]}' >"$TMP/script-timeline-whole.json"
+run annotate-timeline-whole 2 -- --annotate "$TMP/script-timeline-whole.json" --drafts-dir "$ADRAFTS"
+validate_bundle "$adraft/review.json"
+ok "timeline drags: a range end moved to 300-700, Esc restored the other end, a trim handle trimmed to 0.8 s and undid; whole-clip annotations have no handles"
+
 echo '{"steps": [{"op": "paint"}]}' >"$TMP/bad-script.json"
 run annotate-bad 2 -- --annotate "$TMP/bad-script.json" --drafts-dir "$ADRAFTS"
 echo '{"steps": [{"op": "delete"}]}' >"$TMP/bad-step.json"
@@ -387,7 +408,7 @@ ok "a batch with a text file, a folder, or a missing file: exit 2 and no draft c
 
 run previews 0 -- --render-ui-previews "$TMP/previews"
 for name in overlay-region-hint overlay-region-selection overlay-region-selection-bottom-edge overlay-window-hover hud-countdown hud-saved hud-recording-countdown hud-recording hud-saved-video settings-registered settings-in-use status-bar-icon-light status-bar-icon-dark \
-  editor-empty editor-annotated editor-arrow-selected editor-narrow editor-crop-drag editor-cropped editor-zoomed editor-keyboard-insert editor-video-timeline editor-video-narrow editor-video-trimmed; do
+  editor-empty editor-annotated editor-arrow-selected editor-narrow editor-crop-drag editor-cropped editor-zoomed editor-keyboard-insert editor-video-timeline editor-video-narrow editor-video-trimmed editor-video-playing editor-video-range-drag editor-video-trim-drag; do
   [[ -s "$TMP/previews/$name.png" ]] || die "previews: $name.png missing"
 done
 ok "UI renders offscreen (picker overlays, HUDs, Settings window, status bar icon, annotation editor)"

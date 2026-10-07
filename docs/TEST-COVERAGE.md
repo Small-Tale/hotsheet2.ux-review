@@ -405,3 +405,32 @@ Each feature gets both unit tests and end-to-end tests. Tests live in
 - **Visual QA:** `editor-video-playing` (the pause button, and the playhead moved while playing).
 - **Not covered automatically:** pressing K and the play button in a live window, and audio
   output. Both call the same `togglePlayback`; live-window automation is `HS2-HA9TW3`.
+
+## HS2-MAH7NK: dragging range ends and trim handles, typed times
+
+- **State machine** (`TimelineDragTests`), as a transition matrix of no drag / range drag /
+  trim drag × begin, update, end, cancel, and interruptions:
+  - range ends edit live, the playhead follows, and release is exactly one undo step (redo works)
+  - dragging past the other end swaps, passes through an instant, and clamps to the clip; the
+    bundle still validates
+  - instants open either way; a drag back to its start records nothing
+  - range handles are refused with no selection, a whole-clip selection, or on an image
+  - cancel restores the range and the playhead, and a repeated cancel is harmless
+  - every interruption (undo, redo, playhead, step, media switch, select, canvas gesture,
+    another drag) restores the pre-drag range; a stale release then does nothing
+  - repeated drags, undo, and re-drag refill history and clear redo
+  - trim handles preview without trimming, trim on release as one step (with the message),
+    keep the minimum length, cancel cleanly, and do nothing when released at the end
+  - typed ends drag the other end along, clamp, and refuse unchanged or whole-clip edits
+- **Parsing** (`TimelineDragTests`): accepted and rejected typed times, round-trips of
+  `TimeFormat.clock`, and the `timeline-drag` script ops (valid and malformed)
+- **Hit rules** (`TimelineDragTests`): range grips in the lane, trim brackets on the row, a
+  scrub elsewhere, instants by side, and a zero-length clip
+- **App end to end** (`scripts/app-e2e.sh`): `--annotate` drags a range end (300–700), cancels a
+  start drag (unchanged), drags the end trim handle (message "Trimmed to 0.8 s."), then undoes
+  it (duration and movie bytes unchanged); a drag on a whole-clip annotation exits 2
+- **Visual QA:** `editor-video-range-drag` and `editor-video-trim-drag` (grips, the dimmed
+  cut, the brackets, and the typed From/To fields)
+- **Not covered automatically:** live mouse drags and hover cursors on the timeline, and typing
+  into the fields in a live window. These are view code over the tested state machine, hit
+  test, and parser; live-window automation is `HS2-HA9TW3`.

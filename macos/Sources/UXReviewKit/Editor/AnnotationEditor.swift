@@ -113,6 +113,8 @@ public struct AnnotationEditor: Sendable {
     public internal(set) var currentMediaId: String?
     public internal(set) var tool: EditorTool = .select
     public internal(set) var gesture: EditorGesture?
+    /// A drag of a time-range end or trim handle on the video timeline (docs/06 §6.10).
+    public internal(set) var timelineDrag: TimelineDrag?
     /// A short status for the reviewer, for example what a crop removed. Cleared by the next change.
     public internal(set) var message: String?
     /// Image sizes when the session opened; crops are relative to these.

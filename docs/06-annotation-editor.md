@@ -373,6 +373,7 @@ on the current draft (or the draft directory named by `--draft`), then saves.
 | `{"op": "insert", "point": [x, y]}` (point optional; default the media center) | ⏎ with the current drawing tool (§6.4) |
 | `{"op": "crop", "rect": [x, y, w, h]}`, `{"op": "reset-crop"}` | Crop the current image, or restore it (§6.6) |
 | `{"op": "time", "ms": 1500}` | Move the playhead on the current video (fails on an image) |
+| `{"op": "timeline-drag", "handle": "range-end", "ms": [900, 700]}`, `cancel-timeline-drag` | Press a timeline handle (`range-start`, `range-end`, `trim-start`, `trim-end`), drag through those times, then release (or press Esc). Range handles need a selection with a time range |
 | `{"op": "play", "ms": 400}` | Play the current video in real time for up to 0…60000 ms, then pause; it stops early at the clip end (fails on an image) |
 | `{"op": "range", "start": 200, "end": 900}`, `{"op": "range"}` | Set the selection's time range in ms, or make it the whole clip (fails on an image's annotation) |
 | `{"op": "trim", "start": 200, "end": 900}`, `{"op": "reset-trim"}` | Keep that part of the current video, or restore its length (§6.10) |
@@ -402,6 +403,8 @@ editor offscreen through the real views, on a draft of mock app screenshots:
   recording with a ranged, an instant, and a whole-clip annotation, the playhead inside the
   first range (§6.10)
 - `editor-video-playing`: the same recording while it plays (the pause button showing)
+- `editor-video-range-drag` and `editor-video-trim-drag`: mid-drag of the selected range's end
+  grip, and of the start trim handle (the cut part dimmed)
 
 ## 6.10 Video time and trimming
 
@@ -411,7 +414,8 @@ the clip, and the clip itself can be trimmed.
 **Playhead.** The canvas shows the frame at the playhead.
 
 - **Moving it:** click or drag the scrubber; ← / → buttons or `,` / `.` step 0.1 s (⇧: 1 s);
-  Home / End jump to the ends. The time reads `0:01.50 / 0:03.00`.
+  Home / End jump to the ends. The time reads `0:01.50 / 0:03.00`, and the playhead time is a
+  field: type a time and press Return to move there (see **Typing times** below).
 - **Resets:** showing another capture puts it back at 0. It is navigation, so it is not
   undoable, but undo and redo restore the playhead of the step they return to.
 - **Frames** come from `AVAssetImageGenerator` with zero tolerance. The clip's end time shows
@@ -441,9 +445,17 @@ whole clip.
 
 - **Default:** new shapes, drawn or inserted, cover the whole clip.
 - **Inspector:** the **Time** section has a **Whole clip** checkbox. Unchecking it sets the range
-  from the playhead to the end. **From** and **To** each show their time (click to move the
-  playhead there) and a **Set to Playhead** button. Moving From past To, or To before From,
-  drags the other end along.
+  from the playhead to the end. **From** and **To** are time fields: type a time and press Return.
+  Each also has a target button that moves the playhead there, and a **Set to Playhead** button.
+  Setting From past To, or To before From, drags the other end along, and the playhead moves to
+  the end that was set.
+- **Dragging on the timeline** (`HS2-MAH7NK`): the selected annotation's range has white grips
+  at both ends in the range lane. Drag one to move that end. The range updates live, and the
+  playhead follows the grip so the canvas shows the frame there. Dragging an end past the other
+  one turns it into that end (the same clamp-and-swap as `setTimeRange`). An instant can be
+  dragged open either way: grab it left of the tick for the start, right of it for the end.
+  Release commits **one undo step**, and a drag that ends where it began records nothing.
+  Whole-clip annotations have no grips.
 - **Rules:** `setTimeRange` clamps to the clip and swaps reversed ends. Each change is one undo
   step. Ranges are refused for images.
 - **Showing:** the canvas draws, hit-tests, and exposes to VoiceOver only the annotations whose
@@ -460,6 +472,19 @@ whole clip.
 **Trimming.** **Trim Start** cuts everything before the playhead, and **Trim End** cuts everything
 after it.
 
+- **Trim handles:** the clip's ends carry `[` and `]` brackets on the scrubber row. Drag one
+  inward to preview a trim. The part that would be cut is dimmed, and the playhead follows the
+  handle. Nothing changes until release, which trims (through the same rules and message as the
+  buttons) as one undo step. The handle never leaves less than the minimum clip. Releasing at
+  the clip's end does nothing.
+- **Hit rules** (`TimelineHitTest`): presses within 6 pt of a selected range's grip (in the
+  range lane) or of a trim bracket (on the scrubber row) grab it, and the pointer shows a
+  left-right resize cursor there. A press anywhere else scrubs.
+- **Cancelling a drag:** Esc, undo or redo, moving the playhead, showing another capture,
+  selecting, or starting a canvas gesture abandons the drag and restores the range and playhead
+  from before it. Autosave and playback wait until the drag ends.
+- **Exact trims:** type the cut time in the playhead field, then Trim Start or Trim End.
+
 - **Limits:** the kept clip must be at least 100 ms. A trim to the whole clip does nothing.
   Trims are refused for images ("Only videos can be trimmed.").
 - **Annotations:** the clip's `durationMs` becomes the kept length. Ranges shift with the clip
@@ -471,6 +496,10 @@ after it.
   undoable.
 - **Validity:** every range stays within `durationMs`, so `timeRangeBeyondDuration` never fires
   for an edited bundle.
+
+**Typing times.** Time fields accept `0:01.50`, `1:02.5`, `1:00:02` (hours), `1.5`, `1.5 s`, and
+`1500 ms` (`TimeFormat.parse`). Values after a colon must be below 60. Anything else beeps and
+the field reverts. After Return, focus goes back to the canvas, so its keys work again.
 
 **Files.** Saving a changed trim rewrites the movie:
 

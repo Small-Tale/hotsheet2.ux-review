@@ -114,7 +114,8 @@ final class EditorModel: ObservableObject {
     /// it is not undoable and never marks the draft dirty.
     func togglePlayback() {
         if isPlaying { return pause() }
-        guard let id = editor.currentMediaId, editor.gesture == nil, let player = session.playback(id) else { return }
+        guard let id = editor.currentMediaId, editor.gesture == nil, editor.timelineDrag == nil,
+              let player = session.playback(id) else { return }
         player.play(fromMs: editor.currentTimeMs)
         playback = player
         let timer = Timer(timeInterval: 1.0 / 60, repeats: true) { [weak self] _ in
@@ -162,7 +163,7 @@ final class EditorModel: ObservableObject {
 
     func scheduleSave() {
         saveTask?.cancel()
-        guard editor.isDirty, editor.gesture == nil else { return }
+        guard editor.isDirty, editor.gesture == nil, editor.timelineDrag == nil else { return }
         saveTask = Task { [weak self] in
             try? await Task.sleep(for: Self.autosaveDelay)
             guard !Task.isCancelled else { return }

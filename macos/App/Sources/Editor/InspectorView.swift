@@ -81,8 +81,8 @@ struct AnnotationDetail: View {
     }
 }
 
-/// When an annotation on a video shows: the whole clip, or a range whose ends are set from the
-/// playhead (docs/06 §6.10).
+/// When an annotation on a video shows: the whole clip, or a range whose ends are typed, set from
+/// the playhead, or dragged on the timeline (docs/06 §6.10).
 struct TimeRangeEditor: View {
     @ObservedObject var model: EditorModel
     let annotation: Annotation
@@ -95,34 +95,38 @@ struct TimeRangeEditor: View {
             Toggle("Whole clip", isOn: Binding(
                 get: { annotation.timeRange == nil },
                 set: { whole in
-                    set(whole ? nil : TimeRange(startMs: now, endMs: duration))
+                    model.mutate { _ = $0.setTimeRange(whole ? nil : TimeRange(startMs: now, endMs: duration), for: annotation.id) }
                 }
             ))
             .toggleStyle(.checkbox)
             if let range = annotation.timeRange {
-                endpoint("From", range.startMs) {
-                    set(TimeRange(startMs: now, endMs: max(range.endMs, now)))
-                }
-                endpoint("To", range.endMs) {
-                    set(TimeRange(startMs: min(range.startMs, now), endMs: now))
-                }
+                endpoint("From", .rangeStart, range.startMs)
+                endpoint("To", .rangeEnd, range.endMs)
             }
         }
     }
 
-    private func set(_ range: TimeRange?) {
-        model.mutate { _ = $0.setTimeRange(range, for: annotation.id) }
+    /// Sets one end (typed, or the playhead) and shows the frame there. Moving From past To, or To
+    /// before From, drags the other end along.
+    private func set(_ handle: TimelineHandle, to millis: Int) {
+        model.mutate { editor in
+            guard editor.setRangeEnd(handle, toMs: millis, for: annotation.id),
+                  let range = editor.annotation(annotation.id)?.timeRange else { return }
+            editor.setCurrentTime(handle == .rangeStart ? range.startMs : range.endMs)
+        }
     }
 
-    private func endpoint(_ label: String, _ millis: Int, action: @escaping () -> Void) -> some View {
-        HStack(spacing: 8) {
+    private func endpoint(_ label: String, _ handle: TimelineHandle, _ millis: Int) -> some View {
+        HStack(spacing: 6) {
             Text(label).frame(width: 36, alignment: .leading)
-            Button(TimeFormat.clock(millis)) { model.mutate { $0.setCurrentTime(millis) } }
+            TimeField(label: label, millis: millis) { set(handle, to: $0) }
+                .help("Type a time, for example 1.5 or 0:01.50")
+            Button { model.mutate { $0.setCurrentTime(millis) } } label: { Image(systemName: "scope") }
                 .buttonStyle(.borderless)
-                .font(.callout.monospacedDigit())
                 .help("Move the playhead here")
+                .accessibilityLabel("Show \(label.lowercased()) \(TimeFormat.clock(millis))")
             Spacer(minLength: 4)
-            Button("Set to Playhead", action: action)
+            Button("Set to Playhead") { set(handle, to: model.editor.currentTimeMs) }
                 .controlSize(.small)
                 .help("\(label) \(TimeFormat.clock(model.editor.currentTimeMs))")
         }
