@@ -1,0 +1,66 @@
+import Foundation
+import Testing
+@testable import UXReviewKit
+
+struct TicketComposerTests {
+    @Test func composesIntakeTicketForExample() throws {
+        let composed = try TicketComposer.compose(TestSupport.exampleBundle())
+        #expect(composed.ticket.title == "UX review: Settings window polish")
+        #expect(composed.ticket.category == "task")
+        #expect(composed.ticket.tags == ["ux-review"])
+        #expect(composed.bundleFilename == "review.json")
+        #expect(composed.mediaFilenames == ["capture-1.png", "capture-2.mov"])
+
+        let details = composed.ticket.details
+        #expect(details.hasPrefix("## Instructions for the AI processing this ticket"))
+        #expect(details.contains("Create one ticket per distinct actionable change"))
+        #expect(details.contains("`attachment:review.json`"))
+        #expect(details.contains("(`attachment:capture-1.png`, `attachment:capture-2.mov`)"))
+        #expect(details.contains("## Reviewer summary\n\nSettings window pass before the beta."))
+        #expect(details.contains("- App: Hot Sheet (`com.smalltale.hotsheet2`)"))
+        #expect(details.contains("- Window: Hot Sheet — ux-review"))
+        #expect(details.contains("- `attachment:capture-2.mov` (video, 2880×1800, 0:08.000)"))
+        #expect(details.contains("### #1 · change · `attachment:capture-1.png`"))
+        #expect(details.contains("### #2 · move · `attachment:capture-1.png`"))
+        #expect(details.contains("### #3 · remove · `attachment:capture-1.png`"))
+        #expect(details.contains("### #4 · insert · `attachment:capture-1.png`"))
+        #expect(details.contains("### #5 · bug · `attachment:capture-2.mov`"))
+        #expect(details.contains("- Shape: arrow; region (0–10000): x 1200, y 600, w 3300, h 2400"))
+        #expect(details.contains("- Time: 0:02.500–0:04.250"))
+    }
+
+    @Test func projectsEveryAnnotationOntoHotSheetRectanglesPerMedia() throws {
+        let composed = try TicketComposer.compose(TestSupport.exampleBundle())
+        #expect(composed.hotSheetAnnotations["m1"]?.map(\.id) == ["a1", "a2", "a3", "a4"])
+        let clip = try #require(composed.hotSheetAnnotations["m2"]?.first)
+        #expect(clip == HotSheetMediaAnnotation(
+            id: "a5", x: 400, y: 900, width: 2800, height: 6300, startMs: 2500, endMs: 4250,
+            text: "#5 [bug] The list flickers while the sidebar animates."
+        ))
+    }
+
+    @Test func hotSheetAnnotationUsesSnakeCaseWireFormat() throws {
+        let annotation = HotSheetMediaAnnotation(id: "a", x: 1, y: 2, width: 3, height: 4, startMs: 5, endMs: 6, text: "t")
+        let object = try JSONSerialization.jsonObject(with: JSONEncoder().encode(annotation)) as? [String: Any]
+        #expect(Set(object?.keys ?? [:].keys) == ["id", "x", "y", "width", "height", "start_ms", "end_ms", "text"])
+    }
+
+    @Test func minimalBundleOmitsOptionalSections() {
+        let details = TicketComposer.compose(TestSupport.bundle()).ticket.details
+        #expect(!details.contains("## Reviewer summary"))
+        #expect(!details.contains("## Capture context"))
+        #expect(details.contains("No annotations; see the reviewer summary and media."))
+    }
+
+    @Test func emptyNotesAreMarked() {
+        let bundle = TestSupport.bundle(annotations: [
+            Annotation(id: "a", mediaId: "m1", shape: .insertion(NormPoint(x: 1, y: 1)), note: ""),
+        ])
+        #expect(TicketComposer.compose(bundle).ticket.details.contains("_No note._"))
+    }
+
+    @Test(arguments: [(0, "0:00.000"), (1, "0:00.001"), (61500, "1:01.500"), (3_600_000, "60:00.000")])
+    func formatsTimes(milliseconds: Int, expected: String) {
+        #expect(TicketComposer.formatTime(milliseconds) == expected)
+    }
+}

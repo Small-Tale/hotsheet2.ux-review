@@ -1,0 +1,7 @@
+--swiftversion 6.0
+--indent 4
+--maxwidth 140
+--wraparguments before-first
+--wrapcollections before-first
+--disable hoistTry,redundantSelf,wrapMultilineStatementBraces,blankLinesAtStartOfScope
+--exclude .build,**/.build,**/DerivedData

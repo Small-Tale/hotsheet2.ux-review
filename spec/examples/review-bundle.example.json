@@ -1,0 +1,56 @@
+{
+  "annotations" : [
+    {
+      "id" : "a1",
+      "intents" : [ "change" ],
+      "mediaId" : "m1",
+      "note" : "Primary button label is truncated at narrow widths.",
+      "shape" : { "rect" : { "height" : 600, "width" : 2000, "x" : 7000, "y" : 8800 }, "type" : "rect" }
+    },
+    {
+      "id" : "a2",
+      "intents" : [ ],
+      "mediaId" : "m1",
+      "note" : "Move the search field into the toolbar.",
+      "shape" : { "points" : [ { "x" : 1200, "y" : 3000 }, { "x" : 2600, "y" : 1800 }, { "x" : 4500, "y" : 600 } ], "type" : "arrow" }
+    },
+    {
+      "id" : "a3",
+      "intents" : [ ],
+      "mediaId" : "m1",
+      "note" : "Remove the duplicate \"Help\" link.",
+      "shape" : { "rect" : { "height" : 400, "width" : 900, "x" : 300, "y" : 9300 }, "type" : "strike" }
+    },
+    {
+      "id" : "a4",
+      "intents" : [ "insert" ],
+      "mediaId" : "m1",
+      "note" : "Add a short explanation of what *Sync now* does.",
+      "shape" : { "point" : { "x" : 5200, "y" : 4100 }, "type" : "insertion" }
+    },
+    {
+      "id" : "a5",
+      "intents" : [ "bug" ],
+      "mediaId" : "m2",
+      "note" : "The list flickers while the sidebar animates.",
+      "shape" : { "closed" : true, "points" : [ { "x" : 400, "y" : 1000 }, { "x" : 3000, "y" : 900 }, { "x" : 3200, "y" : 7000 }, { "x" : 500, "y" : 7200 } ], "type" : "freehand" },
+      "timeRange" : { "endMs" : 4250, "startMs" : 2500 }
+    }
+  ],
+  "context" : {
+    "appName" : "Hot Sheet",
+    "bundleIdentifier" : "com.smalltale.hotsheet2",
+    "displayScale" : 2,
+    "osVersion" : "macOS 27.0",
+    "windowTitle" : "Hot Sheet — ux-review"
+  },
+  "createdAt" : "2026-10-07T03:00:00Z",
+  "id" : "01M4A4XS7A72CW2B7Y0W9V0DX5",
+  "media" : [
+    { "capturedAt" : "2026-10-07T02:58:10Z", "filename" : "capture-1.png", "id" : "m1", "kind" : "image", "pixelHeight" : 1800, "pixelWidth" : 2880 },
+    { "capturedAt" : "2026-10-07T02:59:00Z", "durationMs" : 8000, "filename" : "capture-2.mov", "id" : "m2", "kind" : "video", "pixelHeight" : 1800, "pixelWidth" : 2880 }
+  ],
+  "schema" : "uxreview/bundle/v1",
+  "summary" : "Settings window pass before the beta.",
+  "title" : "Settings window polish"
+}

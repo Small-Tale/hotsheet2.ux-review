@@ -1,0 +1,25 @@
+# SwiftFormat owns layout (including trailing commas); SwiftLint checks the rest.
+disabled_rules:
+  - trailing_comma
+included:
+  - macos
+excluded:
+  - macos/.build
+  - macos/DerivedData
+line_length:
+  warning: 140
+  error: 160
+identifier_name:
+  excluded: [x, y, id, ai]
+type_body_length:
+  warning: 300
+file_length:
+  warning: 500
+function_body_length:
+  warning: 60
+cyclomatic_complexity:
+  warning: 15
+large_tuple:
+  warning: 4
+nesting:
+  type_level: 2

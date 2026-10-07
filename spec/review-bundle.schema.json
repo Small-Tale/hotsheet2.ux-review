@@ -1,0 +1,130 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Small-Tale/ux-review/spec/review-bundle.schema.json",
+  "title": "UX Review bundle",
+  "description": "Canonical record of one UX review session (schema uxreview/bundle/v1). Shared by every platform client; see docs/02-review-bundle.md. Coordinates are integers normalized to 0..10000 relative to the media, matching Hot Sheet 2 MediaAnnotation.",
+  "type": "object",
+  "required": ["schema", "id", "title", "summary", "createdAt", "context", "media", "annotations"],
+  "additionalProperties": false,
+  "properties": {
+    "schema": { "const": "uxreview/bundle/v1" },
+    "id": { "type": "string", "minLength": 1 },
+    "title": { "type": "string", "minLength": 1 },
+    "summary": { "type": "string", "description": "Markdown notes for the whole review." },
+    "createdAt": { "type": "string", "format": "date-time" },
+    "context": { "$ref": "#/$defs/context" },
+    "media": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/media" } },
+    "annotations": { "type": "array", "items": { "$ref": "#/$defs/annotation" } }
+  },
+  "$defs": {
+    "coord": { "type": "integer", "minimum": 0, "maximum": 10000 },
+    "point": {
+      "type": "object",
+      "required": ["x", "y"],
+      "additionalProperties": false,
+      "properties": { "x": { "$ref": "#/$defs/coord" }, "y": { "$ref": "#/$defs/coord" } }
+    },
+    "rect": {
+      "type": "object",
+      "description": "x + width and y + height must not exceed 10000.",
+      "required": ["x", "y", "width", "height"],
+      "additionalProperties": false,
+      "properties": {
+        "x": { "$ref": "#/$defs/coord" },
+        "y": { "$ref": "#/$defs/coord" },
+        "width": { "type": "integer", "minimum": 1, "maximum": 10000 },
+        "height": { "type": "integer", "minimum": 1, "maximum": 10000 }
+      }
+    },
+    "timeRange": {
+      "type": "object",
+      "description": "Inclusive milliseconds; startMs <= endMs. Equal endpoints mark one instant.",
+      "required": ["startMs", "endMs"],
+      "additionalProperties": false,
+      "properties": {
+        "startMs": { "type": "integer", "minimum": 0 },
+        "endMs": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "intent": { "enum": ["comment", "bug", "change", "insert", "remove", "move", "question"] },
+    "shape": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": ["type", "rect"],
+          "additionalProperties": false,
+          "properties": { "type": { "enum": ["rect", "strike"] }, "rect": { "$ref": "#/$defs/rect" } }
+        },
+        {
+          "type": "object",
+          "required": ["type", "points"],
+          "additionalProperties": false,
+          "properties": {
+            "type": { "const": "freehand" },
+            "points": { "type": "array", "minItems": 3, "items": { "$ref": "#/$defs/point" } },
+            "closed": { "type": "boolean", "default": true }
+          }
+        },
+        {
+          "type": "object",
+          "required": ["type", "points"],
+          "additionalProperties": false,
+          "properties": {
+            "type": { "const": "arrow" },
+            "points": { "type": "array", "minItems": 2, "items": { "$ref": "#/$defs/point" } }
+          }
+        },
+        {
+          "type": "object",
+          "required": ["type", "point"],
+          "additionalProperties": false,
+          "properties": { "type": { "const": "insertion" }, "point": { "$ref": "#/$defs/point" } }
+        }
+      ]
+    },
+    "media": {
+      "type": "object",
+      "required": ["id", "filename", "kind", "pixelWidth", "pixelHeight", "capturedAt"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "filename": { "type": "string", "minLength": 1, "description": "Unique within the bundle; referenced as attachment:<filename>." },
+        "kind": { "enum": ["image", "video"] },
+        "pixelWidth": { "type": "integer", "minimum": 1 },
+        "pixelHeight": { "type": "integer", "minimum": 1 },
+        "durationMs": { "type": "integer", "minimum": 0, "description": "Video only, after trimming." },
+        "capturedAt": { "type": "string", "format": "date-time" }
+      }
+    },
+    "annotation": {
+      "type": "object",
+      "required": ["id", "mediaId", "shape", "intents", "note"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "mediaId": { "type": "string", "minLength": 1 },
+        "shape": { "$ref": "#/$defs/shape" },
+        "intents": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/intent" },
+          "description": "Empty means the shape's default intent: rect/freehand comment, arrow move, insertion insert, strike remove."
+        },
+        "note": { "type": "string", "description": "Markdown." },
+        "timeRange": { "$ref": "#/$defs/timeRange", "description": "Video media only; omitted means the whole clip." }
+      }
+    },
+    "context": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "appName": { "type": "string" },
+        "bundleIdentifier": { "type": "string" },
+        "windowTitle": { "type": "string" },
+        "url": { "type": "string" },
+        "osVersion": { "type": "string" },
+        "displayScale": { "type": "number", "exclusiveMinimum": 0 }
+      }
+    }
+  }
+}

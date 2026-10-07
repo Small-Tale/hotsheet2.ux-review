@@ -1,0 +1,38 @@
+# XcodeGen spec for the macOS app. Generate the project with `scripts/macos-project.sh`
+# (the .xcodeproj is a build artifact and is not committed).
+name: UXReview
+options:
+  bundleIdPrefix: com.smalltale
+  deploymentTarget:
+    macOS: "14.0"
+  createIntermediateGroups: true
+packages:
+  UXReviewKit:
+    path: .
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    MARKETING_VERSION: "0.1.0"
+    CURRENT_PROJECT_VERSION: "1"
+targets:
+  UXReview:
+    type: application
+    platform: macOS
+    sources:
+      - App/Sources
+    dependencies:
+      - package: UXReviewKit
+    info:
+      path: App/Info.plist
+      properties:
+        CFBundleDisplayName: UX Review
+        LSUIElement: true
+        LSApplicationCategoryType: public.app-category.developer-tools
+        NSHumanReadableCopyright: Copyright © 2026 Small Tale Inc.
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.smalltale.uxreview
+        CODE_SIGN_IDENTITY: "-"
+        CODE_SIGN_STYLE: Manual
+        ENABLE_HARDENED_RUNTIME: YES
+        GENERATE_INFOPLIST_FILE: NO
