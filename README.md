@@ -13,8 +13,8 @@ macOS comes first (Swift, built with Xcode) and sets the patterns. Linux and Win
 follow and share the same review bundle format.
 
 > **Status:** early. The core model, ticket composition, and Hot Sheet CLI submission are
-> implemented and tested. The menu bar app captures screenshots of a screen, window, or region,
-> optionally after a delay, into a draft review, from its menu or a configurable global hotkey
+> implemented and tested. The menu bar app captures screenshots and records video of a screen, window, or
+> region, optionally after a delay, into a draft review, from its menu or a configurable global hotkey
 > ([docs/04-capture.md](docs/04-capture.md), [docs/05-start-and-settings.md](docs/05-start-and-settings.md)). Annotation and submission UI are next. See [docs/README.md](docs/README.md) for the roadmap and tickets.
 
 ## Repository layout

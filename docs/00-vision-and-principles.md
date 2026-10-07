@@ -1,7 +1,7 @@
 # 00 — Vision and principles
 
-Status: foundation in place (`HS2-3ZSBZ9`); screenshot capture and starting from the menu or hotkey implemented
-(`HS2-E89PQR`, `HS2-DR107C`; [04-capture.md](04-capture.md),
+Status: foundation in place (`HS2-3ZSBZ9`); screenshot and video capture and starting from the menu or hotkey
+implemented (`HS2-E89PQR`, `HS2-W68HWK`, `HS2-DR107C`; [04-capture.md](04-capture.md),
 [05-start-and-settings.md](05-start-and-settings.md)); other capture and editing features are tracked in
 [README.md](README.md#roadmap).
 

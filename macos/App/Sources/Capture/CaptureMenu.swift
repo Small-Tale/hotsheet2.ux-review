@@ -11,26 +11,22 @@ struct CaptureMenuSection: View {
         case .idle:
             defaultCaptureButton
             Divider()
-            ForEach(CaptureTarget.allCases, id: \.self) { target in
-                Button("Screenshot of \(target.label)") { capture.screenshot(CaptureRequest(kind: .screenshot, target: target)) }
-            }
-            Menu("Screenshot After Delay") {
-                ForEach(CaptureRequest.delayPresets.filter { $0 > 0 }, id: \.self) { delay in
-                    Section("\(delay) seconds") {
-                        ForEach(CaptureTarget.allCases, id: \.self) { target in
-                            Button("\(target.label) after \(delay) s") {
-                                capture.screenshot(CaptureRequest(kind: .screenshot, target: target, delaySeconds: delay))
-                            }
-                        }
-                    }
-                }
-            }
-        case let .countingDown(seconds):
-            Button("Cancel Capture (\(seconds) s)") { capture.cancel() }
+            captureItems(.screenshot, title: "Screenshot", delayedTitle: "Screenshot After Delay")
+            Divider()
+            captureItems(.video, title: "Record Video", delayedTitle: "Record Video After Delay")
+        case let .countingDown(_, remaining):
+            Button("Cancel Capture (\(remaining) s)") { capture.cancel() }
         case .picking:
             Text("Choosing what to capture… (Esc cancels)")
         case .capturing:
             Text("Capturing…")
+        case let .recording(startedAt):
+            // The menu is rebuilt each time it opens, so the elapsed time is current then.
+            Button("Stop Recording (\(CaptureCoordinator.clock(Int(Date().timeIntervalSince(startedAt) * 1000))))") {
+                capture.stopRecording()
+            }
+        case .finishing:
+            Text("Saving recording…")
         }
         Divider()
         if let last = capture.lastCapture {
@@ -38,6 +34,24 @@ struct CaptureMenuSection: View {
         }
         Button("Show Current Review in Finder") { capture.revealCurrentReview() }
         Button("Start New Review") { capture.startNewReview() }
+    }
+
+    /// "Screenshot of Screen / Window / Region" plus a submenu of the delay presets.
+    @ViewBuilder private func captureItems(_ kind: CaptureKind, title: String, delayedTitle: String) -> some View {
+        ForEach(CaptureTarget.allCases, id: \.self) { target in
+            Button("\(title) of \(target.label)") { capture.start(CaptureRequest(kind: kind, target: target)) }
+        }
+        Menu(delayedTitle) {
+            ForEach(CaptureRequest.delayPresets.filter { $0 > 0 }, id: \.self) { delay in
+                Section("\(delay) seconds") {
+                    ForEach(CaptureTarget.allCases, id: \.self) { target in
+                        Button("\(target.label) after \(delay) s") {
+                            capture.start(CaptureRequest(kind: kind, target: target, delaySeconds: delay))
+                        }
+                    }
+                }
+            }
+        }
     }
 
     /// "Capture Screenshot of Region   ⌥⇧⌘U": the default capture, showing the global shortcut.

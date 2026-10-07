@@ -40,6 +40,33 @@ struct CapturePipeline {
     }
 }
 
+extension CapturePipeline {
+    /// Adds a finished recording to the draft review. `context` was taken when recording began.
+    func addVideo(_ video: RecordedVideo, context: CaptureContext, startedAt: Date) throws -> CaptureOutcome {
+        var context = context
+        context.displayScale = video.displayScale > 0 ? video.displayScale : context.displayScale
+        do {
+            let (draft, media) = try store.add(DraftCapture(
+                fileURL: video.url,
+                kind: .video,
+                pixelWidth: video.pixelWidth,
+                pixelHeight: video.pixelHeight,
+                durationMs: video.durationMs,
+                capturedAt: startedAt,
+                context: context
+            ))
+            return CaptureOutcome(draft: draft, media: media)
+        } catch {
+            try? FileManager.default.removeItem(at: video.url)
+            throw CaptureFailure.failed(String(describing: error))
+        }
+    }
+
+    static func temporaryMovieURL() -> URL {
+        FileManager.default.temporaryDirectory.appendingPathComponent("uxreview-\(UUID().uuidString).mov")
+    }
+}
+
 extension AppSettings {
     /// Where draft reviews are kept: `UXREVIEW_DRAFTS_DIR` when set (tests), else Application Support.
     static func draftsDirectory(environment: [String: String] = ProcessInfo.processInfo.environment) -> URL {

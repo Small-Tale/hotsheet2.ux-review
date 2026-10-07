@@ -3,12 +3,13 @@ import Foundation
 
 /// Headless capture invocation of the app, used by scripts and end-to-end tests:
 ///
-///     UXReview --capture screenshot [--target display|window|region] [--delay N]
+///     UXReview --capture screenshot|video [--target display|window|region] [--delay N] [--duration S]
 ///              [--display-id N] [--window-id N] [--rect x,y,w,h]
 ///              [--drafts-dir DIR] [--new-review]
 ///
 /// There is no interactive picking: `region` needs `--rect` (display-local, top-left points),
-/// and `window` uses `--window-id` or else the frontmost app's front window. Spec: docs/04 §4.7.
+/// and `window` uses `--window-id` or else the frontmost app's front window. Video needs
+/// `--duration` (seconds, up to `maxDurationSeconds`). Spec: docs/04 §4.11.
 public struct CaptureCommand: Equatable, Sendable {
     public var request: CaptureRequest
     public var displayID: UInt32?
@@ -16,6 +17,10 @@ public struct CaptureCommand: Equatable, Sendable {
     public var rect: CGRect?
     public var draftsDirectory: URL?
     public var newReview: Bool
+    /// Video only: how long to record, in seconds.
+    public var durationSeconds: Double?
+
+    public static let maxDurationSeconds: Double = 600
 
     public init(
         request: CaptureRequest,
@@ -23,7 +28,8 @@ public struct CaptureCommand: Equatable, Sendable {
         windowID: UInt32? = nil,
         rect: CGRect? = nil,
         draftsDirectory: URL? = nil,
-        newReview: Bool = false
+        newReview: Bool = false,
+        durationSeconds: Double? = nil
     ) {
         self.request = request
         self.displayID = displayID
@@ -31,6 +37,7 @@ public struct CaptureCommand: Equatable, Sendable {
         self.rect = rect
         self.draftsDirectory = draftsDirectory
         self.newReview = newReview
+        self.durationSeconds = durationSeconds
     }
 
     /// Parses the arguments after the executable. Returns nil when `--capture` is absent.
@@ -57,6 +64,16 @@ public struct CaptureCommand: Equatable, Sendable {
         command.rect = try values.optional("--rect").map(parseRect)
         command.draftsDirectory = try values.optional("--drafts-dir").map { URL(fileURLWithPath: $0, isDirectory: true) }
         command.newReview = arguments.contains("--new-review")
+        command.durationSeconds = try values.optional("--duration").map { text in
+            guard let seconds = Double(text), seconds > 0, seconds <= maxDurationSeconds else {
+                throw CommandLineError.invalidValue("--duration", text)
+            }
+            return seconds
+        }
+        if kind == .video, command.durationSeconds == nil { throw CommandLineError.missing("--duration (required for --capture video)") }
+        if kind == .screenshot, command.durationSeconds != nil {
+            throw CommandLineError.invalidValue("--duration", "only valid with --capture video")
+        }
 
         if target == .region, command.rect == nil { throw CommandLineError.missing("--rect (required for --target region)") }
         if target != .region, command.rect != nil { throw CommandLineError.invalidValue("--rect", "only valid with --target region") }

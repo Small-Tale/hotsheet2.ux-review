@@ -66,12 +66,17 @@ public enum CaptureSettingsStore {
 public enum HotkeyAction: Equatable, Sendable {
     case start(CaptureRequest)
     case cancelCountdown
+    case stopRecording
     case ignore
 
     /// Idle → start the default capture. Counting down → cancel (the HUD can't take Esc).
-    /// Picking or capturing → ignore (the picker handles Esc itself).
-    public static func decide(isIdle: Bool, isCountingDown: Bool, settings: CaptureSettings) -> HotkeyAction {
-        if isCountingDown { return .cancelCountdown }
-        return isIdle ? .start(settings.defaultRequest) : .ignore
+    /// Recording → stop. Picking, capturing, finishing → ignore (the picker handles Esc itself).
+    public static func decide(phase: CapturePhase, settings: CaptureSettings) -> HotkeyAction {
+        switch phase {
+        case .idle: .start(settings.defaultRequest)
+        case .countingDown: .cancelCountdown
+        case .recording: .stopRecording
+        case .picking, .capturing, .finishing: .ignore
+        }
     }
 }

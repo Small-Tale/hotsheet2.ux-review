@@ -58,6 +58,10 @@ protocol CaptureBackend {
     /// Asks the OS for permission, showing its prompt the first time. Returns the current state.
     func requestPermission() -> Bool
     func screenshot(_ source: CaptureSource) async throws -> CapturedImage
+    /// Starts recording `source` into a QuickTime movie at `url`. `onUnexpectedStop` runs on the
+    /// main actor if the recording ends by itself (display unplugged, window closed).
+    func startRecording(_ source: CaptureSource, to url: URL, onUnexpectedStop: @escaping @MainActor () -> Void) async throws
+        -> ActiveRecording
 }
 
 enum CaptureBackends {
@@ -132,7 +136,14 @@ struct ScreenCaptureKitBackend: CaptureBackend {
         }
     }
 
-    static func map(_ error: Error) -> CaptureFailure {
+    func startRecording(_ source: CaptureSource, to url: URL, onUnexpectedStop: @escaping @MainActor () -> Void) async throws
+        -> ActiveRecording {
+        guard hasPermission() else { throw CaptureFailure.permissionDenied }
+        let (filter, configuration) = try await Self.makeFilter(for: source)
+        return try await StreamRecorder.start(filter: filter, configuration: configuration, url: url, onUnexpectedStop: onUnexpectedStop)
+    }
+
+    nonisolated static func map(_ error: Error) -> CaptureFailure {
         if let failure = error as? CaptureFailure { return failure }
         let nsError = error as NSError
         if nsError.domain == SCStreamErrorDomain, nsError.code == SCStreamError.userDeclined.rawValue {
@@ -156,6 +167,12 @@ struct SyntheticCaptureBackend: CaptureBackend {
             throw CaptureFailure.failed("could not render the synthetic image")
         }
         return CapturedImage(image: image, displayScale: scale)
+    }
+
+    func startRecording(_ source: CaptureSource, to url: URL, onUnexpectedStop _: @escaping @MainActor () -> Void) async throws
+        -> ActiveRecording {
+        let (width, height, scale) = try Self.pixelSize(for: source)
+        return try SyntheticRecorder(url: url, width: width, height: height, scale: scale)
     }
 
     static func pixelSize(for source: CaptureSource) throws -> (Int, Int, Double) {

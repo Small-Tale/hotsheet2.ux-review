@@ -12,12 +12,17 @@ The menu bar icon (a viewfinder) opens UX Review's menu. When idle, it lists:
    letter, digit, or Space.
 2. **Screenshot of Screen / Window / Region**, and the **Screenshot After Delay** submenu
    ([04-capture.md](04-capture.md) §4.1).
-3. Current review status, **Show Current Review in Finder**, and **Start New Review**.
-4. Hot Sheet status, **Choose Project Folder…**, and **Refresh Hot Sheet Status**.
-5. **Settings…** (⌘,), the version, and **Quit**.
+3. **Record Video of Screen / Window / Region**, and the **Record Video After Delay** submenu
+   ([04-capture.md](04-capture.md) §4.9).
+4. Current review status, **Show Current Review in Finder**, and **Start New Review**.
+5. Hot Sheet status, **Choose Project Folder…**, and **Refresh Hot Sheet Status**.
+6. **Settings…** (⌘,), the version, and **Quit**.
 
-During a countdown, the capture items are replaced by **Cancel Capture (N s)**. While a target
-is being picked or captured, a status line is shown instead.
+The capture items are replaced while a capture runs:
+
+- During a countdown, by **Cancel Capture (N s)**.
+- While recording, by **Stop Recording (m:ss)**, and the menu bar icon becomes a record symbol.
+- While picking, capturing, or saving a recording, by a status line.
 
 ## 5.2 Global hotkey
 
@@ -26,7 +31,8 @@ One system-wide shortcut starts the default capture from any app. The default is
 - **Idle**: pressing it starts the default capture.
 - **Counting down**: pressing it cancels the countdown. The countdown HUD never takes focus,
   so Esc can't reach it.
-- **Picking or capturing**: it is ignored. The picker handles Esc itself.
+- **Recording**: pressing it stops the recording and saves it.
+- **Picking, capturing, or saving**: it is ignored. The picker handles Esc itself.
 
 Requirements on the shortcut:
 
@@ -54,7 +60,8 @@ those simply take precedence.
 
 The Settings window (menu › Settings…) has two sections:
 
-- **Default capture**: target (Screen, Window, Region) and delay (None, 3, 5, 10 seconds).
+- **Default capture**: kind (Screenshot, Video), target (Screen, Window, Region), and delay
+  (None, 3, 5, 10 seconds).
   This is what the hotkey and the "Capture <default>" item do. The default is Region with no
   delay.
 - **Global shortcut**: a recorder. Click it, then press a combination.
@@ -81,7 +88,8 @@ app's own (`com.smalltale.uxreview`), or the suite named by `UXREVIEW_DEFAULTS_S
 
 ## 5.4 Not yet
 
-- A separate stop shortcut for video recording arrives with `HS2-W68HWK`.
+- Separate global hotkeys for screenshot and video: `HS2-SPFXPW`. Today the one hotkey starts
+  the default kind and stops recordings.
 - First-run onboarding for permissions is `HS2-418QY0`.
 
 ## 5.5 Headless settings mode

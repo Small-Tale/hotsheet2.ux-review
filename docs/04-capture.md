@@ -1,6 +1,6 @@
 # 04 — Capture
 
-Status: screenshots implemented on macOS (`HS2-E89PQR`). Video recording is `HS2-W68HWK`.
+Status: screenshots (`HS2-E89PQR`) and video recording (`HS2-W68HWK`) implemented on macOS.
 The menu, global hotkey, and settings are in [05-start-and-settings.md](05-start-and-settings.md).
 
 Capture turns "what is on screen right now" into a file in the current **draft review**,
@@ -13,9 +13,9 @@ A capture request (`CaptureRequest`) has three parts:
 
 | Field | Values |
 | --- | --- |
-| `kind` | `screenshot` (video arrives with `HS2-W68HWK`) |
+| `kind` | `screenshot` or `video` |
 | `target` | `display`: the whole display under the pointer. `window`: one window, picked by clicking. `region`: a rectangle dragged out on one display. |
-| `delaySeconds` | `0`–`60`. The menus offer the presets 0, 3, 5, and 10. Values outside the range are clamped. |
+| `delaySeconds` | `0`–`60`. The menus offer the presets 0, 3, 5, and 10. Values outside the range are clamped. For video, this delays the start of recording. |
 
 The menu bar menu (see [05-start-and-settings.md](05-start-and-settings.md) for its full layout,
 the default capture, and the global hotkey) offers "Screenshot of Screen / Window / Region" and a "Screenshot After
@@ -113,10 +113,58 @@ Drafts/
   macOS applies a newly granted permission only after the app relaunches.
 - A display or window that disappears before capture gives "… is no longer available".
 
-## 4.8 Headless modes (tests and scripts)
+## 4.9 Video recording
+
+The menu offers "Record Video of Screen / Window / Region" and "Record Video After Delay". The
+global hotkey also records when Settings sets the default kind to Video.
+
+Starting a recording uses the same picking and countdown as a screenshot; the countdown HUD
+reads "Recording in…". Once recording begins:
+
+- The menu bar icon turns into a record symbol.
+- A HUD says "Recording" and explains how to stop.
+- **Stop** with "Stop Recording (m:ss)" at the top of the menu, or with the global hotkey.
+- If the display or window goes away, the recording stops by itself and keeps what was
+  recorded.
+- After stopping, a HUD shows "Saved capture-N.mov", the length, and how many captures the
+  review now has.
+
+How the movie is made:
+
+- ScreenCaptureKit `SCStream` captures at up to 30 fps at native resolution, showing the cursor.
+  `VideoFileWriter` (AVAssetWriter) encodes it as an H.264 QuickTime `.mov`.
+- Only *complete* frames are written. ScreenCaptureKit sends no new frames while the screen is
+  static, so the movie runs from the first frame to the moment Stop was pressed, not to the last
+  frame. Otherwise a static screen would yield a near-empty clip.
+- H.264 needs even dimensions. Region recordings are trimmed by at most one pixel on the right
+  and bottom (`DisplayRegion.evenSized`).
+- The capture context is taken when recording starts. `capturedAt` is the start time.
+- The `MediaItem` has `kind: "video"`, its pixel size, and `durationMs`.
+
+**Microphone narration** is deliberately not included yet. ScreenCaptureKit only captures the
+microphone on macOS 15+, and narration needs its own permission flow. It is tracked as
+`HS2-T0EY2W`.
+
+## 4.10 Capture life cycle
+
+`CapturePhase` enforces one capture at a time:
 
 ```
-UXReview --capture screenshot [--target display|window|region] [--delay N]
+idle → picking → countingDown(n…1) → capturing → idle                (screenshot)
+idle → picking → countingDown(n…1) → capturing → recording → finishing → idle  (video)
+```
+
+- Cancel (Esc, the menu, or the hotkey) is only valid while picking or counting down.
+- A recording can only be **stopped**, never discarded: a failure while recording also goes
+  through `finishing`.
+- Invalid events are ignored, for example a second start while busy or stop during a
+  countdown.
+- Any unexpected error returns to `idle`.
+
+## 4.11 Headless modes (tests and scripts)
+
+```
+UXReview --capture screenshot|video [--target display|window|region] [--delay N] [--duration S]
          [--display-id N] [--window-id N] [--rect x,y,w,h] [--drafts-dir DIR] [--new-review]
 UXReview --render-ui-previews DIR
 ```
@@ -130,6 +178,8 @@ UXReview --render-ui-previews DIR
   - `region` needs `--rect`, in display-local, top-left points.
   - `window` uses `--window-id`, or else the frontmost app's front window.
   - `--display-id` defaults to the main display.
+- Video needs `--duration` (seconds, up to 600). The recording runs for that long after the
+  delay.
 
 | Exit code | Meaning |
 | --- | --- |
@@ -139,7 +189,8 @@ UXReview --render-ui-previews DIR
 | 5 | `targetUnavailable` or `captureFailed` |
 
 **`UXREVIEW_CAPTURE_BACKEND=synthetic`** replaces ScreenCaptureKit with a test card of the
-exact pixel size the real capture would have. Target resolution, delay, context, PNG writing,
+exact pixel size the real capture would have. For video, it feeds 10 fps of test-card frames,
+host-clock timestamped, through the real `VideoFileWriter`. Target resolution, delay, context, PNG writing,
 and the draft store all still run for real. It exists so `scripts/app-e2e.sh` can cover the
 pipeline on machines without Screen Recording permission.
 

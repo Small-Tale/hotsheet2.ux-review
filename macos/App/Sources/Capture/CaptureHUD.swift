@@ -10,8 +10,12 @@ final class CaptureHUD {
     private var hideTask: Task<Void, Never>?
 
     /// Shows a large countdown number centered on `screen`.
-    func showCountdown(_ seconds: Int, on screen: NSScreen?) {
-        show(HUDContent(title: "\(seconds)", subtitle: "Capturing in…", large: true), on: screen, hideAfter: nil)
+    func showCountdown(_ seconds: Int, on screen: NSScreen?, recording: Bool = false) {
+        show(
+            HUDContent(title: "\(seconds)", subtitle: recording ? "Recording in…" : "Capturing in…", large: true),
+            on: screen,
+            hideAfter: nil
+        )
     }
 
     /// Shows a short message, then hides it.

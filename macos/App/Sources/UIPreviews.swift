@@ -4,7 +4,7 @@ import UXReviewKit
 
 /// `UXReview --render-ui-previews <dir>`: renders UX Review's capture UI offscreen to PNGs for
 /// visual QA without Screen Recording permission. Views are drawn over a test card standing in
-/// for the reviewed app. Spec: docs/04-capture.md §4.7.
+/// for the reviewed app. Spec: docs/04-capture.md §4.11.
 @MainActor
 enum UIPreviews {
     final class FixedOverlayState: OverlayState {
@@ -57,6 +57,9 @@ enum UIPreviews {
         let huds: [(String, HUDContent)] = [
             ("hud-countdown", HUDContent(title: "3", subtitle: "Capturing in…", large: true)),
             ("hud-saved", HUDContent(title: "Saved capture-2.png", subtitle: "2 captures in this review", large: false)),
+            ("hud-recording-countdown", HUDContent(title: "5", subtitle: "Recording in…", large: true)),
+            ("hud-recording", HUDContent(title: "Recording", subtitle: "Stop from the menu bar or press ⌥⇧⌘U", large: false)),
+            ("hud-saved-video", HUDContent(title: "Saved capture-3.mov", subtitle: "0:12 · 3 captures in this review", large: false)),
         ]
         for (name, content) in huds {
             let renderer = ImageRenderer(content: content.padding(40).background(Color.clear))

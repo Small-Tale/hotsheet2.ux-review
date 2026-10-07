@@ -89,6 +89,48 @@ run badargs 2 "${SYN[@]}" -- --capture screenshot --target region --drafts-dir "
 [[ "$(json "$TMP/badargs.json" j.error)" == invalidArguments ]] || die "bad args: error code"
 ok "invalid region and arguments: exit 2 invalidArguments"
 
+echo "video recording (HS2-W68HWK)"
+code=0
+timeout 60 "$APP_BIN" --capture video --duration 1 --drafts-dir "$TMP/real-video" >"$TMP/real-video.json" 2>/dev/null || code=$?
+if [[ "$code" == 4 ]]; then
+  [[ ! -e "$TMP/real-video" ]] || die "real video: a denied recording wrote drafts"
+  ok "real backend video without permission: exit 4, nothing written"
+elif [[ "$code" == 0 ]]; then
+  [[ "$(json "$TMP/real-video.json" 'j.media.durationMs >= 900')" == true ]] || die "real video: too short"
+  ok "real backend video with permission: $(json "$TMP/real-video.json" j.media.durationMs) ms"
+else
+  cat "$TMP/real-video.json" >&2; die "real video: unexpected exit $code"
+fi
+
+run video 0 "${SYN[@]}" -- --capture video --target region --rect 10,10,301,201 --duration 2 --drafts-dir "$DRAFTS"
+movie="$(json "$TMP/video.json" j.file)"
+[[ "$(json "$TMP/video.json" j.media.kind)" == video && "$movie" == *.mov ]] || die "video: kind/file"
+scale="$(json "$TMP/video.json" j.media.context.displayScale)"
+# 301×201 pt is odd at 1x, so check the even trim generally: both sides even, within one pixel.
+w="$(json "$TMP/video.json" j.media.pixelWidth)"; h="$(json "$TMP/video.json" j.media.pixelHeight)"
+node -e "const s=$scale,w=$w,h=$h; process.exit(w%2==0 && h%2==0 && Math.abs(w-301*s)<=1 && Math.abs(h-201*s)<=1 ? 0 : 1)" \
+  || die "video: size ${w}x${h} is not the even-trimmed region"
+[[ "$(json "$TMP/video.json" 'Math.abs(j.media.durationMs - 2000) <= 250')" == true ]] || die "video: durationMs $(json "$TMP/video.json" j.media.durationMs)"
+if command -v ffprobe >/dev/null; then
+  probe="$(ffprobe -v error -select_streams v:0 -show_entries stream=codec_name,width,height:format=duration -of csv=p=0 "$movie" | tr '\n' ',')"
+  [[ "$probe" == "h264,$w,$h,"* ]] || die "video: ffprobe says $probe"
+  node -e "process.exit(Math.abs(parseFloat('${probe##*h264,$w,$h,}') - 2) <= 0.25 ? 0 : 1)" || die "video: ffprobe duration $probe"
+  ok "region recording: ${w}x${h} H.264 .mov, $(json "$TMP/video.json" j.media.durationMs) ms (ffprobe agrees)"
+else
+  ok "region recording: ${w}x${h} .mov, $(json "$TMP/video.json" j.media.durationMs) ms (ffprobe not installed)"
+fi
+vdraft="$(json "$TMP/video.json" j.draftDirectory)"
+validate_bundle "$vdraft/review.json"
+[[ "$(json "$vdraft/review.json" 'j.media.map(m => m.filename).join(",")')" == "capture-1.png,capture-2.mov" ]] \
+  || die "video: not appended to the current draft ($(json "$vdraft/review.json" 'j.media.map(m => m.filename).join(",")'))"
+ok "the recording joins the current draft next to the screenshot; review.json still validates"
+
+run video-delay 0 "${SYN[@]}" -- --capture video --delay 1 --duration 1 --drafts-dir "$DRAFTS"
+[[ "$(json "$TMP/video-delay.json" 'j.delayMs >= 1000 && j.media.durationMs >= 750')" == true ]] || die "video: start delay"
+ok "start delay honored before a display recording"
+run video-noduration 2 "${SYN[@]}" -- --capture video --drafts-dir "$DRAFTS"
+ok "video without --duration: exit 2"
+
 echo "start a review: settings and global hotkey (HS2-DR107C)"
 SUITE="uxreview-e2e-$$"
 SUITE_ENV=(UXREVIEW_DEFAULTS_SUITE="$SUITE")
@@ -130,7 +172,7 @@ run settings-after-bad 0 "${SUITE_ENV[@]}" -- --settings
 ok "hotkey can be disabled; an unusable hotkey is rejected and not saved"
 
 run previews 0 -- --render-ui-previews "$TMP/previews"
-for name in overlay-region-hint overlay-region-selection overlay-region-selection-bottom-edge overlay-window-hover hud-countdown hud-saved settings-registered settings-in-use; do
+for name in overlay-region-hint overlay-region-selection overlay-region-selection-bottom-edge overlay-window-hover hud-countdown hud-saved hud-recording-countdown hud-recording hud-saved-video settings-registered settings-in-use; do
   [[ -s "$TMP/previews/$name.png" ]] || die "previews: $name.png missing"
 done
 ok "UI renders offscreen (picker overlays, HUDs, Settings window)"

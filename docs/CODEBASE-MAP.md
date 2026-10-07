@@ -14,7 +14,7 @@ spec/
 docs/                          requirements, source of truth (see docs/README.md)
 scripts/
   check.sh                     repo gate: lint, spec, tests, app build + smoke + app e2e
-  app-e2e.sh                   drives the built app's headless modes (docs/04 §4.8)
+  app-e2e.sh                   drives the built app's headless modes (docs/04 §4.11)
   macos-project.sh             XcodeGen → macos/UXReview.xcodeproj (not committed)
 macos/
   Package.swift                SwiftPM package UXReviewKit (core, no AppKit)
@@ -32,7 +32,9 @@ macos/
     Capture/WindowSelection.swift     window-server snapshots, pick/frontmost window rules
     Capture/CaptureContextBuilder.swift  CaptureContext mapping, OS version string
     Capture/ImageFiles.swift          PNG read/write, test card image (ImageIO)
-    Capture/CaptureCommand.swift      `--capture` argument parsing (docs/04 §4.8)
+    Capture/VideoFileWriter.swift     H.264 .mov writer (AVAssetWriter), ends at the stop time (docs/04 §4.9)
+    Capture/CapturePhase.swift        capture life-cycle transition rules (docs/04 §4.10)
+    Capture/CaptureCommand.swift      `--capture` argument parsing (docs/04 §4.11)
     Review/ReviewDraftStore.swift     draft reviews on disk (docs/04 §4.6)
     Settings/Hotkey.swift             global hotkey model: parse/display, Carbon codes (docs/05 §5.2)
     Settings/CaptureSettings.swift    settings + KeyValueStoring persistence, HotkeyAction
@@ -45,7 +47,8 @@ macos/
     UIPreviews.swift           --render-ui-previews offscreen renders for visual QA
     Capture/CaptureBackend.swift      ScreenCaptureKit + synthetic backends, CaptureFailure
     Capture/CaptureEnvironment.swift  displays, window list, capture context provider
-    Capture/CapturePipeline.swift     capture → PNG → draft store
+    Capture/CapturePipeline.swift     capture → PNG / recorded movie → draft store
+    Capture/VideoRecording.swift      SCStream recorder + synthetic recorder
     Capture/CaptureCoordinator.swift  UI flow: permission, pick, countdown, capture, alerts
     Capture/TargetPicker.swift        region drag + window pick overlays
     Capture/CaptureHUD.swift          countdown / saved HUD panel

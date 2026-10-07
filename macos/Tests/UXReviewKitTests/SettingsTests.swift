@@ -127,11 +127,19 @@ struct CaptureSettingsTests {
 struct HotkeyActionTests {
     let settings = CaptureSettings(defaultRequest: CaptureRequest(target: .window, delaySeconds: 3))
 
-    @Test func transitionMatrix() {
-        // (idle, counting down) → action, for every capture phase.
-        #expect(HotkeyAction.decide(isIdle: true, isCountingDown: false, settings: settings) == .start(settings.defaultRequest))
-        #expect(HotkeyAction.decide(isIdle: false, isCountingDown: true, settings: settings) == .cancelCountdown)
-        #expect(HotkeyAction.decide(isIdle: false, isCountingDown: false, settings: settings) == .ignore) // picking / capturing
+    @Test func actionForEveryPhase() {
+        let request = CaptureRequest()
+        let expected: [(CapturePhase, HotkeyAction)] = [
+            (.idle, .start(settings.defaultRequest)),
+            (.picking(request), .ignore),
+            (.countingDown(request, remaining: 2), .cancelCountdown),
+            (.capturing, .ignore),
+            (.recording(startedAt: Date(timeIntervalSince1970: 0)), .stopRecording),
+            (.finishing, .ignore),
+        ]
+        for (phase, action) in expected {
+            #expect(HotkeyAction.decide(phase: phase, settings: settings) == action, "\(phase)")
+        }
     }
 }
 

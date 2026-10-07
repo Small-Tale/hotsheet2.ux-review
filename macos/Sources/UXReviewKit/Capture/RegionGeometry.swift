@@ -28,6 +28,24 @@ public struct DisplayRegion: Equatable, Sendable {
     }
 }
 
+public extension DisplayRegion {
+    /// The same region trimmed by at most one pixel on the right and bottom so both sides are
+    /// even, for video recording.
+    var evenSized: DisplayRegion {
+        let even = RegionGeometry.evenPixelSize(width: pixelWidth, height: pixelHeight)
+        guard even != (pixelWidth, pixelHeight) else { return self }
+        let scaleX = sourceRect.width / CGFloat(pixelWidth)
+        let scaleY = sourceRect.height / CGFloat(pixelHeight)
+        return DisplayRegion(
+            sourceRect: CGRect(
+                x: sourceRect.minX, y: sourceRect.minY, width: CGFloat(even.width) * scaleX, height: CGFloat(even.height) * scaleY
+            ),
+            pixelWidth: even.width,
+            pixelHeight: even.height
+        )
+    }
+}
+
 /// Coordinate math for region capture. AppKit reports a dragged region in global, bottom-left
 /// coordinates; ScreenCaptureKit wants display-local, top-left points snapped to whole pixels.
 public enum RegionGeometry {
@@ -82,6 +100,11 @@ public enum RegionGeometry {
             pixelWidth: pixelWidth,
             pixelHeight: pixelHeight
         )
+    }
+
+    /// The largest even size not above the given one, at least 2×2. H.264 video needs even sizes.
+    public static func evenPixelSize(width: Int, height: Int) -> (width: Int, height: Int) {
+        (max(width - width % 2, 2), max(height - height % 2, 2))
     }
 
     /// Pixel size for capturing `size` points at `scale`, at least 1×1.

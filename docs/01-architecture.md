@@ -44,7 +44,7 @@ client's tests must decode them, and the macOS tests also re-encode them lossles
   context, draft store, `--capture` parsing) live in `UXReviewKit` (`Capture/`, `Review/`).
   See [04-capture.md](04-capture.md).
 - **Headless modes**: `UXReview --capture …`, `--settings …`, and `--render-ui-previews DIR`
-  ([04-capture.md](04-capture.md) §4.8, [05-start-and-settings.md](05-start-and-settings.md) §5.5).
+  ([04-capture.md](04-capture.md) §4.11, [05-start-and-settings.md](05-start-and-settings.md) §5.5).
 - **Settings**: stored in the app's defaults domain (or `UXREVIEW_DEFAULTS_SUITE`): the project
   folder (`projectDirectory`, overridable with `--project`) and capture settings
   (`captureSettings`: default request + global hotkey). The hotkey is registered with Carbon

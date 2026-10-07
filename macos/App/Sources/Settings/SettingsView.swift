@@ -9,6 +9,10 @@ struct SettingsView: View {
     var body: some View {
         Form {
             Section("Default capture") {
+                Picker("Kind", selection: binding(\.defaultRequest.kind)) {
+                    Text("Screenshot").tag(CaptureKind.screenshot)
+                    Text("Video").tag(CaptureKind.video)
+                }
                 Picker("Capture", selection: binding(\.defaultRequest.target)) {
                     ForEach(CaptureTarget.allCases, id: \.self) { Text($0.label).tag($0) }
                 }

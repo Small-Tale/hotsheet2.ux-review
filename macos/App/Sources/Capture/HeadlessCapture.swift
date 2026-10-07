@@ -1,9 +1,9 @@
 import AppKit
 import UXReviewKit
 
-/// `UXReview --capture …`: one capture without any UI, printing a JSON result. Used by
+/// `UXReview --capture …`: one capture (or a fixed-length recording) without any UI, printing a JSON result. Used by
 /// scripts/app-e2e.sh. Exit codes: 0 captured, 2 bad arguments, 4 no Screen Recording
-/// permission, 5 target unavailable or capture failed. Spec: docs/04-capture.md §4.7.
+/// permission, 5 target unavailable or capture failed. Spec: docs/04-capture.md §4.11.
 @MainActor
 enum HeadlessCapture {
     struct Success: Encodable {
@@ -30,9 +30,6 @@ enum HeadlessCapture {
         } catch {
             return fail("invalidArguments", String(describing: error), code: 2)
         }
-        guard command.request.kind == .screenshot else {
-            return fail("invalidArguments", "--capture \(command.request.kind.rawValue) is not supported yet", code: 2)
-        }
 
         let backend = CaptureBackends.make()
         let store = ReviewDraftStore(root: command.draftsDirectory ?? AppSettings.draftsDirectory())
@@ -46,7 +43,17 @@ enum HeadlessCapture {
             }
             let delayMs = Int(Date().timeIntervalSince(started) * 1000)
             if command.newReview { try store.startNew() }
-            let outcome = try await CapturePipeline(backend: backend, store: store).screenshot(source)
+            let pipeline = CapturePipeline(backend: backend, store: store)
+            let outcome: CaptureOutcome
+            if command.request.kind == .video {
+                let context = CaptureContextProvider.context(for: source, displayScale: nil)
+                let startedAt = Date()
+                let recording = try await backend.startRecording(source, to: CapturePipeline.temporaryMovieURL()) {}
+                try await Task.sleep(for: .seconds(command.durationSeconds ?? 1))
+                outcome = try await pipeline.addVideo(try recording.stop(), context: context, startedAt: startedAt)
+            } else {
+                outcome = try await pipeline.screenshot(source)
+            }
             print(json(Success(
                 backend: backend.name,
                 file: outcome.fileURL.path,

@@ -1,18 +1,12 @@
 import AppKit
 import UXReviewKit
 
-/// Runs captures for the menu bar UI: permission → pick target → countdown → capture → save to
-/// the draft review → confirm. Only one capture runs at a time. Spec: docs/04-capture.md.
+/// Runs captures for the menu bar UI: permission → pick target → countdown → screenshot, or
+/// → record until stopped. Only one capture runs at a time; the phase follows the
+/// `CapturePhase` transition rules. Spec: docs/04-capture.md.
 @MainActor
 final class CaptureCoordinator: ObservableObject {
-    enum Phase: Equatable {
-        case idle
-        case picking
-        case countingDown(Int)
-        case capturing
-    }
-
-    @Published private(set) var phase: Phase = .idle
+    @Published private(set) var phase: CapturePhase = .idle
     @Published private(set) var lastCapture: CaptureOutcome?
     @Published private(set) var lastError: CaptureFailure?
 
@@ -20,6 +14,11 @@ final class CaptureCoordinator: ObservableObject {
     let store: ReviewDraftStore
     private let hud = CaptureHUD()
     private var task: Task<Void, Never>?
+    private var recording: ActiveRecording?
+    private var recordingContext = CaptureContext()
+
+    /// Shown in the "recording started" HUD so the reviewer knows how to stop.
+    var stopHint: @MainActor () -> String = { "Stop from the menu bar" }
 
     init(
         backend: CaptureBackend = CaptureBackends.make(),
@@ -29,33 +28,34 @@ final class CaptureCoordinator: ObservableObject {
         self.store = store
     }
 
-    var isBusy: Bool { phase != .idle }
-
-    /// Starts a screenshot. Ignored while another capture is in progress.
-    func screenshot(_ request: CaptureRequest) {
-        guard !isBusy else { return }
-        task = Task { await runScreenshot(request) }
+    /// Starts a screenshot or recording. Ignored unless idle.
+    func start(_ request: CaptureRequest) {
+        guard apply(.start(request)) else { return }
+        task = Task { await run(request) }
     }
 
-    /// Global hotkey: start the default capture, or cancel a countdown (docs/05 §5.2).
+    /// Global hotkey: start the default capture, cancel a countdown, or stop a recording
+    /// (docs/05 §5.2).
     func handleHotkey(settings: CaptureSettings) {
-        var countingDown = false
-        if case .countingDown = phase { countingDown = true }
-        switch HotkeyAction.decide(isIdle: phase == .idle, isCountingDown: countingDown, settings: settings) {
+        switch HotkeyAction.decide(phase: phase, settings: settings) {
         case let .start(request): start(request)
         case .cancelCountdown: cancel()
+        case .stopRecording: stopRecording()
         case .ignore: break
         }
     }
 
-    /// Starts any capture request.
-    func start(_ request: CaptureRequest) {
-        screenshot(request)
+    /// Cancels a pending countdown (pickers also cancel on Esc). Recordings are stopped, not cancelled.
+    func cancel() {
+        if phase.isCountingDown { task?.cancel() }
     }
 
-    /// Cancels a pending countdown (or a picker, which also cancels on Esc).
-    func cancel() {
-        task?.cancel()
+    /// Stops a running recording and saves it to the draft review.
+    func stopRecording() {
+        guard case let .recording(startedAt) = phase, let recording, apply(.stopRequested) else { return }
+        self.recording = nil
+        hud.hide()
+        Task { await finish(recording, startedAt: startedAt) }
     }
 
     /// Ends the current draft so the next capture starts a new review.
@@ -75,45 +75,84 @@ final class CaptureCoordinator: ObservableObject {
         }
     }
 
-    private func runScreenshot(_ request: CaptureRequest) async {
-        defer {
-            phase = .idle
-            task = nil
-        }
+    /// Applies a transition; returns false (and changes nothing) when it is not allowed.
+    @discardableResult
+    private func apply(_ event: CapturePhase.Event) -> Bool {
+        guard let next = phase.next(event) else { return false }
+        phase = next
+        return true
+    }
+
+    private func run(_ request: CaptureRequest) async {
+        defer { task = nil }
         do {
             guard backend.requestPermission() else { throw CaptureFailure.permissionDenied }
-            phase = .picking
             let source = try await TargetPicker.pick(request.target)
-            try await countDown(request, on: screen(for: source))
-            phase = .capturing
-            let outcome = try await CapturePipeline(backend: backend, store: store).screenshot(source)
-            lastCapture = outcome
-            lastError = nil
-            let count = outcome.draft.bundle.media.count
-            hud.flash("Saved \(outcome.media.filename)", subtitle: "\(count) capture\(count == 1 ? "" : "s") in this review")
-        } catch is CancellationError {
+            apply(.picked)
+            let screen = screen(for: source)
+            while case let .countingDown(_, remaining) = phase {
+                hud.showCountdown(remaining, on: screen, recording: request.kind == .video)
+                try await Task.sleep(for: .seconds(1))
+                apply(.tick)
+            }
             hud.hide()
-        } catch let failure as CaptureFailure {
-            hud.hide()
-            if failure != .cancelled { report(failure) }
+            if request.delaySeconds > 0 {
+                // Let the HUD leave the screen (it is excluded anyway; this keeps window captures clean).
+                try await Task.sleep(for: .milliseconds(150))
+            }
+            switch request.kind {
+            case .screenshot:
+                let outcome = try await CapturePipeline(backend: backend, store: store).screenshot(source)
+                saved(outcome)
+                apply(.finished)
+            case .video:
+                recordingContext = CaptureContextProvider.context(for: source, displayScale: nil)
+                recording = try await backend.startRecording(source, to: CapturePipeline.temporaryMovieURL()) { [weak self] in
+                    self?.stopRecording() // the display or window went away: keep what was recorded
+                }
+                apply(.recordingStarted(Date()))
+                hud.flash("Recording", subtitle: stopHint(), on: screen)
+            }
         } catch {
             hud.hide()
-            report(.failed(String(describing: error)))
+            fail(error)
         }
     }
 
-    private func countDown(_ request: CaptureRequest, on screen: NSScreen?) async throws {
-        for seconds in request.countdown {
-            phase = .countingDown(seconds)
-            hud.showCountdown(seconds, on: screen)
-            try await Task.sleep(for: .seconds(1))
+    private func finish(_ recording: ActiveRecording, startedAt: Date) async {
+        do {
+            let video = try await recording.stop()
+            let outcome = try CapturePipeline(backend: backend, store: store).addVideo(
+                video,
+                context: recordingContext,
+                startedAt: startedAt
+            )
+            saved(outcome)
+            apply(.finished)
+        } catch {
+            fail(error)
         }
-        hud.hide()
-        if !request.countdown.isEmpty {
-            // Let the HUD leave the screen before capturing (it is excluded anyway; this keeps
-            // window captures of overlapping windows clean).
-            try await Task.sleep(for: .milliseconds(150))
+    }
+
+    private func saved(_ outcome: CaptureOutcome) {
+        lastCapture = outcome
+        lastError = nil
+        let count = outcome.draft.bundle.media.count
+        var subtitle = "\(count) capture\(count == 1 ? "" : "s") in this review"
+        if let duration = outcome.media.durationMs { subtitle = "\(Self.clock(duration)) · " + subtitle }
+        hud.flash("Saved \(outcome.media.filename)", subtitle: subtitle)
+    }
+
+    private func fail(_ error: Error) {
+        let cancelled = error is CancellationError || (error as? CaptureFailure) == .cancelled
+        // Cancel and failure are valid transitions before capture; anything later must still
+        // never leave the coordinator stuck.
+        if !apply(cancelled ? .cancelled : .failed) || !phase.isIdle {
+            phase = .idle
         }
+        recording = nil
+        guard !cancelled else { return }
+        report(error as? CaptureFailure ?? .failed(String(describing: error)))
     }
 
     private func screen(for source: CaptureSource) -> NSScreen? {
@@ -121,6 +160,11 @@ final class CaptureCoordinator: ObservableObject {
         case let .display(id, _): DisplayDirectory.displays().first { $0.id == id }?.screen
         case .window: NSScreen.main
         }
+    }
+
+    /// `m:ss`.
+    static func clock(_ milliseconds: Int) -> String {
+        String(format: "%d:%02d", milliseconds / 60000, (milliseconds / 1000) % 60)
     }
 
     private func report(_ failure: CaptureFailure) {

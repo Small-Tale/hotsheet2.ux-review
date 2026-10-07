@@ -112,3 +112,33 @@ Each feature gets both unit tests and end-to-end tests. Tests live in
 - **Not covered automatically:** pressing the hotkey. Synthesizing a global key press needs
   Accessibility permission. Clicking menu items is also untested. Both are tracked in
   `HS2-HA9TW3`.
+
+## HS2-W68HWK: video recording
+
+- **Movie writer** (`VideoCaptureTests`):
+  - writes a real H.264 `.mov` from 1.5 s of frames and stops at 2.0 s. The movie must last
+    until the stop (AVFoundation reads back 2000 ms and the size).
+  - out-of-order frames and frames after finish are dropped
+  - finishing twice, or with no frames, fails and leaves no file
+  - odd or tiny sizes are rejected
+- **Even sizing**: one-pixel trims, and regions that are already even stay unchanged.
+- **`--capture video`**: `--duration` is required, its range is checked, and screenshots reject
+  it.
+- **Life cycle** (`CapturePhaseTests`):
+  - the full phase × event matrix (14 valid transitions, the rest ignored)
+  - screenshot without delay
+  - the full video life cycle with a countdown
+  - adversarial events: a second start, stop during a countdown, a double stop, a late tick,
+    cancel while recording
+  - start again after finishing
+- **Hotkey**: the action for every phase, including stopping a recording (`HotkeyActionTests`).
+- **App end to end** (`scripts/app-e2e.sh`):
+  - The real backend without permission exits 4 and writes nothing.
+  - A synthetic 2 s region recording is checked: even-trimmed pixel size, `durationMs` about
+    2000, and ffprobe confirming H.264, the size, and the duration. It is appended to the current
+    draft after the screenshot, and the draft still validates.
+  - A start delay is honored.
+  - A missing `--duration` exits 2.
+  - The recording HUDs render.
+- **Not covered automatically:** real ScreenCaptureKit recording, the menu Stop item, and
+  stopping with the hotkey. These are tracked in `HS2-HA9TW3`.

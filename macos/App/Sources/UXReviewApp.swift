@@ -63,13 +63,20 @@ struct UXReviewApp: App {
             guard let capture, let settings else { return }
             capture.handleHotkey(settings: settings.settings)
         }
+        capture.stopHint = { [weak settings] in
+            settings?.settings.captureHotkey.map { "Stop from the menu bar or press \($0.display)" } ?? "Stop from the menu bar"
+        }
         _capture = StateObject(wrappedValue: capture)
         _settings = StateObject(wrappedValue: settings)
     }
 
     var body: some Scene {
-        MenuBarExtra("UX Review", systemImage: "viewfinder") {
+        MenuBarExtra {
             MenuContent(model: model, capture: capture, settings: settings)
+        } label: {
+            // A record symbol while recording, so the reviewer always sees that it is running.
+            Image(systemName: capture.phase.isRecording ? "record.circle.fill" : "viewfinder")
+                .accessibilityLabel(capture.phase.isRecording ? "UX Review — recording" : "UX Review")
         }
         Settings {
             SettingsView(model: settings)
