@@ -20,7 +20,11 @@ struct TicketComposerTests {
         #expect(details.contains("- App: Hot Sheet (`com.smalltale.hotsheet2`)"))
         #expect(details.contains("- Window: Hot Sheet — ux-review"))
         #expect(details.contains("- `attachment:capture-1.png` (image, 2880×1800)\n"))
-        #expect(details.contains("- `attachment:capture-2.mov` (video, 2880×1800, 0:08.000), from Hot Sheet “Hot Sheet — Settings”"))
+        #expect(
+            details
+                .contains("- `attachment:capture-2.mov` (video, 2880×1800, 0:08.000, with audio), from Hot Sheet “Hot Sheet — Settings”")
+        )
+        #expect(details.contains("\n\n" + TicketComposer.audioHint + "\n\n## Annotations"))
         #expect(details.contains("### #1 · change · `attachment:capture-1.png`"))
         #expect(details.contains("### #2 · move · `attachment:capture-1.png`"))
         #expect(details.contains("### #3 · remove · `attachment:capture-1.png`"))
@@ -62,6 +66,16 @@ struct TicketComposerTests {
     func mediaSourceLabel(context: CaptureContext, expected: String?) {
         #expect(TicketComposer.sourceLabel(context) == expected)
         #expect(TicketComposer.sourceLabel(nil) == nil)
+    }
+
+    /// Without any audio track the media lines carry no "with audio" and the hint is left out.
+    @Test func audioIsOnlyMentionedForVideosThatHaveIt() throws {
+        var bundle = try TestSupport.exampleBundle()
+        bundle.media[1].hasAudio = nil
+        let details = TicketComposer.compose(bundle).ticket.details
+        #expect(details.contains("(video, 2880×1800, 0:08.000), from"))
+        #expect(!details.contains("with audio"))
+        #expect(!details.contains(TicketComposer.audioHint))
     }
 
     @Test func emptyNotesAreMarked() {

@@ -28,6 +28,19 @@ whole and defaults to the first capture's.
 - `filename` is unique within the bundle.
 - Tickets refer to media as `attachment:<filename>`.
 
+Optional `hasAudio: true` (video only, `HS2-EZN3NG`) says the movie has an audio track, so a
+reader knows there is sound to listen to or transcribe:
+
+- A recording sets it when it was made with microphone narration and audio actually arrived
+  ([04-capture.md](04-capture.md) §4.9).
+- An imported movie sets it when AVFoundation finds any audio track, narration or the app's own
+  sound (§4.12).
+- Trimming keeps it, because the trimmed movie keeps its audio track
+  ([06-annotation-editor.md](06-annotation-editor.md) §6.10).
+- Writers omit the field when there is no audio track; they never write `false`. Absent means "no
+  audio, or unknown", which is how bundles written before the field read.
+- The intake ticket marks such media "with audio" ([03-hotsheet-integration.md](03-hotsheet-integration.md) §3.3).
+
 ## 2.3 Coordinates
 
 Every coordinate is an integer from 0 to 10000, normalized to the media itself (not to the
@@ -92,3 +105,8 @@ validation before it can be submitted. The checks are:
 
 Breaking changes bump the schema to a new id (`uxreview/bundle/v2`). Readers reject schemas they
 don't know.
+
+Adding an optional field that older bundles simply lack (such as `hasAudio`, §2.2) is not
+breaking: the schema id stays `uxreview/bundle/v1`, every older bundle stays valid, and readers
+must treat the missing field as its documented default. The JSON Schema lists the new field, so
+validate against the current `spec/review-bundle.schema.json`.

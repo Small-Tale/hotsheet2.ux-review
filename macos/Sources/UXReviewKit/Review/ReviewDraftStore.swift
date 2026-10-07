@@ -10,6 +10,8 @@ public struct DraftCapture: Sendable {
     public var durationMs: Int?
     public var capturedAt: Date
     public var context: CaptureContext
+    /// Video only: the movie has an audio track (narration, or an imported movie's sound).
+    public var hasAudio: Bool
 
     public init(
         fileURL: URL,
@@ -18,7 +20,8 @@ public struct DraftCapture: Sendable {
         pixelHeight: Int,
         durationMs: Int? = nil,
         capturedAt: Date,
-        context: CaptureContext
+        context: CaptureContext,
+        hasAudio: Bool = false
     ) {
         self.fileURL = fileURL
         self.kind = kind
@@ -27,6 +30,7 @@ public struct DraftCapture: Sendable {
         self.durationMs = durationMs
         self.capturedAt = capturedAt
         self.context = context
+        self.hasAudio = hasAudio
     }
 }
 
@@ -141,7 +145,8 @@ public final class ReviewDraftStore: @unchecked Sendable {
             pixelHeight: capture.pixelHeight,
             durationMs: capture.durationMs,
             capturedAt: capture.capturedAt,
-            context: capture.context.isEmpty ? nil : capture.context
+            context: capture.context.isEmpty ? nil : capture.context,
+            hasAudio: capture.kind == .video && capture.hasAudio
         )
         let destination = draft.mediaURL(item)
         try fileManager.moveItem(at: capture.fileURL, to: destination)

@@ -94,7 +94,8 @@
         "pixelHeight": { "type": "integer", "minimum": 1 },
         "durationMs": { "type": "integer", "minimum": 0, "description": "Video only, after trimming." },
         "capturedAt": { "type": "string", "format": "date-time" },
-        "context": { "$ref": "#/$defs/context", "description": "Where this capture came from; the bundle-level context describes the review as a whole." }
+        "context": { "$ref": "#/$defs/context", "description": "Where this capture came from; the bundle-level context describes the review as a whole." },
+        "hasAudio": { "type": "boolean", "description": "Video only: true when the movie has an audio track, such as the reviewer's spoken narration, worth listening to or transcribing. Writers omit it when there is no audio track or it is unknown (older bundles), and never write false." }
       }
     },
     "annotation": {

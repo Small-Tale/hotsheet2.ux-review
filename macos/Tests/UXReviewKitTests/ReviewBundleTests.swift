@@ -53,6 +53,38 @@ struct ReviewBundleTests {
         )
     }
 
+    /// `hasAudio` (HS2-EZN3NG) is optional: bundles written before it decode as "no audio /
+    /// unknown", `true` round-trips, and `false` is never written.
+    @Test func hasAudioIsOptionalAndOnlyEverWrittenAsTrue() throws {
+        let old = #"{"id":"m1","filename":"a.mov","kind":"video","pixelWidth":2,"pixelHeight":2,"durationMs":5,"#
+            + #""capturedAt":"2026-10-07T00:00:00Z"}"#
+        let decoded = try ReviewBundle.makeDecoder().decode(MediaItem.self, from: Data(old.utf8))
+        #expect(decoded.hasAudio == nil)
+
+        func keys(_ item: MediaItem) throws -> [String: Any] {
+            try #require(JSONSerialization.jsonObject(with: ReviewBundle.makeEncoder().encode(item)) as? [String: Any])
+        }
+        #expect(try keys(decoded)["hasAudio"] == nil)
+        let silent = MediaItem(
+            id: "m1",
+            filename: "a.mov",
+            kind: .video,
+            pixelWidth: 2,
+            pixelHeight: 2,
+            capturedAt: Date(),
+            hasAudio: false
+        )
+        #expect(silent.hasAudio == nil)
+        #expect(try keys(silent)["hasAudio"] == nil)
+
+        var narrated = decoded
+        narrated.hasAudio = true
+        #expect(try keys(narrated)["hasAudio"] as? Bool == true)
+        let data = try ReviewBundle.makeEncoder().encode(narrated)
+        #expect(try ReviewBundle.makeDecoder().decode(MediaItem.self, from: data) == narrated)
+        #expect(try TestSupport.exampleBundle().media.map(\.hasAudio) == [nil, true])
+    }
+
     @Test func freehandWithoutClosedDefaultsToClosed() throws {
         let json = #"{"type":"freehand","points":[{"x":1,"y":1},{"x":2,"y":2},{"x":3,"y":1}]}"#
         let shape = try JSONDecoder().decode(Shape.self, from: Data(json.utf8))

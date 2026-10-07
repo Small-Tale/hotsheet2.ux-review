@@ -78,6 +78,7 @@ extension EncodingTests {
             #expect(media[0].filename == "capture-1.mov")
             #expect(media[0].pixelWidth == 160 && media[0].pixelHeight == 90)
             #expect(abs((media[0].durationMs ?? 0) - 1000) <= 50)
+            #expect(media[0].hasAudio == nil) // no audio track
             #expect(FileManager.default.fileExists(atPath: source.path))
             #expect(try Data(contentsOf: draft.mediaURL(media[0])) == Data(contentsOf: source)) // byte-for-byte copy
         }

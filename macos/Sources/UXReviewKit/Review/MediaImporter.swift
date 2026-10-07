@@ -33,7 +33,8 @@ public enum MediaImportError: Error, Equatable, Sendable, CustomStringConvertibl
 /// captures (for example a ⇧⌘4 screenshot or an older recording). The source file is never
 /// moved or changed: images are re-encoded to PNG with their EXIF orientation applied, so
 /// every format behaves like a capture in the editor (crop, render); movies are copied as-is
-/// once AVFoundation confirms a video track. Spec: docs/04-capture.md §4.12.
+/// once AVFoundation confirms a video track, noting whether they have an audio track.
+/// Spec: docs/04-capture.md §4.12.
 public enum MediaImporter {
     /// What the open panel offers.
     public static let contentTypes: [UTType] = [.image, .movie]
@@ -126,13 +127,15 @@ public enum MediaImporter {
         let width = Int(abs(size.width).rounded())
         let height = Int(abs(size.height).rounded())
         guard width > 0, height > 0 else { throw MediaImportError.unreadable(url) }
+        // Any audio track counts: narration from another recorder, or the app's own sound.
+        let hasAudio = await (try? asset.loadTracks(withMediaType: .audio).isEmpty == false) ?? false
         let ext = url.pathExtension.isEmpty ? "mov" : url.pathExtension.lowercased()
         let temporary = FileManager.default.temporaryDirectory.appendingPathComponent("uxreview-import-\(UUID().uuidString).\(ext)")
         try FileManager.default.copyItem(at: url, to: temporary)
         return DraftCapture(
             fileURL: temporary, kind: .video, pixelWidth: width, pixelHeight: height,
             durationMs: max(1, Int((CMTimeGetSeconds(duration) * 1000).rounded())),
-            capturedAt: capturedAt, context: CaptureContext()
+            capturedAt: capturedAt, context: CaptureContext(), hasAudio: hasAudio
         )
     }
 }

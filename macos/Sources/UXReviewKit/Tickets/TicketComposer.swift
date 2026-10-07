@@ -135,12 +135,20 @@ public enum TicketComposer {
         for item in bundle.media {
             var line = "- `attachment:\(item.filename)` (\(item.kind.rawValue), \(item.pixelWidth)×\(item.pixelHeight)"
             if let duration = item.durationMs { line += ", \(formatTime(duration))" }
+            if item.hasAudio == true { line += ", with audio" }
             line += ")"
             if let source = sourceLabel(item.context) { line += ", from \(source)" }
             lines.append(line)
         }
+        if bundle.media.contains(where: { $0.hasAudio == true }) {
+            lines += ["", audioHint]
+        }
         return lines.joined(separator: "\n")
     }
+
+    /// Follows the media list when a video has sound, so the agent doesn't treat it as silent.
+    static let audioHint = "Videos marked “with audio” have a sound track, usually the reviewer's spoken narration. "
+        + "Listen to or transcribe it: it can explain the annotations or ask for changes they don't show."
 
     static func contextLines(_ bundle: ReviewBundle) -> [String] {
         let context = bundle.context

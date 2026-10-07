@@ -190,6 +190,58 @@ extension EncodingTests {
             #expect(abs(audio.durationMs - 1000) <= 80, "audio \(audio)")
         }
 
+        /// Writes a 2 s narrated movie (tone throughout) to `url`.
+        static func writeNarratedMovie(_ url: URL) async throws -> Int {
+            let (writer, frame) = try makeWriter(url)
+            for index in 0 ..< 20 {
+                let appended = try await eventually { writer.append(frame, at: at(Double(index) / 10)) }
+                #expect(appended)
+            }
+            _ = try await feedAudio(writer, from: 0, until: 2)
+            return try await writer.finish(at: at(2))
+        }
+
+        /// HS2-EZN3NG: an imported movie with any audio track is marked `hasAudio` in review.json.
+        @Test(.timeLimit(.minutes(1)))
+        func importingANarratedMovieMarksItsAudio() async throws {
+            let dir = try TestSupport.makeTempDirectory()
+            defer { try? FileManager.default.removeItem(at: dir) }
+            let source = dir.appendingPathComponent("talk.mov")
+            _ = try await Self.writeNarratedMovie(source)
+            let store = ReviewDraftStore(root: dir.appendingPathComponent("drafts"))
+            let (draft, media) = try await MediaImporter.importFiles([source], into: store)
+            #expect(media[0].hasAudio == true)
+            #expect(try store.load(draft.directory).bundle.media[0].hasAudio == true)
+            #expect(TicketComposer.compose(draft.bundle).ticket.details.contains("0:02.000, with audio)"))
+        }
+
+        /// HS2-EZN3NG: trimming a narrated video in the editor keeps both its audio track and its
+        /// `hasAudio` flag, and so does undoing the trim (restoring the original).
+        @Test(.timeLimit(.minutes(1)))
+        func trimmingKeepsTheAudioFlag() async throws {
+            let dir = try TestSupport.makeTempDirectory()
+            defer { try? FileManager.default.removeItem(at: dir) }
+            let movie = dir.appendingPathComponent("narrated.mov")
+            let duration = try await Self.writeNarratedMovie(movie)
+            let store = ReviewDraftStore(root: dir.appendingPathComponent("drafts"))
+            let draft = try store.add(DraftCapture(
+                fileURL: movie, kind: .video, pixelWidth: 160, pixelHeight: 90, durationMs: duration,
+                capturedAt: Date(), context: CaptureContext(), hasAudio: true
+            )).draft
+            let session = try EditorSession(store: store, directory: draft.directory)
+            let trimmed = session.editor.trim(to: TimeRange(startMs: 500, endMs: 1500))
+            #expect(trimmed)
+            try session.save()
+            let saved = try store.load(draft.directory).bundle.media[0]
+            #expect(saved.hasAudio == true)
+            #expect(abs((saved.durationMs ?? 0) - 1000) <= 80)
+            let audio = try await VideoFileWriter.inspectAudio(draft.directory.appendingPathComponent("capture-1.mov"))
+            #expect(audio != nil)
+            session.editor.undo()
+            try session.save()
+            #expect(try store.load(draft.directory).bundle.media[0].hasAudio == true)
+        }
+
         @Test func toneBuffersAreContiguousLPCM() throws {
             let buffer = try #require(SyntheticAudio.toneBuffer(at: Self.base, firstSample: 0, count: Self.chunk))
             #expect(CMSampleBufferGetNumSamples(buffer) == Self.chunk)

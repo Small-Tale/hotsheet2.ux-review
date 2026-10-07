@@ -65,6 +65,9 @@ struct HotSheetEndToEndTests {
         #expect(!ticket.contains("role: ai"))
         #expect(ticket.contains("## Instructions for the AI processing this ticket"))
         #expect(ticket.contains("### #5 · bug · `attachment:capture-2.mov`"))
+        // HS2-EZN3NG: the narrated clip is flagged in the ticket text and in the attached bundle.
+        #expect(ticket.contains("(video, 2880×1800, 0:08.000, with audio)"))
+        #expect(ticket.contains("have a sound track, usually the reviewer's spoken narration"))
 
         // The attached review.json is byte-identical to what the submitter wrote.
         let attachments = store.appendingPathComponent("attachments")
@@ -72,6 +75,8 @@ struct HotSheetEndToEndTests {
         let stored = (enumerator?.allObjects as? [URL] ?? []).first { $0.lastPathComponent == "review.json" }
         let storedBundle = try #require(stored)
         #expect(try Data(contentsOf: storedBundle) == Data(contentsOf: media.appendingPathComponent("review.json")))
+        let attached = try ReviewBundle.makeDecoder().decode(ReviewBundle.self, from: Data(contentsOf: storedBundle))
+        #expect(attached.media.map(\.hasAudio) == [nil, true])
     }
 
     /// The review session path (docs/07 §7.5): a draft with three captures, filed by
@@ -96,7 +101,7 @@ struct HotSheetEndToEndTests {
             try Data("capture \(index)".utf8).write(to: file)
             directory = try drafts.add(DraftCapture(
                 fileURL: file, kind: kind, pixelWidth: 640, pixelHeight: 400, durationMs: kind == .video ? 2000 : nil,
-                capturedAt: Date(), context: CaptureContext(appName: "Safari", windowTitle: "Checkout")
+                capturedAt: Date(), context: CaptureContext(appName: "Safari", windowTitle: "Checkout"), hasAudio: kind == .video
             )).draft.directory
         }
         let draft = try #require(directory)
@@ -138,6 +143,7 @@ struct HotSheetEndToEndTests {
         #expect(show.stdout.contains("UX review: Checkout flow"))
         #expect(show.stdout.contains("Three captures from the checkout."))
         #expect(show.stdout.contains("### #2 · insert · `attachment:capture-2.mov`"))
+        #expect(show.stdout.contains("`attachment:capture-2.mov` (video, 640×400, 0:02.000, with audio)"))
         #expect(!show.stdout.contains("submission.json"))
         #expect(!show.stdout.contains("filename: originals"))
     }

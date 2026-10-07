@@ -97,6 +97,20 @@ struct ReviewDraftStoreTests {
         #expect(try fixture.bundleOnDisk("draft-a").media.count == 2)
     }
 
+    /// A recording's audio track lands in review.json as `hasAudio: true`; images never carry it.
+    @Test func audioIsRecordedForVideosOnly() throws {
+        let fixture = try Fixture()
+        var video = try fixture.capture("talk.mov", kind: .video)
+        video.hasAudio = true
+        var image = try fixture.capture("still.png")
+        image.hasAudio = true
+        let silent = try fixture.capture("quiet.mov", kind: .video)
+        try fixture.store.add(video)
+        try fixture.store.add(image)
+        try fixture.store.add(silent)
+        #expect(try fixture.bundleOnDisk("draft-a").media.map(\.hasAudio) == [true, nil, nil])
+    }
+
     @Test func startNewBeginsAFreshDraftAndKeepsTheOldOne() throws {
         let fixture = try Fixture()
         try fixture.store.add(fixture.capture("one.png"))

@@ -547,6 +547,9 @@ the field reverts. After Return, focus goes back to the canvas, so its keys work
   the session's base movie to a temporary file, which then replaces the movie. Re-encoding makes
   the cut frame-accurate instead of snapping to key frames. The container follows the file
   extension (`.mov`, `.mp4`, `.m4v`).
+- **Audio:** the export keeps the movie's audio track (such as narration), so a trimmed video
+  keeps its `hasAudio` flag ([02-review-bundle.md](02-review-bundle.md) §2.2). Saving rewrites
+  only the media's size and `durationMs` in `review.json`.
 - **Restoring:** the full length is restored by copying the original back byte for byte.
 - **Originals:** the first trim keeps the untouched movie as `originals/<filename>`.
   `originals/crops.json` records the trim and the original's length under `trims`:

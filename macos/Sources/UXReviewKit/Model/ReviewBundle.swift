@@ -193,6 +193,11 @@ public struct MediaItem: Codable, Equatable, Sendable {
     /// Where this capture came from. A review can mix captures of several apps; the bundle-level
     /// `context` describes the review as a whole (by default, its first capture).
     public var context: CaptureContext?
+    /// Video only: `true` when the movie has an audio track, such as microphone narration
+    /// (docs/04-capture.md §4.9) or an imported movie's sound. Nil means no audio or unknown
+    /// (bundles written before the field existed); writers never store `false`, so it is
+    /// omitted from `review.json`. Spec: docs/02-review-bundle.md §2.2.
+    public var hasAudio: Bool?
 
     public init(
         id: String,
@@ -202,7 +207,8 @@ public struct MediaItem: Codable, Equatable, Sendable {
         pixelHeight: Int,
         durationMs: Int? = nil,
         capturedAt: Date,
-        context: CaptureContext? = nil
+        context: CaptureContext? = nil,
+        hasAudio: Bool = false
     ) {
         self.id = id
         self.filename = filename
@@ -212,6 +218,7 @@ public struct MediaItem: Codable, Equatable, Sendable {
         self.durationMs = durationMs
         self.capturedAt = capturedAt
         self.context = context
+        self.hasAudio = hasAudio ? true : nil
     }
 }
 

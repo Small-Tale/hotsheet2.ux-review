@@ -578,3 +578,27 @@ Each feature gets both unit tests and end-to-end tests. Tests live in
   still pass with smoothing on.
 - **App end to end:** `scripts/app-e2e.sh`'s `--annotate` draws a freehand outline through the
   real editor, and its `review.json` still validates.
+
+## HS2-EZN3NG: narrated videos marked in the bundle and ticket
+
+- **Model** (`ReviewBundleTests`): a media item without `hasAudio` (an older bundle) decodes as
+  nil and re-encodes without the field; `false` is normalized away and never written; `true`
+  round-trips; the committed example's narrated clip carries it and still matches the encoder.
+- **Draft store** (`ReviewDraftStoreTests`): a video capture with audio is written with
+  `hasAudio: true`; an image (even if asked) and a silent video are not.
+- **Import** (`MediaImporterTests`, `NarrationTests`): a silent movie imports without the field;
+  a real narrated movie (AAC track) imports with `hasAudio: true` and its ticket line says
+  "with audio".
+- **Trim** (`NarrationTests`): trimming a narrated draft video through `EditorSession` keeps
+  the audio track and `hasAudio`, and undoing the trim (restoring the original) keeps it too.
+- **Ticket text** (`TicketComposerTests`): the example's narrated clip reads
+  `(video, 2880×1800, 0:08.000, with audio)` and the listen-or-transcribe note follows the media
+  list; without audio, neither appears.
+- **Kit Hot Sheet end to end** (`HotSheetEndToEndTests`, real `hotsheet-cli`): the stored
+  ticket shows the "with audio" line and note, and the attached `review.json` keeps `hasAudio`;
+  a draft with a narrated video submitted by `DraftSubmitter` shows "with audio" too.
+- **App end to end** (`scripts/app-e2e.sh`): a synthetic narrated recording writes
+  `hasAudio: true` into `review.json` and a plain one omits it; importing the narrated movie
+  marks it and the silent "old recording" not; the review-session `--submit` path records a
+  narrated clip and the real Hot Sheet ticket's media line says "with audio". `ajv` validates
+  every written bundle and the example against the schema.

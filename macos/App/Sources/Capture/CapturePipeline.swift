@@ -53,7 +53,8 @@ extension CapturePipeline {
                 pixelHeight: video.pixelHeight,
                 durationMs: video.durationMs,
                 capturedAt: startedAt,
-                context: context
+                context: context,
+                hasAudio: video.hasNarration
             ))
             return CaptureOutcome(draft: draft, media: media)
         } catch {

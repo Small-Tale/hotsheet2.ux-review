@@ -166,6 +166,10 @@ A recording can include the reviewer's voice as an AAC audio track (`HS2-T0EY2W`
 - While narrating, the "Recording" HUD says "Microphone on.", and the menu shows "Recording
   microphone narration" under Stop. The saved HUD says "narrated", or "no microphone audio
   received" if narration was on but no audio arrived.
+- A narrated recording's `MediaItem` gets `hasAudio: true` when audio arrived (the same test as
+  the "narrated" HUD), so `review.json` and the intake ticket show there is speech to listen to
+  ([02-review-bundle.md](02-review-bundle.md) §2.2, `HS2-EZN3NG`). Headless capture prints it in
+  `media` too.
 
 **Permission.** Narration needs Microphone permission (`NSMicrophoneUsageDescription`, and the
 hardened-runtime entitlement `com.apple.security.device.audio-input`). It is settled before the
@@ -286,7 +290,7 @@ What an imported file becomes:
 | Source | In the draft |
 | --- | --- |
 | Any image ImageIO reads (PNG, JPEG, HEIC, TIFF, GIF, …) | A PNG, with its EXIF orientation applied so it is upright, at full resolution. GIFs and multi-page files keep their first frame. Re-encoding makes every format behave like a capture in the editor (crop, render). |
-| A movie AVFoundation reads that has a video track (`.mov`, `.mp4`, `.m4v`, …) | A byte-for-byte copy, keeping its extension. `pixelWidth`/`pixelHeight` are the displayed size, with the track's rotation applied, so annotations line up with the poster frame the editor shows. `durationMs` comes from the asset. |
+| A movie AVFoundation reads that has a video track (`.mov`, `.mp4`, `.m4v`, …) | A byte-for-byte copy, keeping its extension. `pixelWidth`/`pixelHeight` are the displayed size, with the track's rotation applied, so annotations line up with the poster frame the editor shows. `durationMs` comes from the asset. `hasAudio: true` is set when the movie has any audio track ([02-review-bundle.md](02-review-bundle.md) §2.2). |
 
 - `capturedAt` is the file's creation date.
 - The media item has no `context`, because nothing is known about where the file came from.

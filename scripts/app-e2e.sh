@@ -133,6 +133,7 @@ ok "video without --duration: exit 2"
 
 echo "microphone narration (HS2-T0EY2W)"
 [[ "$(json "$TMP/video.json" j.narration)" == false ]] || die "narration: a plain recording reports narration"
+[[ "$(json "$TMP/video.json" '"hasAudio" in j.media')" == false ]] || die "narration: a plain recording is marked hasAudio"
 # Real backend: headless mode never prompts, so whatever this machine's Screen Recording and
 # Microphone permissions are, the result must be coherent.
 code=0
@@ -151,6 +152,9 @@ NDRAFTS="$TMP/narration-drafts"
 run narration 0 "${SYN[@]}" -- --capture video --narration --target region --rect 20,20,200,120 --duration 2 --drafts-dir "$NDRAFTS"
 nmovie="$(json "$TMP/narration.json" j.file)"
 [[ "$(json "$TMP/narration.json" j.narration)" == true ]] || die "narration: not reported"
+# HS2-EZN3NG: the narrated clip is marked in review.json, so agents know to listen to it.
+[[ "$(json "$(json "$TMP/narration.json" j.draftDirectory)/review.json" 'j.media[0].hasAudio')" == true ]] \
+  || die "narration: review.json lacks hasAudio on the narrated clip"
 [[ "$(json "$TMP/narration.json" 'Math.abs(j.media.durationMs - 2000) <= 250')" == true ]] || die "narration: durationMs $(json "$TMP/narration.json" j.media.durationMs)"
 validate_bundle "$(json "$TMP/narration.json" j.draftDirectory)/review.json"
 if command -v ffprobe >/dev/null; then
@@ -419,7 +423,12 @@ idraft="$(json "$TMP/import.json" j.draftDirectory)"
 cmp -s "$movie" "$idraft/capture-3.mov" || die "import: movie not copied byte for byte"
 [[ -f "$TMP/media/Screenshot 1.png" && -f "$TMP/media/old recording.mov" ]] || die "import: sources were moved"
 validate_bundle "$idraft/review.json"
+[[ "$(json "$idraft/review.json" '"hasAudio" in j.media[2]')" == false ]] || die "import: a silent movie is marked hasAudio"
 ok "imports a PNG, a JPEG (re-encoded to PNG), and a movie into a new draft; sources untouched; review.json validates"
+run import-narrated 0 -- --import "$nmovie" --drafts-dir "$TMP/import-narrated-drafts"
+[[ "$(json "$TMP/import-narrated.json" 'j.media[0].hasAudio')" == true ]] || die "import: a narrated movie is not marked hasAudio"
+validate_bundle "$(json "$TMP/import-narrated.json" j.draftDirectory)/review.json"
+ok "an imported movie with an audio track is marked hasAudio (HS2-EZN3NG)"
 
 echo '{"steps": [{"op": "media", "media": "m3"}, {"op": "tool", "tool": "rect"}, {"op": "drag", "points": [[10, 10], [80, 50]]}, {"op": "note", "text": "Old bug"}]}' >"$TMP/script-import.json"
 run import-annotate 0 -- --annotate "$TMP/script-import.json" --drafts-dir "$IDRAFTS"
@@ -479,7 +488,8 @@ SUB=(--drafts-dir "$SDRAFTS" --project "$TMP/subproj")
 run submit-nodraft 2 -- --submit "${SUB[@]}"
 [[ "$(json "$TMP/submit-nodraft.json" j.error)" == noDraft ]] || die "submit: no draft error"
 run submit-shot 0 "${SYN[@]}" -- --capture screenshot --target region --rect 100,100,400,250 --drafts-dir "$SDRAFTS"
-run submit-clip 0 "${SYN[@]}" -- --capture video --target region --rect 100,100,200,120 --duration 1 --drafts-dir "$SDRAFTS"
+run submit-clip 0 "${SYN[@]}" -- --capture video --narration --target region --rect 100,100,200,120 --duration 1 --drafts-dir "$SDRAFTS"
+[[ "$(json "$TMP/submit-clip.json" j.media.hasAudio)" == true ]] || die "submit: the narrated clip is not marked hasAudio"
 sdraft="$(json "$TMP/submit-shot.json" j.draftDirectory)"
 [[ "$(json "$TMP/submit-clip.json" j.draftDirectory)" == "$sdraft" ]] || die "submit: captures went to different drafts"
 echo '{"steps": [{"op": "tool", "tool": "rect"}, {"op": "drag", "points": [[30, 30], [150, 90]]}, {"op": "note", "text": "Clipped label"}, {"op": "intent", "intent": "bug"}, {"op": "media", "media": "m2"}, {"op": "tool", "tool": "insertion"}, {"op": "drag", "points": [[50, 40]]}, {"op": "note", "text": "Add a hint"}]}' >"$TMP/script-submit.json"
@@ -519,14 +529,17 @@ run submit 0 HOTSHEET_CLI="$TMP/flaky-cli" -- --submit "${SUB[@]}"
 [[ -f "$(json "$TMP/submit.json" j.ticketFile)" ]] || die "submit: no ticket file"
 hs -C "$TMP/subproj.hs2" show "$slug" >"$TMP/submitted-ticket.md"
 for needle in "UX review: Checkout flow" "Two captures from checkout." "filename: capture-1.png" "filename: capture-2.mov" \
-  "filename: review.json" "batch_label: UX review capture" "### #2 · insert · \`attachment:capture-2.mov\`"; do
+  "filename: review.json" "batch_label: UX review capture" "### #2 · insert · \`attachment:capture-2.mov\`" \
+  ", with audio)" "usually the reviewer's spoken narration"; do
   grep -qF "$needle" "$TMP/submitted-ticket.md" || die "submit: ticket lacks '$needle'"
 done
 grep -q "filename: submission.json" "$TMP/submitted-ticket.md" && die "submit: the pending record was attached"
 [[ "$(hs -C "$TMP/subproj.hs2" ls 2>/dev/null | grep -c 'UX review')" == 1 ]] || die "submit: expected exactly one intake ticket"
 run submit-again 2 -- --submit "${SUB[@]}"
 [[ "$(json "$TMP/submit-again.json" j.error)" == noDraft ]] || die "submit: the filed draft is still current"
-ok "attach failure keeps the draft (exit 5, ticket named); retry attaches to the same ticket; the draft is deleted; ticket has both captures, the summary, and review.json"
+grep -F "\`attachment:capture-2.mov\` (video," "$TMP/submitted-ticket.md" | grep -qF "with audio)" \
+  || die "submit: the narrated clip's media line does not say 'with audio'"
+ok "attach failure keeps the draft (exit 5, ticket named); retry attaches to the same ticket; the draft is deleted; ticket has both captures (the narrated one marked with audio), the summary, and review.json"
 
 # HS2-2QP0GM: a capture removed by the review session leaves an open editor consistent.
 RDRAFTS="$TMP/remove-drafts"
