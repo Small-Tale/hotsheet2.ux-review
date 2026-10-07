@@ -15,6 +15,8 @@ enum HeadlessAnnotate {
         var type: String
         var intents: [Intent]
         var note: String
+        /// Video only; omitted for the whole clip.
+        var timeRange: TimeRange?
     }
 
     struct Success: Encodable {
@@ -71,7 +73,7 @@ enum HeadlessAnnotate {
                 annotations: bundle.annotations.enumerated().map { index, annotation in
                     Row(
                         number: index + 1, id: annotation.id, mediaId: annotation.mediaId, type: annotation.shape.kind,
-                        intents: annotation.effectiveIntents, note: annotation.note
+                        intents: annotation.effectiveIntents, note: annotation.note, timeRange: annotation.timeRange
                     )
                 },
                 rendered: rendered

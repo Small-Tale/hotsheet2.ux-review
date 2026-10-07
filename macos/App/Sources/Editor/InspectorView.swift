@@ -51,6 +51,10 @@ struct AnnotationDetail: View {
                 .toggleStyle(.checkbox)
             }
 
+            if model.editor.media(annotation.mediaId)?.kind == .video {
+                TimeRangeEditor(model: model, annotation: annotation)
+            }
+
             Text("Note (Markdown)").font(.caption).foregroundStyle(.secondary)
             ZStack(alignment: .topLeading) {
                 TextEditor(text: Binding(
@@ -74,6 +78,57 @@ struct AnnotationDetail: View {
             .overlay(RoundedRectangle(cornerRadius: 6).stroke(Color.primary.opacity(0.15)))
         }
         .onChange(of: model.focusNoteRequest) { noteFocused = true }
+    }
+}
+
+/// When an annotation on a video shows: the whole clip, or a range whose ends are set from the
+/// playhead (docs/06 §6.10).
+struct TimeRangeEditor: View {
+    @ObservedObject var model: EditorModel
+    let annotation: Annotation
+
+    var body: some View {
+        let now = model.editor.currentTimeMs
+        let duration = model.editor.media(annotation.mediaId)?.durationMs ?? 0
+        VStack(alignment: .leading, spacing: 6) {
+            Text("Time").font(.caption).foregroundStyle(.secondary)
+            Toggle("Whole clip", isOn: Binding(
+                get: { annotation.timeRange == nil },
+                set: { whole in
+                    set(whole ? nil : TimeRange(startMs: now, endMs: duration))
+                }
+            ))
+            .toggleStyle(.checkbox)
+            if let range = annotation.timeRange {
+                endpoint("From", range.startMs) {
+                    set(TimeRange(startMs: now, endMs: max(range.endMs, now)))
+                }
+                endpoint("To", range.endMs) {
+                    set(TimeRange(startMs: min(range.startMs, now), endMs: now))
+                }
+            }
+        }
+    }
+
+    private func set(_ range: TimeRange?) {
+        model.mutate { _ = $0.setTimeRange(range, for: annotation.id) }
+    }
+
+    private func endpoint(_ label: String, _ millis: Int, action: @escaping () -> Void) -> some View {
+        HStack(spacing: 8) {
+            Text(label).frame(width: 36, alignment: .leading)
+            Button(TimeFormat.clock(millis)) { model.mutate { $0.setCurrentTime(millis) } }
+                .buttonStyle(.borderless)
+                .font(.callout.monospacedDigit())
+                .help("Move the playhead here")
+            Spacer(minLength: 4)
+            Button("Set to Playhead", action: action)
+                .controlSize(.small)
+                .help("\(label) \(TimeFormat.clock(model.editor.currentTimeMs))")
+        }
+        .font(.callout)
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("\(label) \(TimeFormat.clock(millis))")
     }
 }
 
@@ -134,7 +189,9 @@ struct AnnotationList: View {
                             AnnotationRow(
                                 number: model.editor.number(of: annotation.id) ?? 0,
                                 annotation: annotation,
-                                selected: annotation.id == model.editor.selection
+                                selected: annotation.id == model.editor.selection,
+                                onVideo: model.editor.currentDurationMs != nil,
+                                showing: annotation.isVisible(atMs: model.editor.currentTimeMs)
                             )
                             .onTapGesture { model.mutate { $0.select(annotation.id) } }
                         }
@@ -151,6 +208,9 @@ struct AnnotationRow: View {
     let number: Int
     let annotation: Annotation
     let selected: Bool
+    var onVideo = false
+    /// False when the playhead is outside the annotation's range (it is dimmed).
+    var showing = true
 
     var body: some View {
         HStack(alignment: .top, spacing: 8) {
@@ -158,6 +218,11 @@ struct AnnotationRow: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text("\(annotation.shape.label) · \(annotation.effectiveIntents.map(\.rawValue).joined(separator: ", "))")
                     .font(.callout.weight(.medium))
+                if onVideo {
+                    Label(TimeFormat.range(annotation.timeRange), systemImage: "clock")
+                        .font(.caption.monospacedDigit())
+                        .foregroundStyle(.secondary)
+                }
                 Text(annotation.note.isEmpty ? "No note" : annotation.note)
                     .font(.callout)
                     .foregroundStyle(annotation.note.isEmpty ? .tertiary : .secondary)
@@ -167,6 +232,7 @@ struct AnnotationRow: View {
         }
         .padding(.horizontal, 6)
         .padding(.vertical, 6)
+        .opacity(showing ? 1 : 0.55)
         .background(RoundedRectangle(cornerRadius: 6).fill(selected ? Color.accentColor.opacity(0.18) : Color.clear))
         .contentShape(Rectangle())
     }

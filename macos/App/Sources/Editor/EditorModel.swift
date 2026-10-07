@@ -99,8 +99,10 @@ final class EditorModel: ObservableObject {
         viewport = CanvasViewport()
     }
 
-    /// The current image for `mediaId` (cropped as edited), cached per crop.
+    /// The current image for `mediaId` (cropped as edited), cached per crop. For a video, the
+    /// frame at the playhead (the session caches frames).
     func image(_ mediaId: String) -> CGImage? {
+        if editor.media(mediaId)?.kind == .video { return session.displayImage(mediaId) }
         let crop = editor.document.crops[mediaId]
         if let cached = imageCache[mediaId], cached.crop == crop { return cached.image }
         let image = session.displayImage(mediaId)

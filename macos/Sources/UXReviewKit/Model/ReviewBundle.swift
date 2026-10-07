@@ -56,6 +56,9 @@ public struct TimeRange: Codable, Equatable, Hashable, Sendable {
     }
 
     var isValid: Bool { startMs >= 0 && startMs <= endMs }
+
+    /// True when `millis` lies inside the range (both ends inclusive).
+    public func contains(_ millis: Int) -> Bool { startMs <= millis && millis <= endMs }
 }
 
 /// What the reviewer wants done about the marked area. Intents are modifiers that can be
@@ -233,6 +236,10 @@ public struct Annotation: Codable, Equatable, Sendable {
     }
 
     public var effectiveIntents: [Intent] { intents.isEmpty ? [shape.defaultIntent] : intents }
+
+    /// True when the annotation shows at `millis` into its clip: it has no range (the whole clip), or
+    /// the range contains `millis`.
+    public func isVisible(atMs millis: Int) -> Bool { timeRange?.contains(millis) ?? true }
 }
 
 /// Where the capture came from, to help whoever acts on the ticket reproduce it.

@@ -33,6 +33,15 @@ public struct EditorScript: Decodable, Equatable, Sendable {
         case nudge(dx: Double, dy: Double)
         case crop(CGRect)
         case resetCrop
+        /// Restore Original: the current image's crop or the current video's trim.
+        case restoreOriginal
+        /// Moves the playhead to `millis` into the current video.
+        case time(Int)
+        /// Sets the selection's time range (ms); nil means the whole clip.
+        case range(TimeRange?)
+        /// Keeps `startMs`…`endMs` of the current video.
+        case trim(TimeRange)
+        case resetTrim
         case undo
         case redo
         case save
@@ -60,11 +69,16 @@ public enum EditorScriptError: Error, Equatable, CustomStringConvertible {
 }
 
 extension EditorScript.Step: Decodable {
-    private enum CodingKeys: String, CodingKey { case op, media, tool, points, point, id, text, intent, closed, dx, dy, rect }
+    private enum CodingKeys: String,
+        CodingKey { case op, media, tool, points, point, id, text, intent, closed, dx, dy, rect, start, end
+        case millis = "ms"
+    }
 
     /// Ops that take no arguments.
     private static let bare: [String: EditorScript.Step] = [
-        "delete": .delete, "duplicate": .duplicate, "reset-crop": .resetCrop, "restore-original": .resetCrop, "undo": .undo, "redo": .redo,
+        "delete": .delete, "duplicate": .duplicate, "reset-crop": .resetCrop, "restore-original": .restoreOriginal,
+        "reset-trim": .resetTrim,
+        "undo": .undo, "redo": .redo,
         "save": .save,
     ]
 
@@ -95,9 +109,24 @@ extension EditorScript.Step: Decodable {
         case "closed": self = try .closed(container.decode(Bool.self, forKey: .closed))
         case "nudge": self = try .nudge(dx: container.decode(Double.self, forKey: .dx), dy: container.decode(Double.self, forKey: .dy))
         case "crop", "insert": self = try Self.geometry(op, in: container)
+        case "time": self = try .time(container.decode(Int.self, forKey: .millis))
+        case "range", "trim": self = try Self.timing(op, in: container)
         default:
             throw invalid(.op, "Unknown op \(op)")
         }
+    }
+
+    /// `range` (optional `start`/`end`, both or neither) and `trim` (`start` and `end`).
+    private static func timing(_ op: String, in container: KeyedDecodingContainer<CodingKeys>) throws -> EditorScript.Step {
+        let start = try container.decodeIfPresent(Int.self, forKey: .start)
+        let end = try container.decodeIfPresent(Int.self, forKey: .end)
+        guard let start, let end else {
+            if op == "range", start == nil, end == nil { return .range(nil) }
+            throw DecodingError.dataCorruptedError(
+                forKey: start == nil ? .start : .end, in: container, debugDescription: "\(op) needs both start and end (ms)"
+            )
+        }
+        return op == "range" ? .range(TimeRange(startMs: start, endMs: end)) : .trim(TimeRange(startMs: start, endMs: end))
     }
 
     /// `crop` (a rect) and `insert` (an optional point).
@@ -151,13 +180,28 @@ public extension EditorScript {
             guard let reference else { return session.editor.select(nil) }
             guard let id = resolve(reference, in: session.editor) else { throw StepFailure.reason("unknown annotation \(reference)") }
             session.editor.select(id)
-        case .note, .intent, .closed, .delete, .duplicate, .nudge:
+        case .note, .intent, .closed, .delete, .duplicate, .nudge, .range:
             try applyToSelection(step, in: session)
         case let .crop(rect): session.editor.crop(to: rect)
-        case .resetCrop: session.editor.resetCrop()
+        case .resetCrop, .restoreOriginal, .time, .trim, .resetTrim:
+            try applyToMedia(step, in: session)
         case .undo: session.editor.undo()
         case .redo: session.editor.redo()
         case .save: try session.save()
+        }
+    }
+
+    /// Crop/trim resets and video time on the current media.
+    private static func applyToMedia(_ step: Step, in session: EditorSession) throws {
+        switch step {
+        case .resetCrop: session.editor.resetCrop()
+        case .restoreOriginal: session.editor.restoreOriginal()
+        case let .time(millis):
+            guard session.editor.currentDurationMs != nil else { throw StepFailure.reason("the current media is not a video") }
+            session.editor.setCurrentTime(millis)
+        case let .trim(range): session.editor.trim(to: range)
+        case .resetTrim: session.editor.resetTrim()
+        default: break
         }
     }
 
@@ -186,6 +230,11 @@ public extension EditorScript {
         case .delete: session.editor.deleteSelection()
         case .duplicate: session.editor.duplicateSelection()
         case let .nudge(dx, dy): session.editor.nudgeSelection(dx: dx, dy: dy)
+        case let .range(range):
+            guard session.editor.media(session.editor.annotation(id)?.mediaId ?? "")?.kind == .video else {
+                throw StepFailure.reason("time ranges apply to annotations on videos")
+            }
+            session.editor.setTimeRange(range, for: id)
         default: break
         }
     }

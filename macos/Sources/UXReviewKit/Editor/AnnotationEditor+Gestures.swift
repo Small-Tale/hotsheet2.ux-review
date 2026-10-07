@@ -13,7 +13,7 @@ public extension AnnotationEditor {
         message = nil
         switch tool {
         case .select:
-            if let selected = selectedAnnotation, selected.mediaId == item.id,
+            if let selected = selectedAnnotation, selected.mediaId == item.id, selected.isVisible(atMs: currentTimeMs),
                let handle = handle(of: selected.shape, at: start, in: frame) {
                 gestureBase = snapshot
                 gesture = .resizing(annotationId: selected.id, handle: handle, origin: selected.shape)
@@ -166,8 +166,9 @@ public extension AnnotationEditor {
     func hitTest(_ point: CGPoint) -> Annotation? {
         guard let item = currentMedia else { return nil }
         let frame = MediaFrame(item)
-        let candidates = annotations(on: item.id).enumerated().compactMap { index, annotation in
-            annotation.shape.hitDistance(point, in: frame, tolerance: hitTolerance).map { (annotation, $0, index) }
+        let candidates = annotations(on: item.id).enumerated().compactMap { index, annotation -> (Annotation, Double, Int)? in
+            guard annotation.isVisible(atMs: currentTimeMs) else { return nil }
+            return annotation.shape.hitDistance(point, in: frame, tolerance: hitTolerance).map { (annotation, $0, index) }
         }
         return candidates.min { lhs, rhs in
             if lhs.1 != rhs.1 { return lhs.1 < rhs.1 }

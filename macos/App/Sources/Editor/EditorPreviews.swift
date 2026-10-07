@@ -1,4 +1,5 @@
 import AppKit
+import CoreMedia
 import CoreText
 import SwiftUI
 import UXReviewKit
@@ -68,6 +69,39 @@ enum EditorPreviews {
             "editor-zoomed", size: wide, script: annotations + [.select("#1")],
             viewport: CanvasViewport(zoom: 1.5, center: CGPoint(x: 560, y: 300))
         )
+        written += try renderVideo(to: directory, scratch: scratch)
+        return written
+    }
+
+    /// The timeline (docs/06 §6.10) on a draft holding one mock screen recording: annotations with
+    /// a range, an instant, and the whole clip, the playhead inside the first range.
+    private static func renderVideo(to directory: URL, scratch: URL) throws -> [URL] {
+        let store = ReviewDraftStore(root: scratch.appendingPathComponent("video"))
+        let movie = scratch.appendingPathComponent("mock-recording.mov")
+        let duration = try MockScreenshot.writeRecording(to: movie, width: 1600, height: 1000, seconds: 3)
+        let draft = try store.add(DraftCapture(
+            fileURL: movie, kind: .video, pixelWidth: 1600, pixelHeight: 1000, durationMs: duration,
+            capturedAt: Date(), context: CaptureContext(appName: "Acme Mail")
+        )).draft
+        let steps: [EditorScript.Step] = [
+            .tool(.rect), .drag([CGPoint(x: 330, y: 250), CGPoint(x: 820, y: 330)]),
+            .note("Label flickers while sending."), .intent(.bug), .range(TimeRange(startMs: 1000, endMs: 2000)),
+            .tool(.insertion), .drag([CGPoint(x: 560, y: 700)]),
+            .note("Show a spinner here."), .range(TimeRange(startMs: 2500, endMs: 2500)),
+            .tool(.arrow), .drag([CGPoint(x: 1000, y: 470), CGPoint(x: 1300, y: 600)]),
+            .note("Move the toggle next to its label."),
+            .select("#1"), .time(1500),
+        ]
+        var written: [URL] = []
+        for (name, size, extra) in [
+            ("editor-video-timeline", CGSize(width: 1240, height: 800), [EditorScript.Step]()),
+            ("editor-video-narrow", CGSize(width: 900, height: 560), []),
+            ("editor-video-trimmed", CGSize(width: 1240, height: 800), [.trim(TimeRange(startMs: 500, endMs: duration)), .time(1000)]),
+        ] {
+            let model = try EditorModel(session: EditorSession(store: store, directory: draft.directory))
+            (steps + extra).forEach { apply($0, to: model) }
+            written.append(try snapshot(EditorView(model: model), size: size, to: directory.appendingPathComponent("\(name).png")))
+        }
         return written
     }
 
@@ -110,6 +144,9 @@ enum EditorPreviews {
                 }
                 editor.select(id)
             case let .crop(rect): editor.crop(to: rect)
+            case let .range(range): if let id = editor.selection { editor.setTimeRange(range, for: id) }
+            case let .time(millis): editor.setCurrentTime(millis)
+            case let .trim(range): editor.trim(to: range)
             default: break
             }
         }
@@ -165,6 +202,54 @@ enum EditorPreviews {
         guard let image = rep.cgImage else { throw CaptureFailure.failed("render failed") }
         try ImageFiles.writePNG(image, to: url)
         return url
+    }
+}
+
+extension MockScreenshot {
+    /// A mock screen recording: the settings page with a progress bar filling over `seconds` at
+    /// 10 fps. Returns the duration in millis. Blocks until the movie is written.
+    static func writeRecording(to url: URL, width: Int, height: Int, seconds: Int) throws -> Int {
+        guard let page = settingsPage(width: width, height: height, variant: 0) else { throw CaptureFailure.failed("no mock page") }
+        let writer = try VideoFileWriter(url: url, width: width, height: height, framesPerSecond: 10)
+        for index in 0 ..< seconds * 10 {
+            guard let context = CGContext(
+                data: nil, width: width, height: height, bitsPerComponent: 8, bytesPerRow: 0,
+                space: CGColorSpace(name: CGColorSpace.sRGB)!, bitmapInfo: CGImageAlphaInfo.premultipliedFirst.rawValue
+            ) else { throw CaptureFailure.failed("no frame context") }
+            context.draw(page, in: CGRect(x: 0, y: 0, width: width, height: height))
+            let progress = CGFloat(index + 1) / CGFloat(seconds * 10)
+            context.setFillColor(CGColor(gray: 0.85, alpha: 1))
+            context.fill(CGRect(x: 330, y: 40, width: 940, height: 14))
+            context.setFillColor(CGColor(srgbRed: 0.04, green: 0.52, blue: 1, alpha: 1))
+            context.fill(CGRect(x: 330, y: 40, width: 940 * progress, height: 14))
+            guard let frame = context.makeImage(),
+                  let buffer = VideoFileWriter.pixelBuffer(from: frame, width: width, height: height)
+            else { throw CaptureFailure.failed("no frame") }
+            let time = CMTime(value: CMTimeValue(index * 60), timescale: 600)
+            var attempts = 0
+            while !writer.append(buffer, at: time) {
+                attempts += 1
+                guard attempts < 2000 else { throw CaptureFailure.failed("encoder never became ready") }
+                Thread.sleep(forTimeInterval: 0.005)
+            }
+        }
+        let result = ResultBox()
+        let done = DispatchSemaphore(value: 0)
+        Task.detached {
+            do {
+                result.value = try await .success(writer.finish(at: CMTime(value: CMTimeValue(seconds * 600), timescale: 600)))
+            } catch {
+                result.value = .failure(error)
+            }
+            done.signal()
+        }
+        done.wait()
+        guard let value = result.value else { throw CaptureFailure.failed("recording not finished") }
+        return try value.get()
+    }
+
+    private final class ResultBox: @unchecked Sendable {
+        var value: Result<Int, Error>?
     }
 }
 

@@ -68,6 +68,8 @@ single instant.
 - Only video media may have time ranges.
 - `endMs` must not exceed the media's `durationMs`.
 - Without a range, the annotation applies to the whole clip.
+- The editor keeps ranges inside the clip when it is trimmed, and drops annotations whose range
+  falls entirely outside it ([06-annotation-editor.md](06-annotation-editor.md) §6.10).
 
 ## 2.7 Validation
 

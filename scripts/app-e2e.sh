@@ -260,6 +260,48 @@ cmp -s "$TMP/restored.bmp" "$TMP/original.bmp" || die "restore: pixels differ fr
 validate_bundle "$adraft/review.json"
 ok "a third session restores the $original_size original from the earlier crop, pixel for pixel, with annotations mapped back"
 
+# HS2-GBM8JN: trim the recorded clip and give its annotation a time range.
+clip="$adraft/capture-2.mov"
+clip_ms="$(json "$adraft/review.json" j.media[1].durationMs)"
+cp "$clip" "$TMP/clip-before-trim.mov"
+cat >"$TMP/script-trim.json" <<'JSON'
+{"steps": [
+  {"op": "media", "media": "m2"}, {"op": "select", "id": "#6"},
+  {"op": "range", "start": 300, "end": 600},
+  {"op": "tool", "tool": "insertion"}, {"op": "drag", "points": [[60, 60]]}, {"op": "range", "start": 20, "end": 50},
+  {"op": "time", "ms": 400},
+  {"op": "trim", "start": 200, "end": 900}
+]}
+JSON
+run annotate-trim 0 -- --annotate "$TMP/script-trim.json" --drafts-dir "$ADRAFTS" --render-dir "$TMP/trimmed"
+[[ "$(json "$adraft/review.json" j.media[1].durationMs)" == 700 ]] || die "trim: durationMs $(json "$adraft/review.json" j.media[1].durationMs)"
+[[ "$(json "$TMP/annotate-trim.json" 'j.annotations.map(a => a.timeRange ? a.timeRange.startMs + "-" + a.timeRange.endMs : "all").join(",")')" == "all,all,all,all,all,100-400" ]] \
+  || die "trim: ranges $(json "$TMP/annotate-trim.json" 'JSON.stringify(j.annotations.map(a => a.timeRange))')"
+json "$TMP/annotate-trim.json" 'j.messages.join("|")' | grep -q "Trimmed to 0.7 s. Removed 1 annotation outside the trim." || die "trim: message"
+cmp -s "$adraft/originals/capture-2.mov" "$TMP/clip-before-trim.mov" || die "trim: original not kept byte for byte"
+[[ "$(json "$adraft/originals/crops.json" '`${j.trims["capture-2.mov"].startMs}-${j.trims["capture-2.mov"].endMs}/${j.trims["capture-2.mov"].originalDurationMs}`')" == "200-900/$clip_ms" ]] \
+  || die "trim: not recorded in originals/crops.json"
+if command -v ffprobe >/dev/null; then
+  secs="$(ffprobe -v error -show_entries format=duration -of csv=p=0 "$clip")"
+  node -e "process.exit(Math.abs(parseFloat('$secs') - 0.7) <= 0.11 ? 0 : 1)" || die "trim: ffprobe duration $secs"
+  ok "trim: the movie file is now $secs s (ffprobe)"
+fi
+[[ -s "$TMP/trimmed/capture-2-annotated.png" ]] || die "trim: render missing"
+validate_bundle "$adraft/review.json"
+ok "trimmed the clip to 700 ms: ranges shifted and clamped, out-of-range annotation removed, original kept, review.json validates"
+
+echo '{"steps": [{"op": "media", "media": "m2"}, {"op": "restore-original"}]}' >"$TMP/script-untrim.json"
+run annotate-untrim 0 -- --annotate "$TMP/script-untrim.json" --drafts-dir "$ADRAFTS"
+cmp -s "$clip" "$TMP/clip-before-trim.mov" || die "untrim: movie differs from the original"
+[[ "$(json "$adraft/review.json" j.media[1].durationMs)" == "$clip_ms" ]] || die "untrim: durationMs"
+[[ "$(json "$adraft/review.json" 'j.annotations[5].timeRange.startMs + "-" + j.annotations[5].timeRange.endMs')" == "300-600" ]] || die "untrim: range not mapped back"
+validate_bundle "$adraft/review.json"
+ok "a later session restores the untrimmed movie byte for byte, with time ranges mapped back"
+
+echo '{"steps": [{"op": "media", "media": "m1"}, {"op": "time", "ms": 5}]}' >"$TMP/script-time-image.json"
+run annotate-time-image 2 -- --annotate "$TMP/script-time-image.json" --drafts-dir "$ADRAFTS"
+ok "a time step on an image: exit 2"
+
 echo '{"steps": [{"op": "paint"}]}' >"$TMP/bad-script.json"
 run annotate-bad 2 -- --annotate "$TMP/bad-script.json" --drafts-dir "$ADRAFTS"
 echo '{"steps": [{"op": "delete"}]}' >"$TMP/bad-step.json"
@@ -303,7 +345,7 @@ ok "unsupported, missing, and absent files: exit 2 and nothing imported; --new-r
 
 run previews 0 -- --render-ui-previews "$TMP/previews"
 for name in overlay-region-hint overlay-region-selection overlay-region-selection-bottom-edge overlay-window-hover hud-countdown hud-saved hud-recording-countdown hud-recording hud-saved-video settings-registered settings-in-use status-bar-icon-light status-bar-icon-dark \
-  editor-empty editor-annotated editor-arrow-selected editor-narrow editor-crop-drag editor-cropped editor-zoomed editor-keyboard-insert; do
+  editor-empty editor-annotated editor-arrow-selected editor-narrow editor-crop-drag editor-cropped editor-zoomed editor-keyboard-insert editor-video-timeline editor-video-narrow editor-video-trimmed; do
   [[ -s "$TMP/previews/$name.png" ]] || die "previews: $name.png missing"
 done
 ok "UI renders offscreen (picker overlays, HUDs, Settings window, status bar icon, annotation editor)"

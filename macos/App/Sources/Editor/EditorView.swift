@@ -16,8 +16,14 @@ struct EditorView: View {
                         .frame(width: 112)
                     Divider()
                 }
-                AnnotationCanvas(model: model)
-                    .frame(minWidth: 420, minHeight: 360)
+                VStack(spacing: 0) {
+                    AnnotationCanvas(model: model)
+                        .frame(minWidth: 420, minHeight: 300)
+                    if model.editor.currentDurationMs != nil {
+                        Divider()
+                        TimelineBar(model: model)
+                    }
+                }
                 Divider()
                 InspectorView(model: model)
                     .frame(width: 300)
@@ -48,13 +54,21 @@ struct EditorToolbar: View {
             Button { model.mutate { $0.redo() } } label: { Image(systemName: "arrow.uturn.forward") }
                 .help("Redo (⇧⌘Z)")
                 .disabled(!model.editor.canRedo)
-            if let id = model.editor.currentMediaId, model.editor.document.crops[id] != nil {
-                if model.session.resetRestoresOriginal(id) {
-                    Button("Restore Original") { model.mutate { _ = $0.resetCrop() } }
-                        .help("Undo every crop of this capture, including earlier sessions'; annotations move back with it")
+            if let item = model.editor.currentMedia, model.editor.canRestoreOriginal {
+                let video = item.kind == .video
+                if model.session.resetRestoresOriginal(item.id) {
+                    Button("Restore Original") { model.mutate { _ = $0.restoreOriginal() } }
+                        .help(
+                            video
+                                ? "Undo every trim of this video, including earlier sessions'; annotation times move back with it"
+                                : "Undo every crop of this capture, including earlier sessions'; annotations move back with it"
+                        )
                 } else {
-                    Button("Reset Crop") { model.mutate { _ = $0.resetCrop() } }
-                        .help("Restore this image to its size when the editor opened")
+                    Button(video ? "Reset Trim" : "Reset Crop") { model.mutate { _ = $0.restoreOriginal() } }
+                        .help(
+                            video ? "Restore this video to its length when the editor opened" :
+                                "Restore this image to its size when the editor opened"
+                        )
                 }
             }
             Spacer(minLength: 8)

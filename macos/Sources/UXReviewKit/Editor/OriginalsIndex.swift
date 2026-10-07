@@ -1,9 +1,10 @@
 import Foundation
 
 /// `<draft>/originals/crops.json`: for each image whose untouched original is kept under
-/// `originals/`, the crop (relative to that original) that produced the current file. It lets a
-/// later editor session restore the original and map annotations back (review.json has no crop
-/// field). Never attached to tickets. Spec: docs/06-annotation-editor.md §6.6.
+/// `originals/`, the crop (relative to that original) that produced the current file, and for
+/// each such movie, the trim. It lets a later editor session restore the original and map
+/// annotations back (review.json has no crop or trim field). Never attached to tickets.
+/// Spec: docs/06-annotation-editor.md §6.6 and §6.10.
 public struct OriginalsIndex: Codable, Equatable, Sendable {
     public static let filename = "crops.json"
     public static let currentVersion = 1
@@ -11,9 +12,28 @@ public struct OriginalsIndex: Codable, Equatable, Sendable {
     public var version = OriginalsIndex.currentVersion
     /// Keyed by media filename.
     public var crops: [String: PixelRect] = [:]
+    /// Movie trims, keyed by media filename. Absent in indexes written before trimming existed.
+    public var trims: [String: TrimRecord] = [:]
 
-    public init(crops: [String: PixelRect] = [:]) {
+    public init(crops: [String: PixelRect] = [:], trims: [String: TrimRecord] = [:]) {
         self.crops = crops
+        self.trims = trims
+    }
+
+    private enum CodingKeys: String, CodingKey { case version, crops, trims }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        version = try container.decode(Int.self, forKey: .version)
+        crops = try container.decodeIfPresent([String: PixelRect].self, forKey: .crops) ?? [:]
+        trims = try container.decodeIfPresent([String: TrimRecord].self, forKey: .trims) ?? [:]
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(version, forKey: .version)
+        try container.encode(crops, forKey: .crops)
+        if !trims.isEmpty { try container.encode(trims, forKey: .trims) }
     }
 
     public static func url(in originals: URL) -> URL { originals.appendingPathComponent(filename) }
@@ -46,5 +66,31 @@ public struct OriginalsIndex: Codable, Equatable, Sendable {
               crop.width == currentWidth, crop.height == currentHeight
         else { return nil }
         return PriorCrop(originalSize: originalSize, crop: crop)
+    }
+
+    /// The prior trim of a movie, when it can be trusted: its original exists, a trim is recorded
+    /// for it, the trim lies inside the original, and the current clip (`durationMs` in
+    /// review.json) is exactly the trim's length. Unlike crops there is no implicit full-length
+    /// record: a movie original is only ever kept together with its trim.
+    public func priorTrim(filename: String, originalExists: Bool, currentDurationMs: Int?) -> PriorTrim? {
+        guard originalExists, let currentDurationMs, let record = trims[filename],
+              record.startMs >= 0, record.startMs < record.endMs, record.endMs <= record.originalDurationMs,
+              record.endMs - record.startMs == currentDurationMs
+        else { return nil }
+        return PriorTrim(originalDurationMs: record.originalDurationMs, trim: TimeRange(startMs: record.startMs, endMs: record.endMs))
+    }
+}
+
+/// The part of a kept movie original that the current file holds, in ms of the original, and
+/// the original's length (as review.json recorded it, so it matches the clip's `durationMs`).
+public struct TrimRecord: Codable, Equatable, Sendable {
+    public var startMs: Int
+    public var endMs: Int
+    public var originalDurationMs: Int
+
+    public init(startMs: Int, endMs: Int, originalDurationMs: Int) {
+        self.startMs = startMs
+        self.endMs = endMs
+        self.originalDurationMs = originalDurationMs
     }
 }

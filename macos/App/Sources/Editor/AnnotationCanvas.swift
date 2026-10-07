@@ -251,6 +251,7 @@ final class AnnotationCanvasView: NSView {
         case .rightArrow?: model.mutate { _ = $0.nudgeSelection(dx: step, dy: 0) }
         case .upArrow?: model.mutate { _ = $0.nudgeSelection(dx: 0, dy: -step) }
         case .downArrow?: model.mutate { _ = $0.nudgeSelection(dx: 0, dy: step) }
+        case .home?, .end?: model.mutate { $0.setCurrentTime(event.specialKey == .home ? 0 : Int.max) }
         case .tab?, .backTab?:
             model.mutate { $0.selectNext(forward: !shift && event.specialKey != .backTab) }
         case .carriageReturn?, .enter?:
@@ -266,14 +267,25 @@ final class AnnotationCanvasView: NSView {
                         editor.select(nil)
                     }
                 }
-            } else if !command, let character = event.charactersIgnoringModifiers?.first, let tool = EditorTool.forShortcut(character) {
-                model.mutate { $0.setTool(tool) }
-            } else {
+            } else if command || !handleCharacter(event.charactersIgnoringModifiers?.first, shift: shift) {
                 super.keyDown(with: event)
                 return
             }
         }
         window?.invalidateCursorRects(for: self)
+    }
+
+    /// `,` / `.` step the playhead (Shift: 1 s; on a US layout Shift turns them into `<` / `>`);
+    /// letters choose tools. False when the character means nothing here.
+    private func handleCharacter(_ character: Character?, shift: Bool) -> Bool {
+        guard let model, let character else { return false }
+        if ",.<>".contains(character) {
+            model.mutate { $0.stepTime(forward: character == "." || character == ">", large: shift) }
+            return true
+        }
+        guard let tool = EditorTool.forShortcut(character) else { return false }
+        model.mutate { $0.setTool(tool) }
+        return true
     }
 
     /// Return: with a drawing tool, a default shape at the middle of what is visible; with
@@ -301,20 +313,22 @@ final class AnnotationCanvasView: NSView {
 
     override func accessibilityLabel() -> String? {
         guard let item = model?.editor.currentMedia else { return "Annotation canvas, no capture" }
-        let count = model?.editor.annotations(on: item.id).count ?? 0
-        return "Annotation canvas, \(item.filename), \(count) annotation\(count == 1 ? "" : "s")"
+        let count = model?.editor.visibleAnnotations(on: item.id).count ?? 0
+        let time = model?.editor.currentDurationMs.map { _ in " showing at \(TimeFormat.clock(model?.editor.currentTimeMs ?? 0))" } ?? ""
+        return "Annotation canvas, \(item.filename), \(count) annotation\(count == 1 ? "" : "s")\(time)"
     }
 
     override func accessibilityHelp() -> String? {
         "Choose a tool with V, R, F, A, I, or S, then press Return to add a shape. "
-            + "Arrow keys move the selected annotation, Tab selects the next one, and Return edits its note."
+            + "Arrow keys move the selected annotation, Tab selects the next one, and Return edits its note. "
+            + "On a video, comma and period step the playhead, and Home and End jump to the start and end."
     }
 
     override func accessibilityChildren() -> [Any]? {
         guard let model, let item = model.editor.currentMedia, let renderer = renderer() else { return [] }
         let frame = MediaFrame(item)
         var live: [String: AnnotationAccessibilityElement] = [:]
-        let elements = model.editor.annotations(on: item.id).map { annotation -> AnnotationAccessibilityElement in
+        let elements = model.editor.visibleAnnotations(on: item.id).map { annotation -> AnnotationAccessibilityElement in
             let element = accessibilityElements[annotation.id] ?? AnnotationAccessibilityElement(annotationID: annotation.id, canvas: self)
             element.setAccessibilityLabel(model.editor.accessibilityLabel(for: annotation.id))
             // Points and thin shapes get a minimum target so VoiceOver can outline them.

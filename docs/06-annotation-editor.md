@@ -1,7 +1,7 @@
 # 06 — Annotation editor
 
-Status: implemented on macOS (`HS2-9H7WZ8`). Freehand smoothing is `HS2-5N1GFW`. Video trim and
-annotation time ranges are `HS2-GBM8JN`. Zoom/pan is `HS2-9Y9DDY`.
+Status: implemented on macOS (`HS2-9H7WZ8`). Freehand smoothing is `HS2-5N1GFW`. Zoom/pan is
+`HS2-9Y9DDY`. Video trim and annotation time ranges are `HS2-GBM8JN` (§6.10).
 
 The editor marks up the captures of a draft review ([04-capture.md](04-capture.md) §4.6). It
 writes shapes, notes, and intents into the draft's `review.json`
@@ -33,13 +33,13 @@ opens the editor on the current draft.
 
 | Area | Contents |
 | --- | --- |
-| Tool bar | Tools (§6.3), Undo, Redo, **Restore Original** (only while the image is cropped, §6.6), and a status line: "Editing…" / "Saved to draft", the last editor message, or a save error |
+| Tool bar | Tools (§6.3), Undo, Redo, **Restore Original** (only while the image is cropped or the video trimmed, §6.6, §6.10), and a status line: "Editing…" / "Saved to draft", the last editor message, or a save error |
 | Media strip (left, only with 2+ captures) | Thumbnails (with the current crop) plus a count badge of annotations on each. Click one to show it. Videos are marked |
-| Canvas | The current capture fitted to the view (at most 2×) or zoomed (§6.2.1), on a dark backdrop, with annotations drawn on top |
-| Inspector (right) | The selected annotation's number, shape, intents, and Markdown note, with Duplicate and Delete buttons. Below that, every annotation on this capture in review order: number, shape, intents, and note preview. Click a row to select it |
+| Canvas | The current capture fitted to the view (at most 2×) or zoomed (§6.2.1), on a dark backdrop, with annotations drawn on top. A video shows the frame at the playhead |
+| Timeline (under the canvas, videos only) | Frame step, playhead time, **Trim Start** / **Trim End**, and the scrubber with each annotation's time range (§6.10) |
+| Inspector (right) | The selected annotation's number, shape, intents, time (videos, §6.10), and Markdown note, with Duplicate and Delete buttons. Below that, every annotation on this capture in review order: number, shape, intents, time range (videos), and note preview. Click a row to select it |
 
-Videos show their first frame. You can annotate them, but they have no time range (the whole
-clip) until `HS2-GBM8JN`, and they can't be cropped.
+Videos can be trimmed and their annotations given time ranges (§6.10). They can't be cropped.
 
 **Menu bar app.** UX Review has no visible main menu, so the editor installs a minimal hidden
 Edit menu. That lets ⌘Z, ⇧⌘Z, ⌘X, ⌘C, ⌘V, ⌘A, ⌘D, ⌘S, and ⌘W work.
@@ -180,6 +180,8 @@ So a small box drawn inside a big one stays selectable.
 | ⌘D | Duplicate the selection (offset 2 %, with the same note and intents) |
 | ⌘S | Save now |
 | ⌘+ / ⌘- / ⌘0 / ⌘1, Space-drag | Zoom in / out / fit / actual pixels, pan (§6.2.1) |
+| , / . (⇧: 1 s) | Videos: step the playhead back / forward 0.1 s (§6.10) |
+| Home / End | Videos: move the playhead to the start / end |
 
 **Drawing without a pointer** (`HS2-M8ZFS0`). Choose a tool (R, F, A, I, S), then press ⏎.
 `AnnotationEditor.insertDefaultShape(at:)` adds a shape centered on the middle of what the
@@ -196,9 +198,13 @@ canvas shows (so it lands in view when zoomed):
 **VoiceOver.** The canvas is an accessibility group, for example "Annotation canvas,
 capture-1.png, 6 annotations". Its help text explains the keys above.
 
-- **Elements:** each annotation on the current capture is a child element (role description
+- **Elements:** each annotation showing on the current capture (on a video, at the playhead) is a child element (role description
   "annotation") whose label reads the number, shape, intents, and note, for example
-  "Annotation 1: Rectangle, comment, bug. Field label is clipped."
+  "Annotation 1: Rectangle, comment, bug. Field label is clipped." An annotation with a time
+  range adds it, for example "…, comment, shows 0:01.00–0:02.50. …". On a video the canvas label
+  ends with the playhead time, for example "… 2 annotations showing at 0:01.50".
+- **Timeline:** the scrubber is an adjustable element ("Playhead", value "0:01.50 of 0:03.00");
+  VoiceOver's increment and decrement step it 0.1 s.
 - **Frame:** the element frame is the shape's bounds plus 8 points, so points and thin
   shapes stay outlineable.
 - **Pressing** an element (VO-Space) selects that annotation. The selected element is
@@ -282,7 +288,7 @@ records the crop that produced the current file, relative to that original:
 
 `AnnotationEditor` is a pure value-type state machine. Its state has these parts:
 
-- **document**: the bundle, plus each image's crop
+- **document**: the bundle, plus each image's crop and each video's trim
 - **selection**
 - **current media**
 - **tool**
@@ -299,20 +305,20 @@ records the crop that produced the current file, relative to that original:
    - Consecutive note edits of the same annotation are one step.
    - Consecutive nudges of the same annotation are one step.
    - Selecting anything, undo, or another edit ends the run.
-4. **Undo and redo restore** the document, the selection, and the capture that was showing. So
-   undoing an edit on another capture jumps back to it.
+4. **Undo and redo restore** the document, the selection, the capture that was showing, and its
+   playhead. So undoing an edit on another capture jumps back to it.
 5. **A new edit clears redo.** History keeps the last 200 steps.
-6. **Not undoable:** navigation (showing media, selecting, choosing a tool).
+6. **Not undoable:** navigation (showing media, selecting, choosing a tool, moving the playhead).
 7. **Annotation ids** are `aN`, one past the highest id in the document *or its history*. An id
    is therefore never reused, even after delete then undo.
 
 **Autosave.** Changes autosave to the draft 0.6 s after the last edit (never mid-gesture). The
 editor also saves on ⌘S and when the window closes. `EditorSession.save()` runs in this order:
 
-1. Rewrite the image files whose crop changed.
+1. Rewrite the image files whose crop changed, and the movies whose trim changed (§6.10).
 2. Save through `ReviewDraftStore.update`. Under the store's lock, this re-reads `review.json`,
-   replaces the annotations, updates edited media sizes, and keeps media appended since the
-   editor opened.
+   replaces the annotations, updates edited media sizes and durations, and keeps media appended
+   since the editor opened.
 3. Merge any such new captures into the editor.
 
 **Captures while the editor is open.** A capture made while the editor is open is picked up
@@ -326,12 +332,14 @@ right away (`.reviewDraftChanged` notification).
 | Piece | Where |
 | --- | --- |
 | State machine, gestures, crop, intent toggle | `UXReviewKit/Editor/AnnotationEditor.swift`, `AnnotationEditor+Gestures.swift` |
+| Playhead, time ranges, trim | `UXReviewKit/Editor/AnnotationEditor+Time.swift` |
+| Movie frames and trimmed export | `UXReviewKit/Editor/VideoTrim.swift` |
 | Pixel ↔ normalized space, handles, hit testing, move/resize | `UXReviewKit/Editor/ShapeGeometry.swift` |
 | Crop math | `UXReviewKit/Editor/ImageCrop.swift` |
 | Drawing | `UXReviewKit/Editor/AnnotationRenderer.swift` |
 | Files: load, display images, video poster, save, crop writes | `UXReviewKit/Editor/EditorSession.swift` |
 | Scripted sessions + `--annotate` parsing | `UXReviewKit/Editor/EditorScript.swift` |
-| Window, canvas, inspector, model, previews, headless mode | `App/Sources/Editor/` |
+| Window, canvas, timeline, inspector, model, previews, headless mode | `App/Sources/Editor/` (`TimelineBar.swift` is the timeline) |
 
 ## 6.9 Headless modes (tests and scripts)
 
@@ -343,10 +351,11 @@ UXReview --annotate SCRIPT.json [--drafts-dir DIR] [--draft NAME] [--render-dir 
 on the current draft (or the draft directory named by `--draft`), then saves.
 
 - `--render-dir` writes each capture with its annotations drawn on, as
-  `<name>-annotated.png`. A video is drawn on its first frame.
+  `<name>-annotated.png`. A video is drawn at the playhead if it is the capture showing when the
+  script ends, otherwise at its first frame. Only annotations showing at that time are drawn.
 - It prints one JSON object: `status: "annotated"`, `draftDirectory`, `messages` (editor
-  status messages, for example crop results), `media`, `annotations` (`number`, `id`,
-  `mediaId`, `type`, effective `intents`, `note`), and `rendered`.
+  status messages, for example crop and trim results), `media`, `annotations` (`number`, `id`,
+  `mediaId`, `type`, effective `intents`, `note`, and `timeRange` when set), and `rendered`.
 
 **Script format.** A script is `{"steps": [...]}`. Points are media pixels, from the top left.
 
@@ -360,7 +369,11 @@ on the current draft (or the draft directory named by `--draft`), then saves.
 | `{"op": "note", "text": …}`, `{"op": "intent", "intent": "bug"}`, `{"op": "closed", "closed": false}` | Edit the selection (intent toggles) |
 | `{"op": "delete"}`, `{"op": "duplicate"}`, `{"op": "nudge", "dx": 1, "dy": 0}` | Act on the selection |
 | `{"op": "insert", "point": [x, y]}` (point optional; default the media center) | ⏎ with the current drawing tool (§6.4) |
-| `{"op": "crop", "rect": [x, y, w, h]}`, `{"op": "reset-crop"}` (alias `restore-original`) | Crop the current image, or restore it (§6.6) |
+| `{"op": "crop", "rect": [x, y, w, h]}`, `{"op": "reset-crop"}` | Crop the current image, or restore it (§6.6) |
+| `{"op": "time", "ms": 1500}` | Move the playhead on the current video (fails on an image) |
+| `{"op": "range", "start": 200, "end": 900}`, `{"op": "range"}` | Set the selection's time range in ms, or make it the whole clip (fails on an image's annotation) |
+| `{"op": "trim", "start": 200, "end": 900}`, `{"op": "reset-trim"}` | Keep that part of the current video, or restore its length (§6.10) |
+| `{"op": "restore-original"}` | Restore Original: the current image's crop or the current video's trim |
 | `{"op": "undo"}`, `{"op": "redo"}`, `{"op": "save"}` | History and saving |
 
 | Exit code | `error` | Meaning |
@@ -382,3 +395,82 @@ editor offscreen through the real views, on a draft of mock app screenshots:
 - `editor-zoomed` (300 % with a selection, §6.2.1)
 - `editor-keyboard-insert` (R then ⏎ sent as real key events), with the canvas's accessibility
   tree written to `editor-accessibility.json`
+- `editor-video-timeline`, `editor-video-narrow`, and `editor-video-trimmed`: a mock screen
+  recording with a ranged, an instant, and a whole-clip annotation, the playhead inside the
+  first range (§6.10)
+
+## 6.10 Video time and trimming
+
+Videos get a timeline under the canvas (`HS2-GBM8JN`). Annotations can be limited to part of
+the clip, and the clip itself can be trimmed.
+
+**Playhead.** The canvas shows the frame at the playhead.
+
+- **Moving it:** click or drag the scrubber; ← / → buttons or `,` / `.` step 0.1 s (⇧: 1 s);
+  Home / End jump to the ends. The time reads `0:01.50 / 0:03.00`.
+- **Resets:** showing another capture puts it back at 0. It is navigation, so it is not
+  undoable, but undo and redo restore the playhead of the step they return to.
+- **Frames** come from `AVAssetImageGenerator` with zero tolerance. The clip's end time shows
+  the last frame.
+
+**Time ranges.** An annotation's `timeRange` ([02-review-bundle.md](02-review-bundle.md) §2.6)
+is inclusive, in ms of the clip as trimmed. Equal ends mark an instant. No range means the
+whole clip.
+
+- **Default:** new shapes, drawn or inserted, cover the whole clip.
+- **Inspector:** the **Time** section has a **Whole clip** checkbox. Unchecking it sets the range
+  from the playhead to the end. **From** and **To** each show their time (click to move the
+  playhead there) and a **Set to Playhead** button. Moving From past To, or To before From,
+  drags the other end along.
+- **Rules:** `setTimeRange` clamps to the clip and swaps reversed ends. Each change is one undo
+  step. Ranges are refused for images.
+- **Showing:** the canvas draws, hit-tests, and exposes to VoiceOver only the annotations whose
+  range contains the playhead. A hidden selection stays selected (the inspector still edits it)
+  but has no handles.
+- **Revealing:** selecting a hidden annotation, from the list, with Tab, or by number, moves the
+  playhead to its start.
+- **List:** rows on a video show the range (`0:01.00–0:02.00`, one time for an instant, or
+  "Whole clip"). Rows hidden at the playhead are dimmed.
+- **Timeline:** ranges are drawn under the scrubber in their intent color, numbered when wide
+  enough. Instants are thin ticks, and the selection is outlined. Whole-clip annotations aren't
+  drawn.
+
+**Trimming.** **Trim Start** cuts everything before the playhead, and **Trim End** cuts everything
+after it.
+
+- **Limits:** the kept clip must be at least 100 ms. A trim to the whole clip does nothing.
+  Trims are refused for images ("Only videos can be trimmed.").
+- **Annotations:** the clip's `durationMs` becomes the kept length. Ranges shift with the clip
+  and are clamped into it. Annotations whose range lies entirely outside it are **removed**
+  ("Trimmed to 2.5 s. Removed 1 annotation outside the trim."), and undo brings them back.
+  Whole-clip annotations stay whole-clip. The playhead stays on the same frame.
+- **Composing:** a second trim is relative to the first. **Restore Original** (Reset Trim for an
+  untrusted original, as with crops) returns to the full length and maps ranges back. It is
+  undoable.
+- **Validity:** every range stays within `durationMs`, so `timeRangeBeyondDuration` never fires
+  for an edited bundle.
+
+**Files.** Saving a changed trim rewrites the movie:
+
+- **Export:** `AVAssetExportSession` at the highest-quality preset writes the kept part from
+  the session's base movie to a temporary file, which then replaces the movie. Re-encoding makes
+  the cut frame-accurate instead of snapping to key frames. The container follows the file
+  extension (`.mov`, `.mp4`, `.m4v`).
+- **Restoring:** the full length is restored by copying the original back byte for byte.
+- **Originals:** the first trim keeps the untouched movie as `originals/<filename>`.
+  `originals/crops.json` records the trim and the original's length under `trims`:
+
+```json
+{"crops": {}, "trims": {"capture-2.mov": {"endMs": 900, "originalDurationMs": 1000, "startMs": 200}}, "version": 1}
+```
+
+- **Later sessions** start with that trim applied, without marking the editor dirty, and can
+  restore the original.
+- **When a record is trusted:** the original exists, the trim lies inside its recorded length,
+  and the clip's `durationMs` is exactly the trim's length. Unlike crops, there is no implicit
+  full-length record.
+- **Otherwise** the movie is edited relative to the file as found. Before the first rewrite,
+  the session copies that file to a temporary base. The existing original is never overwritten,
+  and its record is dropped.
+- **Indexes:** indexes without `trims` (from before this feature) still load. Indexes without
+  trims don't write the key.

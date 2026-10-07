@@ -47,15 +47,31 @@ public struct PriorCrop: Codable, Equatable, Sendable {
     }
 }
 
-/// What the editor saves: the bundle plus each image's crop, relative to the image as it was
-/// when the session opened.
+/// A movie trimmed in an earlier session: its original's duration and the trim, relative to the
+/// original, that produced the current file. Spec: docs/06-annotation-editor.md §6.10.
+public struct PriorTrim: Codable, Equatable, Sendable {
+    public var originalDurationMs: Int
+    public var trim: TimeRange
+
+    public init(originalDurationMs: Int, trim: TimeRange) {
+        self.originalDurationMs = originalDurationMs
+        self.trim = trim
+    }
+}
+
+/// What the editor saves: the bundle plus each image's crop and each movie's trim, relative to
+/// the media as it was when the session opened (or to its kept original).
 public struct EditorDocument: Equatable, Sendable {
     public var bundle: ReviewBundle
     public var crops: [String: PixelRect]
+    /// The part of each trimmed movie that is kept, in ms of the session's base movie; the kept
+    /// clip runs from `startMs` to `endMs` and lasts `endMs - startMs`.
+    public var trims: [String: TimeRange]
 
-    public init(bundle: ReviewBundle, crops: [String: PixelRect] = [:]) {
+    public init(bundle: ReviewBundle, crops: [String: PixelRect] = [:], trims: [String: TimeRange] = [:]) {
         self.bundle = bundle
         self.crops = crops
+        self.trims = trims
     }
 }
 
@@ -82,6 +98,7 @@ public struct AnnotationEditor: Sendable {
         var document: EditorDocument
         var selection: String?
         var mediaId: String?
+        var timeMs = 0
     }
 
     enum CoalesceKey: Equatable, Sendable {
@@ -100,6 +117,11 @@ public struct AnnotationEditor: Sendable {
     public internal(set) var message: String?
     /// Image sizes when the session opened; crops are relative to these.
     public internal(set) var originalSizes: [String: PixelRect]
+    /// Movie durations (ms) of each video's base when the session opened; trims are relative to these.
+    public internal(set) var originalDurations: [String: Int]
+    /// The playhead: how far into the current video (as trimmed) the canvas shows, in ms. Always 0
+    /// for images. Annotations with a time range show only while it is inside their range.
+    public internal(set) var currentTimeMs = 0
     /// Smallest box or arrow a drag creates, in media pixels. The view sets it from its zoom.
     public var minimumSide: Double = 6
     /// How far from a stroke or handle a click still hits, in media pixels.
@@ -114,17 +136,27 @@ public struct AnnotationEditor: Sendable {
     /// `originals` gives, for images cropped in an earlier session, the size of the untouched
     /// original and the crop (relative to it) that made the current file. The editor then edits
     /// relative to the original: the crop starts applied, and Reset Crop restores the original.
-    public init(bundle: ReviewBundle, mediaId: String? = nil, originals: [String: PriorCrop] = [:]) {
+    ///
+    /// `trims` does the same for movies trimmed in an earlier session.
+    public init(
+        bundle: ReviewBundle, mediaId: String? = nil, originals: [String: PriorCrop] = [:], trims: [String: PriorTrim] = [:]
+    ) {
         var document = EditorDocument(bundle: bundle)
         var sizes = Dictionary(bundle.media.map { ($0.id, Self.size(of: $0)) }) { first, _ in first }
         for (id, prior) in originals where sizes[id] != nil {
             sizes[id] = prior.originalSize
             if prior.crop != prior.originalSize { document.crops[id] = prior.crop }
         }
+        var durations = Dictionary(bundle.media.compactMap { item in item.durationMs.map { (item.id, $0) } }) { first, _ in first }
+        for (id, prior) in trims where durations[id] != nil {
+            durations[id] = prior.originalDurationMs
+            if prior.trim != TimeRange(startMs: 0, endMs: prior.originalDurationMs) { document.trims[id] = prior.trim }
+        }
         self.document = document
         savedDocument = document
         currentMediaId = mediaId.flatMap { id in bundle.media.contains { $0.id == id } ? id : nil } ?? bundle.media.first?.id
         originalSizes = sizes
+        originalDurations = durations
     }
 
     static func size(of item: MediaItem) -> PixelRect {
@@ -165,6 +197,7 @@ public struct AnnotationEditor: Sendable {
         cancelGesture()
         currentMediaId = mediaId
         selection = nil
+        currentTimeMs = 0
     }
 
     /// Selects an annotation (showing its media) or clears the selection.
@@ -174,9 +207,12 @@ public struct AnnotationEditor: Sendable {
             selection = nil
             return
         }
+        if target.mediaId != currentMediaId { currentTimeMs = 0 }
         currentMediaId = target.mediaId
         selection = id
         coalesceKey = nil
+        // Show the annotation: move the playhead into its range when it is outside.
+        if let range = target.timeRange, !range.contains(currentTimeMs) { currentTimeMs = range.startMs }
     }
 
     /// Tab / Shift-Tab: the next or previous annotation on the current media, wrapping.
@@ -303,6 +339,7 @@ public struct AnnotationEditor: Sendable {
         }
         for item in added {
             originalSizes[item.id] = Self.size(of: item)
+            if let duration = item.durationMs { originalDurations[item.id] = duration }
         }
         if currentMediaId == nil { currentMediaId = added.first?.id }
         return added.map(\.id)
@@ -310,12 +347,16 @@ public struct AnnotationEditor: Sendable {
 
     // MARK: Internals
 
-    var snapshot: Snapshot { Snapshot(document: document, selection: selection, mediaId: currentMediaId) }
+    var snapshot: Snapshot { Snapshot(document: document, selection: selection, mediaId: currentMediaId, timeMs: currentTimeMs) }
 
     mutating func restore(_ snapshot: Snapshot) {
         document = snapshot.document
         selection = snapshot.selection.flatMap { annotation($0) == nil ? nil : $0 }
-        if let mediaId = snapshot.mediaId, media(mediaId) != nil { currentMediaId = mediaId }
+        if let mediaId = snapshot.mediaId, media(mediaId) != nil {
+            currentMediaId = mediaId
+            currentTimeMs = snapshot.timeMs
+        }
+        clampTime()
         coalesceKey = nil
         message = nil
     }
@@ -334,6 +375,8 @@ public struct AnnotationEditor: Sendable {
         document = after.document
         selection = after.selection
         currentMediaId = after.mediaId
+        currentTimeMs = after.timeMs
+        clampTime()
         coalesceKey = key
         message = nil
         return true
@@ -402,6 +445,7 @@ public extension AnnotationEditor {
         guard let annotation = bundle.annotations.first(where: { $0.id == id }), let number = number(of: id) else { return nil }
         let intents = annotation.effectiveIntents.map(\.rawValue).joined(separator: ", ")
         let note = annotation.note.trimmingCharacters(in: .whitespacesAndNewlines)
-        return "Annotation \(number): \(annotation.shape.displayName), \(intents)." + (note.isEmpty ? " No note." : " \(note)")
+        let time = annotation.timeRange.map { ", shows \(TimeFormat.range($0))" } ?? ""
+        return "Annotation \(number): \(annotation.shape.displayName), \(intents)\(time)." + (note.isEmpty ? " No note." : " \(note)")
     }
 }

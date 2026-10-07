@@ -304,3 +304,52 @@ Each feature gets both unit tests and end-to-end tests. Tests live in
   canvas middle.
 - **Not covered automatically:** a live VoiceOver session (speech, VO-Space). Element press
   calls the same `select` that clicking does.
+
+## HS2-GBM8JN: video trimming and annotation time ranges
+
+- **State machine** (`VideoTimeTests`), as transition-matrix and adversarial walks:
+  - visibility at range ends (inclusive), instants, and whole-clip annotations
+  - the playhead clamps and steps, isn't undoable, and resets when the capture changes
+  - images refuse the playhead, ranges, and trims
+  - selecting a hidden annotation (click, Tab) reveals it
+  - hidden annotations can't be clicked or resized
+  - new shapes cover the whole clip
+  - `setTimeRange` clamps, swaps, is one undo step, and is a no-op when unchanged; duplicate
+    keeps the range
+  - trim shifts, clamps, and removes ranges (straddling, inside, outside, instants at either
+    end), sets `durationMs`, and keeps the playhead's frame
+  - undo/redo across trims; trims compose; reset maps back; refused trims (short, whole,
+    zero-length) record nothing
+  - redo cleared after a new trim; ids stay unique
+  - empty-then-refill loops of trim, undo, and reset
+  - prior trims start applied, and full-length records count as untrimmed
+  - undo across a trim and a capture switch
+  - accessibility labels and time formats
+  - `OriginalsIndex` trim records round-trip, trust rules, and old indexes without `trims`
+- **Session and files** (`VideoTrimSessionTests`, a real 2 s H.264 movie, red then blue):
+  - the frame at the playhead, including the clip's end
+  - trim → save: the movie's real duration (AVFoundation) matches, the original is kept byte for
+    byte, `crops.json` records the trim, and `review.json` validates
+  - reopen: the trim is applied and the editor isn't dirty; Restore Original copies the original
+    back byte for byte and maps ranges back
+  - trims stay undoable after saving and compose from the original
+  - an untrusted original is never overwritten
+  - scripts with `range`, `time`, and `trim`; render items filtered by the playhead
+- **Script parsing** (`VideoScriptParsingTests`): `time`, `range`, `trim`, `reset-trim`, and
+  `restore-original`; malformed ops; `time` on an image; `range` on an image annotation
+- **App end to end** (`scripts/app-e2e.sh`):
+  - `--annotate` on the synthetic recording: a range, an out-of-range annotation, and a trim to
+    700 ms
+  - checks `durationMs`, shifted ranges, the removal message, the byte-identical
+    `originals/capture-2.mov`, the `crops.json` trim record, and the ffprobe duration
+    (0.70 s); the schema validates
+  - a later session's `restore-original` restores the movie byte for byte, with ranges mapped
+    back
+  - a `time` step on an image exits 2
+- **Visual QA:** `editor-video-timeline`, `editor-video-narrow`, and `editor-video-trimmed`,
+  inspected by hand. The hidden instant is dimmed in the list; range bars are numbered and the
+  selected one is outlined; Restore Original and the "Trimmed to 2.5 s." status appear after a
+  trim.
+- **Not covered automatically:** live mouse drags on the scrubber and the timeline buttons.
+  These are view code over the unit-tested `setCurrentTime`, `stepTime`, and
+  `trimStart`/`EndToPlayhead`; live-window automation is `HS2-HA9TW3`.
