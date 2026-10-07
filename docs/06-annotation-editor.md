@@ -158,6 +158,18 @@ example in a 5K screenshot), zoom in (`HS2-9Y9DDY`):
   - Minimum size: 6 screen points for a box side, 12 for an arrow's length.
   - A freehand path needs 3 distinct points.
 - Points outside the image clamp to its edge.
+- **Freehand smoothing** (`HS2-5N1GFW`, `FreehandSmoothing`): a freehand stroke is cleaned up
+  as it is drawn, and the preview shows exactly what will be committed.
+  - **Resampling:** samples closer than 3 screen points are merged.
+  - **Smoothing:** two light [1, 2, 1] / 4 passes remove jitter, but no point moves more than
+    1.5 screen points from where it was drawn.
+  - **Corners:** a point turning more than 55° (judged against points two samples away) never
+    moves, so corners stay sharp.
+  - **Simplifying:** near-collinear points within 0.75 screen points of the line through their
+    neighbours are dropped. That is a gentle Douglas–Peucker, not aggressive simplification.
+  - **Endpoints:** the stroke's ends stay exact. A nearly straight stroke keeps its ends and its
+    widest point.
+  - **Scale:** sizes are in screen points, so the feel is the same at every zoom.
 
 **Moving and resizing:**
 

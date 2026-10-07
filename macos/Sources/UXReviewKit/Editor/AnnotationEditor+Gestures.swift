@@ -276,8 +276,11 @@ public extension AnnotationEditor {
         case .insertion:
             return .insertion(frame.norm(last))
         case .freehand:
+            // Jitter removed, faithful to the stroke: samples 3 screen points apart, nothing moved
+            // more than 1.5 (`minimumSide` is 6 screen points in media pixels).
+            let smoothed = FreehandSmoothing.smooth(points, closed: false, spacing: minimumSide / 2, tolerance: minimumSide / 4)
             var normalized: [NormPoint] = []
-            for point in points.map(frame.norm) where normalized.last != point {
+            for point in smoothed.map(frame.norm) where normalized.last != point {
                 normalized.append(point)
             }
             let box = CGRect(

@@ -540,3 +540,21 @@ Each feature gets both unit tests and end-to-end tests. Tests live in
   under it.
 - **Not covered automatically:** the timer under live mouse drags in a window. It is a thin
   loop over the tested step; live-window automation is `HS2-HA9TW3`.
+
+## HS2-5N1GFW: freehand outline smoothing
+
+- **Properties** (`FreehandSmoothingTests`, 40 seeds × an open stroke, a circle, and a square):
+  - every output point is within the tolerance of the drawn stroke, and every drawn point is
+    within the spacing plus twice the tolerance of the outline (nothing collapses)
+  - the point count stays between 3 and the input's count
+- **Specific cases:**
+  - open strokes keep their exact endpoints; closed outlines don't repeat their start
+  - a jittered square keeps all four corners
+  - a jittered circle has under 80 % of the radial error after smoothing
+  - a straight noisy line becomes its ends plus its widest point
+  - degenerate inputs (empty, one, two, identical, sub-spacing, zero tolerance) pass through
+- **Through the editor:** the freehand preview equals the committed outline, which is closed and
+  has under half the drawn samples. The existing freehand, keyboard, script, and session tests
+  still pass with smoothing on.
+- **App end to end:** `scripts/app-e2e.sh`'s `--annotate` draws a freehand outline through the
+  real editor, and its `review.json` still validates.
