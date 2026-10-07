@@ -61,7 +61,8 @@ The ticket is titled `UX review: <title>`, has category `task`, and carries the 
    created slugs and complete the intake ticket.
 2. **Reviewer summary**, if the review has one.
 3. **Capture context**: app (and bundle id), window, URL, and OS, for whichever are known.
-4. **Media**: one line per file, giving kind, pixel size, and duration.
+4. **Media**: one line per file, giving kind, pixel size, and duration, plus `, from <App> “<Window>”`
+   when the capture recorded its own context ([04-capture.md](04-capture.md) §4.5).
 5. **Annotations**: one section per annotation, `### #N · <intents> · attachment:<file>`. Each
    gives the shape, the projected region in 0–10000 units, the time range as `m:ss.mmm`, and the
    note (or `_No note._`).

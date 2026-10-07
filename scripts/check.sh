@@ -46,6 +46,9 @@ if [[ "${SKIP_APP:-0}" != "1" ]]; then
   OUT="$(tbox 60 "$APP_BIN" --status --project "$TMP/project")"
   echo "$OUT"
   grep -q '"storePath"' <<<"$OUT" || { echo "app did not resolve the store" >&2; exit 1; }
+
+  step "app e2e: headless capture flows (scripts/app-e2e.sh)"
+  "$ROOT/scripts/app-e2e.sh" "$APP_BIN"
 fi
 
 step "all checks passed"

@@ -20,7 +20,10 @@ It is attached to the Hot Sheet ticket as `review.json`, next to the captured me
 ## 2.2 Media
 
 Each entry has `id`, `filename`, `kind` (`image` or `video`), `pixelWidth`, `pixelHeight`,
-`capturedAt`, and, for video, `durationMs` (after trimming).
+`capturedAt`, and, for video, `durationMs` (after trimming). Optional `context` (same fields as
+the top-level `context`) records where that capture came from, since one review can span several
+apps ([04-capture.md](04-capture.md) §4.5). The top-level `context` describes the review as a
+whole and defaults to the first capture's.
 
 - `filename` is unique within the bundle.
 - Tickets refer to media as `attachment:<filename>`.

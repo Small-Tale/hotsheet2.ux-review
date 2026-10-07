@@ -39,6 +39,12 @@ client's tests must decode them, and the macOS tests also re-encode them lossles
 - **Bundle id**: `com.smalltale.uxreview`.
 - **Headless smoke mode**: `UXReview --status [--project <dir>]` prints the Hot Sheet status as
   JSON and exits with 0 when ready, 3 otherwise.
+- **Capture** (`App/Sources/Capture/`): ScreenCaptureKit backend, region/window picker overlays,
+  countdown HUD, and `CaptureCoordinator`. Pure parts (requests, region math, window selection,
+  context, draft store, `--capture` parsing) live in `UXReviewKit` (`Capture/`, `Review/`).
+  See [04-capture.md](04-capture.md).
+- **Headless capture**: `UXReview --capture …` and `--render-ui-previews DIR`
+  ([04-capture.md](04-capture.md) §4.8).
 - **Settings**: the project folder is stored in `UserDefaults` (`projectDirectory`) and can be
   overridden with `--project`.
 
@@ -53,6 +59,7 @@ client's tests must decode them, and the macOS tests also re-encode them lossles
    skipping the end-to-end test
 5. the XcodeGen + `xcodebuild` app build
 6. the app smoke run against a throwaway Hot Sheet store
+7. `scripts/app-e2e.sh`, which drives the built app's headless capture and preview modes
 
 Set `SKIP_APP=1` to skip the app build. Long steps are time-boxed when coreutils `timeout` is
 available.

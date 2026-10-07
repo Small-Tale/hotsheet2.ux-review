@@ -12,9 +12,10 @@ AI that picks it up to split the review into individual tickets that reuse the s
 macOS comes first (Swift, built with Xcode) and sets the patterns. Linux and Windows variants will
 follow and share the same review bundle format.
 
-> **Status:** repository foundation. The core model, ticket composition, and Hot Sheet CLI
-> submission are implemented and tested. The menu bar app is a shell that only shows Hot Sheet
-> status for now. See [docs/README.md](docs/README.md) for the roadmap and tickets.
+> **Status:** early. The core model, ticket composition, and Hot Sheet CLI submission are
+> implemented and tested. The menu bar app captures screenshots of a screen, window, or region,
+> optionally after a delay, into a draft review
+> ([docs/04-capture.md](docs/04-capture.md)). Annotation and submission UI are next. See [docs/README.md](docs/README.md) for the roadmap and tickets.
 
 ## Repository layout
 

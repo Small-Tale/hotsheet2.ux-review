@@ -187,6 +187,9 @@ public struct MediaItem: Codable, Equatable, Sendable {
     /// Video duration after trimming; nil for images.
     public var durationMs: Int?
     public var capturedAt: Date
+    /// Where this capture came from. A review can mix captures of several apps; the bundle-level
+    /// `context` describes the review as a whole (by default, its first capture).
+    public var context: CaptureContext?
 
     public init(
         id: String,
@@ -195,7 +198,8 @@ public struct MediaItem: Codable, Equatable, Sendable {
         pixelWidth: Int,
         pixelHeight: Int,
         durationMs: Int? = nil,
-        capturedAt: Date
+        capturedAt: Date,
+        context: CaptureContext? = nil
     ) {
         self.id = id
         self.filename = filename
@@ -204,6 +208,7 @@ public struct MediaItem: Codable, Equatable, Sendable {
         self.pixelHeight = pixelHeight
         self.durationMs = durationMs
         self.capturedAt = capturedAt
+        self.context = context
     }
 }
 
@@ -232,6 +237,11 @@ public struct Annotation: Codable, Equatable, Sendable {
 
 /// Where the capture came from, to help whoever acts on the ticket reproduce it.
 public struct CaptureContext: Codable, Equatable, Sendable {
+    /// True when no field is set.
+    public var isEmpty: Bool {
+        appName == nil && bundleIdentifier == nil && windowTitle == nil && url == nil && osVersion == nil && displayScale == nil
+    }
+
     public var appName: String?
     public var bundleIdentifier: String?
     public var windowTitle: String?

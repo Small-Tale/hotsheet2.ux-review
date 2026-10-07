@@ -1,6 +1,7 @@
 # 00 — Vision and principles
 
-Status: foundation in place (`HS2-3ZSBZ9`); capture and editing features are tracked in
+Status: foundation in place (`HS2-3ZSBZ9`); screenshot capture implemented (`HS2-E89PQR`,
+[04-capture.md](04-capture.md)); other capture and editing features are tracked in
 [README.md](README.md#roadmap).
 
 ## 0.1 Problem

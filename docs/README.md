@@ -9,6 +9,7 @@ any behavior change.
 | [01-architecture.md](01-architecture.md) | Repo layout, the cross-platform contract, macOS structure, gates |
 | [02-review-bundle.md](02-review-bundle.md) | The review bundle format: media, shapes, intents, time ranges, validation |
 | [03-hotsheet-integration.md](03-hotsheet-integration.md) | How reviews become Hot Sheet 2 tickets |
+| [04-capture.md](04-capture.md) | Screenshot capture: targets, delay, context, draft reviews, permission, headless modes |
 | [CODEBASE-MAP.md](CODEBASE-MAP.md) | File-by-file orientation |
 | [TEST-COVERAGE.md](TEST-COVERAGE.md) | Which tests cover which behavior |
 

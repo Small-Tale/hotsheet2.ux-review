@@ -19,7 +19,8 @@ struct TicketComposerTests {
         #expect(details.contains("## Reviewer summary\n\nSettings window pass before the beta."))
         #expect(details.contains("- App: Hot Sheet (`com.smalltale.hotsheet2`)"))
         #expect(details.contains("- Window: Hot Sheet — ux-review"))
-        #expect(details.contains("- `attachment:capture-2.mov` (video, 2880×1800, 0:08.000)"))
+        #expect(details.contains("- `attachment:capture-1.png` (image, 2880×1800)\n"))
+        #expect(details.contains("- `attachment:capture-2.mov` (video, 2880×1800, 0:08.000), from Hot Sheet “Hot Sheet — Settings”"))
         #expect(details.contains("### #1 · change · `attachment:capture-1.png`"))
         #expect(details.contains("### #2 · move · `attachment:capture-1.png`"))
         #expect(details.contains("### #3 · remove · `attachment:capture-1.png`"))
@@ -50,6 +51,17 @@ struct TicketComposerTests {
         #expect(!details.contains("## Reviewer summary"))
         #expect(!details.contains("## Capture context"))
         #expect(details.contains("No annotations; see the reviewer summary and media."))
+    }
+
+    @Test(arguments: [
+        (CaptureContext(appName: "Safari", windowTitle: "Settings"), "Safari “Settings”"),
+        (CaptureContext(appName: "Safari"), "Safari"),
+        (CaptureContext(windowTitle: "Settings"), "“Settings”"),
+        (CaptureContext(osVersion: "macOS 27.0"), nil),
+    ] as [(CaptureContext, String?)])
+    func mediaSourceLabel(context: CaptureContext, expected: String?) {
+        #expect(TicketComposer.sourceLabel(context) == expected)
+        #expect(TicketComposer.sourceLabel(nil) == nil)
     }
 
     @Test func emptyNotesAreMarked() {

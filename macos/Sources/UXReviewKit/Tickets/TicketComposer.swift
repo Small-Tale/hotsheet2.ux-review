@@ -101,14 +101,7 @@ public enum TicketComposer {
             lines.append("## Capture context\n\n" + context.joined(separator: "\n"))
         }
 
-        var mediaSection = ["## Media", ""]
-        for item in bundle.media {
-            var line = "- `attachment:\(item.filename)` (\(item.kind.rawValue), \(item.pixelWidth)×\(item.pixelHeight)"
-            if let duration = item.durationMs { line += ", \(formatTime(duration))" }
-            line += ")"
-            mediaSection.append(line)
-        }
-        lines.append(mediaSection.joined(separator: "\n"))
+        lines.append(mediaSection(bundle))
 
         var annotationSection = ["## Annotations"]
         if bundle.annotations.isEmpty {
@@ -137,6 +130,18 @@ public enum TicketComposer {
         return lines.joined(separator: "\n\n") + "\n"
     }
 
+    static func mediaSection(_ bundle: ReviewBundle) -> String {
+        var lines = ["## Media", ""]
+        for item in bundle.media {
+            var line = "- `attachment:\(item.filename)` (\(item.kind.rawValue), \(item.pixelWidth)×\(item.pixelHeight)"
+            if let duration = item.durationMs { line += ", \(formatTime(duration))" }
+            line += ")"
+            if let source = sourceLabel(item.context) { line += ", from \(source)" }
+            lines.append(line)
+        }
+        return lines.joined(separator: "\n")
+    }
+
     static func contextLines(_ bundle: ReviewBundle) -> [String] {
         let context = bundle.context
         let pairs: [(String, String?)] = [
@@ -148,6 +153,16 @@ public enum TicketComposer {
             ("OS", context.osVersion),
         ]
         return pairs.compactMap { label, value in value.map { "- \(label): \($0)" } }
+    }
+
+    /// "Safari “Settings”", "Safari", or "“Settings”" for a capture's own context.
+    static func sourceLabel(_ context: CaptureContext?) -> String? {
+        switch (context?.appName, context?.windowTitle) {
+        case let (app?, window?): "\(app) “\(window)”"
+        case let (app?, nil): app
+        case let (nil, window?): "“\(window)”"
+        case (nil, nil): nil
+        }
     }
 
     /// `m:ss.mmm`, for example `1:02.500`.

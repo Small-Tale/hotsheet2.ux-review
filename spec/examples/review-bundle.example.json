@@ -48,7 +48,7 @@
   "id" : "01M4A4XS7A72CW2B7Y0W9V0DX5",
   "media" : [
     { "capturedAt" : "2026-10-07T02:58:10Z", "filename" : "capture-1.png", "id" : "m1", "kind" : "image", "pixelHeight" : 1800, "pixelWidth" : 2880 },
-    { "capturedAt" : "2026-10-07T02:59:00Z", "durationMs" : 8000, "filename" : "capture-2.mov", "id" : "m2", "kind" : "video", "pixelHeight" : 1800, "pixelWidth" : 2880 }
+    { "capturedAt" : "2026-10-07T02:59:00Z", "context" : { "appName" : "Hot Sheet", "bundleIdentifier" : "com.smalltale.hotsheet2", "displayScale" : 2, "osVersion" : "macOS 27.0", "windowTitle" : "Hot Sheet — Settings" }, "durationMs" : 8000, "filename" : "capture-2.mov", "id" : "m2", "kind" : "video", "pixelHeight" : 1800, "pixelWidth" : 2880 }
   ],
   "schema" : "uxreview/bundle/v1",
   "summary" : "Settings window pass before the beta.",
