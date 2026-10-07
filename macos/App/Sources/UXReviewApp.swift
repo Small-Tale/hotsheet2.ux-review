@@ -3,7 +3,7 @@ import SwiftUI
 import UXReviewKit
 
 /// Menu-bar-only app (`LSUIElement`): capture from the menu or a global hotkey, annotate drafts
-/// in the editor window. Submission UI arrives in a follow-up ticket; see docs/README.md.
+/// in the editor window, and submit them to Hot Sheet from the review session window (docs/07).
 @main
 enum UXReviewMain {
     static func main() {
@@ -42,6 +42,12 @@ enum UXReviewMain {
             _ = NSApplication.shared
             NSApplication.shared.setActivationPolicy(.prohibited)
             exit(MainActor.assumeIsolated { HeadlessAnnotate.run(arguments: Array(CommandLine.arguments.dropFirst())) })
+        }
+        // Headless submit used by scripts/app-e2e.sh: file a draft in Hot Sheet, JSON result, exit (docs/07 §7.8).
+        if CommandLine.arguments.contains("--submit") {
+            _ = NSApplication.shared
+            NSApplication.shared.setActivationPolicy(.prohibited)
+            exit(MainActor.assumeIsolated { HeadlessSubmit.run(arguments: Array(CommandLine.arguments.dropFirst())) })
         }
         // Headless import used by scripts/app-e2e.sh: add existing files to the draft, JSON result, exit.
         if CommandLine.arguments.contains("--import") {

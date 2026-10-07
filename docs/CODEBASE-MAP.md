@@ -14,7 +14,7 @@ spec/
 docs/                          requirements, source of truth (see docs/README.md)
 scripts/
   check.sh                     repo gate: lint, spec, tests, app build + smoke + app e2e
-  app-e2e.sh                   drives the built app's headless modes (docs/04 §4.11, docs/06 §6.9)
+  app-e2e.sh                   drives the built app's headless modes (docs/04 §4.11, docs/06 §6.9, docs/07 §7.8)
   macos-project.sh             XcodeGen → macos/UXReview.xcodeproj (not committed)
 macos/
   Package.swift                SwiftPM package UXReviewKit (core, no AppKit)
@@ -25,8 +25,8 @@ macos/
     Model/ReviewBundle.swift       bundle, media, shapes, intents, time ranges, Codable
     Model/BundleValidation.swift   ReviewBundle.validate() rules (docs/02 §2.7)
     Tickets/TicketComposer.swift   intake ticket body + Hot Sheet annotation projection (docs/03 §3.3–3.4)
-    Tickets/ReviewSubmitter.swift  validate → write review.json → create ticket → attach batch
-    HotSheet/HotSheetCLIClient.swift  HotSheetClient protocol, CLI transport, HotSheetLocator
+    Tickets/ReviewSubmitter.swift  validate → write review.json → create ticket → attach batch; steps, resume, attachFailed
+    HotSheet/HotSheetCLIClient.swift  HotSheetClient protocol, CreatedTicket (slug + file), CLI transport, HotSheetLocator
     HotSheet/HotSheetStatus.swift     ready/problem detection for UI and --status
     HotSheet/ProcessRunner.swift      Process seam (fakeable in tests)
     Capture/CaptureRequest.swift      kind/target/delay of a capture (docs/04 §4.1)
@@ -41,9 +41,13 @@ macos/
     Review/ReviewDraftStore.swift     draft reviews on disk (docs/04 §4.6)
     Review/MediaImporter.swift        existing images/movies → draft (PNG re-encode, movie copy), `--import` parsing (docs/04 §4.12)
     Review/MediaOpenRouting.swift     Finder Open With / editor drop routing plan (dedupe, all-or-nothing), OpenBatch, `--open-media` parsing (docs/04 §4.12.1)
+    Review/ReviewSession.swift        session state machine, SessionIssue rules + messages, DraftSubmitter (docs/07)
+    Review/ReviewDraftStore+Session.swift  title/summary, remove a capture, submission.json, delete after submit (docs/07 §7.5)
+    Review/SubmitCommand.swift        `--submit` parsing, MediaThumbnail (capture list previews)
     Settings/Hotkey.swift             global hotkey model: parse/display, Carbon codes (docs/05 §5.2)
     Settings/CaptureSettings.swift    settings + KeyValueStoring persistence, HotkeySlot (capture/record, duplicate rules), HotkeyAction
     Settings/SettingsCommand.swift    `--settings` argument parsing (docs/05 §5.5)
+    Settings/RecentProjects.swift     recent target projects + persistence (docs/07 §7.6)
     Editor/AnnotationEditor.swift     editor state machine: document, selection, undo/redo, intent toggle (docs/06)
     Editor/AnnotationEditor+Gestures.swift  draw/move/resize/crop gestures, hit testing, crop + reset crop
     Editor/AnnotationEditor+Time.swift  playhead, annotation time ranges, trim + reset trim, TimeFormat (docs/06 §6.10)
@@ -61,8 +65,8 @@ macos/
   App/Resources/Assets.xcassets  StatusBarIcon template vector (menu bar icon, docs/05 §5.1)
   App/Sources/
     UXReviewApp.swift          @main, MenuBarExtra + Settings scenes, StatusBarIcon, hotkey + open-files wiring, headless mode routing
-    AppModel.swift             observable status + project chooser
-    AppSettings.swift          project folder (defaults / --project), UXREVIEW_DEFAULTS_SUITE
+    AppModel.swift             observable status + project chooser (follows project changes)
+    AppSettings.swift          project folder (defaults / --project), recent projects, folder panel
     UIPreviews.swift           --render-ui-previews offscreen renders for visual QA
     Capture/CaptureBackend.swift      ScreenCaptureKit + synthetic backends, CaptureFailure
     Capture/CaptureEnvironment.swift  displays, window list, capture context provider
@@ -87,5 +91,10 @@ macos/
     Editor/InspectorView.swift        selected annotation (intents, note) + annotation list
     Editor/HeadlessAnnotate.swift     `--annotate` mode with JSON output
     Editor/EditorPreviews.swift       editor states + mock screenshots for --render-ui-previews
+    Review/ReviewSessionWindowController.swift  one Submit Review window per draft (docs/07 §7.1)
+    Review/ReviewSessionModel.swift   observable session: draft refresh, autosaved fields, remove, submit off-main
+    Review/ReviewSessionView.swift    capture list, title/summary, issues, project, progress, failure, success
+    Review/HeadlessSubmit.swift       `--submit` mode with JSON output (docs/07 §7.8)
+    Review/ReviewSessionPreviews.swift  session states for --render-ui-previews
 linux/, windows/               future native variants (README placeholders)
 ```

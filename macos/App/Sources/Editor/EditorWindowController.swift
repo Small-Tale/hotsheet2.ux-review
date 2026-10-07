@@ -24,6 +24,13 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
         controller.present()
     }
 
+    /// Saves and closes the editor on `directory`, if one is open. The review session does this
+    /// before it removes a capture or submits (docs/07 §7.2), so the editor never writes stale
+    /// annotations back into a changed or deleted draft.
+    static func close(directory: URL) {
+        open[directory.standardizedFileURL]?.window?.close()
+    }
+
     init(model: EditorModel) {
         self.model = model
         let window = NSWindow(

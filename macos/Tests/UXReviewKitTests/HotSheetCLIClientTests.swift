@@ -26,6 +26,23 @@ struct HotSheetCLIClientTests {
         ])
     }
 
+    @Test func createTicketReportsTheTicketFileWhenPrinted() throws {
+        let outputs = [
+            ("onboarding text\nCreated HS-ZNNDZG (/s/my store.hs2/tickets/G8/01M4.md)\n", CreatedTicket(
+                slug: "HS-ZNNDZG",
+                file: "/s/my store.hs2/tickets/G8/01M4.md"
+            )),
+            ("Created HS-1\n", CreatedTicket(slug: "HS-1")),
+            ("Created HS-2 ()\n", CreatedTicket(slug: "HS-2")),
+        ]
+        for (stdout, expected) in outputs {
+            let runner = FakeRunner(results: [ProcessResult(exitCode: 0, stdout: stdout, stderr: "")])
+            #expect(try client(runner).createTicketReportingFile(NewTicket(title: "t", details: "d")) == expected)
+        }
+        // Transports without a file fall back to the slug alone.
+        #expect(try FakeHotSheetClient().createTicketReportingFile(NewTicket(title: "t", details: "d")) == CreatedTicket(slug: "HS-TEST01"))
+    }
+
     @Test func inheritedAIActorEnvironmentIsScrubbed() throws {
         let runner = FakeRunner(results: [ProcessResult(exitCode: 0, stdout: "Created HS-1 (x)", stderr: "")])
         _ = try client(runner, env: ["HOTSHEET_ACTOR_ROLE": "ai", "HOTSHEET_ACTOR_ID": "bot", "PATH": "/bin"])

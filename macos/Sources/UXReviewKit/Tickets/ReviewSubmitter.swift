@@ -3,6 +3,15 @@ import Foundation
 public enum ReviewSubmissionError: Error, Equatable, Sendable {
     case invalidBundle([BundleIssue])
     case missingMedia(String)
+    /// The ticket was created but attaching the media failed. Retrying with `existingTicket`
+    /// set to this slug attaches to it instead of creating a duplicate ticket.
+    case attachFailed(ticket: CreatedTicket, reason: String)
+}
+
+/// The two Hot Sheet writes of a submission, reported as they start.
+public enum SubmitStep: String, Codable, Equatable, Sendable {
+    case creatingTicket
+    case attachingMedia
 }
 
 /// Files a validated review bundle in Hot Sheet: creates the intake ticket, then attaches the
@@ -19,6 +28,19 @@ public struct ReviewSubmitter: Sendable {
     /// - Returns: the created ticket's slug.
     @discardableResult
     public func submit(_ bundle: ReviewBundle, mediaDirectory: URL) throws -> String {
+        try file(bundle, mediaDirectory: mediaDirectory).slug
+    }
+
+    /// Like `submit`, reporting each step, and able to resume a submission whose ticket was
+    /// already created (`existingTicket`): then only the attachments are written.
+    /// - Throws: `ReviewSubmissionError.attachFailed` with the slug when the ticket exists but
+    ///   the attach failed, so the caller can retry without creating a second ticket.
+    public func file(
+        _ bundle: ReviewBundle,
+        mediaDirectory: URL,
+        existingTicket: CreatedTicket? = nil,
+        progress: (SubmitStep) -> Void = { _ in }
+    ) throws -> CreatedTicket {
         let issues = bundle.validate()
         guard issues.isEmpty else { throw ReviewSubmissionError.invalidBundle(issues) }
 
@@ -31,13 +53,52 @@ public struct ReviewSubmitter: Sendable {
         let bundleFile = mediaDirectory.appendingPathComponent(composed.bundleFilename)
         try ReviewBundle.makeEncoder().encode(bundle).write(to: bundleFile, options: .atomic)
 
-        let slug = try client.createTicket(composed.ticket)
-        try client.attach(
-            files: mediaFiles + [bundleFile],
-            to: slug,
-            batchLabel: "UX review capture",
-            purpose: "problem_evidence"
-        )
-        return slug
+        let ticket: CreatedTicket
+        if let existingTicket {
+            ticket = existingTicket
+        } else {
+            progress(.creatingTicket)
+            ticket = try client.createTicketReportingFile(composed.ticket)
+        }
+        progress(.attachingMedia)
+        do {
+            try client.attach(
+                files: mediaFiles + [bundleFile],
+                to: ticket.slug,
+                batchLabel: "UX review capture",
+                purpose: "problem_evidence"
+            )
+        } catch {
+            throw ReviewSubmissionError.attachFailed(ticket: ticket, reason: Self.describe(error))
+        }
+        return ticket
+    }
+
+    /// A one-line, human-readable reason for a Hot Sheet or file error.
+    public static func describe(_ error: Error) -> String {
+        switch error {
+        case let error as HotSheetError:
+            switch error {
+            case .cliNotFound:
+                return "hotsheet-cli was not found."
+            case let .storeNotFound(url):
+                return "No Hot Sheet store was found for \(url.path)."
+            case let .commandFailed(command, exitCode, stderr):
+                let detail = stderr.trimmingCharacters(in: .whitespacesAndNewlines)
+                return "hotsheet-cli \(command) failed (exit \(exitCode))" + (detail.isEmpty ? "." : ": \(detail)")
+            case let .unexpectedOutput(command, _):
+                return "hotsheet-cli \(command) printed something unexpected."
+            }
+        case let error as ReviewSubmissionError:
+            switch error {
+            case .invalidBundle: return "The review has problems to fix first."
+            case let .missingMedia(name): return "\(name) is missing from the review."
+            case let .attachFailed(ticket, reason): return "\(ticket.slug) was created, but attaching the media failed: \(reason)"
+            }
+        case let error as CustomStringConvertible:
+            return error.description
+        default:
+            return error.localizedDescription
+        }
     }
 }

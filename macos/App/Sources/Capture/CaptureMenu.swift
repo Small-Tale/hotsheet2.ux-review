@@ -37,11 +37,15 @@ struct CaptureMenuSection: View {
             Text("Saving recording…")
         }
         Divider()
-        if let last = capture.lastCapture {
+        // A submitted review is deleted (docs/07 §7.5), so its last capture is no longer current.
+        if let last = capture.lastCapture, capture.hasCurrentReview {
             Text("Current review: \(last.draft.bundle.media.count) capture(s), last \(last.media.filename)")
         }
         Button("Annotate Current Review…") { capture.annotateCurrentReview() }
             .keyboardShortcut("e")
+            .disabled(!capture.hasCurrentReview)
+        Button("Submit Current Review…") { ReviewSessionWindowController.showCurrent(store: capture.store) }
+            .keyboardShortcut(.return)
             .disabled(!capture.hasCurrentReview)
         Button("Open Media for Annotation…") { capture.openMediaForAnnotation() }
             .keyboardShortcut("o")

@@ -46,11 +46,16 @@ client's tests must decode them, and the macOS tests also re-encode them lossles
 - **Annotation editor** (`App/Sources/Editor/`): window, canvas, and inspector over the pure
   `AnnotationEditor` state machine, renderer, crop math, and `EditorSession` persistence in
   `UXReviewKit` (`Editor/`). See [06-annotation-editor.md](06-annotation-editor.md).
-- **Headless modes**: `UXReview --capture …`, `--settings …`, `--annotate …`, and
-  `--render-ui-previews DIR` ([04-capture.md](04-capture.md) §4.11,
-  [05-start-and-settings.md](05-start-and-settings.md) §5.5, [06-annotation-editor.md](06-annotation-editor.md) §6.9).
+- **Review session** (`App/Sources/Review/`): the Submit Review window over the pure
+  `ReviewSession` state machine, `SessionIssue` rules, and `DraftSubmitter` staging clean-up in
+  `UXReviewKit` (`Review/`). See [07-review-session.md](07-review-session.md).
+- **Headless modes**: `UXReview --capture …`, `--import …`, `--settings …`, `--annotate …`,
+  `--submit …`, and `--render-ui-previews DIR` ([04-capture.md](04-capture.md) §4.11,
+  [05-start-and-settings.md](05-start-and-settings.md) §5.5, [06-annotation-editor.md](06-annotation-editor.md) §6.9,
+  [07-review-session.md](07-review-session.md) §7.8).
 - **Settings**: stored in the app's defaults domain (or `UXREVIEW_DEFAULTS_SUITE`): the project
-  folder (`projectDirectory`, overridable with `--project`) and capture settings
+  folder (`projectDirectory`, overridable with `--project`), recent project folders
+  (`recentProjects`), and capture settings
   (`captureSettings`: default request + capture and record-video global hotkeys). The hotkeys
   are registered with Carbon `RegisterEventHotKey`, one id per slot (`App/Sources/Settings/`). See [05-start-and-settings.md](05-start-and-settings.md).
 - **Code signing and permissions** (`HS2-7BVW9T`): `macos/Signing.xcconfig` signs ad hoc by
@@ -76,8 +81,8 @@ client's tests must decode them, and the macOS tests also re-encode them lossles
    skipping the end-to-end test
 5. the XcodeGen + `xcodebuild` app build
 6. the app smoke run against a throwaway Hot Sheet store
-7. `scripts/app-e2e.sh`, which drives the built app's headless capture, settings, annotation, and
-   preview modes
+7. `scripts/app-e2e.sh`, which drives the built app's headless capture, import, settings,
+   annotation, submit (against a throwaway Hot Sheet store), and preview modes
 
 Set `SKIP_APP=1` to skip the app build. Long steps are time-boxed when coreutils `timeout` is
 available.

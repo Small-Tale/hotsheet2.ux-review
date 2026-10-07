@@ -67,14 +67,19 @@ final class FakeHotSheetClient: HotSheetClient, @unchecked Sendable {
     var created: [NewTicket] = []
     var attached: [(files: [URL], slug: String, label: String?, purpose: String?)] = []
     var createError: Error?
+    /// Thrown by the next attaches (each failure consumes one entry), like a CLI failure.
+    var attachErrors: [Error] = []
+    /// Number tickets so duplicates are visible (`HS-TEST01`, `HS-TEST02`, …).
+    var numbered = false
 
     func createTicket(_ ticket: NewTicket) throws -> String {
         if let createError { throw createError }
         created.append(ticket)
-        return "HS-TEST01"
+        return numbered ? String(format: "HS-TEST%02d", created.count) : "HS-TEST01"
     }
 
     func attach(files: [URL], to slug: String, batchLabel: String?, purpose: String?) throws {
+        if !attachErrors.isEmpty { throw attachErrors.removeFirst() }
         attached.append((files, slug, batchLabel, purpose))
     }
 }

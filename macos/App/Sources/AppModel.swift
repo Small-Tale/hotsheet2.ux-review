@@ -1,13 +1,18 @@
 import AppKit
+import Combine
 import SwiftUI
 import UXReviewKit
 
 @MainActor
 final class AppModel: ObservableObject {
     @Published private(set) var status: HotSheetStatus
+    private var projectChanges: AnyCancellable?
 
     init() {
         status = AppSettings.currentStatus()
+        projectChanges = NotificationCenter.default.publisher(for: .hotSheetProjectChanged)
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in MainActor.assumeIsolated { self?.refresh() } }
     }
 
     func refresh() {
@@ -15,15 +20,8 @@ final class AppModel: ObservableObject {
     }
 
     func chooseProject() {
-        let panel = NSOpenPanel()
-        panel.canChooseDirectories = true
-        panel.canChooseFiles = false
-        panel.allowsMultipleSelection = false
-        panel.message = "Choose the project whose Hot Sheet store should receive UX reviews."
-        NSApp.activate(ignoringOtherApps: true)
-        if panel.runModal() == .OK, let url = panel.url {
-            AppSettings.projectDirectory = url
-            refresh()
+        if let url = AppSettings.chooseProjectFolder() {
+            AppSettings.useProject(url)
         }
     }
 }

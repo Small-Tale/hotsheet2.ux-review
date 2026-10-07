@@ -45,11 +45,15 @@ public struct ReviewDraft: Equatable, Sendable {
 public enum ReviewDraftError: Error, Equatable, CustomStringConvertible {
     case missingCaptureFile(URL)
     case unreadableDraft(URL)
+    case unknownMedia(String)
+    case outsideDrafts(URL)
 
     public var description: String {
         switch self {
         case let .missingCaptureFile(url): "The captured file is missing: \(url.path)"
         case let .unreadableDraft(url): "The draft review could not be read: \(url.path)"
+        case let .unknownMedia(id): "The review has no capture \(id)."
+        case let .outsideDrafts(url): "\(url.path) is not a draft review."
         }
     }
 }
@@ -66,7 +70,7 @@ public final class ReviewDraftStore: @unchecked Sendable {
     public let root: URL
     private let now: @Sendable () -> Date
     private let makeID: @Sendable () -> String
-    private let lock = NSLock()
+    let lock = NSLock()
 
     public init(
         root: URL,
@@ -95,7 +99,7 @@ public final class ReviewDraftStore: @unchecked Sendable {
         return "\(formatter.string(from: Date()))-\(suffix)"
     }
 
-    private var pointerURL: URL { root.appendingPathComponent(Self.currentPointerFilename) }
+    var pointerURL: URL { root.appendingPathComponent(Self.currentPointerFilename) }
 
     /// The current draft, or nil when none has been started (or the pointer is stale).
     public func current() throws -> ReviewDraft? {
@@ -178,7 +182,7 @@ public final class ReviewDraftStore: @unchecked Sendable {
         return draft
     }
 
-    private func read(_ directory: URL) throws -> ReviewDraft {
+    func read(_ directory: URL) throws -> ReviewDraft {
         let bundleURL = directory.appendingPathComponent(Self.bundleFilename)
         do {
             let bundle = try ReviewBundle.makeDecoder().decode(ReviewBundle.self, from: Data(contentsOf: bundleURL))
@@ -188,7 +192,7 @@ public final class ReviewDraftStore: @unchecked Sendable {
         }
     }
 
-    private func loadCurrent() throws -> ReviewDraft? {
+    func loadCurrent() throws -> ReviewDraft? {
         guard let name = try? String(contentsOf: pointerURL, encoding: .utf8)
             .trimmingCharacters(in: .whitespacesAndNewlines), !name.isEmpty, !name.contains("/")
         else { return nil }
@@ -207,7 +211,7 @@ public final class ReviewDraftStore: @unchecked Sendable {
         return ReviewDraft(directory: directory, bundle: bundle)
     }
 
-    private func write(_ bundle: ReviewBundle, to url: URL) throws {
+    func write(_ bundle: ReviewBundle, to url: URL) throws {
         try ReviewBundle.makeEncoder().encode(bundle).write(to: url, options: .atomic)
     }
 

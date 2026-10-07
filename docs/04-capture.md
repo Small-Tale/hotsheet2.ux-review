@@ -5,7 +5,7 @@ The menu, global hotkey, and settings are in [05-start-and-settings.md](05-start
 
 Capture turns "what is on screen right now" into a file in the current **draft review**,
 together with where it came from. Annotating ([06-annotation-editor.md](06-annotation-editor.md))
-and submitting (`HS2-CRJDJ8`) drafts are separate steps.
+and submitting ([07-review-session.md](07-review-session.md)) drafts are separate steps.
 
 ## 4.1 Requests
 
@@ -108,6 +108,10 @@ Drafts/
 - **Editing**: the annotation editor saves with `ReviewDraftStore.update`, which re-reads and
   rewrites `review.json` under the store's lock, so captures appended while it is open are kept
   ([06-annotation-editor.md](06-annotation-editor.md) §6.7).
+- **Submitting**: the review session files the draft in Hot Sheet and then deletes its folder
+  (and the `current` pointer when it was current). If the ticket was created but attaching
+  failed, the draft is kept with a `submission.json` record so the retry reuses that ticket
+  ([07-review-session.md](07-review-session.md) §7.5).
 
 ## 4.7 Permission and errors
 

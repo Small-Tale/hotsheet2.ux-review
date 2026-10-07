@@ -39,6 +39,15 @@ The extra locations matter because GUI apps launched from Finder get a minimal `
 4. Runs `hotsheet-cli -C <store> attach --actor-role=human --actor-id=ux-review <SLUG> --batch-label=UX review capture --purpose=problem_evidence -- <media…> review.json`.
    This attaches everything as **one durable batch**.
 
+`ReviewSubmitter.file(…)` is the same submission with two additions the review session uses
+([07-review-session.md](07-review-session.md) §7.5):
+
+- It reports each step as it starts (`creatingTicket`, `attachingMedia`) and returns the
+  `CreatedTicket`: the slug plus the ticket file that `new` prints as `Created <SLUG> (<path>)`.
+- Given `existingTicket`, it skips `new` and only attaches. If `attach` fails after `new`
+  succeeded, it throws `attachFailed(ticket, reason)`, so the caller can retry without creating
+  a duplicate ticket.
+
 Arguments are always passed bound with `=`, and file lists follow `--`, so values that begin
 with `-` are never parsed as flags. The client removes `HOTSHEET_ACTOR_ROLE` and
 `HOTSHEET_ACTOR_ID` from the child environment, so a review never inherits an AI session's

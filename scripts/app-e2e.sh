@@ -466,12 +466,75 @@ run open-missing 2 -- --open-media "$TMP/media/photo.jpg" "$TMP/media/gone.mov" 
 [[ "$(json "$odraft/review.json" j.media.length)" == 3 && "$(json "$other/review.json" j.media.length)" == 1 ]] || die "open: a rejected batch changed a draft"
 ok "a batch with a text file, a folder, or a missing file: exit 2 and no draft changes"
 
+echo "review session: submit to Hot Sheet (HS2-CRJDJ8)"
+command -v hotsheet-cli >/dev/null || die "submit: hotsheet-cli not on PATH"
+REAL_CLI="$(command -v hotsheet-cli)"
+hs() { env -u HOTSHEET_ACTOR_ROLE -u HOTSHEET_ACTOR_ID "$REAL_CLI" "$@"; }
+SDRAFTS="$TMP/submit-drafts"
+mkdir -p "$TMP/subproj" "$TMP/noproj"
+hs -C "$TMP/subproj.hs2" init >/dev/null
+# Every --submit names its project, so the developer's own defaults never matter.
+SUB=(--drafts-dir "$SDRAFTS" --project "$TMP/subproj")
+
+run submit-nodraft 2 -- --submit "${SUB[@]}"
+[[ "$(json "$TMP/submit-nodraft.json" j.error)" == noDraft ]] || die "submit: no draft error"
+run submit-shot 0 "${SYN[@]}" -- --capture screenshot --target region --rect 100,100,400,250 --drafts-dir "$SDRAFTS"
+run submit-clip 0 "${SYN[@]}" -- --capture video --target region --rect 100,100,200,120 --duration 1 --drafts-dir "$SDRAFTS"
+sdraft="$(json "$TMP/submit-shot.json" j.draftDirectory)"
+[[ "$(json "$TMP/submit-clip.json" j.draftDirectory)" == "$sdraft" ]] || die "submit: captures went to different drafts"
+echo '{"steps": [{"op": "tool", "tool": "rect"}, {"op": "drag", "points": [[30, 30], [150, 90]]}, {"op": "note", "text": "Clipped label"}, {"op": "intent", "intent": "bug"}, {"op": "media", "media": "m2"}, {"op": "tool", "tool": "insertion"}, {"op": "drag", "points": [[50, 40]]}, {"op": "note", "text": "Add a hint"}]}' >"$TMP/script-submit.json"
+run submit-annotate 0 -- --annotate "$TMP/script-submit.json" --drafts-dir "$SDRAFTS"
+ok "a two-capture session (screenshot + video) with an annotation on each"
+
+run submit-noproject 3 -- --submit --drafts-dir "$SDRAFTS" --project "$TMP/noproj"
+[[ "$(json "$TMP/submit-noproject.json" j.error)" == hotSheetUnavailable ]] || die "submit: no-store error"
+run submit-blank 2 -- --submit "${SUB[@]}" --title " "
+[[ "$(json "$TMP/submit-blank.json" j.error)" == invalidReview ]] || die "submit: blank title error"
+[[ "$(json "$TMP/submit-blank.json" 'j.issues.join("|")')" == "Give the review a title." ]] || die "submit: issues $(json "$TMP/submit-blank.json" 'j.issues.join("|")')"
+[[ -f "$sdraft/review.json" && "$(json "$sdraft/review.json" j.media.length)" == 2 ]] || die "submit: a refused submit changed the draft"
+[[ -z "$(hs -C "$TMP/subproj.hs2" ls 2>/dev/null | grep 'UX review' || true)" ]] || die "submit: a refused submit created a ticket"
+ok "no Hot Sheet store: exit 3; blank title: exit 2 with the issue; the draft is kept and no ticket exists"
+
+# A CLI that creates the ticket but fails the first attach: the draft is kept with the ticket
+# recorded, and the retry attaches to that same ticket (no duplicate).
+cat >"$TMP/flaky-cli" <<SH
+#!/usr/bin/env bash
+for arg in "\$@"; do
+  if [[ "\$arg" == attach && ! -e "$TMP/flaky-once" ]]; then touch "$TMP/flaky-once"; echo "attach: the store is locked" >&2; exit 1; fi
+done
+exec "$REAL_CLI" "\$@"
+SH
+chmod +x "$TMP/flaky-cli"
+run submit-flaky 5 HOTSHEET_CLI="$TMP/flaky-cli" -- --submit "${SUB[@]}" --title "Checkout flow" --summary "Two captures from checkout."
+slug="$(json "$TMP/submit-flaky.json" j.createdTicket)"
+[[ "$slug" == HS-* ]] || die "submit: attach failure did not name the created ticket"
+json "$TMP/submit-flaky.json" j.message | grep -q "the store is locked" || die "submit: failure message lacks the CLI error"
+[[ -f "$sdraft/submission.json" && -f "$sdraft/capture-1.png" ]] || die "submit: a failed attach did not keep the draft and its record"
+[[ "$(json "$sdraft/review.json" j.title)" == "Checkout flow" ]] || die "submit: the typed title was not saved before filing"
+
+run submit 0 HOTSHEET_CLI="$TMP/flaky-cli" -- --submit "${SUB[@]}"
+[[ "$(json "$TMP/submit.json" j.slug)" == "$slug" ]] || die "submit: retry created another ticket"
+[[ "$(json "$TMP/submit.json" '`${j.mediaCount}/${j.annotationCount}/${j.draftRemoved}`')" == "2/2/true" ]] || die "submit: counts"
+[[ ! -e "$sdraft" ]] || die "submit: the submitted draft was not deleted"
+[[ -f "$(json "$TMP/submit.json" j.ticketFile)" ]] || die "submit: no ticket file"
+hs -C "$TMP/subproj.hs2" show "$slug" >"$TMP/submitted-ticket.md"
+for needle in "UX review: Checkout flow" "Two captures from checkout." "filename: capture-1.png" "filename: capture-2.mov" \
+  "filename: review.json" "batch_label: UX review capture" "### #2 · insert · \`attachment:capture-2.mov\`"; do
+  grep -qF "$needle" "$TMP/submitted-ticket.md" || die "submit: ticket lacks '$needle'"
+done
+grep -q "filename: submission.json" "$TMP/submitted-ticket.md" && die "submit: the pending record was attached"
+[[ "$(hs -C "$TMP/subproj.hs2" ls 2>/dev/null | grep -c 'UX review')" == 1 ]] || die "submit: expected exactly one intake ticket"
+run submit-again 2 -- --submit "${SUB[@]}"
+[[ "$(json "$TMP/submit-again.json" j.error)" == noDraft ]] || die "submit: the filed draft is still current"
+ok "attach failure keeps the draft (exit 5, ticket named); retry attaches to the same ticket; the draft is deleted; ticket has both captures, the summary, and review.json"
+
 run previews 0 -- --render-ui-previews "$TMP/previews"
 for name in overlay-region-hint overlay-region-selection overlay-region-selection-bottom-edge overlay-window-hover hud-countdown hud-saved hud-recording-countdown hud-recording hud-saved-video hud-recording-narration hud-saved-narrated settings-registered settings-in-use status-bar-icon-light status-bar-icon-dark \
-  editor-empty editor-annotated editor-arrow-selected editor-narrow editor-crop-drag editor-cropped editor-zoomed editor-keyboard-insert editor-video-timeline editor-video-narrow editor-video-trimmed editor-video-playing editor-video-range-drag editor-video-trim-drag; do
+  editor-empty editor-annotated editor-arrow-selected editor-narrow editor-crop-drag editor-cropped editor-zoomed editor-keyboard-insert editor-video-timeline editor-video-narrow editor-video-trimmed editor-video-playing editor-video-range-drag editor-video-trim-drag \
+  session-ready session-narrow session-submitting session-failed session-submitted session-issues session-empty; do
   [[ -s "$TMP/previews/$name.png" ]] || die "previews: $name.png missing"
 done
-ok "UI renders offscreen (picker overlays, HUDs, Settings window, status bar icon, annotation editor)"
+ok "UI renders offscreen (picker overlays, HUDs, Settings window, status bar icon, annotation editor, review session)"
 
 # HS2-M8ZFS0: real R + Return key events through the canvas insert a shape; VoiceOver sees every annotation.
 AX="$TMP/previews/editor-accessibility.json"

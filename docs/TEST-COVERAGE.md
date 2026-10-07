@@ -469,3 +469,56 @@ Each feature gets both unit tests and end-to-end tests. Tests live in
 - **Not covered automatically:** a real microphone (system prompt, real audio sync, unplugging
   mid-recording), the permission alerts, and the menu checkbox. A test must never trigger a real
   Microphone prompt, and clicking menus is `HS2-HA9TW3`. Manual QA is `HS2-2T9RMA`.
+
+## HS2-CRJDJ8: review session flow and submit
+
+- **State machine** (`ReviewSessionTests`):
+  - the full matrix of 5 phases (editing, creating, attaching, submitted, failed) × 7 events
+    (refresh, edit, set target, submit, advance, succeed, fail): accepted events, and rejected
+    ones leaving the session unchanged
+  - sequences: empty then refilled; blank title, and a refresh keeping the typed title and
+    summary; repeated submit while submitting; failure → edit → retry → submitted (terminal);
+    captures removed mid-submission ignored, then applied after a failure down to empty; a
+    missing file and an unavailable target blocking, and the target frozen while submitting
+  - issue order, messages (annotations by review number), and the capture each one marks; a
+    distinct message for every `BundleIssue`
+  - `RecentProjects`: dedupe after standardizing, cap of 5, existing-only, persistence, an
+    unreadable value, a hand-edited list normalized on load
+  - `SubmitCommand` parsing, including escaping `--draft` names
+- **Staging and filing** (`DraftSubmitterTests`, a real `ReviewDraftStore` and a faithful fake
+  client):
+  - a 3-capture draft (image, video, image) is filed with the title trimmed and the summary in
+    the ticket; one batch of the three files plus `review.json`; the draft folder and pointer
+    are gone and the next capture starts a new draft
+  - filing an older draft keeps the current one
+  - attach failure → draft and `submission.json` kept → a second failure creates no ticket →
+    the retry attaches to the first ticket and cleans up
+  - a pending ticket in another store is not reused
+  - create failure, missing media, a vanished draft, and an invalid bundle: no ticket, draft
+    kept, typed fields saved
+  - removing a capture drops its file, annotations, kept original, and crop record; unknown ids
+    change nothing; empty then refilled continues numbering
+  - `removeSubmitted` refuses the root, its parent, `current`, hidden names, nested and escaping
+    paths; removing twice is harmless; an unreadable `submission.json` is ignored
+- **Submitter and client** (`ReviewSubmitterTests`, `HotSheetCLIClientTests`): step order and
+  resume without `new`; `attachFailed` carries the created ticket; one-line error descriptions;
+  the ticket file parsed from `Created <SLUG> (<path>)`, with fallbacks.
+- **End to end, Kit** (`HotSheetEndToEndTests.submitsAMultiCaptureDraftAndCleansUp`): a
+  3-capture draft with annotations filed by `DraftSubmitter` through the real `hotsheet-cli`;
+  the reported ticket file exists; the ticket has all captures, `review.json`, the summary, and
+  the annotation sections; `originals/` and `submission.json` are not attached; the draft is
+  deleted.
+- **End to end, app** (`scripts/app-e2e.sh`, `--submit` against a throwaway store):
+  - a synthetic screenshot + video annotated through `--annotate`
+  - no draft (exit 2), no store (exit 3), blank title (exit 2 with the issue): no ticket, draft
+    unchanged
+  - a wrapper CLI failing the first `attach`: exit 5 naming the created ticket, draft and
+    `submission.json` kept, title saved; the retry reuses the ticket (exactly one intake
+    ticket), deletes the draft, and the ticket has both captures, the summary, `review.json`,
+    and the `#2 · insert` section; a second submit finds no draft
+- **Visual QA:** `session-ready`, `session-narrow`, `session-submitting`, `session-failed`,
+  `session-submitted`, `session-issues`, and `session-empty`, inspected by hand (also checked
+  for presence by `scripts/app-e2e.sh`).
+- **Not covered automatically:** clicks in the live window (remove confirmation, Change menu,
+  Copy Slug, Show Ticket File) and the editor being closed before a removal or submit. These
+  are thin view code over the tested model; live-window automation is `HS2-HA9TW3`.

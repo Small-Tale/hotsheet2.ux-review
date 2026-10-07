@@ -23,8 +23,11 @@ derived from the Hot Sheet 2 design export `docs/design/exports/ux-review-status
    narration on or off for the next recording only ([04-capture.md](04-capture.md) §4.9).
 4. Current review status, **Annotate Current Review…** (⌘E; disabled with no draft; see
    [06-annotation-editor.md](06-annotation-editor.md)), **Open Media for Annotation…** (⌘O;
-   existing images and movies, [04-capture.md](04-capture.md) §4.12), **Show Current Review in
-   Finder**, and **Start New Review**.
+   existing images and movies, [04-capture.md](04-capture.md) §4.12), **Submit Current Review…**
+   (⌘↩; disabled with no draft; the review session window,
+   [07-review-session.md](07-review-session.md)), **Show Current Review in Finder**, and
+   **Start New Review**. The status line ("Current review: N capture(s), last …") is hidden once
+   that review has been submitted.
 5. Hot Sheet status, **Choose Project Folder…**, and **Refresh Hot Sheet Status**.
 6. **Settings…** (⌘,), the version, and **Quit**.
 
@@ -116,7 +119,8 @@ Persistence: settings are saved as JSON under the defaults key `captureSettings`
 - An explicit `null` for `captureHotkey` or `recordHotkey` means that shortcut is disabled.
 - An unreadable value falls back to all defaults.
 
-The project folder (`projectDirectory`) lives in the same defaults domain. The domain is the
+The project folder (`projectDirectory`) and the recently used project folders (`recentProjects`,
+[07-review-session.md](07-review-session.md) §7.6) live in the same defaults domain. The domain is the
 app's own (`com.smalltale.uxreview`), or the suite named by `UXREVIEW_DEFAULTS_SUITE` (tests).
 
 ## 5.4 Not yet

@@ -73,4 +73,72 @@ struct HotSheetEndToEndTests {
         let storedBundle = try #require(stored)
         #expect(try Data(contentsOf: storedBundle) == Data(contentsOf: media.appendingPathComponent("review.json")))
     }
+
+    /// The review session path (docs/07 §7.5): a draft with three captures, filed by
+    /// `DraftSubmitter` into a real store; the draft is deleted and the ticket file reported.
+    @Test(.enabled(if: cli != nil, "hotsheet-cli not installed"), .timeLimit(.minutes(2)))
+    func submitsAMultiCaptureDraftAndCleansUp() throws {
+        let cli = try #require(Self.cli)
+        let root = try TestSupport.makeTempDirectory()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let store = root.appendingPathComponent("project.hs2")
+        var env = ProcessInfo.processInfo.environment
+        env["HOTSHEET_ACTOR_ROLE"] = nil
+        env["HOTSHEET_ACTOR_ID"] = nil
+        let runner = SystemProcessRunner()
+        let initResult = try runner.run(executable: cli, arguments: ["-C", store.path, "init"], environment: env, currentDirectory: nil)
+        try #require(initResult.exitCode == 0, "init failed: \(initResult.stderr)")
+
+        let drafts = ReviewDraftStore(root: root.appendingPathComponent("Drafts"))
+        var directory: URL?
+        for (index, kind) in [MediaKind.image, .video, .image].enumerated() {
+            let file = root.appendingPathComponent("raw-\(index).\(kind == .image ? "png" : "mov")")
+            try Data("capture \(index)".utf8).write(to: file)
+            directory = try drafts.add(DraftCapture(
+                fileURL: file, kind: kind, pixelWidth: 640, pixelHeight: 400, durationMs: kind == .video ? 2000 : nil,
+                capturedAt: Date(), context: CaptureContext(appName: "Safari", windowTitle: "Checkout")
+            )).draft.directory
+        }
+        let draft = try #require(directory)
+        try drafts.update(draft) { bundle in
+            bundle.annotations = [
+                Annotation(
+                    id: "a1",
+                    mediaId: "m1",
+                    shape: .rect(NormRect(x: 100, y: 100, width: 2000, height: 900)),
+                    intents: [.bug],
+                    note: "Clipped"
+                ),
+                Annotation(
+                    id: "a2", mediaId: "m2", shape: .insertion(NormPoint(x: 5000, y: 5000)), note: "Add a hint",
+                    timeRange: TimeRange(startMs: 500, endMs: 1500)
+                ),
+            ]
+        }
+
+        let client = HotSheetCLIClient(executable: cli, storePath: store, runner: runner)
+        let result = try DraftSubmitter(store: drafts, client: client, storePath: store)
+            .submit(draft, title: "Checkout flow", summary: "Three captures from the checkout.")
+        #expect(result.mediaCount == 3 && result.annotationCount == 2 && result.draftRemoved)
+        let ticketFile = try #require(result.ticket.file)
+        #expect(FileManager.default.fileExists(atPath: ticketFile))
+        #expect(!FileManager.default.fileExists(atPath: draft.path))
+        #expect(try drafts.current() == nil)
+
+        let show = try runner.run(
+            executable: cli,
+            arguments: ["-C", store.path, "show", result.ticket.slug],
+            environment: env,
+            currentDirectory: nil
+        )
+        try #require(show.exitCode == 0, "show failed: \(show.stderr)")
+        for name in ["capture-1.png", "capture-2.mov", "capture-3.png", "review.json"] {
+            #expect(show.stdout.contains("filename: \(name)"))
+        }
+        #expect(show.stdout.contains("UX review: Checkout flow"))
+        #expect(show.stdout.contains("Three captures from the checkout."))
+        #expect(show.stdout.contains("### #2 · insert · `attachment:capture-2.mov`"))
+        #expect(!show.stdout.contains("submission.json"))
+        #expect(!show.stdout.contains("filename: originals"))
+    }
 }

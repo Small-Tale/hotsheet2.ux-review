@@ -44,8 +44,28 @@ public struct NewTicket: Equatable, Sendable {
 public protocol HotSheetClient: Sendable {
     /// Creates a ticket and returns its slug (for example `HS-R58EY5`).
     func createTicket(_ ticket: NewTicket) throws -> String
+    /// Creates a ticket and returns its slug plus its file, when the transport reports it.
+    func createTicketReportingFile(_ ticket: NewTicket) throws -> CreatedTicket
     /// Attaches files to a ticket as one durable batch.
     func attach(files: [URL], to slug: String, batchLabel: String?, purpose: String?) throws
+}
+
+public extension HotSheetClient {
+    func createTicketReportingFile(_ ticket: NewTicket) throws -> CreatedTicket {
+        try CreatedTicket(slug: createTicket(ticket))
+    }
+}
+
+/// A ticket Hot Sheet created: its slug and, when known, its ticket file in the store.
+public struct CreatedTicket: Codable, Equatable, Sendable {
+    public var slug: String
+    /// The ticket's Markdown file (`hotsheet-cli new` prints it), for "Show Ticket File".
+    public var file: String?
+
+    public init(slug: String, file: String? = nil) {
+        self.slug = slug
+        self.file = file
+    }
 }
 
 /// Talks to Hot Sheet 2 through `hotsheet-cli`, which works headless with no server running.
@@ -73,6 +93,10 @@ public struct HotSheetCLIClient: HotSheetClient {
     }
 
     public func createTicket(_ ticket: NewTicket) throws -> String {
+        try createTicketReportingFile(ticket).slug
+    }
+
+    public func createTicketReportingFile(_ ticket: NewTicket) throws -> CreatedTicket {
         // Bind values with `=` so titles/details that begin with `-` are not parsed as flags.
         var args = ["new", "--title=\(ticket.title)", "--category=\(ticket.category)", "--details=\(ticket.details)"]
         for tag in ticket.tags {
@@ -83,9 +107,13 @@ public struct HotSheetCLIClient: HotSheetClient {
         // `hotsheet-cli new` prints `Created <SLUG> (<path>)`.
         for line in result.stdout.split(separator: "\n") where line.hasPrefix("Created ") {
             let rest = line.dropFirst("Created ".count)
-            if let slug = rest.split(separator: " ").first, !slug.isEmpty {
-                return String(slug)
+            guard let slug = rest.split(separator: " ").first, !slug.isEmpty else { continue }
+            var file: String?
+            if let open = rest.firstIndex(of: "("), rest.hasSuffix(")") {
+                let path = rest[rest.index(after: open) ..< rest.index(before: rest.endIndex)]
+                file = path.isEmpty ? nil : String(path)
             }
+            return CreatedTicket(slug: String(slug), file: file)
         }
         throw HotSheetError.unexpectedOutput(command: "new", stdout: result.stdout)
     }
