@@ -69,6 +69,22 @@ final class CaptureCoordinator: ObservableObject {
         }
     }
 
+    /// True when there is a draft review to annotate (read each time the menu opens).
+    var hasCurrentReview: Bool { (try? store.current()) != nil }
+
+    /// Opens the annotation editor on the current draft review.
+    func annotateCurrentReview() {
+        do {
+            guard let draft = try store.current() else {
+                hud.flash("Nothing to annotate yet", subtitle: "Capture a screenshot or video first.")
+                return
+            }
+            try EditorWindowController.show(directory: draft.directory, store: store)
+        } catch {
+            report(.failed(String(describing: error)))
+        }
+    }
+
     func revealCurrentReview() {
         if let draft = try? store.current() {
             NSWorkspace.shared.activateFileViewerSelecting([lastCapture?.fileURL ?? draft.bundleURL])
@@ -137,6 +153,7 @@ final class CaptureCoordinator: ObservableObject {
     private func saved(_ outcome: CaptureOutcome) {
         lastCapture = outcome
         lastError = nil
+        NotificationCenter.default.post(name: .reviewDraftChanged, object: outcome.draft.directory)
         let count = outcome.draft.bundle.media.count
         var subtitle = "\(count) capture\(count == 1 ? "" : "s") in this review"
         if let duration = outcome.media.durationMs { subtitle = "\(Self.clock(duration)) · " + subtitle }

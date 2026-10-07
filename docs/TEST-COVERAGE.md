@@ -142,3 +142,47 @@ Each feature gets both unit tests and end-to-end tests. Tests live in
   - The recording HUDs render.
 - **Not covered automatically:** real ScreenCaptureKit recording, the menu Stop item, and
   stopping with the hotkey. These are tracked in `HS2-HA9TW3`.
+
+## HS2-9H7WZ8: annotation editor
+
+- **State machine** (`AnnotationEditorTests`), as transition-matrix and adversarial walks:
+  - drawing each shape; tiny drags; clamping
+  - select, move, and resize, one undo step each; edge stops; no flip below the minimum
+  - arrow vertices and freehand boxes
+  - nested-shape picking
+  - cancel for every gesture kind
+  - interrupted gestures: switching media, undo mid-drag, double begin, stray update/end
+  - coalesced note typing and nudges; no-op edits leave history alone
+  - delete, duplicate, never-reused ids
+  - Tab cycling
+  - full undo/redo walks that restore media; history bound; dirty tracking
+  - captures merged mid-session (and mid-gesture) survive undo
+  - an empty review
+  - `IntentToggle` over every intent × shape; `primaryIntent`
+- **Crop and geometry** (`ImageCropTests`, `ShapeGeometryTests`):
+  - snapping
+  - boxes clipped, points pulled to the edge, outsiders removed
+  - crops compose, undo, and redo; refused crops (tiny, whole, video)
+  - reset crop
+  - normalized ↔ pixel conversion; hit distance per shape; handles; translation clamps
+- **Session and files** (`EditorSessionTests`, real PNGs in a real draft):
+  - save and reload are identical
+  - captures added mid-edit are kept
+  - crops rewrite the PNG and keep `originals/`, and stay undoable after saving, across sessions
+  - a missing image fails the save without touching `review.json`
+  - the renderer strokes the right pixels
+  - scripts drive the editor; script errors name the step
+  - `--annotate` parsing
+- **App end to end** (`scripts/app-e2e.sh`):
+  - `--annotate` on synthetic screenshot + video drafts draws every shape with notes, intents,
+    undo/redo, and delete+undo
+  - crops the PNG (exact size, `originals/` kept, media size updated)
+  - refuses to crop the video
+  - validates `review.json` with ajv
+  - renders annotated PNGs, including the video poster
+  - reopens and edits in a second session
+  - rejects missing drafts (exit 3) and bad scripts, failing steps, and escaping names (exit 2)
+- **Visual QA**: `--render-ui-previews` renders the real editor views in six states (empty,
+  selected rect, selected arrow, the 900 × 560 minimum, crop drag, cropped), each inspected by
+  hand.
+  - Live-window mouse/keyboard automation is part of `HS2-HA9TW3`.

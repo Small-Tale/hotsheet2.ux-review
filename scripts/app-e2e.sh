@@ -171,10 +171,80 @@ run settings-after-bad 0 "${SUITE_ENV[@]}" -- --settings
 [[ "$(json "$TMP/settings-after-bad.json" j.settings.captureHotkey)" == null ]] || die "settings: rejected change was saved"
 ok "hotkey can be disabled; an unusable hotkey is rejected and not saved"
 
+echo "annotation editor (HS2-9H7WZ8)"
+ADRAFTS="$TMP/annotate-drafts"
+run annotate-noscript 2 -- --annotate "$TMP/missing-script.json" --drafts-dir "$ADRAFTS"
+mkdir -p "$ADRAFTS"
+echo '{"steps": []}' >"$TMP/empty-script.json"
+run annotate-nodraft2 3 -- --annotate "$TMP/empty-script.json" --drafts-dir "$ADRAFTS"
+[[ "$(json "$TMP/annotate-nodraft2.json" j.error)" == noDraft ]] || die "annotate: no draft error"
+ok "--annotate without a draft: exit 3 noDraft"
+
+run annotate-shot 0 "${SYN[@]}" -- --capture screenshot --target region --rect 100,100,400,250 --drafts-dir "$ADRAFTS"
+run annotate-clip 0 "${SYN[@]}" -- --capture video --target region --rect 100,100,200,120 --duration 1 --drafts-dir "$ADRAFTS"
+adraft="$(json "$TMP/annotate-shot.json" j.draftDirectory)"
+shot="$adraft/capture-1.png"
+original_size="$(png_size "$shot")"
+cat >"$TMP/script-annotate.json" <<'JSON'
+{"steps": [
+  {"op": "tool", "tool": "rect"}, {"op": "drag", "points": [[30, 30], [150, 90]]},
+  {"op": "note", "text": "Label is **clipped**"}, {"op": "intent", "intent": "bug"},
+  {"op": "tool", "tool": "arrow"}, {"op": "drag", "points": [[160, 100], [260, 180]]},
+  {"op": "tool", "tool": "insertion"}, {"op": "drag", "points": [[200, 60]]},
+  {"op": "tool", "tool": "strike"}, {"op": "drag", "points": [[240, 30], [300, 70]]},
+  {"op": "tool", "tool": "freehand"}, {"op": "drag", "points": [[40, 120], [90, 110], [120, 160], [60, 190]]},
+  {"op": "closed", "closed": false}, {"op": "undo"}, {"op": "redo"},
+  {"op": "select", "id": "#2"}, {"op": "delete"}, {"op": "undo"},
+  {"op": "crop", "rect": [20, 20, 300, 200]},
+  {"op": "media", "media": "m2"},
+  {"op": "tool", "tool": "rect"}, {"op": "drag", "points": [[10, 10], [100, 60]]},
+  {"op": "note", "text": "On the video"},
+  {"op": "tool", "tool": "crop"}, {"op": "drag", "points": [[0, 0], [50, 50]]}
+]}
+JSON
+run annotate 0 -- --annotate "$TMP/script-annotate.json" --drafts-dir "$ADRAFTS" --render-dir "$TMP/annotated"
+[[ "$(json "$TMP/annotate.json" 'j.annotations.map(a => a.type).join(",")')" == "rect,arrow,insertion,strike,freehand,rect" ]] \
+  || die "annotate: shapes $(json "$TMP/annotate.json" 'j.annotations.map(a => a.type).join(",")')"
+[[ "$(json "$TMP/annotate.json" 'j.annotations[0].intents.join(",") + "|" + j.annotations[0].note')" == "comment,bug|Label is **clipped**" ]] \
+  || die "annotate: note/intents"
+[[ "$(json "$TMP/annotate.json" 'j.annotations.map(a => a.intents[0]).join(",")')" == "comment,move,insert,remove,comment,comment" ]] \
+  || die "annotate: default intents"
+[[ "$(json "$adraft/review.json" 'j.annotations[4].shape.closed')" == false ]] || die "annotate: redo of open outline lost"
+ok "every shape drawn through the real editor, with notes, intents, undo/redo, and delete+undo"
+
+[[ "$(png_size "$shot")" == 300x200 ]] || die "annotate: cropped PNG is $(png_size "$shot")"
+[[ "$(json "$adraft/review.json" '`${j.media[0].pixelWidth}x${j.media[0].pixelHeight}`')" == 300x200 ]] || die "annotate: media size not updated"
+[[ "$(png_size "$adraft/originals/capture-1.png")" == "$original_size" ]] || die "annotate: original not kept"
+json "$TMP/annotate.json" 'j.messages.join("|")' | grep -q "Cropped to 300 × 200 px" || die "annotate: crop message"
+json "$TMP/annotate.json" 'j.messages.join("|")' | grep -q "Videos can't be cropped" || die "annotate: video crop not refused"
+[[ "$(json "$adraft/review.json" 'j.media[1].kind + ":" + j.annotations[5].mediaId')" == video:m2 ]] || die "annotate: video annotation"
+validate_bundle "$adraft/review.json"
+ok "crop rewrote the PNG to 300x200 and kept the $original_size original; video refused crop; review.json validates"
+
+[[ "$(png_size "$TMP/annotated/capture-1-annotated.png")" == 300x200 ]] || die "annotate: render size"
+[[ -s "$TMP/annotated/capture-2-annotated.png" ]] || die "annotate: video poster render missing"
+ok "--render-dir draws the annotated image and the video's poster frame"
+
+# Reopening continues from the saved state: undo history is per session, so undo does nothing.
+echo '{"steps": [{"op": "undo"}, {"op": "select", "id": "#1"}, {"op": "nudge", "dx": 5, "dy": 0}]}' >"$TMP/script-annotate2.json"
+run annotate-again 0 -- --annotate "$TMP/script-annotate2.json" --drafts-dir "$ADRAFTS"
+[[ "$(json "$TMP/annotate-again.json" j.annotations.length)" == 6 ]] || die "annotate: reopen lost annotations"
+[[ "$(png_size "$shot")" == 300x200 ]] || die "annotate: reopen changed the crop"
+ok "a second session reopens the saved draft and edits it"
+
+echo '{"steps": [{"op": "paint"}]}' >"$TMP/bad-script.json"
+run annotate-bad 2 -- --annotate "$TMP/bad-script.json" --drafts-dir "$ADRAFTS"
+echo '{"steps": [{"op": "delete"}]}' >"$TMP/bad-step.json"
+run annotate-badstep 2 -- --annotate "$TMP/bad-step.json" --drafts-dir "$ADRAFTS"
+[[ "$(json "$TMP/annotate-badstep.json" j.message)" == "Step 1: nothing selected" ]] || die "annotate: step error message"
+run annotate-baddraft 2 -- --annotate "$TMP/bad-step.json" --drafts-dir "$ADRAFTS" --draft ../escape
+ok "invalid scripts, failing steps, and escaping --draft names: exit 2"
+
 run previews 0 -- --render-ui-previews "$TMP/previews"
-for name in overlay-region-hint overlay-region-selection overlay-region-selection-bottom-edge overlay-window-hover hud-countdown hud-saved hud-recording-countdown hud-recording hud-saved-video settings-registered settings-in-use; do
+for name in overlay-region-hint overlay-region-selection overlay-region-selection-bottom-edge overlay-window-hover hud-countdown hud-saved hud-recording-countdown hud-recording hud-saved-video settings-registered settings-in-use \
+  editor-empty editor-annotated editor-arrow-selected editor-narrow editor-crop-drag editor-cropped; do
   [[ -s "$TMP/previews/$name.png" ]] || die "previews: $name.png missing"
 done
-ok "UI renders offscreen (picker overlays, HUDs, Settings window)"
+ok "UI renders offscreen (picker overlays, HUDs, Settings window, annotation editor)"
 
 echo "app e2e: $pass checks passed"

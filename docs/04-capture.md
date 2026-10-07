@@ -4,8 +4,8 @@ Status: screenshots (`HS2-E89PQR`) and video recording (`HS2-W68HWK`) implemente
 The menu, global hotkey, and settings are in [05-start-and-settings.md](05-start-and-settings.md).
 
 Capture turns "what is on screen right now" into a file in the current **draft review**,
-together with where it came from. Annotating and submitting drafts are separate steps
-(`HS2-9H7WZ8`, `HS2-CRJDJ8`).
+together with where it came from. Annotating ([06-annotation-editor.md](06-annotation-editor.md))
+and submitting (`HS2-CRJDJ8`) drafts are separate steps.
 
 ## 4.1 Requests
 
@@ -93,6 +93,7 @@ Drafts/
     review.json             uxreview/bundle/v1 bundle, media appended per capture
     capture-1.png
     capture-2.png
+    originals/              untouched copies of cropped images (docs/06 §6.6), never attached
 ```
 
 - **First capture**: creates a draft. Its title is "<App> review", or "UX review" when the app
@@ -104,6 +105,9 @@ Drafts/
   capture starts a new draft. A pointer that tries to leave the drafts directory is ignored.
 - **Failures**: a failed add leaves the draft unchanged and keeps the captured file.
 - **Corrupt draft**: a draft whose `review.json` is corrupt is reported, not overwritten.
+- **Editing**: the annotation editor saves with `ReviewDraftStore.update`, which re-reads and
+  rewrites `review.json` under the store's lock, so captures appended while it is open are kept
+  ([06-annotation-editor.md](06-annotation-editor.md) §6.7).
 
 ## 4.7 Permission and errors
 

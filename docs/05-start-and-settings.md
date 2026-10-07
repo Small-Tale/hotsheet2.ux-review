@@ -14,7 +14,9 @@ The menu bar icon (a viewfinder) opens UX Review's menu. When idle, it lists:
    ([04-capture.md](04-capture.md) §4.1).
 3. **Record Video of Screen / Window / Region**, and the **Record Video After Delay** submenu
    ([04-capture.md](04-capture.md) §4.9).
-4. Current review status, **Show Current Review in Finder**, and **Start New Review**.
+4. Current review status, **Annotate Current Review…** (⌘E; disabled with no draft; see
+   [06-annotation-editor.md](06-annotation-editor.md)), **Show Current Review in Finder**, and
+   **Start New Review**.
 5. Hot Sheet status, **Choose Project Folder…**, and **Refresh Hot Sheet Status**.
 6. **Settings…** (⌘,), the version, and **Quit**.
 

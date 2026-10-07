@@ -55,7 +55,8 @@ public enum ReviewDraftError: Error, Equatable, CustomStringConvertible {
 }
 
 /// Collects captures into the current draft review on disk. Captures keep accumulating in one
-/// draft until `startNew()`; the review session UI (HS2-CRJDJ8) edits and submits drafts.
+/// draft until `startNew()`; the annotation editor (docs/06) edits drafts and the review session UI
+/// (HS2-CRJDJ8) submits them.
 /// Layout: `<root>/<draft id>/{review.json, capture-1.png, …}` plus `<root>/current`, which
 /// names the current draft directory. Spec: docs/04-capture.md §4.6.
 public final class ReviewDraftStore: @unchecked Sendable {
@@ -153,6 +154,36 @@ public final class ReviewDraftStore: @unchecked Sendable {
         return (draft, item)
     }
 
+    /// Reads the draft in `directory` (any draft, not only the current one).
+    public func load(_ directory: URL) throws -> ReviewDraft {
+        lock.lock()
+        defer { lock.unlock() }
+        return try read(directory)
+    }
+
+    /// Re-reads the draft in `directory`, applies `change`, and writes it back, all under the
+    /// store's lock, so captures appended meanwhile are never lost. The annotation editor saves
+    /// this way (docs/06-annotation-editor.md §6.7).
+    @discardableResult
+    public func update(_ directory: URL, _ change: (inout ReviewBundle) throws -> Void) throws -> ReviewDraft {
+        lock.lock()
+        defer { lock.unlock() }
+        var draft = try read(directory)
+        try change(&draft.bundle)
+        try write(draft.bundle, to: draft.bundleURL)
+        return draft
+    }
+
+    private func read(_ directory: URL) throws -> ReviewDraft {
+        let bundleURL = directory.appendingPathComponent(Self.bundleFilename)
+        do {
+            let bundle = try ReviewBundle.makeDecoder().decode(ReviewBundle.self, from: Data(contentsOf: bundleURL))
+            return ReviewDraft(directory: directory, bundle: bundle)
+        } catch {
+            throw ReviewDraftError.unreadableDraft(bundleURL)
+        }
+    }
+
     private func loadCurrent() throws -> ReviewDraft? {
         guard let name = try? String(contentsOf: pointerURL, encoding: .utf8)
             .trimmingCharacters(in: .whitespacesAndNewlines), !name.isEmpty, !name.contains("/")
@@ -160,12 +191,7 @@ public final class ReviewDraftStore: @unchecked Sendable {
         let directory = root.appendingPathComponent(name, isDirectory: true)
         let bundleURL = directory.appendingPathComponent(Self.bundleFilename)
         guard FileManager.default.fileExists(atPath: bundleURL.path) else { return nil }
-        do {
-            let bundle = try ReviewBundle.makeDecoder().decode(ReviewBundle.self, from: Data(contentsOf: bundleURL))
-            return ReviewDraft(directory: directory, bundle: bundle)
-        } catch {
-            throw ReviewDraftError.unreadableDraft(bundleURL)
-        }
+        return try read(directory)
     }
 
     private func createDraft(context: CaptureContext) throws -> ReviewDraft {

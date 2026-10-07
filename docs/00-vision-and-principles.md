@@ -2,7 +2,8 @@
 
 Status: foundation in place (`HS2-3ZSBZ9`); screenshot and video capture and starting from the menu or hotkey
 implemented (`HS2-E89PQR`, `HS2-W68HWK`, `HS2-DR107C`; [04-capture.md](04-capture.md),
-[05-start-and-settings.md](05-start-and-settings.md)); other capture and editing features are tracked in
+[05-start-and-settings.md](05-start-and-settings.md)); the annotation editor implemented (`HS2-9H7WZ8`,
+[06-annotation-editor.md](06-annotation-editor.md)); other capture and editing features are tracked in
 [README.md](README.md#roadmap).
 
 ## 0.1 Problem

@@ -14,7 +14,7 @@ spec/
 docs/                          requirements, source of truth (see docs/README.md)
 scripts/
   check.sh                     repo gate: lint, spec, tests, app build + smoke + app e2e
-  app-e2e.sh                   drives the built app's headless modes (docs/04 §4.11)
+  app-e2e.sh                   drives the built app's headless modes (docs/04 §4.11, docs/06 §6.9)
   macos-project.sh             XcodeGen → macos/UXReview.xcodeproj (not committed)
 macos/
   Package.swift                SwiftPM package UXReviewKit (core, no AppKit)
@@ -39,6 +39,13 @@ macos/
     Settings/Hotkey.swift             global hotkey model: parse/display, Carbon codes (docs/05 §5.2)
     Settings/CaptureSettings.swift    settings + KeyValueStoring persistence, HotkeyAction
     Settings/SettingsCommand.swift    `--settings` argument parsing (docs/05 §5.5)
+    Editor/AnnotationEditor.swift     editor state machine: document, selection, undo/redo, intent toggle (docs/06)
+    Editor/AnnotationEditor+Gestures.swift  draw/move/resize/crop gestures, hit testing, crop + reset crop
+    Editor/ShapeGeometry.swift        MediaFrame pixel ↔ normalized, handles, hit distance, translate/resize
+    Editor/ImageCrop.swift            PixelRect snapping, annotation transform into a crop
+    Editor/AnnotationRenderer.swift   CoreGraphics drawing of shapes, badges, handles, crop overlay; IntentPalette
+    Editor/EditorSession.swift        editor + files: display images, video poster, save (merge), crop writes, originals/
+    Editor/EditorScript.swift         JSON editing scripts + `--annotate` parsing (docs/06 §6.9)
   Tests/UXReviewKitTests/      Swift Testing unit + end-to-end tests (docs/TEST-COVERAGE.md)
   App/Sources/
     UXReviewApp.swift          @main, MenuBarExtra + Settings scenes, hotkey wiring, headless mode routing
@@ -58,5 +65,12 @@ macos/
     Settings/SettingsModel.swift      live settings, persistence, hotkey re-registration
     Settings/SettingsView.swift       Settings window + shortcut recorder
     Settings/HeadlessSettings.swift   `--settings` mode with JSON output
+    Editor/EditorWindowController.swift  one window per draft, save on close, hidden Edit menu
+    Editor/EditorModel.swift          observable wrapper: mutate → redraw + autosave, reload on capture
+    Editor/EditorView.swift           tool bar, media strip, layout
+    Editor/AnnotationCanvas.swift     NSView canvas: mouse/keyboard → editor, drawing via AnnotationRenderer
+    Editor/InspectorView.swift        selected annotation (intents, note) + annotation list
+    Editor/HeadlessAnnotate.swift     `--annotate` mode with JSON output
+    Editor/EditorPreviews.swift       editor states + mock screenshots for --render-ui-previews
 linux/, windows/               future native variants (README placeholders)
 ```

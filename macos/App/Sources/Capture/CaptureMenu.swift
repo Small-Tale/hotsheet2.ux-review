@@ -32,6 +32,9 @@ struct CaptureMenuSection: View {
         if let last = capture.lastCapture {
             Text("Current review: \(last.draft.bundle.media.count) capture(s), last \(last.media.filename)")
         }
+        Button("Annotate Current Review…") { capture.annotateCurrentReview() }
+            .keyboardShortcut("e")
+            .disabled(!capture.hasCurrentReview)
         Button("Show Current Review in Finder") { capture.revealCurrentReview() }
         Button("Start New Review") { capture.startNewReview() }
     }

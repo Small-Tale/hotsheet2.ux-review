@@ -43,8 +43,12 @@ client's tests must decode them, and the macOS tests also re-encode them lossles
   countdown HUD, and `CaptureCoordinator`. Pure parts (requests, region math, window selection,
   context, draft store, `--capture` parsing) live in `UXReviewKit` (`Capture/`, `Review/`).
   See [04-capture.md](04-capture.md).
-- **Headless modes**: `UXReview --capture …`, `--settings …`, and `--render-ui-previews DIR`
-  ([04-capture.md](04-capture.md) §4.11, [05-start-and-settings.md](05-start-and-settings.md) §5.5).
+- **Annotation editor** (`App/Sources/Editor/`): window, canvas, and inspector over the pure
+  `AnnotationEditor` state machine, renderer, crop math, and `EditorSession` persistence in
+  `UXReviewKit` (`Editor/`). See [06-annotation-editor.md](06-annotation-editor.md).
+- **Headless modes**: `UXReview --capture …`, `--settings …`, `--annotate …`, and
+  `--render-ui-previews DIR` ([04-capture.md](04-capture.md) §4.11,
+  [05-start-and-settings.md](05-start-and-settings.md) §5.5, [06-annotation-editor.md](06-annotation-editor.md) §6.9).
 - **Settings**: stored in the app's defaults domain (or `UXREVIEW_DEFAULTS_SUITE`): the project
   folder (`projectDirectory`, overridable with `--project`) and capture settings
   (`captureSettings`: default request + global hotkey). The hotkey is registered with Carbon
@@ -61,7 +65,8 @@ client's tests must decode them, and the macOS tests also re-encode them lossles
    skipping the end-to-end test
 5. the XcodeGen + `xcodebuild` app build
 6. the app smoke run against a throwaway Hot Sheet store
-7. `scripts/app-e2e.sh`, which drives the built app's headless capture and preview modes
+7. `scripts/app-e2e.sh`, which drives the built app's headless capture, settings, annotation, and
+   preview modes
 
 Set `SKIP_APP=1` to skip the app build. Long steps are time-boxed when coreutils `timeout` is
 available.

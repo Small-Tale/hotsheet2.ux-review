@@ -11,6 +11,7 @@ any behavior change.
 | [03-hotsheet-integration.md](03-hotsheet-integration.md) | How reviews become Hot Sheet 2 tickets |
 | [04-capture.md](04-capture.md) | Screenshot capture: targets, delay, context, draft reviews, permission, headless modes |
 | [05-start-and-settings.md](05-start-and-settings.md) | Menu bar menu, global hotkey, Settings window, persistence |
+| [06-annotation-editor.md](06-annotation-editor.md) | Annotation editor: shapes, notes, intents, crop, undo/redo, saving, `--annotate` |
 | [CODEBASE-MAP.md](CODEBASE-MAP.md) | File-by-file orientation |
 | [TEST-COVERAGE.md](TEST-COVERAGE.md) | Which tests cover which behavior |
 
@@ -23,7 +24,8 @@ Repository foundation: `HS2-3ZSBZ9`. The following are tracked as Hot Sheet tick
 | Menu bar actions + global hotkey | `HS2-DR107C` |
 | Screenshot capture (screen/window/region, delay, context) | `HS2-E89PQR` |
 | Video recording | `HS2-W68HWK` |
-| Annotation editor (shapes, notes, intents, crop) | `HS2-9H7WZ8` |
+| Annotation editor (shapes, notes, intents, crop) | `HS2-9H7WZ8` (done) |
+| Editor zoom/pan · restore originals · canvas accessibility | `HS2-9Y9DDY` · `HS2-6PV1N3` · `HS2-M8ZFS0` |
 | Freehand smoothing | `HS2-5N1GFW` |
 | Video trim + annotation time ranges | `HS2-GBM8JN` |
 | Review session flow + submit | `HS2-CRJDJ8` |

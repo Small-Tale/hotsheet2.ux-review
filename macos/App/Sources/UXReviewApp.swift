@@ -2,8 +2,8 @@ import AppKit
 import SwiftUI
 import UXReviewKit
 
-/// Menu-bar-only app (`LSUIElement`). Capture, annotation, and submission UI arrive in
-/// follow-up tickets; see docs/README.md for the roadmap.
+/// Menu-bar-only app (`LSUIElement`): capture from the menu or a global hotkey, annotate drafts
+/// in the editor window. Submission UI arrives in a follow-up ticket; see docs/README.md.
 @main
 enum UXReviewMain {
     static func main() {
@@ -36,6 +36,12 @@ enum UXReviewMain {
             _ = NSApplication.shared
             NSApplication.shared.setActivationPolicy(.prohibited)
             exit(MainActor.assumeIsolated { HeadlessSettings.run(arguments: Array(CommandLine.arguments.dropFirst())) })
+        }
+        // Headless annotation used by scripts/app-e2e.sh: run an editing script on a draft, JSON result, exit.
+        if CommandLine.arguments.contains("--annotate") {
+            _ = NSApplication.shared
+            NSApplication.shared.setActivationPolicy(.prohibited)
+            exit(MainActor.assumeIsolated { HeadlessAnnotate.run(arguments: Array(CommandLine.arguments.dropFirst())) })
         }
         // Headless capture used by scripts/app-e2e.sh: one capture, JSON result, exit.
         if CommandLine.arguments.contains("--capture") {

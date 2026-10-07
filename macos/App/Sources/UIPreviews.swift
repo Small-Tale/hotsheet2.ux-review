@@ -69,6 +69,7 @@ enum UIPreviews {
             written.append(try write(overlay(image, on: card), to: directory.appendingPathComponent("\(name).png")))
         }
         written += try renderSettings(to: directory)
+        written += try EditorPreviews.render(to: directory)
         return written
     }
 
