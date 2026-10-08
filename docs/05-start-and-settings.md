@@ -13,8 +13,13 @@ derived from the Hot Sheet 2 design export `docs/design/exports/ux-review-status
 work happens in UX Review's own windows (§5.1.1). When idle, it lists:
 
 1. **UX Review <version>** (a heading).
-2. **Capture Image ▸** and **Capture Video ▸**. Each submenu names the target it captures
-   ("Image of Region"), which is the default target from Settings (§5.3), and offers:
+2. **Capture [Screen | Window | Region]** (`HS2-W62GWS`): a segmented control in the menu row
+   showing the default target. Choosing a segment makes it the default target, the same setting
+   as Settings › Default capture › Capture (§5.3), so it persists and an open Settings window
+   follows it (and the global shortcuts use it too). The menu stays open, and the capture
+   submenus below use the new target right away.
+3. **Capture Image ▸** and **Capture Video ▸**. Each submenu names the target it captures
+   ("Image of Region"), which is the default target (item 2, or Settings §5.3), and offers:
    - **Immediate**: captures now. It shows the global shortcut (§5.2) when that shortcut starts
      exactly this capture (default delay None) and is a letter, digit, or Space.
    - **Delayed [3 s | 10 s]**: a segmented control in the menu row. Choosing a segment closes
@@ -22,17 +27,17 @@ work happens in UX Review's own windows (§5.1.1). When idle, it lists:
    - Capture Video also has the **Narrate Next Recording with Microphone** checkbox, which turns
      narration on or off for the next recording only ([04-capture.md](04-capture.md) §4.9).
 
-   Other targets (Screen, Window, Region) and the 5 s delay are in the app menu bar's
-   **Capture** menu (§5.1.1), or set them as the default in Settings. With Region or Window as
-   the default, the picker itself switches: **Space** toggles region ⇄ window and **Return**
-   takes the whole screen ([04-capture.md](04-capture.md) §4.2).
-3. **Settings…** (⌘,) opens the Settings window.
-4. **Open UX Review** opens the UX Review window (the annotation editor) on the current draft
+   Every target with the 5 s delay is in the app menu bar's **Capture** menu (§5.1.1), and the
+   delay default is in Settings. With Region or Window as the target, the picker itself
+   switches: **Space** toggles region ⇄ window and **Return** takes the whole screen
+   ([04-capture.md](04-capture.md) §4.2).
+4. **Settings…** (⌘,) opens the Settings window.
+5. **Open UX Review** opens the UX Review window (the annotation editor) on the current draft
    review. With no current draft it brings open UX Review windows forward, or, with none open,
    starts a new empty review (**New Review**, §5.1.1).
-5. **Quit UX Review** (⌘Q).
+6. **Quit UX Review** (⌘Q).
 
-The capture submenus are replaced while a capture runs:
+The target row and the capture submenus are replaced while a capture runs:
 
 - During a countdown, by **Cancel Capture (N s)**.
 - While recording, by **Stop Recording (m:ss)** (plus "Recording microphone narration" when
@@ -139,7 +144,8 @@ The Settings window (menu bar menu or app menu › Settings…, ⌘,) has three 
 - **Default capture**: kind (Screenshot, Video), target (Screen, Window, Region), and delay
   (None, 3, 5, 10 seconds).
   This is what the Capture hotkey does. The Record video hotkey uses the same target and delay,
-  and the menu bar menu's Capture Image and Capture Video use the target (§5.1). The default is
+  and the menu bar menu's Capture Image and Capture Video use the target (§5.1). The menu bar
+  menu's **Capture [Screen | Window | Region]** row changes the same target. The default is
   Region with no delay.
 - **Video**:
   - **Record microphone narration**, the narration default for recordings (off). The Capture

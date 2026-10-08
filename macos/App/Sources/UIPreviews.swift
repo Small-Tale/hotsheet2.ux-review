@@ -192,34 +192,57 @@ enum UIPreviews {
             return menu
         }
         MainMenu.install(captureEntries: { AppMenus.captureMenu(idle) }, perform: { _ in })
+        let statusMenuIdle = MenuDump.describe(menu(AppMenus.statusMenu(idle)))
         let dump: [String: Any] = [
-            "statusMenuIdle": MenuDump.describe(menu(AppMenus.statusMenu(idle))),
+            "statusMenuIdle": statusMenuIdle,
+            "statusMenuAfterPickingWindow": pickTargetInOpenMenu(idle, segment: 1),
             "statusMenuRecording": MenuDump.describe(menu(AppMenus.statusMenu(recording))),
             "mainMenu": NSApp.mainMenu.map(MenuDump.describe) ?? [],
         ]
         let json = directory.appendingPathComponent("menus.json")
         try JSONSerialization.data(withJSONObject: dump, options: [.prettyPrinted, .sortedKeys]).write(to: json)
         var written = [json]
-        guard case let .choices(title, choices)? = AppMenus.statusMenu(idle).compactMap({ entry -> [MenuEntry]? in
+        // The status menu's Capture [Screen | Window | Region] picker and Capture Image's Delayed row.
+        var rows: [(String, MenuEntry)] = AppMenus.statusMenu(idle).compactMap { entry in
+            if case .picker = entry { return ("menu-capture-target-row", entry) }
+            return nil
+        }
+        if let delayed = AppMenus.statusMenu(idle).compactMap({ entry -> [MenuEntry]? in
             if case let .submenu("Capture Image", children) = entry { return children }
             return nil
-        }).first?.first(where: { if case .choices = $0 { true } else { false } }) else { return written }
-        for (name, appearance) in [("menu-delayed-row-light", NSAppearance.Name.aqua), ("menu-delayed-row-dark", .darkAqua)] {
-            let row = MenuChoicesView(title: title, choices: choices, perform: { _ in })
-            let background = NSVisualEffectView(frame: CGRect(x: 0, y: 0, width: 240, height: 28))
-            background.material = .menu
-            background.state = .active
-            background.appearance = NSAppearance(named: appearance)
-            row.frame = background.bounds
-            background.addSubview(row)
-            background.layoutSubtreeIfNeeded()
-            guard let rep = background.bitmapImageRepForCachingDisplay(in: background.bounds) else { continue }
-            background.cacheDisplay(in: background.bounds, to: rep)
-            if let image = rep.cgImage {
-                written.append(try write(image, to: directory.appendingPathComponent("\(name).png")))
+        }).first?.first(where: { if case .choices = $0 { true } else { false } }) {
+            rows.append(("menu-delayed-row", delayed))
+        }
+        for (prefix, entry) in rows {
+            for (suffix, appearance) in [("light", NSAppearance.Name.aqua), ("dark", .darkAqua)] {
+                guard let row = MenuRendering.item(entry, perform: { _ in }).view else { continue }
+                // A menu is at least as wide as its widest row; the margin stands in for the
+                // rest of the menu, which may be wider.
+                let background = NSVisualEffectView(frame: CGRect(x: 0, y: 0, width: row.frame.width + 20, height: 28))
+                background.material = .menu
+                background.state = .active
+                background.appearance = NSAppearance(named: appearance)
+                row.frame = background.bounds
+                background.addSubview(row)
+                background.layoutSubtreeIfNeeded()
+                guard let rep = background.bitmapImageRepForCachingDisplay(in: background.bounds) else { continue }
+                background.cacheDisplay(in: background.bounds, to: rep)
+                if let image = rep.cgImage {
+                    written.append(try write(image, to: directory.appendingPathComponent("\(prefix)-\(suffix).png")))
+                }
             }
         }
         return written
+    }
+
+    /// Builds the idle status menu the way `StatusItemController` does, chooses a segment of its
+    /// Capture picker as a reviewer would (the menu stays open), and describes the menu after: the
+    /// picker shows the new target and the capture submenus already use it.
+    private static func pickTargetInOpenMenu(_ state: MenuState, segment: Int) -> [[String: Any]] {
+        let open = OpenStatusMenu(state: state)
+        let picker = open.menu.items.compactMap { $0.view as? MenuChoicesView }.first { $0.isPicker }
+        picker?.choose(segment: segment)
+        return MenuDump.describe(open.menu)
     }
 
     private static func composite(_ view: NSView, size _: CGSize) throws -> CGImage {
@@ -245,5 +268,22 @@ enum UIPreviews {
     private static func write(_ image: CGImage, to url: URL) throws -> URL {
         try ImageFiles.writePNG(image, to: url)
         return url
+    }
+}
+
+/// A status menu with its own settings state, run like `StatusItemController` (for previews).
+@MainActor
+private final class OpenStatusMenu {
+    let menu = NSMenu()
+    private var state: MenuState
+
+    init(state: MenuState) {
+        self.state = state
+        MenuRendering.items(AppMenus.statusMenu(state), perform: { [weak self] in self?.run($0) }).forEach(menu.addItem)
+    }
+
+    private func run(_ command: MenuCommand) {
+        if case let .setCaptureTarget(target) = command { state.settings.defaultRequest.target = target }
+        MenuRendering.refreshSubmenus(of: menu, from: AppMenus.statusMenu(state), perform: { [weak self] in self?.run($0) })
     }
 }

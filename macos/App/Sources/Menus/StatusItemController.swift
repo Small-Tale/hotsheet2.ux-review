@@ -36,7 +36,16 @@ final class StatusItemController: NSObject, NSMenuDelegate {
 
     func menuNeedsUpdate(_ menu: NSMenu) {
         menu.removeAllItems()
-        MenuRendering.items(AppMenus.statusMenu(state()), perform: perform).forEach(menu.addItem)
+        MenuRendering.items(AppMenus.statusMenu(state()), perform: { [weak self] in self?.run($0) }).forEach(menu.addItem)
+    }
+
+    /// Runs a menu command. The Capture [Screen | Window | Region] picker keeps the menu open,
+    /// so the capture submenus are rebuilt for the new target right away (docs/05 §5.1).
+    private func run(_ command: MenuCommand) {
+        perform(command)
+        if case .setCaptureTarget = command {
+            MenuRendering.refreshSubmenus(of: menu, from: AppMenus.statusMenu(state()), perform: { [weak self] in self?.run($0) })
+        }
     }
 }
 

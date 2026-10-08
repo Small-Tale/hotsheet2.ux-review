@@ -17,7 +17,8 @@ struct AppMenusTests {
     @Test func idleStatusMenuMatchesTheRequestedLayout() {
         let entries = AppMenus.statusMenu(MenuState(version: "1.2"))
         #expect(entries.map(\.title) == [
-            "UX Review 1.2", nil, "Capture Image", "Capture Video", nil, "Settings…", "Open UX Review", nil, "Quit UX Review",
+            "UX Review 1.2", nil, "Capture", "Capture Image", "Capture Video", nil, "Settings…", "Open UX Review", nil,
+            "Quit UX Review",
         ])
         #expect(entries.first == .label("UX Review 1.2"))
         #expect(entries.contains(.action("Settings…", .openSettings, shortcut: MenuShortcut(","))))
@@ -50,6 +51,60 @@ struct AppMenusTests {
         // Video keeps the one-recording narration checkbox (docs/04 §4.9).
         #expect(video.last == .toggle("Narrate Next Recording with Microphone", isOn: false, .toggleNarration))
         #expect(!image.contains { $0.title == "Narrate Next Recording with Microphone" })
+    }
+
+    /// HS2-W62GWS: "Capture [Screen | Window | Region]" sits above the capture submenus, shows
+    /// the default target, and choosing a segment sets it.
+    @Test func targetPickerShowsAndSetsTheDefaultTarget() throws {
+        let entries = AppMenus.statusMenu(MenuState())
+        #expect(entries[2] == .picker("Capture", [
+            MenuChoice("Screen", .setCaptureTarget(.display), accessibilityLabel: "Capture Screen"),
+            MenuChoice("Window", .setCaptureTarget(.window), accessibilityLabel: "Capture Window"),
+            MenuChoice("Region", .setCaptureTarget(.region), accessibilityLabel: "Capture Region"),
+        ], selected: 2))
+        #expect(entries[3].title == "Capture Image")
+    }
+
+    /// Every target, walked in an order that revisits one and repeats one: the selected segment
+    /// and both capture submenus always follow the setting, and the kind and delay stay put.
+    @Test func captureSubmenusFollowEveryTargetChange() throws {
+        var state = MenuState(settings: CaptureSettings(defaultRequest: CaptureRequest(kind: .video, target: .region, delaySeconds: 5)))
+        for target in [CaptureTarget.display, .window, .window, .region, .display] {
+            // What the app does with `.setCaptureTarget(target)`.
+            state.settings.defaultRequest.target = target
+            let entries = AppMenus.statusMenu(state)
+            guard case let .picker(_, choices, selected) = entries[2] else {
+                Issue.record("no picker for \(target)")
+                continue
+            }
+            let index = try #require(selected)
+            #expect(choices[index].command == .setCaptureTarget(target))
+            let image = try #require(submenu("Capture Image", in: entries))
+            let video = try #require(submenu("Capture Video", in: entries))
+            #expect(image.first == .label("Image of \(target.label)"))
+            #expect(image[1] == .action("Immediate", .capture(CaptureRequest(kind: .screenshot, target: target))))
+            #expect(video[1] == .action("Immediate", .capture(CaptureRequest(kind: .video, target: target))))
+            guard case let .choices(_, delayed) = image[2] else {
+                Issue.record("no Delayed row for \(target)")
+                continue
+            }
+            #expect(delayed.map(\.command) == [3, 10].map { .capture(CaptureRequest(kind: .screenshot, target: target, delaySeconds: $0)) })
+            #expect(state.settings.defaultRequest.kind == .video)
+            #expect(state.settings.defaultRequest.delaySeconds == 5)
+        }
+    }
+
+    /// The picker only shows while idle: during a capture, it goes with the capture submenus.
+    @Test func targetPickerIsHiddenWhileACaptureRuns() {
+        for phase in [
+            CapturePhase.picking(CaptureRequest()),
+            .countingDown(CaptureRequest(), remaining: 2),
+            .capturing,
+            .recording(startedAt: Self.start),
+            .finishing,
+        ] {
+            #expect(!AppMenus.statusMenu(MenuState(phase: phase)).contains { if case .picker = $0 { true } else { false } }, "\(phase)")
+        }
     }
 
     @Test func immediateItemsShowTheHotkeyThatStartsExactlyThatCapture() throws {

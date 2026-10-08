@@ -1079,3 +1079,19 @@ capture files are no longer cropped or trimmed while drafting.
   name UX Review.
 - **Not covered automatically:** the About panel's title in a running app (one AppKit call with
   `ProductName.full`); the app menu's About item is in the `menus.json` e2e dump.
+
+## HS2-W62GWS: Capture [Screen | Window | Region] in the menu bar menu
+
+- **Unit** (`AppMenusTests`): the idle layout puts the **Capture** picker above Capture Image;
+  the picker lists Screen, Window, Region with `setCaptureTarget` commands and selects the
+  default target; a walk over target changes (including a repeat and a revisit) keeps the
+  selection and both capture submenus' Immediate and Delayed items on the new target while kind
+  and delay stay put; every running phase hides the picker.
+- **App end to end** (`scripts/app-e2e.sh`): `menus.json` checks the picker row (choices and
+  selected Region) and `statusMenuAfterPickingWindow`: choosing Window in an open menu built
+  like the status item's selects Window and rebuilds both submenus as "Image of Window" and
+  "Video of Window".
+- **Visual QA:** `menu-capture-target-row-light/-dark` (`--render-ui-previews`), inspected by
+  hand.
+- **Not covered automatically:** clicking a segment in the live status menu and the Settings
+  window following it (`AppDelegate.perform` → `SettingsModel.update`); needs a person at a Mac.

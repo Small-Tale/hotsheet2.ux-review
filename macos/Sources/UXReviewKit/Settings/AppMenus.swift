@@ -7,6 +7,8 @@ import Foundation
 /// What choosing a menu entry does.
 public enum MenuCommand: Hashable, Sendable {
     case capture(CaptureRequest)
+    /// Makes `target` the default capture target (Settings › Default capture, docs/05 §5.3).
+    case setCaptureTarget(CaptureTarget)
     case cancelCapture
     case stopRecording
     /// Flips "Narrate Next Recording with Microphone" (one recording only, docs/04 §4.9).
@@ -69,12 +71,17 @@ public indirect enum MenuEntry: Hashable, Sendable {
     case toggle(String, isOn: Bool, MenuCommand)
     case submenu(String, [MenuEntry])
     /// A titled row of buttons (a segmented control in AppKit): "Delayed  [3 s | 10 s]".
+    /// Choosing one closes the menu and runs it.
     case choices(String, [MenuChoice])
+    /// A titled row of mutually exclusive options with one selected (a select-one segmented
+    /// control): "Capture  [Screen | Window | Region]". Choosing one runs it and keeps the menu
+    /// open, so the reviewer can go on to a capture item.
+    case picker(String, [MenuChoice], selected: Int?)
 
     public var title: String? {
         switch self {
         case let .label(title), let .action(title, _, _), let .toggle(title, _, _), let .submenu(title, _),
-             let .choices(title, _): title
+             let .choices(title, _), let .picker(title, _, _): title
         case .separator: nil
         }
     }
@@ -130,6 +137,7 @@ public enum AppMenus {
     ///
     ///     UX Review 1.0
     ///     ───
+    ///     Capture  [Screen | Window | Region]
     ///     Capture Image ▸   Immediate / Delayed [3 s | 10 s]
     ///     Capture Video ▸   Immediate / Delayed [3 s | 10 s] / ─ / Narrate Next Recording
     ///     ───
@@ -138,12 +146,14 @@ public enum AppMenus {
     ///     ───
     ///     Quit UX Review  ⌘Q
     ///
-    /// While a capture runs, the two capture submenus are replaced by what stops or explains it.
+    /// While a capture runs, the target row and the two capture submenus are replaced by what
+    /// stops or explains it.
     public static func statusMenu(_ state: MenuState) -> [MenuEntry] {
         var entries: [MenuEntry] = [.label("UX Review \(state.version)"), .separator]
         if let running = runningCapture(state) {
             entries += running
         } else {
+            entries.append(targetPicker(state))
             entries.append(.submenu("Capture Image", quickCapture(.screenshot, state)))
             entries.append(.submenu("Capture Video", quickCapture(.video, state)))
         }
@@ -181,6 +191,17 @@ public enum AppMenus {
         }
         entries += [.separator, narrationToggle(state)]
         return entries
+    }
+
+    /// "Capture [Screen | Window | Region]": the default target (Settings), which Capture Image
+    /// and Capture Video use. Choosing a segment changes that setting (`HS2-W62GWS`).
+    static func targetPicker(_ state: MenuState) -> MenuEntry {
+        let targets = CaptureTarget.allCases
+        return .picker(
+            "Capture",
+            targets.map { MenuChoice($0.label, .setCaptureTarget($0), accessibilityLabel: "Capture \($0.label)") },
+            selected: targets.firstIndex(of: state.settings.defaultRequest.target)
+        )
     }
 
     /// "Immediate" and "Delayed [3 s | 10 s]" for the default target (Settings), plus the
