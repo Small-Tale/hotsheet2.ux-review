@@ -351,7 +351,10 @@ never deletes annotations while the review is a draft:
   hit-tested, or exposed to VoiceOver. The inspector lists them dimmed with "Outside the crop ·
   left out when submitting". The status line says how many, for example "Cropped to 1180 × 560
   px. 2 annotations outside the crop are hidden."
-- Shapes that stick out of the crop are drawn clipped to the image, as they will be submitted.
+- Shapes that stick out of the crop are drawn clipped exactly to the image's edge, images and
+  videos alike, as they will be submitted; nothing of them reaches the canvas around it
+  (`HS2-JHTAZM`). Number badges and the selection's handles are not clipped, so they stay
+  usable at the edge.
 - Widening the crop again (Restore Original, then a larger crop) or undo brings hidden
   annotations back unchanged, in any later session.
 

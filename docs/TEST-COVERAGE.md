@@ -1131,6 +1131,18 @@ capture files are no longer cropped or trimmed while drafting.
   the reviewer's screenshots on the ticket). Whether macOS reserves the checkmark column for an
   unchecked toggle is assumed (it doesn't), and the live menu needs a person at a Mac.
 
+## HS2-JHTAZM: shapes crossing a crop edge are clipped exactly to the media
+
+- **Unit, pixel-exact** (`AnnotationClipTests`): `AnnotationRenderer` draws into a canvas-like
+  bitmap (dark margin around the media rect).
+  - The reported arrow leaving the media on the right leaves every canvas pixel past the edge
+    untouched, with its shaft drawn up to the edge.
+  - Rects, arrows, a freehand, and a strike crossing every edge at a thick stroke touch nothing
+    outside the media except their badges.
+  - A full-frame rect keeps the inner half of its stroke.
+  - All three failed before the fix (the old clip had two stroke widths of slack).
+- **Visual QA:** `editor-video-cropped` and `editor-cropped` (`--render-ui-previews`), inspected by hand.
+
 ## HS2-0TQ6RP: select several captures; ⌘⌫ removes them without asking
 
 - **Unit, transition matrix** (`MediaSelectionTests`): a long walk over plain, ⌘-, and ⇧-clicks
