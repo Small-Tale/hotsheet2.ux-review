@@ -153,6 +153,11 @@ final class FakeHotSheetClient: HotSheetClient, @unchecked Sendable {
         if !noteErrors.isEmpty { throw noteErrors.removeFirst() }
         notes.append((slug, markdown))
     }
+
+    /// What `aiSettings` returns or throws (`hotsheet-cli ai-settings get --json`); unknown by default.
+    var aiTool: Result<AIToolSettings?, Error> = .success(nil)
+
+    func aiSettings() throws -> AIToolSettings? { try aiTool.get() }
 }
 
 /// Suites that encode or decode movies (AVAssetWriter, export sessions, AVPlayer) run one after

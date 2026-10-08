@@ -28,7 +28,7 @@ Reviews window (§7.9) opens it on any other draft.
 | Area | Contents |
 | --- | --- |
 | Review | **Title** (required) and **Summary** (Markdown, optional). Typing is saved into the draft's `review.json` half a second after it stops. "Give the review a title." shows under a blank title |
-| Captures (N) | One row per capture in review order, **as it will be filed** (`SubmissionPreview`, `HS2-64P9DT`): thumbnail (the cropped part of a cropped image; a movie's frame at its trim start, with a play badge), file name, pixel size ("cropped" after a crop), duration ("trimmed" after a trim), the number of annotations filed with it, and source app. When a crop or trim leaves annotations out, a line says so, such as "2 annotations outside the crop will be left out". Nothing is cropped or trimmed until submitting (§7.5); the preview reads `edits.json`. A capture with a problem shows it in orange under its details (§7.3). **Annotate** opens the editor on that capture; **Annotate…** in the header opens it on the first. The trash button removes the capture after a confirmation |
+| Captures (N) | One row per capture in review order, **as it will be filed** (`SubmissionPreview`, `HS2-64P9DT`): thumbnail (the cropped part of a cropped image; a movie's frame at its trim start, with a play badge), file name, pixel size as filed ("cropped" after a crop; "scaled for Claude" when it is downscaled for AI, as in "2576×1449 scaled for Claude", §7.5.1), duration ("trimmed" after a trim), the number of annotations filed with it, and source app. When a crop or trim leaves annotations out, a line says so, such as "2 annotations outside the crop will be left out". Nothing is cropped or trimmed until submitting (§7.5); the preview reads `edits.json`. A capture with a problem shows it in orange under its details (§7.3). **Annotate** opens the editor on that capture; **Annotate…** in the header opens it on the first. The trash button removes the capture after a confirmation |
 | Hot Sheet project | The target project's name and the store it files into, or the problem (§7.6). **Change** lists recent projects and **Choose Folder…** |
 | Ticket | **Submit as** **New ticket** (the default) or **Add to existing ticket**, and for the latter the ticket field and its lookup (§7.2.1) |
 | Before submitting | Only when the review has a problem that belongs to no field or capture (an unsupported format, duplicate ids) |
@@ -169,9 +169,10 @@ rewritten while drafting), `review.json`, and `edits.json` with each crop and tr
    itself is filed. Otherwise a hidden `Drafts/<id>/.submission/` folder gets a cropped PNG for
    each cropped image, a trimmed movie for each trimmed one, and copies of the rest. The bundle
    gets the cropped sizes and trimmed lengths, annotations clipped to them, and those entirely
-   outside left out. The folder is removed afterwards, whatever happens. A missing or unreadable
-   file fails here, before anything is created. Drafts from before this convert first (docs/06
-   §6.6).
+   outside left out. With **Downscale for AI** on (the default), each capture is then scaled
+   down for the project's AI tool (§7.5.1). The folder is removed afterwards, whatever happens.
+   A missing or unreadable file fails here, before anything is created. Drafts from before this
+   convert first (docs/06 §6.6).
 3. Submits with `ReviewSubmitter` ([03-hotsheet-integration.md](03-hotsheet-integration.md) §3.2):
    validate, write `review.json`, `new`, then one `attach` batch of the media plus `review.json`.
    `edits.json`, `numbering.json`, `originals/`, and `submission.json` are never attached.
@@ -189,6 +190,47 @@ rewritten while drafting), `review.json`, and `edits.json` with each crop and tr
    attaches nothing leaves it as it was.
 6. **Any other failure** (validation, a missing file, `hotsheet-cli new` failing) keeps the
    draft unchanged apart from the saved title and summary.
+
+### 7.5.1 Downscaling for AI
+
+Most AI tools can't use a full Mac desktop capture: they shrink it themselves, so small text
+gets lost and the coordinates they report don't match the file. With Settings › Submitting ›
+**Downscale images and videos for AI** on (the default, docs/05 §5.3), submitting files each
+capture at the size the target project's default AI tool reads well (`HS2-PT8PM6`).
+
+- **Only the filed copies change.** The draft keeps its full-size files. Scaling happens in
+  `SubmissionStaging` after the crop or trim. The aspect ratio is kept, and a capture is never
+  scaled up. A capture that needs no crop, trim, or scaling is filed as it is.
+- **Images** are re-encoded as PNG at the new size.
+- **Movies** are exported once, with the trim and the scale together (`VideoTrim.export(_:range:size:to:)`).
+  They keep the recorded frame rate, else the movie's nominal one.
+- **Annotations stay as they are.** Their coordinates are normalized to the media
+  ([02-review-bundle.md](02-review-bundle.md) §2.3), so only the bundle's `pixelWidth` and
+  `pixelHeight` change, and they match the filed files.
+- **The tool** comes from `hotsheet-cli -C <store> ai-settings get --json`
+  ([03-hotsheet-integration.md](03-hotsheet-integration.md) §3.6). The Submit Review window
+  detects it when it opens and again when the project changes. `--submit` detects it at submit
+  time.
+
+| Tool (model) | Filed size (`MediaScaleTarget`) |
+| --- | --- |
+| `claude`, high-resolution tier: Claude 4.7 and later. The aliases `opus`, `sonnet`, `fable`, and `mythos` name current models, as do ids like `claude-opus-4-7` and `claude-sonnet-5-5` | The largest aspect-preserving size whose sides, rounded up to a multiple of 28, are at most **2576 px**, and whose visual tokens ⌈w/28⌉ × ⌈h/28⌉ are at most **4784** (3840×2160 → 2576×1449) |
+| `claude`, standard tier: `haiku` (Haiku 4.5), older ids such as `claude-opus-4-6` and `claude-3-5-sonnet-…`, and no or an unknown model | The same rule with **1568 px** and **1568** tokens (1920×1080 → 1456×819; a 1075×1520 portrait page → 924×1307) |
+| `codex` | Fits within **2048 × 2048** |
+| Any other tool, an old CLI without `ai-settings`, or any failure | **2048 px** on the longest side |
+
+- **The Claude rule** is Claude's own resize, from the Vision docs ("Resolution and token
+  cost" for the tiers, "How Claude resizes and pads images" for the reference implementation):
+  a binary search along the long edge, with the short edge rounded half to even. A file of
+  exactly that size reaches Claude unresized, so the pixel coordinates it returns map 1:1 onto
+  the attachment.
+- **A movie's frames** follow the same rule as an image (for Claude, the token budget applies to
+  each frame an AI extracts). The sides are then rounded down to even numbers for H.264, so a
+  3840×2160 recording becomes 2576×1448 on the high-resolution tier.
+- **Where it shows.** The Submit Review list shows the filed size ("2048×1280 scaled for Codex",
+  or "… cropped, scaled for Claude"). `--submit` reports `scaledCaptures` (draft file names) and
+  `scaledFor` (`Claude`, `Codex`, or `AI`), and `--downscale on|off` overrides the setting for
+  one run (§7.8).
 
 **Adding to an existing ticket** (§7.2.1) uses the same steps with the writes of docs/03 §3.5:
 one `attach` batch of the media plus `review.json`, then one note.
@@ -238,11 +280,16 @@ Changing the project in one session window refreshes every open session window.
 ## 7.7 Not yet
 
 - Open the ticket in Hot Sheet (web UI or app) when it is running: `HS2-ZEF6XD`.
+- Downscaling for AI (§7.5.1):
+  - Tell the AI a capture was scaled (its original size in the ticket and `review.json`): `HS2-KMB528`.
+  - Codex's patch budget beyond 2048 × 2048: `HS2-Q0R78W`.
+  - Claude's rule for Claude models run by other tools: `HS2-8G9F3R`.
 
 ## 7.8 Headless submit
 
 ```
 UXReview --submit [--drafts-dir DIR] [--draft NAME] [--project DIR] [--title T] [--summary S] [--to-ticket REF [--exclude IDS]]
+                  [--downscale on|off]
 ```
 
 Files the current draft (or the draft named by `--draft`) through the same `ReviewSession`
@@ -251,13 +298,15 @@ replace the draft's own before checking. `--to-ticket` adds the review to that e
 (§7.2.1). It takes the same slugs and references as the window's field, and runs the same lookup
 before checking, so an unknown ticket is an `invalidReview` issue. `--exclude m2,a3` (with
 `--to-ticket` only) leaves those captures and annotations out (§7.2.2); an id that is neither is
-`invalidArguments`, and excluding every capture is an `invalidReview` issue.
+`invalidArguments`, and excluding every capture is an `invalidReview` issue. `--downscale on|off`
+replaces the Downscale for AI setting for this submission (§7.5.1).
 
 - On success: `status: "submitted"`, `slug`, `ticketFile`, `storePath`, `title`, `mediaCount`,
   `annotationCount`, `draftDirectory`, `draftRemoved`, `addedToExistingTicket`, and `ticketTitle`
   (the existing ticket's title, with `--to-ticket`), plus `remainingCaptures` when part of the
   review was added and the draft keeps the rest, and `abandonedTicket` when an earlier failed New
-  ticket try left a ticket behind (§7.5; it is not deleted).
+  ticket try left a ticket behind (§7.5; it is not deleted), plus `scaledCaptures` and `scaledFor`
+  when captures were scaled down for AI (§7.5.1).
 - On failure: `status: "error"`, `error`, `message`, plus `issues` (messages, for
   `invalidReview`), `createdTicket` (when the ticket exists but the attach failed), `attachedTo`
   (when the media is attached to the existing ticket but the note failed, or some of it before
@@ -280,7 +329,13 @@ attach failure (a wrapper CLI that fails the first `attach`) followed by a retry
 created ticket. It then adds a draft to an existing ticket that already has a `capture-1.png`:
 a reference with no slug and an unknown ticket exit 2; a wrapper CLI failing the first `edit`
 exits 5 with `attachedTo`; and the retry adds exactly one note citing `capture-1 (2).png`, with one
-batch and no new ticket.
+batch and no new ticket. For AI downscaling (§7.5.1), it imports a 3840×2400 image (and, for
+Claude, a large recording) into fresh drafts. These are filed through a wrapper CLI that reports
+the project's AI tool: Claude Haiku (standard tier: the image and the recording at the docs'
+sizes, with even sides for the movie), Codex (2048×1280), and a CLI without `ai-settings`
+(2048×1280). Each check confirms that the filed PNG, the movie (with `ffprobe`), and the filed
+`review.json` sizes match, and that the annotations are the draft's. With `--downscale off`, or
+the setting off, the full 3840×2400 file is filed.
 
 ## 7.9 Draft reviews
 

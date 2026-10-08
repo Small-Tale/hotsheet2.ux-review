@@ -23,8 +23,10 @@ enum ReviewSessionPreviews {
         let draft = try makeDraft(in: scratch, store: store)
 
         func model(_ draft: ReviewDraft, target: HotSheetStatus = ready) -> ReviewSessionModel {
-            let model = ReviewSessionModel(draft: draft, store: store, target: target)
+            // Previews never run hotsheet-cli: the AI size is fixed (Claude's standard tier).
+            let model = ReviewSessionModel(draft: draft, store: store, target: target) { _, _ in .claudeStandard }
             model.statusProvider = { target }
+            model.previewScale(.claudeStandard)
             // Previews never run hotsheet-cli; they resolve lookups with previewLookup.
             model.ticketFinder = { _, _ in .success(nil) }
             return model

@@ -19,6 +19,9 @@ public struct CaptureSettings: Codable, Equatable, Sendable {
     public var showPointerInRecordings: Bool
     /// Whether recordings draw a ring at each mouse click, like QuickTime Player (off).
     public var showClicksInRecordings: Bool
+    /// Whether images and videos are scaled down for the target project's AI tool when filed
+    /// (on). The draft keeps full-size files. Spec: docs/07-review-session.md §7.5.1.
+    public var downscaleForAI: Bool
 
     public init(
         defaultRequest: CaptureRequest = CaptureRequest(kind: .screenshot, target: .region),
@@ -27,7 +30,8 @@ public struct CaptureSettings: Codable, Equatable, Sendable {
         openReviewHotkey: Hotkey? = .defaultOpenReview,
         narration: Bool = false,
         showPointerInRecordings: Bool = true,
-        showClicksInRecordings: Bool = false
+        showClicksInRecordings: Bool = false,
+        downscaleForAI: Bool = true
     ) {
         self.defaultRequest = defaultRequest
         self.captureHotkey = captureHotkey
@@ -36,6 +40,7 @@ public struct CaptureSettings: Codable, Equatable, Sendable {
         self.narration = narration
         self.showPointerInRecordings = showPointerInRecordings
         self.showClicksInRecordings = showClicksInRecordings
+        self.downscaleForAI = downscaleForAI
     }
 
     /// How recordings show the pointer, per these settings.
@@ -79,7 +84,7 @@ public struct CaptureSettings: Codable, Equatable, Sendable {
 
     private enum CodingKeys: String, CodingKey {
         case defaultRequest, captureHotkey, recordHotkey, openReviewHotkey, narration
-        case showPointerInRecordings, showClicksInRecordings
+        case showPointerInRecordings, showClicksInRecordings, downscaleForAI
     }
 
     /// Missing fields take their defaults, so older or partial settings still load. An explicit
@@ -102,6 +107,7 @@ public struct CaptureSettings: Codable, Equatable, Sendable {
             ?? defaults.showPointerInRecordings
         showClicksInRecordings = try container.decodeIfPresent(Bool.self, forKey: .showClicksInRecordings)
             ?? defaults.showClicksInRecordings
+        downscaleForAI = try container.decodeIfPresent(Bool.self, forKey: .downscaleForAI) ?? defaults.downscaleForAI
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -113,6 +119,7 @@ public struct CaptureSettings: Codable, Equatable, Sendable {
         try container.encode(narration, forKey: .narration)
         try container.encode(showPointerInRecordings, forKey: .showPointerInRecordings)
         try container.encode(showClicksInRecordings, forKey: .showClicksInRecordings)
+        try container.encode(downscaleForAI, forKey: .downscaleForAI)
     }
 }
 

@@ -34,6 +34,7 @@ final class SettingsModel: ObservableObject {
         settings = next
         try? CaptureSettingsStore.save(next, to: store)
         if hotkeysChanged { registrations = hotkeys.register(next) }
+        NotificationCenter.default.post(name: .captureSettingsChanged, object: nil)
     }
 
     /// While a shortcut recorder listens, no hotkey may fire, so pressing one records it.

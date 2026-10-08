@@ -148,3 +148,18 @@ earlier one was stored, in this flow and in §3.2.
    `### Capture context`, `### Media`, `### Annotations` with `#### #N · <intents> ·
    attachment:<stored name>`. A renamed media line adds `; stored under this name, review.json
    calls it <draft name>`.
+
+## 3.6 The project's default AI tool
+
+To scale filed captures for the AI that will read them (`HS2-PT8PM6`,
+[07-review-session.md](07-review-session.md) §7.5.1), `HotSheetCLIClient.aiSettings()` runs
+`hotsheet-cli -C <store> ai-settings --actor-role=human --actor-id=ux-review get --json`. The
+command prints the project's default tool, model, and effort, or the machine-wide fallback when
+the project has none, for example `{"tool":"claude","model":"sonnet","effort":"medium"}`
+(`AIToolSettings`; `provider` is also accepted for `tool`). The command only reads.
+
+- A non-zero exit throws `commandFailed`. An older CLI without `ai-settings` exits 2 with
+  "unrecognized subcommand".
+- Output without a tool throws `unexpectedOutput`.
+- `MediaScaleTarget.detect` turns either error into the 2048 px fallback. Transports that can't
+  tell (the protocol's default) return nil, which gets the same fallback.

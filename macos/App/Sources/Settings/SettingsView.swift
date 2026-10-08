@@ -34,6 +34,12 @@ struct SettingsView: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
+            Section("Submitting") {
+                Toggle("Downscale images and videos for AI", isOn: binding(\.downscaleForAI))
+                Text(Self.downscaleCaption)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
             Section("Global shortcuts") {
                 ForEach(HotkeySlot.allCases, id: \.self) { slot in
                     VStack(alignment: .leading, spacing: 4) {
@@ -59,6 +65,10 @@ struct SettingsView: View {
         .fixedSize()
         .onAppear { NSApp.activate(ignoringOtherApps: true) }
     }
+
+    /// Under Downscale for AI (docs/07 §7.5.1).
+    static let downscaleCaption = "Filed captures are scaled down to a size the project's default AI tool reads well "
+        + "(Claude, Codex), or 2048 pixels on the longest side. Your draft keeps the full-size files."
 
     private var defaultCaptureCaption: String {
         "The capture shortcut starts this capture; Record video uses the same target and delay. "

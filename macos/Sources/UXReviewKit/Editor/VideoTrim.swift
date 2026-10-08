@@ -27,10 +27,12 @@ public enum VideoTrim {
         }
     }
 
-    /// Writes the part of `source` from `range.startMs` to `range.endMs` to `destination`
-    /// (replacing it). Re-encodes at the highest quality so the cut is frame-accurate rather
-    /// than snapped to key frames. Blocks until the export finishes.
-    public static func export(_ source: URL, range: TimeRange, to destination: URL) throws {
+    /// Writes `source` to `destination` (replacing it), cut to `range` (ms of the source) and
+    /// scaled to `size` (display pixels, aspect ratio the caller's), in one export. Either may be
+    /// nil: no cut, or the source's size. Re-encodes at the highest quality so the cut is
+    /// frame-accurate rather than snapped to key frames. Blocks until the export finishes.
+    /// Submitting uses it for trims and AI downscaling (docs/07 §7.5, `HS2-PT8PM6`).
+    public static func export(_ source: URL, range: TimeRange?, size: PixelSize? = nil, to destination: URL) throws {
         guard let fileType = fileType(for: destination) else { throw VideoTrimError.unsupportedFile(destination.lastPathComponent) }
         let asset = AVURLAsset(url: source)
         guard let session = AVAssetExportSession(asset: asset, presetName: AVAssetExportPresetHighestQuality) else {
@@ -41,10 +43,30 @@ public enum VideoTrim {
         defer { try? FileManager.default.removeItem(at: temporary) }
         session.outputURL = temporary
         session.outputFileType = fileType
-        session.timeRange = CMTimeRange(
-            start: CMTime(value: CMTimeValue(range.startMs), timescale: 1000),
-            end: CMTime(value: CMTimeValue(range.endMs), timescale: 1000)
-        )
+        if let range {
+            session.timeRange = CMTimeRange(
+                start: CMTime(value: CMTimeValue(range.startMs), timescale: 1000),
+                end: CMTime(value: CMTimeValue(range.endMs), timescale: 1000)
+            )
+        }
+        if let size {
+            let box = CompositionBox()
+            let done = DispatchSemaphore(value: 0)
+            Task.detached {
+                do {
+                    box.result = try await .success(scalingComposition(asset, to: size))
+                } catch {
+                    box.result = .failure(error)
+                }
+                done.signal()
+            }
+            done.wait()
+            switch box.result {
+            case let .success(composition): session.videoComposition = composition
+            case let .failure(error): throw VideoTrimError.failed("can't scale \(source.lastPathComponent): \(error)")
+            case nil: throw VideoTrimError.failed("can't scale \(source.lastPathComponent)")
+            }
+        }
         let done = DispatchSemaphore(value: 0)
         let box = SessionBox(session)
         box.session.exportAsynchronously { done.signal() }
@@ -53,6 +75,44 @@ public enum VideoTrim {
             throw VideoTrimError.failed(box.session.error?.localizedDescription ?? "status \(box.session.status.rawValue)")
         }
         _ = try FileManager.default.replaceItemAt(destination, withItemAt: temporary)
+    }
+
+    /// A composition drawing the movie's video track (as displayed: its preferred transform
+    /// applied) scaled to fill `size`, at the movie's frame rate (the recorded rate, else the
+    /// nominal one, else 30 fps).
+    static func scalingComposition(_ asset: AVURLAsset, to size: PixelSize) async throws -> AVVideoComposition {
+        guard let track = try await asset.loadTracks(withMediaType: .video).first else {
+            throw VideoTrimError.failed("no video track")
+        }
+        let (natural, preferred, nominal) = try await track.load(.naturalSize, .preferredTransform, .nominalFrameRate)
+        let duration = try await asset.load(.duration)
+        let display = CGRect(origin: .zero, size: natural).applying(preferred)
+        guard display.width > 0, display.height > 0 else { throw VideoTrimError.failed("empty video track") }
+        let rate = await recordedFrameRate(asset) ?? (nominal.isFinite && nominal >= 1 ? Double(nominal) : 30)
+        var layer = AVVideoCompositionLayerInstruction.Configuration(assetTrack: track)
+        layer.setTransform(renderTransform(preferred: preferred, display: display, to: size), at: .zero)
+        let instruction = AVVideoCompositionInstruction(configuration: .init(
+            layerInstructions: [AVVideoCompositionLayerInstruction(configuration: layer)],
+            timeRange: CMTimeRange(start: .zero, duration: duration)
+        ))
+        return AVVideoComposition(configuration: .init(
+            frameDuration: CMTime(value: 1000, timescale: CMTimeScale((max(rate, 1) * 1000).rounded())),
+            instructions: [instruction],
+            renderSize: CGSize(width: size.width, height: size.height)
+        ))
+    }
+
+    /// Natural track pixels → the output frame: the preferred transform (moved so the displayed
+    /// frame starts at 0, 0), then a scale from the displayed size to `size`.
+    static func renderTransform(preferred: CGAffineTransform, display: CGRect, to size: PixelSize) -> CGAffineTransform {
+        preferred
+            .concatenating(CGAffineTransform(translationX: -display.minX, y: -display.minY))
+            .concatenating(CGAffineTransform(scaleX: CGFloat(size.width) / display.width, y: CGFloat(size.height) / display.height))
+    }
+
+    /// Carries the composition out of the detached task that loads it.
+    private final class CompositionBox: @unchecked Sendable {
+        var result: Result<AVVideoComposition, Error>?
     }
 
     /// The movie's expected frame rate, for frame steps on a uniform grid (docs/06 §6.10,

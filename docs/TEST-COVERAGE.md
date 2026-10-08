@@ -1119,3 +1119,58 @@ capture files are no longer cropped or trimmed while drafting.
 - **Not covered automatically:** real ⌘/⇧ mouse clicks in the SwiftUI strip
   (`NSEvent.modifierFlags`), the confirmation sheet, menu titles naming the count, and ⌘⌫ being
   passed to the note field while it edits text; needs a person at a Mac.
+
+## HS2-PT8PM6: downscale images and videos for AI when filing
+
+- **Sizing** (`MediaScalingTests`):
+  - Claude's rule against the Vision docs' examples on both tiers, including the token-limited
+    portrait 1075×1520 → 924×1307 on the standard tier and 3840×2160 → 2576×1449 on the
+    high-resolution tier. For 2000×1500, the docs' table says 1269×952, but their reference
+    implementation (which this follows) gives 1270×952, also 1564 tokens.
+  - A sweep: every result fits both limits, keeps the aspect ratio within rounding, and never grows.
+  - The 2048 px longest-edge rule (Codex, fallback).
+  - Never scaling up, and empty sizes.
+  - Movie sizes rounded down to even sides, with a fitting movie left alone.
+- **Choosing the target** (`MediaScalingTests`):
+  - Claude model → tier for aliases (`opus`, `sonnet`, `fable`, `mythos`, `haiku`, `opus[1m]`,
+    `opusplan`), full and Bedrock-style ids, old `claude-3-5-…` ids, date suffixes, and unknown
+    models.
+  - Tool → target.
+  - Parsing the CLI's JSON.
+- **Detection** (`MediaScalingTests`, fake process runner):
+  - `ai-settings get --json` arguments, with the inherited AI actor scrubbed.
+  - An old CLI (exit 2), a non-store, plain-text, or empty output all fall back to 2048 px.
+  - Fake clients that can't tell, or that throw, fall back too.
+- **Bundle and preview** (`MediaScalingTests`):
+  - Scaling changes only media sizes, not annotations, and the bundle stays valid.
+  - The Submit Review list text: "2048×1280 scaled for Codex", "… cropped, scaled for Claude",
+    and unscaled captures unchanged.
+- **Settings** (`SettingsTests`):
+  - On by default.
+  - Legacy JSON without the field turns it on; `false`, `null`, and a wrong type.
+  - `--set-downscale on|off` and bad values.
+  - `--submit --downscale on|off` and bad values.
+  - The stored JSON includes the field.
+- **Real files** (`EncodingTests.SubmissionScalingTests`):
+  - A 3000×2000 PNG is filed at 2048×1365 for Codex, with the draft byte-identical and still full size.
+  - A crop, then Claude's standard tier, gives annotations identical to the unscaled crop.
+  - A capture that fits files the draft itself.
+  - A real H.264 movie is trimmed and scaled in one export to 100×56 (even), trimmed within a
+    frame and showing the trimmed part; scale alone keeps the full length.
+  - `DraftSubmitter` attaches the scaled PNG with a `review.json` whose sizes match and whose
+    annotation is unchanged. It reports `scaledCaptures` / `scaledFor`, and without a scale it
+    files full size.
+- **App e2e** (`scripts/app-e2e.sh`, "downscale for AI when filing"):
+  - The setting's default, persistence, and a bad value.
+  - A 3840×2400 imported image and a synthetic 1400×900-point recording are filed into a
+    throwaway store through a wrapper CLI reporting Claude Haiku. The PNG, the movie (with
+    `ffprobe`), and the filed `review.json` match the docs' standard-tier sizes (computed by the
+    reference rule in node), with even movie sides, and the annotations are the draft's.
+  - Codex and a CLI without `ai-settings` give 2048×1280.
+  - `--downscale off` and the setting off file 3840×2400.
+- **Visual QA:** the `session-*` renders (`--render-ui-previews`) show the mock captures scaled
+  for Claude's standard tier (the 1600×1000 mock reads "1389×868 scaled for Claude").
+- **Not covered automatically:** the Settings toggle and a live Submit Review window following
+  a settings change (UI wiring over the tested model and notification); a rotated movie's
+  preferred transform in the scaling composition (recordings and imports here have none). Both are
+  `HS2-ZMDH5D`.

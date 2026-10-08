@@ -5,6 +5,7 @@ import Foundation
 ///     UXReview --settings [--set-hotkey ⌥⇧⌘U|none] [--set-record-hotkey ⌥⇧⌘V|none]
 ///                         [--set-open-hotkey ⌥⇧⌘E|none] [--set-target display|window|region] [--set-delay N]
 ///                         [--set-narration on|off] [--set-show-pointer on|off] [--set-show-clicks on|off]
+///                         [--set-downscale on|off]
 ///
 /// Applies the changes (if any), saves them, registers the hotkeys, and prints the result.
 /// Spec: docs/05-start-and-settings.md §5.5.
@@ -23,6 +24,8 @@ public struct SettingsCommand: Equatable, Sendable {
     public var showPointer: Bool?
     /// Shows mouse clicks in recordings.
     public var showClicks: Bool?
+    /// Scales filed images and videos down for the target project's AI tool.
+    public var downscale: Bool?
 
     public init(
         hotkey: Hotkey?? = nil,
@@ -32,7 +35,8 @@ public struct SettingsCommand: Equatable, Sendable {
         delaySeconds: Int? = nil,
         narration: Bool? = nil,
         showPointer: Bool? = nil,
-        showClicks: Bool? = nil
+        showClicks: Bool? = nil,
+        downscale: Bool? = nil
     ) {
         self.hotkey = hotkey
         self.recordHotkey = recordHotkey
@@ -42,11 +46,12 @@ public struct SettingsCommand: Equatable, Sendable {
         self.narration = narration
         self.showPointer = showPointer
         self.showClicks = showClicks
+        self.downscale = downscale
     }
 
     public var changesSomething: Bool {
         hotkey != nil || recordHotkey != nil || openReviewHotkey != nil || target != nil || delaySeconds != nil
-            || narration != nil || showPointer != nil || showClicks != nil
+            || narration != nil || showPointer != nil || showClicks != nil || downscale != nil
     }
 
     static let hotkeyFlags: [(HotkeySlot, String)] = [
@@ -83,11 +88,12 @@ public struct SettingsCommand: Equatable, Sendable {
         command.narration = try parseSwitch(values, flag: "--set-narration")
         command.showPointer = try parseSwitch(values, flag: "--set-show-pointer")
         command.showClicks = try parseSwitch(values, flag: "--set-show-clicks")
+        command.downscale = try parseSwitch(values, flag: "--set-downscale")
         return command
     }
 
     /// `on` / `off` (any case); nil when the flag is absent.
-    private static func parseSwitch(_ values: ArgumentValues, flag: String) throws -> Bool? {
+    static func parseSwitch(_ values: ArgumentValues, flag: String) throws -> Bool? {
         try values.optional(flag).map { text in
             switch text.lowercased() {
             case "on": return true
@@ -118,6 +124,7 @@ public struct SettingsCommand: Equatable, Sendable {
         if let narration { settings.narration = narration }
         if let showPointer { settings.showPointerInRecordings = showPointer }
         if let showClicks { settings.showClicksInRecordings = showClicks }
+        if let downscale { settings.downscaleForAI = downscale }
         for (slot, flag) in Self.hotkeyFlags where hotkeyChange(slot) != nil {
             if let chosen = settings[slot], let problem = settings.problem(with: chosen, for: slot) {
                 throw CommandLineError.invalidValue(flag, "\(chosen.display): \(problem)")

@@ -64,12 +64,18 @@ public protocol HotSheetClient: Sendable {
     func addNote(_ markdown: String, to slug: String) throws
     /// Moves a ticket to Hot Sheet's Trash (`status: deleted`; `hotsheet-cli restore` brings it back).
     func moveToTrash(_ slug: String) throws
+    /// The project's default AI tool and model (`HS2-PT8PM6`), or nil when the transport can't
+    /// tell. Throws when asking failed; callers fall back (`MediaScaleTarget.detect`).
+    func aiSettings() throws -> AIToolSettings?
 }
 
 public extension HotSheetClient {
     func createTicketReportingFile(_ ticket: NewTicket) throws -> CreatedTicket {
         try CreatedTicket(slug: createTicket(ticket))
     }
+
+    /// Transports that can't read the project's AI settings: unknown.
+    func aiSettings() throws -> AIToolSettings? { nil }
 
     /// Transports that can't report stored names or batch ids: assume each file keeps its own name.
     func attachReportingNames(files: [URL], to slug: String, batchLabel: String?, purpose: String?, batchID _: String?) throws -> [String] {
@@ -201,6 +207,18 @@ public struct HotSheetCLIClient: HotSheetClient {
 
     public func moveToTrash(_ slug: String) throws {
         _ = try invoke(["edit", slug, "--status=deleted"])
+    }
+
+    /// `hotsheet-cli -C <store> ai-settings get --json`: the project's default AI tool, else the
+    /// machine-wide fallback (`{"tool":"claude","model":"sonnet","effort":"medium"}`). Throws
+    /// `commandFailed` on a non-zero exit (a CLI without `ai-settings`) and `unexpectedOutput`
+    /// when the JSON names no tool.
+    public func aiSettings() throws -> AIToolSettings? {
+        let result = try invoke(["ai-settings", "get", "--json"])
+        guard let settings = AIToolSettings.parse(result.stdout) else {
+            throw HotSheetError.unexpectedOutput(command: "ai-settings", stdout: result.stdout)
+        }
+        return settings
     }
 
     /// Runs `hotsheet-cli`, throwing on a non-zero exit.

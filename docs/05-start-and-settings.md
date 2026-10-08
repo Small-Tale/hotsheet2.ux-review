@@ -139,7 +139,7 @@ those simply take precedence.
 
 ## 5.3 Settings
 
-The Settings window (menu bar menu or app menu › Settings…, ⌘,) has three sections:
+The Settings window (menu bar menu or app menu › Settings…, ⌘,) has four sections:
 
 - **Default capture**: kind (Screenshot, Video), target (Screen, Window, Region), and delay
   (None, 3, 5, 10 seconds).
@@ -154,6 +154,11 @@ The Settings window (menu bar menu or app menu › Settings…, ⌘,) has three 
   - **Show pointer in recordings** (on) and **Show clicks in recordings** (off, a ring at each
     click like QuickTime Player), `HS2-S4GA06`. They apply from the next recording on.
     Screenshots never include the pointer ([04-capture.md](04-capture.md) §4.4, §4.9).
+- **Submitting**: **Downscale images and videos for AI** (on, `HS2-PT8PM6`). Captures are filed
+  at a size the target project's default AI tool reads well: Claude's own limits, 2048 × 2048
+  for Codex, else 2048 px on the longest side. The draft keeps its full-size files. See
+  [07-review-session.md](07-review-session.md) §7.5.1. An open Submit Review window follows the
+  change.
 - **Global shortcuts**: one recorder each for **Start default capture**, **Record video**, and
   **Open UX Review**.
   Click one, then press a combination.
@@ -168,14 +173,14 @@ The Settings window (menu bar menu or app menu › Settings…, ⌘,) has three 
 Persistence: settings are saved as JSON under the defaults key `captureSettings`:
 
 ```json
-{"captureHotkey":"⌥⇧⌘U","defaultRequest":{"delaySeconds":0,"kind":"screenshot","target":"region"},"narration":false,"openReviewHotkey":"⌥⇧⌘E","recordHotkey":"⌥⇧⌘V","showClicksInRecordings":false,"showPointerInRecordings":true}
+{"captureHotkey":"⌥⇧⌘U","defaultRequest":{"delaySeconds":0,"kind":"screenshot","target":"region"},"downscaleForAI":true,"narration":false,"openReviewHotkey":"⌥⇧⌘E","recordHotkey":"⌥⇧⌘V","showClicksInRecordings":false,"showPointerInRecordings":true}
 ```
 
 - Missing fields take their defaults. Settings saved before `recordHotkey` existed get ⌥⇧⌘V,
   settings saved before `openReviewHotkey` existed get ⌥⇧⌘E,
   settings saved before `narration` existed record without narration, and settings saved
   before `showPointerInRecordings` / `showClicksInRecordings` existed show the pointer but not
-  clicks.
+  clicks, and settings saved before `downscaleForAI` existed downscale.
 - An explicit `null` for `captureHotkey` or `recordHotkey` means that shortcut is disabled.
 - An unreadable value falls back to all defaults.
 
@@ -193,6 +198,7 @@ app's own (`com.smalltale.uxreview`), or the suite named by `UXREVIEW_DEFAULTS_S
 UXReview --settings [--set-hotkey ⌥⇧⌘U|none] [--set-record-hotkey ⌥⇧⌘V|none]
                     [--set-open-hotkey ⌥⇧⌘E|none] [--set-target display|window|region] [--set-delay N]
                     [--set-narration on|off] [--set-show-pointer on|off] [--set-show-clicks on|off]
+                    [--set-downscale on|off]
 ```
 
 This mode applies and saves the changes, registers all three hotkeys exactly as the app would,
@@ -204,6 +210,6 @@ message}`, `openReviewHotkey {status, message}`, and `defaultCapture`.
   shortcut. In that case nothing is saved. Swapping the two in one command is allowed.
 
 `scripts/app-e2e.sh` uses this mode to check persistence across launches (including turning
-narration, the pointer, and clicks on and off, and that a headless recording uses the saved
+narration, the pointer, clicks, and Downscale for AI on and off, and that a headless recording uses the saved
 pointer settings), registration of all three
 hotkeys, a real conflict for each against a running menu bar instance, and duplicate rejection.

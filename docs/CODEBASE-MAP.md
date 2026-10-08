@@ -26,7 +26,7 @@ macos/
     Model/BundleValidation.swift   ReviewBundle.validate() rules (docs/02 §2.7)
     Tickets/TicketComposer.swift   intake ticket body, existing-ticket note, Hot Sheet annotation projection (docs/03 §3.3–3.5)
     Tickets/ReviewSubmitter.swift  validate → write review.json → create ticket → attach batch; steps, resume, attachFailed; add(…) to an existing ticket: attach batch → note, noteFailed; PartialAttach: resume an interrupted attach into the same batch
-    HotSheet/HotSheetCLIClient.swift  HotSheetClient protocol, CreatedTicket (slug + file), CLI transport (new, attach with stored names + --batch-id, attachIncomplete, show, edit --note-file, moveToTrash), HotSheetLocator
+    HotSheet/HotSheetCLIClient.swift  HotSheetClient protocol, CreatedTicket (slug + file), CLI transport (new, attach with stored names + --batch-id, attachIncomplete, show, edit --note-file, moveToTrash, ai-settings get --json), HotSheetLocator
     HotSheet/HotSheetTicket.swift     an existing ticket from `show` front matter, its file; TicketReference (slug/ULID/path in pasted text)
     HotSheet/HotSheetStatus.swift     ready/problem detection for UI and --status
     HotSheet/ProcessRunner.swift      Process seam (fakeable in tests)
@@ -47,8 +47,9 @@ macos/
     Review/DraftEdits.swift           edits.json (crops + trims until submitting), EditProjection: exact maps, outside rules, clipping (docs/06 §6.6, §6.10)
     Review/DraftEdits+Legacy.swift    migrateLegacyEdits: originals/ + crops.json drafts → edits.json
     Review/ReviewSelection.swift      the part of a review that goes to an existing ticket (what is left out), apply/prune (docs/07 §7.2.2)
-    Review/SubmissionPreview.swift    each capture as it will be filed (cropped size, trimmed length, annotations left out) for the Submit Review window (docs/07 §7.2)
-    Review/SubmissionStaging.swift    applies crops + trims into .submission/ when filing (docs/07 §7.5)
+    Review/SubmissionPreview.swift    each capture as it will be filed (cropped size, trimmed length, AI-scaled size, annotations left out) for the Submit Review window (docs/07 §7.2)
+    Review/SubmissionStaging.swift    applies crops + trims, then AI downscaling, into .submission/ when filing (docs/07 §7.5)
+    Review/MediaScaling.swift         PixelSize, AIToolSettings (ai-settings JSON), MediaScaleTarget (Claude tiers' resize rule, Codex / 2048 px fallback, even movie sides), ClaudeVisionTier model mapping (docs/07 §7.5.1)
     Review/MediaImporter.swift        existing images/movies → draft (PNG re-encode, movie copy), `--import` parsing (docs/04 §4.12)
     Review/MediaOpenRouting.swift     Finder Open With / editor drop routing plan (dedupe, all-or-nothing), OpenBatch, `--open-media` parsing (docs/04 §4.12.1)
     Review/ReviewSession.swift        session state machine, SessionIssue rules + messages, DraftSubmitter (docs/07)
@@ -57,9 +58,9 @@ macos/
     Review/ReviewDraftStore+Session.swift  title/summary, remove a capture, submission.json (created ticket, attached names, or a partial attach), delete after submit (docs/07 §7.5)
     Review/ReviewDraftStore+Drafts.swift   list every draft (DraftSummary), discard to the Trash (DraftTrash) or delete immediately, draft-folder safety check (docs/07 §7.9)
     Review/DraftsCommand.swift        `--drafts` / `--discard-draft [--delete]` parsing (docs/07 §7.10)
-    Review/SubmitCommand.swift        `--submit` parsing (`--to-ticket`, `--exclude`), MediaThumbnail (capture list previews: the crop, or the frame at the trim start)
+    Review/SubmitCommand.swift        `--submit` parsing (`--to-ticket`, `--exclude`, `--downscale`), MediaThumbnail (capture list previews: the crop, or the frame at the trim start)
     Settings/Hotkey.swift             global hotkey model: parse/display, Carbon codes (docs/05 §5.2)
-    Settings/CaptureSettings.swift    settings + KeyValueStoring persistence, RecordingPointer (pointer/clicks in recordings), HotkeySlot (capture/record, duplicate rules), HotkeyAction
+    Settings/CaptureSettings.swift    settings (incl. downscaleForAI) + KeyValueStoring persistence, RecordingPointer (pointer/clicks in recordings), HotkeySlot (capture/record, duplicate rules), HotkeyAction
     Settings/SettingsCommand.swift    `--settings` argument parsing (docs/05 §5.5)
     Settings/RecentProjects.swift     recent target projects + persistence (docs/07 §7.6)
     Settings/ProductName.swift        full (Hot Sheet 2 UX Review) and short (UX Review) product names (docs/00 §0.0)
@@ -72,7 +73,7 @@ macos/
     Editor/FrameGrid.swift            uniform frame grid for frame steps at a movie's expected rate (recorded, constant nominal, or a variable-rate movie's snapped interval) (docs/06 §6.10)
     Editor/AnnotationEditor+Media.swift  syncMedia/dropMedia: follow captures added to or removed from the draft (docs/06 §6.7); media strip selection (clickMedia, mediaToRemove)
     Editor/MediaSelection.swift       media strip multiple selection: click / ⌘-click / ⇧-click rules, removal targets, CaptureRemovalPrompt (docs/06 §6.7.2)
-    Editor/VideoTrim.swift            trimmed movie export (AVAssetExportSession), byte-exact restore, expected frame rate (recorded metadata, sample cursor + edit list), frame cache
+    Editor/VideoTrim.swift            trimmed / scaled movie export (AVAssetExportSession, one pass, scaling AVVideoComposition), byte-exact restore, expected frame rate (recorded metadata, sample cursor + edit list), frame cache
     Editor/VideoPlayback.swift        play/pause: AVPlayer on the trimmed clip, player frames, PlaybackRules
     Editor/CanvasViewport.swift       canvas zoom/pan: fit, zoom stops, anchored zoom, clamped pan, AutoScroll near edges (docs/06 §6.2.1)
     Editor/FreehandSmoothing.swift    freehand stroke cleanup: resample, corner-preserving bounded smoothing, gentle simplify
@@ -91,7 +92,7 @@ macos/
     Menus/StatusItemController.swift  menu bar icon (StatusBarIcon) + menu rebuilt from AppMenus.statusMenu on open
     Menus/MainMenu.swift       app menu bar (UX Review, File, Edit, Capture, Window) shown while a window is open (docs/05 §5.1.1)
     Menus/DockPresence.swift   Dock icon + app menu bar while a UX Review window is open (WindowPresence)
-    AppSettings.swift          project folder (defaults / --project), recent projects, folder panel
+    AppSettings.swift          project folder (defaults / --project), recent projects, folder panel, Downscale for AI + the store's AI size
     UIPreviews.swift           --render-ui-previews offscreen renders for visual QA
     Capture/CaptureBackend.swift      ScreenCaptureKit + synthetic backends, CaptureFailure
     Capture/CaptureEnvironment.swift  displays, window list, capture context provider, CaptureChrome (windows never captured)

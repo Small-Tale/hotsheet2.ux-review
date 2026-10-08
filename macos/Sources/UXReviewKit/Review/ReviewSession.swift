@@ -107,6 +107,10 @@ public struct SubmittedReview: Codable, Equatable, Sendable {
     /// A ticket an earlier New ticket try of this draft created, whose media never (fully)
     /// arrived, left behind when the review went to an existing ticket instead (§7.5).
     public var abandonedTicket: String?
+    /// The filed captures scaled down for AI (draft file names), and who for ("Claude"), when any
+    /// were (§7.5.1).
+    public var scaledCaptures: [String]?
+    public var scaledFor: String?
 
     public init(
         ticket: CreatedTicket,
@@ -287,17 +291,22 @@ public struct DraftSubmitter: Sendable {
     public var now: @Sendable () -> Date
     /// The id of a new attach batch (`ReviewSubmitter.makeBatchID`).
     public var makeBatchID: @Sendable () -> String
+    /// The size captures are scaled down to for the project's AI tool (§7.5.1); nil files them
+    /// at full size.
+    public var scale: MediaScaleTarget?
 
     public init(
         store: ReviewDraftStore,
         client: HotSheetClient,
         storePath: URL,
+        scale: MediaScaleTarget? = nil,
         now: @escaping @Sendable () -> Date = Date.init,
         makeBatchID: @escaping @Sendable () -> String = ReviewSubmitter.newBatchID
     ) {
         self.store = store
         self.client = client
         self.storePath = storePath
+        self.scale = scale
         self.now = now
         self.makeBatchID = makeBatchID
     }
@@ -327,17 +336,17 @@ public struct DraftSubmitter: Sendable {
         let pending = store.pendingSubmission(in: directory).flatMap { $0.storePath == storePath.path ? $0 : nil }
         // Part of the review goes only to an existing ticket; a resumed record keeps its part (§7.2.2).
         let part = existing.map { Self.selection(selection, resuming: pending, for: $0, in: draft.bundle) } ?? ReviewSelection()
-        // Crops and trims are applied only now (HS2-71SSJG).
+        // Crops, trims, and AI scaling are applied only now (HS2-71SSJG, HS2-PT8PM6).
         let staged: SubmissionStaging
         do {
             try store.migrateLegacyEdits(directory)
-            staged = try SubmissionStaging.prepare(store.load(directory), selection: part)
+            staged = try SubmissionStaging.prepare(store.load(directory), selection: part, scale: scale)
         } catch {
-            throw SubmissionFailure(message: "Couldn't prepare the cropped or trimmed media: \(ReviewSubmitter.describe(error))")
+            throw SubmissionFailure(message: "Couldn't prepare the cropped, trimmed, or scaled media: \(ReviewSubmitter.describe(error))")
         }
         defer { staged.cleanUp() }
         if let existing {
-            return try add(draft, staged: staged, to: existing, pending: pending, progress: progress)
+            return try scaled(add(draft, staged: staged, to: existing, pending: pending, progress: progress), staged)
         }
         // A record left by adding to an existing ticket is not a created ticket to reuse.
         let resumable = pending.flatMap { $0.isForExistingTicket ? nil : $0 }
@@ -366,7 +375,7 @@ public struct DraftSubmitter: Sendable {
             throw SubmissionFailure(message: ReviewSubmitter.describe(error), createdTicket: resumable?.ticket.slug)
         }
         let removed = (try? store.removeSubmitted(directory)) != nil
-        return SubmittedReview(
+        return scaled(SubmittedReview(
             ticket: ticket,
             title: draft.bundle.title,
             mediaCount: staged.bundle.media.count,
@@ -374,6 +383,15 @@ public struct DraftSubmitter: Sendable {
             storePath: storePath.path,
             submittedAt: now(),
             draftRemoved: removed
-        )
+        ), staged)
+    }
+
+    /// `review` noting the captures `staged` scaled down for AI.
+    private func scaled(_ review: SubmittedReview, _ staged: SubmissionStaging) -> SubmittedReview {
+        guard !staged.scaledFrom.isEmpty else { return review }
+        var review = review
+        review.scaledCaptures = staged.bundle.media.filter { staged.scaledFrom[$0.id] != nil }.map(\.filename)
+        review.scaledFor = scale?.audience
+        return review
     }
 }

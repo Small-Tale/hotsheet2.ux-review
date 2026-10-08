@@ -321,11 +321,10 @@ private struct CaptureRow: View {
         .accessibilityLabel("Capture \(number), \(item.filename)")
     }
 
-    /// Size, length, and annotation count as filed: "cropped" / "trimmed" when an edit applies.
+    /// Size, length, and annotation count as filed: "cropped" / "trimmed" when an edit applies,
+    /// "scaled for Claude" when the capture is downscaled for AI.
     private var details: String {
-        let width = filed?.pixelWidth ?? item.pixelWidth
-        let height = filed?.pixelHeight ?? item.pixelHeight
-        var parts = ["\(width)×\(height)" + (filed?.crop == nil ? "" : " cropped")]
+        var parts = [filed?.sizeText ?? "\(item.pixelWidth)×\(item.pixelHeight)"]
         if let duration = filed?.durationMs ?? item.durationMs {
             parts.append(TimeFormat.clock(duration) + (filed?.trim == nil ? "" : " trimmed"))
         }

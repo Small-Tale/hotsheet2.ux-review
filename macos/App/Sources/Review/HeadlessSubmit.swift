@@ -1,7 +1,7 @@
 import AppKit
 import UXReviewKit
 
-/// `UXReview --submit [--drafts-dir DIR] [--draft NAME] [--project DIR] [--title T] [--summary S] [--to-ticket REF]`:
+/// `UXReview --submit [--drafts-dir DIR] [--draft NAME] [--project DIR] [--title T] [--summary S] [--to-ticket REF] [--downscale on|off]`:
 /// files a draft review in Hot Sheet with no UI (a new ticket, or the existing ticket `--to-ticket`
 /// names), through the same `ReviewSession` rules and `DraftSubmitter` as the session window, and
 /// prints one JSON object. Used by scripts/app-e2e.sh.
@@ -25,6 +25,9 @@ enum HeadlessSubmit {
         var remainingCaptures: Int?
         /// A ticket an earlier failed New ticket try created and left behind (not deleted).
         var abandonedTicket: String?
+        /// The captures scaled down for AI (draft file names), and who for (§7.5.1).
+        var scaledCaptures: [String]?
+        var scaledFor: String?
     }
 
     struct Failure: Encodable, Error {
@@ -99,10 +102,10 @@ enum HeadlessSubmit {
                 return fail(Failure(error: "invalidArguments", message: String(describing: error), draftDirectory: path), code: 2)
             }
         }
-        return submit(&session, store: store, target: target)
+        return submit(&session, store: store, target: target, downscale: command.downscale ?? AppSettings.downscaleForAI)
     }
 
-    private static func submit(_ session: inout ReviewSession, store: ReviewDraftStore, target: HotSheetStatus) -> Int32 {
+    private static func submit(_ session: inout ReviewSession, store: ReviewDraftStore, target: HotSheetStatus, downscale: Bool) -> Int32 {
         let path = session.directory.path
         guard session.beginSubmit(), let cli = target.cliPath, let storePath = target.storePath else {
             let issues = session.issues.map { $0.message(in: session.bundle) }
@@ -114,7 +117,8 @@ enum HeadlessSubmit {
         let submitter = DraftSubmitter(
             store: store,
             client: HotSheetCLIClient(executable: URL(fileURLWithPath: cli), storePath: URL(fileURLWithPath: storePath)),
-            storePath: URL(fileURLWithPath: storePath)
+            storePath: URL(fileURLWithPath: storePath),
+            scale: downscale ? AppSettings.scaleTarget(cliPath: cli, storePath: storePath) : nil
         )
         let existing = session.existingTicket
         do {
@@ -135,7 +139,9 @@ enum HeadlessSubmit {
                 addedToExistingTicket: review.addedToExistingTicket,
                 ticketTitle: review.ticketTitle,
                 remainingCaptures: review.remainingCaptures,
-                abandonedTicket: review.abandonedTicket
+                abandonedTicket: review.abandonedTicket,
+                scaledCaptures: review.scaledCaptures,
+                scaledFor: review.scaledFor
             )))
             return 0
         } catch {

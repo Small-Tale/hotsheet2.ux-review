@@ -35,11 +35,21 @@ final class ReviewSessionModel: ObservableObject {
     /// The draft's crops and trims (`edits.json`), applied only when submitting.
     @Published private(set) var edits = DraftEdits()
 
-    /// Each capture as it will be filed: cropped and trimmed, hidden annotations left out (§7.2).
-    var preview: SubmissionPreview { SubmissionPreview(session.bundle, edits: edits) }
+    /// Each capture as it will be filed: cropped and trimmed, hidden annotations left out, scaled
+    /// for AI (§7.2).
+    var preview: SubmissionPreview { SubmissionPreview(session.bundle, edits: edits, scale: scaleTarget) }
 
     /// Like `preview`, for only what will be sent (the chosen part for an existing ticket).
-    var sentPreview: SubmissionPreview { SubmissionPreview(session.selectedBundle, edits: edits) }
+    var sentPreview: SubmissionPreview { SubmissionPreview(session.selectedBundle, edits: edits, scale: scaleTarget) }
+
+    /// Settings › Downscale images and videos for AI.
+    @Published private(set) var downscaleForAI: Bool
+    /// The AI size detected for a store.
+    @Published private(set) var resolvedScale: (store: String, target: MediaScaleTarget)?
+    /// Detects the AI size for a store (off the main thread): cli, store. Previews pass their own.
+    let scaleDetector: @Sendable (String, String) -> MediaScaleTarget
+
+    private var scaleTask: Task<Void, Never>?
     @Published private(set) var recentProjects: [String] = []
     /// A problem outside the submission itself (a failed removal, an unreadable draft).
     @Published private(set) var notice: String?
@@ -85,8 +95,12 @@ final class ReviewSessionModel: ObservableObject {
 
     var directory: URL { session.directory }
 
-    init(draft: ReviewDraft, store: ReviewDraftStore, target: HotSheetStatus) {
+    init(
+        draft: ReviewDraft, store: ReviewDraftStore, target: HotSheetStatus,
+        scaleDetector: @escaping @Sendable (String, String) -> MediaScaleTarget = AppSettings.scaleTarget
+    ) {
         self.store = store
+        self.scaleDetector = scaleDetector
         session = ReviewSession(
             directory: draft.directory,
             bundle: draft.bundle,
@@ -96,6 +110,7 @@ final class ReviewSessionModel: ObservableObject {
         title = draft.bundle.title
         summary = draft.bundle.summary
         ticketInput = ""
+        downscaleForAI = AppSettings.downscaleForAI
         // A review whose media already went to an existing ticket goes back to that ticket (§7.5).
         if let pending = store.pendingSubmission(in: draft.directory), pending.isForExistingTicket,
            pending.storePath == target.storePath {
@@ -123,7 +138,12 @@ final class ReviewSessionModel: ObservableObject {
             .receive(on: DispatchQueue.main)
             .sink { [weak self] _ in MainActor.assumeIsolated { self?.refreshTarget() } }
             .store(in: &subscriptions)
+        NotificationCenter.default.publisher(for: .captureSettingsChanged)
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in MainActor.assumeIsolated { self?.refreshScale() } }
+            .store(in: &subscriptions)
         scheduleLookup()
+        refreshScale()
     }
 
     // MARK: Reading the draft
@@ -146,6 +166,7 @@ final class ReviewSessionModel: ObservableObject {
         recentProjects = AppSettings.recentProjects
         session.setTarget(statusProvider())
         scheduleLookup()
+        refreshScale()
     }
 
     // MARK: Destination
@@ -296,10 +317,13 @@ final class ReviewSessionModel: ObservableObject {
         guard let cliPath = target.cliPath, let storePath = target.storePath, session.beginSubmit() else { return }
         saveTask?.cancel()
         closeEditor(directory)
+        // The size the list shows; detected while submitting if it isn't known yet.
+        let (downscale, detect) = (downscaleForAI, scaleDetector)
         let submitter = DraftSubmitter(
             store: store,
             client: HotSheetCLIClient(executable: URL(fileURLWithPath: cliPath), storePath: URL(fileURLWithPath: storePath)),
-            storePath: URL(fileURLWithPath: storePath)
+            storePath: URL(fileURLWithPath: storePath),
+            scale: downscale ? scaleTarget : nil
         )
         let directory = directory
         let title = title
@@ -311,7 +335,9 @@ final class ReviewSessionModel: ObservableObject {
             Task { @MainActor in self?.session.advance(step) }
         }
         Task { [weak self] in
-            let result = await Task.detached { () -> Result<SubmittedReview, SubmissionFailure> in
+            let result = await Task.detached { [submitter] () -> Result<SubmittedReview, SubmissionFailure> in
+                var submitter = submitter
+                if downscale, submitter.scale == nil { submitter.scale = detect(cliPath, storePath) }
                 do throws(SubmissionFailure) {
                     return try .success(submitter.submit(
                         directory, title: title, summary: summary, into: existing, selection: selection, progress: advance
@@ -376,5 +402,39 @@ extension AppSettings {
     /// After a successful submission, the project it went to joins the recent projects.
     static func rememberProject(target review: SubmittedReview) {
         if let project = projectDirectory { rememberProject(project.path) } else { rememberProject(review.storePath) }
+    }
+}
+
+// MARK: Downscaling for AI (docs/07 §7.5.1)
+
+extension ReviewSessionModel {
+    /// The AI size captures are filed at (§7.5.1): nil while Downscale for AI is off, or until
+    /// the project's AI tool is known.
+    var scaleTarget: MediaScaleTarget? {
+        guard downscaleForAI, let resolvedScale, resolvedScale.store == session.target.storePath else { return nil }
+        return resolvedScale.target
+    }
+
+    /// Re-reads Downscale for AI and, when it is on, detects the project's AI size in the
+    /// background (`hotsheet-cli ai-settings`), so the capture list shows the filed size.
+    func refreshScale() {
+        downscaleForAI = AppSettings.downscaleForAI
+        guard downscaleForAI, let cli = session.target.cliPath, let store = session.target.storePath,
+              resolvedScale?.store != store
+        else { return }
+        scaleTask?.cancel()
+        let detect = scaleDetector
+        scaleTask = Task { [weak self] in
+            let target = await Task.detached { detect(cli, store) }.value
+            guard !Task.isCancelled, let self, session.target.storePath == store else { return }
+            resolvedScale = (store, target)
+        }
+    }
+
+    /// Previews show captures scaled for `target` without reading Settings or Hot Sheet.
+    func previewScale(_ target: MediaScaleTarget?) {
+        scaleTask?.cancel()
+        downscaleForAI = target != nil
+        resolvedScale = target.flatMap { target in session.target.storePath.map { ($0, target) } }
     }
 }

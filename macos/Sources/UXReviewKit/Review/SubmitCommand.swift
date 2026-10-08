@@ -3,9 +3,11 @@ import CoreGraphics
 import Foundation
 import ImageIO
 
-/// `UXReview --submit [--drafts-dir DIR] [--draft NAME] [--project DIR] [--title T] [--summary S] [--to-ticket REF [--exclude IDS]]`:
+/// `UXReview --submit [--drafts-dir DIR] [--draft NAME] [--project DIR] [--title T] [--summary S] [--to-ticket REF [--exclude IDS]]
+/// [--downscale on|off]`:
 /// files a draft (the current one unless `--draft` names one) in the project's Hot Sheet store
 /// with no UI and prints JSON; `--to-ticket` adds it to that existing ticket instead of a new one.
+/// `--downscale` overrides the Downscale for AI setting for this run.
 /// `--project` is read by the app's settings, like `--status`. Spec: docs/07-review-session.md §7.8.
 public struct SubmitCommand: Equatable, Sendable {
     public var draftsDirectory: URL?
@@ -16,6 +18,8 @@ public struct SubmitCommand: Equatable, Sendable {
     public var toTicket: String?
     /// With `toTicket`: media and annotation ids left out of what is added (`--exclude m2,a3`).
     public var exclude: [String]
+    /// Overrides `CaptureSettings.downscaleForAI` for this submission (`--downscale on|off`).
+    public var downscale: Bool?
 
     public init(
         draftsDirectory: URL? = nil,
@@ -23,7 +27,8 @@ public struct SubmitCommand: Equatable, Sendable {
         title: String? = nil,
         summary: String? = nil,
         toTicket: String? = nil,
-        exclude: [String] = []
+        exclude: [String] = [],
+        downscale: Bool? = nil
     ) {
         self.draftsDirectory = draftsDirectory
         self.draft = draft
@@ -31,6 +36,7 @@ public struct SubmitCommand: Equatable, Sendable {
         self.summary = summary
         self.toTicket = toTicket
         self.exclude = exclude
+        self.downscale = downscale
     }
 
     /// `exclude` as a selection of `bundle`.
@@ -71,7 +77,8 @@ public struct SubmitCommand: Equatable, Sendable {
             title: values.optional("--title"),
             summary: values.optional("--summary"),
             toTicket: toTicket,
-            exclude: exclude ?? []
+            exclude: exclude ?? [],
+            downscale: SettingsCommand.parseSwitch(values, flag: "--downscale")
         )
     }
 }

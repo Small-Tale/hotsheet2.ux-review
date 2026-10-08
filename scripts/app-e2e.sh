@@ -829,6 +829,112 @@ run mremove-all 0 -- --annotate "$TMP/script-multi-remove-all.json" --drafts-dir
 [[ "$(json "$TMP/mremove-all.json" '`${j.currentMediaId}|${j.selectedMediaIds.length}`')" == "undefined|0" ]] || die "multi remove: all, editor"
 ok "⌘⌫ removes every selected capture (⇧-click range, ⌘-click out) at once, keeps unsaved work on the rest; removing all leaves the empty draft"
 
+echo "downscale for AI when filing (HS2-PT8PM6)"
+run downscale-default 0 "${SUITE_ENV[@]}" -- --settings
+[[ "$(json "$TMP/downscale-default.json" j.settings.downscaleForAI)" == true ]] || die "downscale: off by default"
+run downscale-bad 2 "${SUITE_ENV[@]}" -- --settings --set-downscale half
+run downscale-off 0 "${SUITE_ENV[@]}" -- --settings --set-downscale off
+run downscale-read 0 "${SUITE_ENV[@]}" -- --settings
+[[ "$(json "$TMP/downscale-read.json" j.settings.downscaleForAI)" == false ]] || die "downscale: setting not persisted"
+ok "Downscale for AI is on by default, persists when turned off, and rejects a bad value"
+
+# A CLI whose project's default AI tool is $AI_JSON (or, with AI_FAIL, a CLI too old for
+# ai-settings); everything else goes to the real CLI. A fresh store would report the machine-wide
+# fallback, which differs between machines.
+cat >"$TMP/ai-cli" <<SH
+#!/usr/bin/env bash
+for arg in "\$@"; do
+  if [[ "\$arg" == ai-settings ]]; then
+    if [[ -n "\${AI_FAIL:-}" ]]; then echo "error: unrecognized subcommand 'ai-settings'" >&2; exit 2; fi
+    echo "\$AI_JSON"; exit 0
+  fi
+done
+exec "$REAL_CLI" "\$@"
+SH
+chmod +x "$TMP/ai-cli"
+mkdir -p "$TMP/aiproj"
+hs -C "$TMP/aiproj.hs2" init >/dev/null
+sips -z 2400 3840 "$shot" --out "$TMP/big.png" >/dev/null
+[[ "$(png_size "$TMP/big.png")" == 3840x2400 ]] || die "downscale: could not make the large image"
+# Claude's resize rule (platform.claude.com vision docs), in node: the filed size for a tier.
+claude_size() { node -e '
+  const [w, h, edge, budget] = process.argv.slice(1).map(Number);
+  const tokens = (a, b) => Math.ceil(a / 28) * Math.ceil(b / 28);
+  const fits = (a, b) => Math.ceil(a / 28) * 28 <= edge && Math.ceil(b / 28) * 28 <= edge && tokens(a, b) <= budget;
+  const even = (x) => { const f = Math.floor(x); return x - f === 0.5 ? (f % 2 ? f + 1 : f) : Math.round(x); };
+  const size = (a, b) => {
+    if (fits(a, b)) return [a, b];
+    if (b > a) return size(b, a).reverse();
+    let lo = 1, hi = a;
+    while (lo + 1 < hi) { const mid = Math.floor((lo + hi) / 2); if (fits(mid, Math.max(even(mid / (a / b)), 1))) lo = mid; else hi = mid; }
+    return [lo, Math.max(even(lo / (a / b)), 1)];
+  };
+  console.log(size(w, h).join("x"));' "$@"; }
+# downscale_case <name> <expected PNG size> <submit env...> -- <submit args...>: imports the large
+# image into a fresh draft with one annotation, submits it, and checks the filed PNG and review.json.
+downscale_case() {
+  local name="$1" expected="$2"; shift 2
+  local drafts="$TMP/$name-drafts"
+  run "$name-import" 0 -- --import "$TMP/big.png" --drafts-dir "$drafts"
+  echo '{"steps": [{"op": "tool", "tool": "rect"}, {"op": "drag", "points": [[400, 300], [1600, 1200]]}, {"op": "note", "text": "Too small"}]}' >"$TMP/$name-script.json"
+  run "$name-annotate" 0 -- --annotate "$TMP/$name-script.json" --drafts-dir "$drafts"
+  cp "$(json "$TMP/$name-import.json" j.draftDirectory)/review.json" "$TMP/$name-draft.json"
+  local envs=()
+  while [[ "$1" != "--" ]]; do envs+=("$1"); shift; done
+  shift
+  run "$name" 0 ${envs[@]+"${envs[@]}"} -- --submit --drafts-dir "$drafts" --project "$TMP/aiproj" --title "Downscale $name" "$@"
+  local ticket_dir="$TMP/aiproj.hs2/attachments/$(basename "$(json "$TMP/$name.json" j.ticketFile)" .md)"
+  local filed_png filed_json
+  filed_png="$(find "$ticket_dir" -name capture-1.png | head -1)"
+  filed_json="$(find "$ticket_dir" -name review.json | head -1)"
+  [[ "$(png_size "$filed_png")" == "$expected" ]] || die "$name: filed PNG is $(png_size "$filed_png"), expected $expected"
+  [[ "$(json "$filed_json" '`${j.media[0].pixelWidth}x${j.media[0].pixelHeight}`')" == "$expected" ]] || die "$name: review.json size"
+  # Annotation coordinates are normalized to the media, so they are the draft's, on any size.
+  [[ "$(json "$filed_json" 'JSON.stringify(j.annotations.map(a => a.shape))')" == "$(json "$TMP/$name-draft.json" 'JSON.stringify(j.annotations.map(a => a.shape))')" ]] \
+    || die "$name: annotation coordinates changed"
+  validate_bundle "$filed_json"
+}
+
+# Claude with Haiku (the standard tier), and a large recording in the same review.
+std_png="$(claude_size 3840 2400 1568 1568)"
+dname=claude-std
+run "$dname-import" 0 -- --import "$TMP/big.png" --drafts-dir "$TMP/$dname-drafts"
+run "$dname-clip" 0 "${SYN[@]}" -- --capture video --target region --rect 0,0,1400,900 --duration 1 --drafts-dir "$TMP/$dname-drafts"
+clip_size="$(json "$TMP/$dname-clip.json" '`${j.media.pixelWidth} ${j.media.pixelHeight}`')"
+std_clip="$(claude_size $clip_size 1568 1568 | node -e 'const [w, h] = require("fs").readFileSync(0, "utf8").trim().split("x").map(Number); console.log(`${w - w % 2}x${h - h % 2}`)')"
+echo '{"steps": [{"op": "tool", "tool": "rect"}, {"op": "drag", "points": [[400, 300], [1600, 1200]]}, {"op": "note", "text": "Too small"}, {"op": "media", "media": "m2"}, {"op": "tool", "tool": "rect"}, {"op": "drag", "points": [[100, 100], [900, 600]]}, {"op": "note", "text": "Flicker"}]}' >"$TMP/$dname-script.json"
+run "$dname-annotate" 0 -- --annotate "$TMP/$dname-script.json" --drafts-dir "$TMP/$dname-drafts"
+cp "$(json "$TMP/$dname-import.json" j.draftDirectory)/review.json" "$TMP/$dname-draft.json"
+run "$dname" 0 HOTSHEET_CLI="$TMP/ai-cli" AI_JSON='{"tool":"claude","model":"haiku","effort":"medium"}' -- \
+  --submit --drafts-dir "$TMP/$dname-drafts" --project "$TMP/aiproj" --title "Downscale for Claude"
+[[ "$(json "$TMP/$dname.json" '`${j.scaledFor}/${j.scaledCaptures.join(",")}`')" == "Claude/capture-1.png,capture-2.mov" ]] \
+  || die "claude-std: result $(cat "$TMP/$dname.json")"
+std_dir="$TMP/aiproj.hs2/attachments/$(basename "$(json "$TMP/$dname.json" j.ticketFile)" .md)"
+std_json="$(find "$std_dir" -name review.json | head -1)"
+[[ "$(png_size "$(find "$std_dir" -name capture-1.png | head -1)")" == "$std_png" ]] || die "claude-std: filed PNG size"
+[[ "$(json "$std_json" 'j.media.map(m => `${m.pixelWidth}x${m.pixelHeight}`).join(",")')" == "$std_png,$std_clip" ]] \
+  || die "claude-std: review.json sizes $(json "$std_json" 'j.media.map(m => `${m.pixelWidth}x${m.pixelHeight}`).join(",")'), expected $std_png,$std_clip"
+[[ "$(json "$std_json" 'JSON.stringify(j.annotations.map(a => a.shape))')" == "$(json "$TMP/$dname-draft.json" 'JSON.stringify(j.annotations.map(a => a.shape))')" ]] \
+  || die "claude-std: annotation coordinates changed"
+validate_bundle "$std_json"
+if command -v ffprobe >/dev/null; then
+  mov_size="$(ffprobe -v error -select_streams v:0 -show_entries stream=width,height -of csv=s=x:p=0 "$(find "$std_dir" -name capture-2.mov | head -1)")"
+  [[ "$mov_size" == "$std_clip" ]] || die "claude-std: filed movie is $mov_size, expected $std_clip"
+fi
+ok "Claude (Haiku, standard tier): the 3840x2400 image is filed at $std_png and the $(tr ' ' x <<<"$clip_size") recording at $std_clip (even sides), with review.json sizes to match and the same normalized annotations"
+
+downscale_case codex 2048x1280 HOTSHEET_CLI="$TMP/ai-cli" AI_JSON='{"tool":"codex","model":"gpt-6.1-sol","effort":"low"}' -- --downscale on
+[[ "$(json "$TMP/codex.json" j.scaledFor)" == Codex ]] || die "codex: scaledFor"
+ok "Codex: filed within 2048x2048 (2048x1280)"
+downscale_case oldcli 2048x1280 HOTSHEET_CLI="$TMP/ai-cli" AI_FAIL=1 -- --downscale on
+[[ "$(json "$TMP/oldcli.json" j.scaledFor)" == AI ]] || die "oldcli: scaledFor"
+ok "a CLI without ai-settings: the 2048 px fallback"
+downscale_case fullsize 3840x2400 HOTSHEET_CLI="$TMP/ai-cli" AI_JSON='{"tool":"claude","model":"haiku"}' -- --downscale off
+[[ "$(json "$TMP/fullsize.json" '"scaledCaptures" in j')" == false ]] || die "fullsize: reported scaled captures"
+downscale_case setting-off 3840x2400 "${SUITE_ENV[@]}" HOTSHEET_CLI="$TMP/ai-cli" AI_JSON='{"tool":"codex"}' --
+ok "with --downscale off, or the setting off, the full-size file is filed"
+run downscale-on 0 "${SUITE_ENV[@]}" -- --settings --set-downscale on
+
 echo "draft reviews: list and discard (HS2-WE30PY)"
 DDRAFTS="$TMP/list-drafts"
 TRASH=(UXREVIEW_TRASH_DIR="$TMP/trash")

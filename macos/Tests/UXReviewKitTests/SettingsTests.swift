@@ -129,7 +129,7 @@ struct CaptureSettingsTests {
         let json = try #require(store.data(forKey: CaptureSettingsStore.key).flatMap { String(data: $0, encoding: .utf8) })
         #expect(
             json == #"{"captureHotkey":"⌥⇧⌘U","defaultRequest":{"delaySeconds":0,"kind":"screenshot","target":"region"},"#
-                + #""narration":false,"openReviewHotkey":"⌥⇧⌘E","recordHotkey":"⌥⇧⌘V","#
+                + #""downscaleForAI":true,"narration":false,"openReviewHotkey":"⌥⇧⌘E","recordHotkey":"⌥⇧⌘V","#
                 + #""showClicksInRecordings":false,"showPointerInRecordings":true}"#
         )
     }
@@ -164,6 +164,14 @@ struct CaptureSettingsTests {
         (#"{"showClicksInRecordings":true}"#, CaptureSettings(showClicksInRecordings: true)),
         (#"{"showPointerInRecordings":null}"#, CaptureSettings()), // null → the default
         (#"{"showClicksInRecordings":1}"#, CaptureSettings()), // wrong type → all defaults
+        // Settings saved before Downscale for AI existed downscale (HS2-PT8PM6).
+        (
+            #"{"narration":true,"showClicksInRecordings":true}"#,
+            CaptureSettings(narration: true, showClicksInRecordings: true, downscaleForAI: true)
+        ),
+        (#"{"downscaleForAI":false}"#, CaptureSettings(downscaleForAI: false)),
+        (#"{"downscaleForAI":null}"#, CaptureSettings()), // null → the default (on)
+        (#"{"downscaleForAI":"off"}"#, CaptureSettings()), // wrong type → all defaults
     ])
     func loadsPartialOrBrokenValues(json: String, expected: CaptureSettings) {
         let store = MemoryStore()
@@ -427,8 +435,39 @@ struct SettingsCommandTests {
         (["--settings", "--set-show-pointer", "maybe"], CommandLineError.invalidValue("--set-show-pointer", "maybe")),
         (["--settings", "--set-show-pointer"], CommandLineError.missingValue("--set-show-pointer")),
         (["--settings", "--set-show-clicks", "true"], CommandLineError.invalidValue("--set-show-clicks", "true")),
+        (["--settings", "--set-downscale", "2048"], CommandLineError.invalidValue("--set-downscale", "2048")),
+        (["--settings", "--set-downscale"], CommandLineError.missingValue("--set-downscale")),
     ])
     func rejectsBadValues(arguments: [String], expected: CommandLineError) {
         #expect(throws: expected) { try SettingsCommand.parse(arguments) }
+    }
+
+    /// HS2-PT8PM6: Downscale for AI, on by default, switched with `--set-downscale`.
+    @Test func setsDownscaleForAI() throws {
+        #expect(CaptureSettings().downscaleForAI)
+        let off = try #require(try SettingsCommand.parse(["--settings", "--set-downscale", "off"]))
+        #expect(off.changesSomething && off.downscale == false)
+        #expect(try off.apply(to: CaptureSettings()) == CaptureSettings(downscaleForAI: false))
+        let turnOn = try #require(try SettingsCommand.parse(["--settings", "--set-downscale", "On"]))
+        #expect(try turnOn.apply(to: CaptureSettings(downscaleForAI: false)) == CaptureSettings())
+        let none = try #require(try SettingsCommand.parse(["--settings", "--set-narration", "on"]))
+        #expect(none.downscale == nil)
+        let kept = try none.apply(to: CaptureSettings(downscaleForAI: false))
+        #expect(!kept.downscaleForAI)
+        // Saved and read back.
+        let store = MemoryStore()
+        try CaptureSettingsStore.save(CaptureSettings(downscaleForAI: false), to: store)
+        #expect(!CaptureSettingsStore.load(from: store).downscaleForAI)
+    }
+
+    /// `--submit --downscale on|off` overrides the setting for one submission.
+    @Test func submitTakesADownscaleOverride() throws {
+        #expect(try SubmitCommand.parse(["--submit"])?.downscale == nil)
+        #expect(try SubmitCommand.parse(["--submit", "--downscale", "off"])?.downscale == false)
+        #expect(try SubmitCommand.parse(["--submit", "--downscale", "ON"])?.downscale == true)
+        #expect(throws: CommandLineError.invalidValue("--downscale", "half")) {
+            try SubmitCommand.parse(["--submit", "--downscale", "half"])
+        }
+        #expect(throws: CommandLineError.missingValue("--downscale")) { try SubmitCommand.parse(["--submit", "--downscale"]) }
     }
 }

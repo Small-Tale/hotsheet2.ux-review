@@ -5,10 +5,24 @@ import UXReviewKit
 extension Notification.Name {
     /// Posted after the target project changes, so the menu and open session windows refresh.
     static let hotSheetProjectChanged = Notification.Name("UXReviewHotSheetProjectChanged")
+    /// Posted after Settings change (for example Downscale for AI), so open session windows refresh.
+    static let captureSettingsChanged = Notification.Name("UXReviewCaptureSettingsChanged")
 }
 
 /// User-level settings. The project folder can also be given with `--project <path>`.
 enum AppSettings {
+    /// Whether filed captures are scaled down for AI (Settings › Submitting, docs/07 §7.5.1).
+    static var downscaleForAI: Bool { CaptureSettingsStore.load(from: defaults).downscaleForAI }
+
+    /// The AI size for the project's store: its default AI tool's (`hotsheet-cli ai-settings`),
+    /// else 2048 px. Blocking; call it off the main thread.
+    static func scaleTarget(cliPath: String, storePath: String) -> MediaScaleTarget {
+        MediaScaleTarget.detect(using: HotSheetCLIClient(
+            executable: URL(fileURLWithPath: cliPath),
+            storePath: URL(fileURLWithPath: storePath)
+        ))
+    }
+
     private static let projectKey = "projectDirectory"
 
     static var version: String {

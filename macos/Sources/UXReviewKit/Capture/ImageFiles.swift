@@ -37,6 +37,22 @@ public enum ImageFiles {
         return (width, height)
     }
 
+    /// `image` resampled to `size` with high-quality interpolation, keeping its color space
+    /// (sRGB when it has none usable) and alpha. Nil for an empty size.
+    public static func scaled(_ image: CGImage, to size: PixelSize) -> CGImage? {
+        guard size.width > 0, size.height > 0 else { return nil }
+        let space = image.colorSpace.flatMap { $0.model == .rgb ? $0 : nil } ?? CGColorSpace(name: CGColorSpace.sRGB)
+        guard let space,
+              let context = CGContext(
+                  data: nil, width: size.width, height: size.height, bitsPerComponent: 8, bytesPerRow: 0,
+                  space: space, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+              )
+        else { return nil }
+        context.interpolationQuality = .high
+        context.draw(image, in: CGRect(x: 0, y: 0, width: size.width, height: size.height))
+        return context.makeImage()
+    }
+
     public static func loadImage(at url: URL) throws -> CGImage {
         guard let source = CGImageSourceCreateWithURL(url as CFURL, nil),
               let image = CGImageSourceCreateImageAtIndex(source, 0, nil)
