@@ -21,6 +21,7 @@ struct EditorView: View {
                 VStack(spacing: 0) {
                     AnnotationCanvas(model: model)
                         .frame(minWidth: 420, minHeight: 300)
+                        .overlay(alignment: .top) { EditorToastOverlay(model: model) }
                     if model.editor.currentDurationMs != nil {
                         Divider()
                         TimelineBar(model: model)
@@ -59,7 +60,6 @@ struct EditorToolbar: View {
                     )
             }
             Spacer(minLength: 8)
-            StatusLine(model: model)
             if let submit = model.submitReview {
                 Button("Submit Review…", action: submit)
                     .buttonStyle(.bordered)
@@ -92,23 +92,54 @@ struct ToolButton: View {
     }
 }
 
-/// Status message, save state, and errors, right-aligned in the tool bar.
-struct StatusLine: View {
+/// The editor's message or a save error as a toast at the top of the canvas (`HS2-KJCJWX`): a
+/// message fades after a few seconds, an error stays until saving works again.
+struct EditorToastOverlay: View {
     @ObservedObject var model: EditorModel
+    @State private var presenter = ToastPresenter()
 
     var body: some View {
-        HStack(spacing: 6) {
-            if let error = model.saveError {
-                Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.orange)
-                Text(error).lineLimit(1).truncationMode(.middle)
-            } else if let message = model.editor.message {
-                Text(message).lineLimit(1).truncationMode(.tail)
-            } else {
-                Text(model.editor.isDirty ? "Editing…" : "Saved to draft")
-                    .foregroundStyle(.secondary)
+        let current = EditorToast.current(message: model.editor.message, saveError: model.saveError)
+        ZStack {
+            if let toast = presenter.visible(current) {
+                ToastView(toast: toast)
+                    .transition(.move(edge: .top).combined(with: .opacity))
             }
         }
+        .animation(.easeOut(duration: 0.25), value: presenter.visible(current))
+        .padding(.top, 12)
+        .padding(.horizontal, 16)
+        .task(id: current) {
+            presenter.changed()
+            guard let current, let duration = current.duration else { return }
+            try? await Task.sleep(for: duration)
+            if !Task.isCancelled { presenter.expire(current) }
+        }
+    }
+}
+
+struct ToastView: View {
+    let toast: EditorToast
+
+    var body: some View {
+        HStack(spacing: 8) {
+            if toast.kind == .error {
+                Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.orange)
+            }
+            Text(toast.text)
+                .lineLimit(3)
+                .multilineTextAlignment(.leading)
+        }
         .font(.callout)
+        .padding(.horizontal, 14)
+        .padding(.vertical, 8)
+        // Opaque, not glass: it sits on the dark canvas backdrop and must read on any capture.
+        .background(Capsule().fill(Color(nsColor: .windowBackgroundColor)))
+        .overlay(Capsule().strokeBorder(Color.primary.opacity(0.12)))
+        .shadow(color: .black.opacity(0.25), radius: 8, y: 2)
+        .allowsHitTesting(false)
+        .accessibilityElement(children: .combine)
+        .accessibilityAddTraits(.updatesFrequently)
     }
 }
 

@@ -1325,3 +1325,14 @@ capture files are no longer cropped or trimmed while drafting.
 - **Not covered automatically:** choosing the items in a live editor window (the actions forward
   to the same `EditorModel` zoom functions the old tool bar used).
 
+## HS2-KJCJWX: toasts instead of the editor's status line
+
+- **Unit** (`EditorToastTests`): a save error wins over a message, and empty or routine states
+  show nothing. Info fades after 4 s and errors never expire. `ToastPresenter` walks show →
+  expire → hidden, a repeated expiry, clear → the same message showing again, a new message after
+  an expired one, a stale expiry that doesn't hide an error, and clearing once saving works.
+- **Visual QA:** `editor-crop-tool` ("Cropped to 1180 × 560 px…") and `editor-video-trimmed`
+  ("Trimmed to 2.5 s.") show the toast at the top of the canvas (`--render-ui-previews`); the
+  tool bar has no status text.
+- **Not covered automatically:** the live fade timing and animation.
+
