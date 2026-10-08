@@ -315,7 +315,8 @@ final class AnnotationCanvasView: NSView {
     override func accessibilityHelp() -> String? {
         "Choose a tool with V, R, F, A, I, or S, then press Return to add a shape. "
             + "Arrow keys move the selected annotation, Tab selects the next one, and Return edits its note. "
-            + "On a video, K plays and pauses, comma and period step the playhead, and Home and End jump to the start and end. "
+            + "On a video, K plays and pauses, comma and period step the playhead 0.1 s (Shift: 1 s), "
+            + "and Home and End jump to the start and end. "
             + "Left and right arrows step one frame (Shift: 10) of whatever you used last on the timeline: "
             + "the playhead, a trim end, or the selected annotation's range end."
     }

@@ -3,7 +3,8 @@
 Status: implemented on macOS (`HS2-9H7WZ8`). Freehand smoothing is `HS2-5N1GFW`. Zoom/pan is
 `HS2-9Y9DDY`. Video trim and annotation time ranges are `HS2-GBM8JN` (§6.10). Arrow-key frame steps are
 `HS2-8FTZ09` (§6.4, §6.10); since `HS2-BADS0F` every movie, variable-frame-rate ones included,
-steps on a uniform grid at its expected frame rate (§6.10).
+steps on a uniform grid at its expected frame rate (§6.10). The timeline step buttons and
+`,` / `.` keep 0.1 s steps (`HS2-JP7Z4W`, §6.10).
 
 The editor marks up the captures of a draft review ([04-capture.md](04-capture.md) §4.6). It
 writes shapes, notes, and intents into the draft's `review.json`
@@ -203,7 +204,7 @@ So a small box drawn inside a big one stays selectable.
 | V R F A I S C | Choose a tool |
 | ⌫ / ⌦ | Delete the selection |
 | ↑ ↓ | Nudge the selection 1 px (⇧: 10 px) |
-| ← → | Videos: step one frame (⇧: 10 frames) of the last-used timeline target (see **Arrow keys** below). Otherwise nudge the selection 1 px (⇧: 10 px) |
+| ← → | Videos: step one frame (⇧: 10 frames) of the last-used timeline target (see **Arrow keys** below). Otherwise nudge the selection 1 px (⇧: 10 px). Unlike `,` / `.`, these step frames, not 0.1 s |
 | Tab / ⇧Tab | Select the next / previous annotation on this capture (wraps) |
 | ⏎ with a drawing tool | Insert a default-sized shape at the middle of the visible canvas (see below) |
 | ⏎ (Select tool), double-click | Focus the selected annotation's note |
@@ -213,7 +214,7 @@ So a small box drawn inside a big one stays selectable.
 | ⌘S | Save now |
 | ⌘+ / ⌘- / ⌘0 / ⌘1, Space-drag | Zoom in / out / fit / actual pixels, pan (§6.2.1) |
 | K | Videos: play / pause (§6.10) |
-| , / . (⇧: 1 s) | Videos: step the playhead back / forward 0.1 s (§6.10) |
+| , / . (⇧: 1 s) | Videos: step the playhead back / forward 0.1 s, like the timeline's step buttons, whatever the frame rate (§6.10) |
 | Home / End | Videos: move the playhead to the start / end |
 
 **Arrow keys** (`HS2-8FTZ09`). ← / → act on what the reviewer used last, the canvas or the
@@ -256,7 +257,7 @@ capture-1.png, 6 annotations". Its help text explains the keys above.
   "Annotation 1: Rectangle, comment, bug. Field label is clipped." An annotation with a time
   range adds it, for example "…, comment, shows 0:01.00–0:02.50. …". On a video the canvas label
   ends with the playhead time, for example "… 2 annotations showing at 0:01.50".
-- **Help:** the canvas's help text also explains the ← / → frame steps.
+- **Help:** the canvas's help text also explains the ← / → frame steps and the 0.1 s `,` / `.` steps.
 - **Timeline:** the scrubber is an adjustable element ("Playhead", value "0:01.50 of 0:03.00");
   VoiceOver's increment and decrement step it 0.1 s.
 - **Frame:** the element frame is the shape's bounds plus 8 points, so points and thin
@@ -513,12 +514,29 @@ the clip, and the clip itself can be trimmed.
 
 - **Moving it:** click or drag the scrubber; the step buttons or `,` / `.` step 0.1 s (⇧: 1 s);
   ← / → step one frame (⇧: 10) once the scrubber is the last-used target (§6.4);
-  Home / End jump to the ends. The time reads `0:01.50 / 0:03.00`, and the playhead time is a
+  Home / End jump to the ends. See **Time steps and frame steps** below for why there are two. The time reads `0:01.50 / 0:03.00`, and the playhead time is a
   field: type a time and press Return to move there (see **Typing times** below).
 - **Resets:** showing another capture puts it back at 0. It is navigation, so it is not
   undoable, but undo and redo restore the playhead of the step they return to.
 - **Frames** come from `AVAssetImageGenerator` with zero tolerance. The clip's end time shows
   the last frame.
+
+**Time steps and frame steps** (`HS2-JP7Z4W`). The editor has two step sizes on purpose:
+
+| Control | Step (⇧) | Moves | Unit |
+| --- | --- | --- | --- |
+| Timeline step buttons, `,` / `.` | 0.1 s (1 s) | the playhead | time, the same on every movie |
+| ← / → | 1 frame (10 frames) | the last-used timeline target: playhead, trim end, or range end (§6.4) | the movie's expected frame rate (below) |
+
+- **Why both:** 0.1 s is a coarse step to skim a clip at a predictable pace, whatever its frame
+  rate (3 frames at 30 fps, 6 at 60 fps). Frame steps are the precise unit for placing a trim or
+  range end. The reviewer chose to keep 0.1 s for the buttons and `,` / `.` rather than make
+  every step a frame.
+- **Not snapped:** a 0.1 s step moves exactly 0.1 s from where the playhead is, even between
+  frames; the canvas shows the frame showing at that time. A frame step snaps to a frame start.
+- **The target:** a step button or `,` / `.` also makes the playhead the last-used target, so
+  ← / → then step the playhead frame by frame.
+- **Tooltips** say so: "Step back 0.1 s (,  ⇧: 1 s). ← steps one frame", and likewise forward.
 
 **Frame steps** (`HS2-8FTZ09`). ← / → move the last-used timeline target (§6.4) one frame,
 ⇧← / ⇧→ ten frames:

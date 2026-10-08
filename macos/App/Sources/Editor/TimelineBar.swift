@@ -21,10 +21,10 @@ struct TimelineBar: View {
                 .help(model.isPlaying ? "Pause (K)" : "Play (K)")
                 .accessibilityLabel(model.isPlaying ? "Pause" : "Play")
                 Button { model.mutate { $0.stepTime(forward: false) } } label: { Image(systemName: "backward.frame") }
-                    .help("Step back 0.1 s (,  ⇧ for 1 s)")
+                    .help("Step back 0.1 s (,  ⇧: 1 s). ← steps one frame")
                     .accessibilityLabel("Step back")
                 Button { model.mutate { $0.stepTime(forward: true) } } label: { Image(systemName: "forward.frame") }
-                    .help("Step forward 0.1 s (.  ⇧ for 1 s)")
+                    .help("Step forward 0.1 s (.  ⇧: 1 s). → steps one frame")
                     .accessibilityLabel("Step forward")
                 HStack(spacing: 4) {
                     TimeField(label: "Playhead time", millis: editor.currentTimeMs) { millis in
