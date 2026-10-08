@@ -7,8 +7,13 @@ import Foundation
 /// What choosing a menu entry does.
 public enum MenuCommand: Hashable, Sendable {
     case capture(CaptureRequest)
+    /// Captures `kind` with the default target and delay as they are when chosen, so a picker
+    /// change in the still-open menu bar menu applies (docs/05 §5.1).
+    case captureDefault(CaptureKind)
     /// Makes `target` the default capture target (Settings › Default capture, docs/05 §5.3).
     case setCaptureTarget(CaptureTarget)
+    /// Makes `seconds` the default capture delay (Settings › Default capture, docs/05 §5.3).
+    case setCaptureDelay(Int)
     case cancelCapture
     case stopRecording
     /// Flips "Narrate Next Recording with Microphone" (one recording only, docs/04 §4.9).
@@ -70,9 +75,6 @@ public indirect enum MenuEntry: Hashable, Sendable {
     case action(String, MenuCommand, shortcut: MenuShortcut? = nil)
     case toggle(String, isOn: Bool, MenuCommand)
     case submenu(String, [MenuEntry])
-    /// A titled row of buttons (a segmented control in AppKit): "Delayed  [3 s | 10 s]".
-    /// Choosing one closes the menu and runs it.
-    case choices(String, [MenuChoice])
     /// A titled row of mutually exclusive options with one selected (a select-one segmented
     /// control): "Capture  [Screen | Window | Region]". Choosing one runs it and keeps the menu
     /// open, so the reviewer can go on to a capture item.
@@ -81,7 +83,7 @@ public indirect enum MenuEntry: Hashable, Sendable {
     public var title: String? {
         switch self {
         case let .label(title), let .action(title, _, _), let .toggle(title, _, _), let .submenu(title, _),
-             let .choices(title, _), let .picker(title, _, _): title
+             let .picker(title, _, _): title
         case .separator: nil
         }
     }
@@ -130,32 +132,39 @@ public struct MenuState: Equatable, Sendable {
 }
 
 public enum AppMenus {
-    /// Delays offered in the menu bar menu's "Delayed" rows (docs/05 §5.1).
-    public static let statusDelays = [3, 10]
+    /// Delays offered in the menu bar menu's "Delay" row (docs/05 §5.1); 0 is "None".
+    public static let statusDelays = [0, 3, 10]
 
     /// The menu bar menu:
     ///
     ///     UX Review 1.0
     ///     ───
     ///     Capture  [Screen | Window | Region]
-    ///     Capture Image ▸   Immediate / Delayed [3 s | 10 s]
-    ///     Capture Video ▸   Immediate / Delayed [3 s | 10 s] / ─ / Narrate Next Recording
+    ///     Delay    [None | 3 s | 10 s]
+    ///     Capture Image                       ⌥⇧⌘U
+    ///     Capture Video                       ⌥⇧⌘V
+    ///     Narrate Next Recording with Microphone
     ///     ───
     ///     Settings…  ⌘,
     ///     Open UX Review
     ///     ───
     ///     Quit UX Review  ⌘Q
     ///
-    /// While a capture runs, the target row and the two capture submenus are replaced by what
-    /// stops or explains it.
+    /// While a capture runs, the rows from Capture to Narrate are replaced by what stops or
+    /// explains it.
     public static func statusMenu(_ state: MenuState) -> [MenuEntry] {
         var entries: [MenuEntry] = [.label("UX Review \(state.version)"), .separator]
         if let running = runningCapture(state) {
             entries += running
         } else {
-            entries.append(targetPicker(state))
-            entries.append(.submenu("Capture Image", quickCapture(.screenshot, state)))
-            entries.append(.submenu("Capture Video", quickCapture(.video, state)))
+            let request = state.settings.defaultRequest
+            entries += [
+                targetPicker(state),
+                delayPicker(state),
+                .action("Capture Image", .captureDefault(.screenshot), shortcut: state.shortcut(for: request.with(kind: .screenshot))),
+                .action("Capture Video", .captureDefault(.video), shortcut: state.shortcut(for: request.with(kind: .video))),
+                narrationToggle(state),
+            ]
         }
         entries += [
             .separator,
@@ -204,27 +213,22 @@ public enum AppMenus {
         )
     }
 
-    /// "Immediate" and "Delayed [3 s | 10 s]" for the default target (Settings), plus the
-    /// narration checkbox for video.
-    static func quickCapture(_ kind: CaptureKind, _ state: MenuState) -> [MenuEntry] {
-        let target = state.settings.defaultRequest.target
-        let now = CaptureRequest(kind: kind, target: target)
-        let noun = kind == .screenshot ? "Image" : "Video"
-        var entries: [MenuEntry] = [
-            .label("\(noun) of \(target.label)"),
-            .action("Immediate", .capture(now), shortcut: state.shortcut(for: now)),
-            .choices("Delayed", statusDelays.map { delay in
-                MenuChoice(
-                    "\(delay) s",
-                    .capture(CaptureRequest(kind: kind, target: target, delaySeconds: delay)),
-                    accessibilityLabel: "\(noun) of \(target.label) after \(delay) seconds"
-                )
-            }),
-        ]
-        if kind == .video {
-            entries += [.separator, narrationToggle(state)]
-        }
-        return entries
+    /// "Delay [None | 3 s | 10 s]": the default delay (Settings), which Capture Image and Capture
+    /// Video use. Choosing a segment changes that setting (`HS2-WC6JSH`). A default the row
+    /// doesn't offer (5 s, set in Settings) shows as its own segment, so the row always says
+    /// what Capture Image will do.
+    static func delayPicker(_ state: MenuState) -> MenuEntry {
+        let current = state.settings.defaultRequest.delaySeconds
+        let delays = statusDelays.contains(current) ? statusDelays : (statusDelays + [current]).sorted()
+        return .picker(
+            "Delay",
+            delays.map { delay in
+                delay == 0
+                    ? MenuChoice("None", .setCaptureDelay(0), accessibilityLabel: "No delay")
+                    : MenuChoice("\(delay) s", .setCaptureDelay(delay), accessibilityLabel: "Delay \(delay) seconds")
+            },
+            selected: delays.firstIndex(of: current)
+        )
     }
 
     static func narrationToggle(_ state: MenuState) -> MenuEntry {

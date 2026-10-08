@@ -17,44 +17,21 @@ struct AppMenusTests {
     @Test func idleStatusMenuMatchesTheRequestedLayout() {
         let entries = AppMenus.statusMenu(MenuState(version: "1.2"))
         #expect(entries.map(\.title) == [
-            "UX Review 1.2", nil, "Capture", "Capture Image", "Capture Video", nil, "Settings…", "Open UX Review", nil,
-            "Quit UX Review",
+            "UX Review 1.2", nil, "Capture", "Delay", "Capture Image", "Capture Video",
+            "Narrate Next Recording with Microphone", nil, "Settings…", "Open UX Review", nil, "Quit UX Review",
         ])
         #expect(entries.first == .label("UX Review 1.2"))
         #expect(entries.contains(.action("Settings…", .openSettings, shortcut: MenuShortcut(","))))
         #expect(entries.contains(.action("Quit UX Review", .quit, shortcut: MenuShortcut("q"))))
+        // HS2-WC6JSH: no submenus; Capture Image/Video capture the default request when chosen.
+        #expect(!entries.contains { if case .submenu = $0 { true } else { false } })
+        #expect(entries[4] == .action("Capture Image", .captureDefault(.screenshot)))
+        #expect(entries[5] == .action("Capture Video", .captureDefault(.video)))
+        #expect(entries[6] == .toggle("Narrate Next Recording with Microphone", isOn: false, .toggleNarration))
     }
 
-    @Test func captureSubmenusOfferImmediateAndThreeOrTenSecondDelaysForTheDefaultTarget() throws {
-        let settings = CaptureSettings(defaultRequest: CaptureRequest(kind: .screenshot, target: .window, delaySeconds: 5))
-        let entries = AppMenus.statusMenu(MenuState(settings: settings))
-        let image = try #require(submenu("Capture Image", in: entries))
-        #expect(image == [
-            .label("Image of Window"),
-            .action("Immediate", .capture(CaptureRequest(kind: .screenshot, target: .window))),
-            .choices("Delayed", [
-                MenuChoice(
-                    "3 s",
-                    .capture(CaptureRequest(kind: .screenshot, target: .window, delaySeconds: 3)),
-                    accessibilityLabel: "Image of Window after 3 seconds"
-                ),
-                MenuChoice(
-                    "10 s",
-                    .capture(CaptureRequest(kind: .screenshot, target: .window, delaySeconds: 10)),
-                    accessibilityLabel: "Image of Window after 10 seconds"
-                ),
-            ]),
-        ])
-        let video = try #require(submenu("Capture Video", in: entries))
-        #expect(video.first == .label("Video of Window"))
-        #expect(video.contains(.action("Immediate", .capture(CaptureRequest(kind: .video, target: .window)))))
-        // Video keeps the one-recording narration checkbox (docs/04 §4.9).
-        #expect(video.last == .toggle("Narrate Next Recording with Microphone", isOn: false, .toggleNarration))
-        #expect(!image.contains { $0.title == "Narrate Next Recording with Microphone" })
-    }
-
-    /// HS2-W62GWS: "Capture [Screen | Window | Region]" sits above the capture submenus, shows
-    /// the default target, and choosing a segment sets it.
+    /// HS2-W62GWS: "Capture [Screen | Window | Region]" heads the capture rows, shows the default
+    /// target, and choosing a segment sets it.
     @Test func targetPickerShowsAndSetsTheDefaultTarget() throws {
         let entries = AppMenus.statusMenu(MenuState())
         #expect(entries[2] == .picker("Capture", [
@@ -62,39 +39,82 @@ struct AppMenusTests {
             MenuChoice("Window", .setCaptureTarget(.window), accessibilityLabel: "Capture Window"),
             MenuChoice("Region", .setCaptureTarget(.region), accessibilityLabel: "Capture Region"),
         ], selected: 2))
-        #expect(entries[3].title == "Capture Image")
     }
 
-    /// Every target, walked in an order that revisits one and repeats one: the selected segment
-    /// and both capture submenus always follow the setting, and the kind and delay stay put.
-    @Test func captureSubmenusFollowEveryTargetChange() throws {
-        var state = MenuState(settings: CaptureSettings(defaultRequest: CaptureRequest(kind: .video, target: .region, delaySeconds: 5)))
-        for target in [CaptureTarget.display, .window, .window, .region, .display] {
-            // What the app does with `.setCaptureTarget(target)`.
-            state.settings.defaultRequest.target = target
-            let entries = AppMenus.statusMenu(state)
-            guard case let .picker(_, choices, selected) = entries[2] else {
-                Issue.record("no picker for \(target)")
+    /// HS2-WC6JSH: "Delay [None | 3 s | 10 s]" shows the default delay, and choosing a segment sets it.
+    @Test func delayPickerShowsAndSetsTheDefaultDelay() throws {
+        let entries = AppMenus.statusMenu(MenuState())
+        #expect(entries[3] == .picker("Delay", [
+            MenuChoice("None", .setCaptureDelay(0), accessibilityLabel: "No delay"),
+            MenuChoice("3 s", .setCaptureDelay(3), accessibilityLabel: "Delay 3 seconds"),
+            MenuChoice("10 s", .setCaptureDelay(10), accessibilityLabel: "Delay 10 seconds"),
+        ], selected: 0))
+    }
+
+    /// A default delay the row doesn't offer (5 s from Settings) shows as its own selected
+    /// segment, in order, and goes away once a listed delay is chosen.
+    @Test func delayPickerShowsADefaultItDoesNotOffer() throws {
+        var state = MenuState()
+        for (delay, titles, selected) in [
+            (5, ["None", "3 s", "5 s", "10 s"], 2),
+            (10, ["None", "3 s", "10 s"], 2),
+            (60, ["None", "3 s", "10 s", "60 s"], 3),
+            (0, ["None", "3 s", "10 s"], 0),
+        ] {
+            state.settings.defaultRequest.delaySeconds = delay
+            guard case let .picker(_, choices, index) = AppMenus.statusMenu(state)[3] else {
+                Issue.record("no Delay picker for \(delay)")
                 continue
             }
-            let index = try #require(selected)
-            #expect(choices[index].command == .setCaptureTarget(target))
-            let image = try #require(submenu("Capture Image", in: entries))
-            let video = try #require(submenu("Capture Video", in: entries))
-            #expect(image.first == .label("Image of \(target.label)"))
-            #expect(image[1] == .action("Immediate", .capture(CaptureRequest(kind: .screenshot, target: target))))
-            #expect(video[1] == .action("Immediate", .capture(CaptureRequest(kind: .video, target: target))))
-            guard case let .choices(_, delayed) = image[2] else {
-                Issue.record("no Delayed row for \(target)")
-                continue
-            }
-            #expect(delayed.map(\.command) == [3, 10].map { .capture(CaptureRequest(kind: .screenshot, target: target, delaySeconds: $0)) })
-            #expect(state.settings.defaultRequest.kind == .video)
-            #expect(state.settings.defaultRequest.delaySeconds == 5)
+            #expect(choices.map(\.title) == titles, "\(delay)")
+            #expect(index == selected, "\(delay)")
+            #expect(choices[try #require(index)].command == .setCaptureDelay(delay))
         }
     }
 
-    /// The picker only shows while idle: during a capture, it goes with the capture submenus.
+    /// Target and delay changes, interleaved and repeated (what the app does with
+    /// `.setCaptureTarget` / `.setCaptureDelay`): both pickers always follow the settings, the
+    /// kind stays put, and the capture items and their shortcuts track the default request.
+    @Test func pickersFollowEveryTargetAndDelayChange() throws {
+        let hotkeys: [HotkeySlot: Hotkey] = [.capture: .defaultCapture, .record: .defaultRecord]
+        var state = MenuState(
+            settings: CaptureSettings(defaultRequest: CaptureRequest(kind: .video, target: .region, delaySeconds: 5)),
+            hotkeys: hotkeys
+        )
+        let steps: [MenuCommand] = [
+            .setCaptureTarget(.display), .setCaptureDelay(3), .setCaptureDelay(3), .setCaptureTarget(.window),
+            .setCaptureDelay(10), .setCaptureTarget(.window), .setCaptureDelay(0), .setCaptureTarget(.region),
+        ]
+        for command in steps {
+            switch command {
+            case let .setCaptureTarget(target): state.settings.defaultRequest.target = target
+            case let .setCaptureDelay(seconds): state.settings.defaultRequest.delaySeconds = seconds
+            default: break
+            }
+            let request = state.settings.defaultRequest
+            let entries = AppMenus.statusMenu(state)
+            guard case let .picker(_, targets, target) = entries[2], case let .picker(_, delays, delay) = entries[3] else {
+                Issue.record("no pickers after \(command)")
+                continue
+            }
+            #expect(targets[try #require(target)].command == .setCaptureTarget(request.target), "\(command)")
+            #expect(delays[try #require(delay)].command == .setCaptureDelay(request.delaySeconds), "\(command)")
+            // The Settings-only 5 s shows until a listed delay replaces it.
+            let offered = request.delaySeconds == 5 ? ["None", "3 s", "5 s", "10 s"] : ["None", "3 s", "10 s"]
+            #expect(delays.map(\.title) == offered, "\(command)")
+            #expect(request.kind == .video)
+            // An item shows the hotkey that starts exactly its capture. The default kind here is
+            // video, so both hotkeys record and Capture Video shows the first (Capture, ⌥⇧⌘U).
+            #expect(entries[4] == .action("Capture Image", .captureDefault(.screenshot)))
+            #expect(entries[5] == .action(
+                "Capture Video",
+                .captureDefault(.video),
+                shortcut: MenuShortcut("u", [.option, .shift, .command])
+            ))
+        }
+    }
+
+    /// The pickers only show while idle: during a capture, they go with the capture items.
     @Test func targetPickerIsHiddenWhileACaptureRuns() {
         for phase in [
             CapturePhase.picking(CaptureRequest()),
@@ -107,39 +127,29 @@ struct AppMenusTests {
         }
     }
 
-    @Test func immediateItemsShowTheHotkeyThatStartsExactlyThatCapture() throws {
-        let hotkeys: [HotkeySlot: Hotkey] = [.capture: .defaultCapture, .record: .defaultRecord]
-        // Default: screenshot of region, no delay. Both hotkeys match an Immediate item.
-        var state = MenuState(hotkeys: hotkeys)
-        var entries = AppMenus.statusMenu(state)
-        let image = try #require(submenu("Capture Image", in: entries))
-        let video = try #require(submenu("Capture Video", in: entries))
-        #expect(image[1] == .action(
-            "Immediate",
-            .capture(CaptureRequest(kind: .screenshot, target: .region)),
-            shortcut: MenuShortcut("u", [.option, .shift, .command])
-        ))
-        #expect(video[1] == .action(
-            "Immediate",
-            .capture(CaptureRequest(kind: .video, target: .region)),
-            shortcut: MenuShortcut("v", [.option, .shift, .command])
-        ))
-        // A default delay means the hotkeys start a delayed capture, which the menu bar menu
-        // doesn't list as an item (5 s is not a status-menu delay), so no shortcut shows.
-        state.settings.defaultRequest.delaySeconds = 5
-        entries = AppMenus.statusMenu(state)
-        #expect(try #require(submenu("Capture Image", in: entries))[1] == .action(
-            "Immediate",
-            .capture(CaptureRequest(kind: .screenshot, target: .region))
-        ))
-        // A hotkey the menu can't render (F6) shows nothing but still exists.
-        state.settings.defaultRequest.delaySeconds = 0
+    @Test func captureItemsShowTheirHotkeysWhenTheMenuCanRenderThem() throws {
+        var state = MenuState(hotkeys: [.capture: .defaultCapture, .record: .defaultRecord])
+        // Every default delay: the hotkeys start the default request, which the items capture.
+        for delay in [0, 3, 5, 10] {
+            state.settings.defaultRequest.delaySeconds = delay
+            let entries = AppMenus.statusMenu(state)
+            #expect(entries[4] == .action(
+                "Capture Image",
+                .captureDefault(.screenshot),
+                shortcut: MenuShortcut("u", [.option, .shift, .command])
+            ))
+            #expect(entries[5] == .action(
+                "Capture Video",
+                .captureDefault(.video),
+                shortcut: MenuShortcut("v", [.option, .shift, .command])
+            ))
+        }
+        // A hotkey the menu can't render (F6) shows nothing but still exists; an unset one too.
         state.hotkeys[.capture] = Hotkey("⌃F6")
-        entries = AppMenus.statusMenu(state)
-        #expect(try #require(submenu("Capture Image", in: entries))[1] == .action(
-            "Immediate",
-            .capture(CaptureRequest(kind: .screenshot, target: .region))
-        ))
+        state.hotkeys[.record] = nil
+        let entries = AppMenus.statusMenu(state)
+        #expect(entries[4] == .action("Capture Image", .captureDefault(.screenshot)))
+        #expect(entries[5] == .action("Capture Video", .captureDefault(.video)))
     }
 
     @Test func openUXReviewShowsItsGlobalShortcut() {
@@ -154,16 +164,16 @@ struct AppMenusTests {
 
     @Test func narrationCheckboxFollowsTheNextRecordingChoice() throws {
         let entries = AppMenus.statusMenu(MenuState(narratesNextRecording: true))
-        #expect(try #require(submenu("Capture Video", in: entries)).last == .toggle(
+        #expect(entries[6] == .toggle(
             "Narrate Next Recording with Microphone",
             isOn: true,
             .toggleNarration
         ))
     }
 
-    /// Every phase: the capture submenus give way to what stops or explains the capture, and
+    /// Every phase: the capture rows give way to what stops or explains the capture, and
     /// the rest of the menu stays put.
-    @Test func runningCapturesReplaceTheCaptureSubmenus() {
+    @Test func runningCapturesReplaceTheCaptureRows() {
         let request = CaptureRequest()
         let cases: [(CapturePhase, Bool, [MenuEntry])] = [
             (.picking(request), false, [.label("Choosing what to capture… (Esc cancels)")]),
@@ -180,6 +190,7 @@ struct AppMenusTests {
             let state = MenuState(phase: phase, recordingNarration: narrating, now: Self.start.addingTimeInterval(65.4))
             let entries = AppMenus.statusMenu(state)
             #expect(Array(entries[2 ..< 2 + middle.count]) == middle, "\(phase)")
+            #expect(entries.count == 2 + middle.count + 5, "\(phase)")
             #expect(entries.suffix(5).map(\.title) == [nil, "Settings…", "Open UX Review", nil, "Quit UX Review"])
             #expect(AppMenus.captureMenu(state) == middle)
         }

@@ -9,22 +9,6 @@ enum MenuRendering {
         entries.map { item($0, perform: perform) }
     }
 
-    /// Rebuilds the submenus of an open `menu` from fresh `entries` (matched by title), leaving its
-    /// top-level items in place. After a picker row changes a setting, the capture submenus then
-    /// use it without the menu closing.
-    static func refreshSubmenus(of menu: NSMenu, from entries: [MenuEntry], perform: @escaping @MainActor (MenuCommand) -> Void) {
-        for item in menu.items {
-            guard let submenu = item.submenu else { continue }
-            let children = entries.lazy.compactMap { entry -> [MenuEntry]? in
-                if case let .submenu(title, children) = entry, title == item.title { return children }
-                return nil
-            }.first
-            guard let children else { continue }
-            submenu.removeAllItems()
-            items(children, perform: perform).forEach(submenu.addItem)
-        }
-    }
-
     static func item(_ entry: MenuEntry, perform: @escaping @MainActor (MenuCommand) -> Void) -> NSMenuItem {
         switch entry {
         case let .label(title):
@@ -46,10 +30,6 @@ enum MenuRendering {
             let menu = NSMenu(title: title)
             items(children, perform: perform).forEach(menu.addItem)
             item.submenu = menu
-            return item
-        case let .choices(title, choices):
-            let item = NSMenuItem(title: title, action: nil, keyEquivalent: "")
-            item.view = MenuChoicesView(title: title, choices: choices, perform: perform)
             return item
         case let .picker(title, choices, selected):
             let item = NSMenuItem(title: title, action: nil, keyEquivalent: "")
@@ -95,35 +75,24 @@ extension NSEvent.ModifierFlags {
     }
 }
 
-/// "Delayed   [ 3 s | 10 s ]": a titled segmented control inside a menu. Choosing a segment
-/// closes the whole menu, then runs its command (so a picker overlay never opens under the menu).
-///
-/// With a `selected` index it is a picker instead ("Capture [Screen | Window | Region]"): a
-/// select-one control showing the current choice. Choosing a segment runs its command at once
-/// and leaves the menu open.
+/// "Capture   [ Screen | Window | Region ]": a titled select-one segmented control inside a
+/// menu, showing the current choice. Choosing a segment runs its command at once and leaves the
+/// menu open, so the reviewer can go on to a capture item.
 final class MenuChoicesView: NSView {
     static let minimumWidth: CGFloat = 220
     private let choices: [MenuChoice]
     private let perform: @MainActor (MenuCommand) -> Void
-    /// Whether this is a picker (select-one, keeps the menu open).
-    let isPicker: Bool
     let control: NSSegmentedControl
 
     init(
         title: String,
         choices: [MenuChoice],
-        selected: Int? = nil,
+        selected: Int?,
         perform: @escaping @MainActor (MenuCommand) -> Void
     ) {
         self.choices = choices
         self.perform = perform
-        isPicker = selected != nil
-        control = NSSegmentedControl(
-            labels: choices.map(\.title),
-            trackingMode: selected == nil ? .momentary : .selectOne,
-            target: nil,
-            action: nil
-        )
+        control = NSSegmentedControl(labels: choices.map(\.title), trackingMode: .selectOne, target: nil, action: nil)
         super.init(frame: CGRect(x: 0, y: 0, width: Self.minimumWidth, height: 28))
         // Stretches to the menu's width, so the control stays right-aligned with the shortcuts.
         autoresizingMask = [.width]
@@ -136,7 +105,7 @@ final class MenuChoicesView: NSView {
         control.setAccessibilityLabel(title)
         for (index, choice) in choices.enumerated() {
             control.setToolTip(choice.accessibilityLabel, forSegment: index)
-            control.setWidth(isPicker ? 64 : 44, forSegment: index)
+            control.setWidth(64, forSegment: index)
         }
         if let selected, choices.indices.contains(selected) {
             control.selectedSegment = selected
@@ -164,20 +133,8 @@ final class MenuChoicesView: NSView {
     /// Simulates choosing segment `index` (UI previews and tests).
     func choose(segment index: Int) {
         guard choices.indices.contains(index) else { return }
-        if isPicker {
-            control.selectedSegment = index
-            perform(choices[index].command)
-            return
-        }
-        var root = enclosingMenuItem?.menu
-        while let parent = root?.supermenu {
-            root = parent
-        }
-        root?.cancelTracking()
-        let command = choices[index].command
-        DispatchQueue.main.async { [perform] in
-            MainActor.assumeIsolated { perform(command) }
-        }
+        control.selectedSegment = index
+        perform(choices[index].command)
     }
 
     @objc private func choose(_ sender: NSSegmentedControl) {
@@ -201,7 +158,7 @@ enum MenuDump {
             if let action = item.action { entry["action"] = NSStringFromSelector(action) }
             if let row = item.view as? MenuChoicesView {
                 entry["choices"] = (0 ..< row.control.segmentCount).map { row.control.label(forSegment: $0) ?? "" }
-                if row.isPicker, row.control.selectedSegment >= 0 {
+                if row.control.selectedSegment >= 0 {
                     entry["selected"] = row.control.label(forSegment: row.control.selectedSegment) ?? ""
                 }
             }

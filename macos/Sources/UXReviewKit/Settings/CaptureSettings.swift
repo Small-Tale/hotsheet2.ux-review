@@ -188,12 +188,9 @@ public enum HotkeySlot: String, CaseIterable, Codable, Sendable {
     /// The capture pressing this slot's hotkey starts when idle; nil for Open UX Review.
     public func request(in settings: CaptureSettings) -> CaptureRequest? {
         switch self {
-        case .capture: return settings.defaultRequest
-        case .record:
-            var request = settings.defaultRequest
-            request.kind = .video
-            return request
-        case .openReview: return nil
+        case .capture: settings.defaultRequest
+        case .record: settings.defaultRequest.with(kind: .video)
+        case .openReview: nil
         }
     }
 }

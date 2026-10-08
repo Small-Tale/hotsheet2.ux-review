@@ -1055,7 +1055,7 @@ run drafts-delete-noarg 2 -- --drafts --delete --drafts-dir "$DDRAFTS"
 ok "a Trash that refuses keeps the draft (exit 5); --delete deletes it immediately; --delete outside the drafts folder: exit 6"
 
 run previews 0 -- --render-ui-previews "$TMP/previews"
-for name in overlay-region-hint overlay-window-hint overlay-region-selection overlay-region-selection-bottom-edge overlay-window-hover recording-dim-region hud-countdown hud-saved hud-recording-countdown hud-recording hud-saved-video hud-recording-narration hud-saved-narrated settings-registered settings-in-use status-bar-icon-light status-bar-icon-dark menu-capture-target-row-light menu-capture-target-row-dark menu-delayed-row-light menu-delayed-row-dark \
+for name in overlay-region-hint overlay-window-hint overlay-region-selection overlay-region-selection-bottom-edge overlay-window-hover recording-dim-region hud-countdown hud-saved hud-recording-countdown hud-recording hud-saved-video hud-recording-narration hud-saved-narrated settings-registered settings-in-use status-bar-icon-light status-bar-icon-dark menu-capture-target-row-light menu-capture-target-row-dark menu-delay-row-light menu-delay-row-dark \
   editor-empty editor-no-media editor-annotated editor-arrow-selected editor-narrow editor-crop-drag editor-crop-tool editor-crop-adjust editor-cropped editor-multi-select editor-zoomed editor-keyboard-insert editor-video-timeline editor-video-narrow editor-video-trimmed editor-video-crop-tool editor-video-cropped editor-video-playing editor-video-range-drag editor-video-trim-drag editor-autoscroll \
   session-ready session-narrow session-edited session-submitting session-failed session-submitted session-issues session-empty \
   session-existing-looking session-existing-found session-existing-narrow session-existing-not-found session-existing-closed \
@@ -1068,20 +1068,19 @@ ok "UI renders offscreen (picker overlays, recording dim, HUDs, Settings window,
 # HS2-80CTK8: the menus the real app builds (menus.json): the short menu bar menu, and the app menu bar.
 MENUS="$TMP/previews/menus.json"
 TITLES='m => m.map(i => i.separator ? "-" : i.title + (i.shortcut ? "[" + i.shortcut + "]" : "")).join("|")'
-[[ "$(json "$MENUS" "($TITLES)(j.statusMenuIdle)")" == "UX Review "*"|-|Capture|Capture Image|Capture Video|-|Settings…[⌘,]|Open UX Review|-|Quit UX Review[⌘Q]" ]] \
+[[ "$(json "$MENUS" "($TITLES)(j.statusMenuIdle)")" == "UX Review "*"|-|Capture|Delay|Capture Image[⌥⇧⌘U]|Capture Video[⌥⇧⌘V]|Narrate Next Recording with Microphone|-|Settings…[⌘,]|Open UX Review|-|Quit UX Review[⌘Q]" ]] \
   || die "menus: status menu $(json "$MENUS" "($TITLES)(j.statusMenuIdle)")"
 # HS2-W62GWS: the Capture [Screen | Window | Region] picker shows the default target.
 [[ "$(json "$MENUS" 'j.statusMenuIdle[2].choices.join() + "|" + j.statusMenuIdle[2].selected')" == "Screen,Window,Region|Region" ]] \
   || die "menus: Capture target picker $(json "$MENUS" 'JSON.stringify(j.statusMenuIdle[2])')"
-[[ "$(json "$MENUS" "($TITLES)(j.statusMenuIdle[3].submenu)")" == "Image of Region|Immediate[⌥⇧⌘U]|Delayed" ]] \
-  || die "menus: Capture Image $(json "$MENUS" "($TITLES)(j.statusMenuIdle[3].submenu)")"
-[[ "$(json "$MENUS" 'j.statusMenuIdle[4].submenu[2].choices.join()')" == "3 s,10 s" ]] || die "menus: Delayed choices"
-[[ "$(json "$MENUS" "($TITLES)(j.statusMenuIdle[4].submenu)")" == "Video of Region|Immediate[⌥⇧⌘V]|Delayed|-|Narrate Next Recording with Microphone" ]] \
-  || die "menus: Capture Video $(json "$MENUS" "($TITLES)(j.statusMenuIdle[4].submenu)")"
-# Choosing Window in the open menu selects it and rebuilds both capture submenus for it.
-PICKED='j.statusMenuAfterPickingWindow'
-[[ "$(json "$MENUS" "$PICKED[2].selected + \"|\" + $PICKED[3].submenu[0].title + \"|\" + $PICKED[4].submenu[0].title")" == "Window|Image of Window|Video of Window" ]] \
-  || die "menus: after picking Window $(json "$MENUS" "JSON.stringify($PICKED.slice(2, 5))")"
+# HS2-WC6JSH: the Delay [None | 3 s | 10 s] picker shows the default delay; no capture submenus.
+[[ "$(json "$MENUS" 'j.statusMenuIdle[3].choices.join() + "|" + j.statusMenuIdle[3].selected')" == "None,3 s,10 s|None" ]] \
+  || die "menus: Delay picker $(json "$MENUS" 'JSON.stringify(j.statusMenuIdle[3])')"
+[[ "$(json "$MENUS" 'j.statusMenuIdle.filter(i => i.submenu).length')" == 0 ]] || die "menus: status menu has submenus"
+# Choosing Window and 3 s in the open menu selects them, and Capture Image/Video then use both.
+PICKED='j.statusMenuAfterPicking'
+[[ "$(json "$MENUS" "$PICKED.menu[2].selected + \"|\" + $PICKED.menu[3].selected + \"|\" + $PICKED.captures.join()")" == "Window|3 s|Screenshot of Window after 3 s,Video of Window after 3 s" ]] \
+  || die "menus: after picking Window and 3 s $(json "$MENUS" "JSON.stringify($PICKED)")"
 [[ "$(json "$MENUS" "($TITLES)(j.statusMenuRecording)")" == *"|Stop Recording (1:12)|Recording microphone narration|-|Settings…[⌘,]|"* ]] \
   || die "menus: recording $(json "$MENUS" "($TITLES)(j.statusMenuRecording)")"
 [[ "$(json "$MENUS" 'j.mainMenu.map(m => m.title).join()')" == "UX Review,File,Edit,Capture,Window" ]] || die "menus: main menu bar"
@@ -1091,7 +1090,7 @@ PICKED='j.statusMenuAfterPickingWindow'
 # HS2-0TQ6RP: Edit ends with the confirmed remove (no shortcut) and the immediate one on ⌘⌫.
 [[ "$(json "$MENUS" "($TITLES)(j.mainMenu[2].submenu.slice(-2))")" == "Remove Capture from Review…|Remove Capture Now[⌘⌫]" ]] \
   || die "menus: Edit remove items $(json "$MENUS" "($TITLES)(j.mainMenu[2].submenu)")"
-ok "menu bar menu: version, Capture [Screen | Window | Region] picker (sets the target in the open menu), Capture Image/Video (Immediate + Delayed [3 s | 10 s]), Settings, Open UX Review, Quit; app menu bar with File › New Review ⌘N"
+ok "menu bar menu: version, Capture [Screen | Window | Region] and Delay [None | 3 s | 10 s] pickers (set in the open menu), Capture Image/Video with their shortcuts, Narrate, Settings, Open UX Review, Quit; app menu bar with File › New Review ⌘N"
 
 # HS2-M8ZFS0: real R + Return key events through the canvas insert a shape; VoiceOver sees every annotation.
 AX="$TMP/previews/editor-accessibility.json"

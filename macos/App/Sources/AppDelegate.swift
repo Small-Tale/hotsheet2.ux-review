@@ -68,8 +68,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         guard let capture, let settings else { return }
         switch command {
         case let .capture(request): capture.start(request)
-        // The same setting as Settings › Default capture › Capture (an open Settings window follows).
+        case let .captureDefault(kind): capture.start(settings.settings.defaultRequest.with(kind: kind))
+        // The same settings as Settings › Default capture (an open Settings window follows).
         case let .setCaptureTarget(target): settings.update { $0.defaultRequest.target = target }
+        case let .setCaptureDelay(seconds): settings.update { $0.defaultRequest.delaySeconds = CaptureRequest.clampDelay(seconds) }
         case .cancelCapture: capture.cancel()
         case .stopRecording: capture.stopRecording()
         case .toggleNarration:

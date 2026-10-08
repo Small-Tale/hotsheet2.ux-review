@@ -806,11 +806,12 @@ with a uniform grid at the movie's expected rate.
 - **Menus** (`AppMenusTests`):
   - the idle menu bar menu's exact layout (version, Capture Image/Video, Settings, Open UX
     Review, Quit)
-  - Capture Image/Video: the default target, Immediate, and Delayed [3 s | 10 s] with spoken
-    labels; narration checkbox only under Video, following the next-recording choice
+  - Capture Image/Video and the narration checkbox following the next-recording choice (the
+    submenus with Immediate and Delayed [3 s | 10 s] were replaced by the Delay row in
+    `HS2-WC6JSH`, below)
   - hotkey shortcuts shown only on the item a hotkey starts exactly (default delay, an
     unrenderable key)
-  - every capture phase replaces the capture submenus (picking, countdown, capturing,
+  - every capture phase replaces the capture rows (picking, countdown, capturing,
     recording with and without narration, finishing) while the rest stays put
   - the app Capture menu: every target, every delay preset, shortcuts
   - `MenuShortcut` rendering and `AppMenus.clock`
@@ -821,13 +822,13 @@ with a uniform grid at the movie's expected rate.
   capture (whose context fills the draft's); a second New Review sets the first aside; Start New
   afterwards; drafts are listed.
 - **App end to end** (`scripts/app-e2e.sh`): `menus.json` from the real app checks the menu bar
-  menu (idle and recording), the Delayed choices, the app menu bar's menus, and File › New Review
+  menu (idle and recording), the app menu bar's menus, and File › New Review
   ⌘N, Add Media… ⌘O, Draft Reviews… ⇧⌘O, Submit Review… ⌘↩.
 - **Visual QA:** `editor-no-media` (empty New Review window: placeholder and inspector hint),
-  `menu-delayed-row-light/-dark` (the segmented Delayed row), and the editor tool bar with **Add
+  `menu-delay-row-light/-dark` (the Delay row, `HS2-WC6JSH`), and the editor tool bar with **Add
   Media…** at 900 pt (`editor-narrow`), all inspected by hand.
 - **Not covered automatically:** the live status item, the real menu bar appearing when the
-  app turns regular, ⌘-Tab, Dock clicks and drops, and the menu closing on a Delayed segment.
+  app turns regular, ⌘-Tab, and Dock clicks and drops.
   These need a person at a Mac (`HS2-PPT7E2`).
 
 ## HS2-122ZFZ: dim outside a region while recording it
@@ -1086,16 +1087,35 @@ capture files are no longer cropped or trimmed while drafting.
 - **Unit** (`AppMenusTests`): the idle layout puts the **Capture** picker above Capture Image;
   the picker lists Screen, Window, Region with `setCaptureTarget` commands and selects the
   default target; a walk over target changes (including a repeat and a revisit) keeps the
-  selection and both capture submenus' Immediate and Delayed items on the new target while kind
-  and delay stay put; every running phase hides the picker.
+  selection on the new target while kind and delay stay put; every running phase hides the
+  picker. (Since `HS2-WC6JSH`, the capture items read the target when chosen; see below.)
 - **App end to end** (`scripts/app-e2e.sh`): `menus.json` checks the picker row (choices and
-  selected Region) and `statusMenuAfterPickingWindow`: choosing Window in an open menu built
-  like the status item's selects Window and rebuilds both submenus as "Image of Window" and
-  "Video of Window".
+  selected Region) and `statusMenuAfterPicking` (below).
 - **Visual QA:** `menu-capture-target-row-light/-dark` (`--render-ui-previews`), inspected by
   hand.
 - **Not covered automatically:** clicking a segment in the live status menu and the Settings
   window following it (`AppDelegate.perform` → `SettingsModel.update`); needs a person at a Mac.
+
+## HS2-WC6JSH: Delay [None | 3 s | 10 s] in the menu bar menu; no capture submenus
+
+- **Unit** (`AppMenusTests`):
+  - the idle layout: Capture and Delay pickers, plain Capture Image / Capture Video items
+    (`captureDefault` commands, no submenus), the narration checkbox, then Settings…
+  - the Delay picker lists None, 3 s, 10 s with `setCaptureDelay` commands and spoken labels,
+    and selects the default delay
+  - a Settings-only default (5 s, 60 s) shows as its own selected segment, in order, and goes
+    away when a listed delay is chosen (empty-then-refill walk)
+  - an interleaved, repeated walk of target and delay changes keeps both selections on the
+    settings and the kind unchanged, with the shortcuts on the item each hotkey starts exactly
+  - shortcuts at every default delay, and none for an unrenderable or unset hotkey
+  - every running phase replaces exactly the capture rows
+- **App end to end** (`scripts/app-e2e.sh`): `menus.json` checks the idle menu's titles and
+  shortcuts, the Delay row (choices and selected None), no submenus, and
+  `statusMenuAfterPicking`: in an open menu built like the status item's, choosing Window and
+  3 s selects both, and then choosing Capture Image and Capture Video (real menu item actions)
+  starts "Screenshot of Window after 3 s" and "Video of Window after 3 s".
+- **Visual QA:** `menu-delay-row-light/-dark` (`--render-ui-previews`), inspected by hand.
+- **Not covered automatically:** clicking the live status menu (needs a person at a Mac).
 
 ## HS2-0TQ6RP: select several captures; ⌘⌫ removes them without asking
 

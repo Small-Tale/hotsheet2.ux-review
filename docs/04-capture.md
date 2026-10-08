@@ -17,8 +17,9 @@ A capture request (`CaptureRequest`) has three parts:
 | `target` | `display`: the whole display under the pointer. `window`: one window, picked by clicking. `region`: a rectangle dragged out on one display. |
 | `delaySeconds` | `0`–`60`. The menus offer the presets 0, 3, 5, and 10. Values outside the range are clamped. For video, this delays the start of recording. |
 
-The menu bar menu's **Capture Image** submenu offers **Immediate** and **Delayed [3 s | 10 s]**
-for the default target. The app menu bar's **Capture** menu, shown while a UX Review window is
+The menu bar menu's **Capture Image** and **Capture Video** items capture the default target
+with the default delay, both chosen in its **Capture [Screen | Window | Region]** and
+**Delay [None | 3 s | 10 s]** rows. The app menu bar's **Capture** menu, shown while a UX Review window is
 open, offers "Screenshot of Screen / Window / Region" and a "Screenshot After Delay" submenu
 listing each preset for each target. See [05-start-and-settings.md](05-start-and-settings.md)
 §5.1 for both layouts, the default capture, and the global hotkeys.

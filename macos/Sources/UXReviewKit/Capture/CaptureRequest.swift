@@ -45,6 +45,13 @@ public struct CaptureRequest: Codable, Equatable, Hashable, Sendable {
         self.delaySeconds = Self.clampDelay(delaySeconds)
     }
 
+    /// The same capture as `kind` (Capture Image / Capture Video of the default request).
+    public func with(kind: CaptureKind) -> CaptureRequest {
+        var request = self
+        request.kind = kind
+        return request
+    }
+
     public static func clampDelay(_ seconds: Int) -> Int {
         min(max(seconds, 0), maxDelaySeconds)
     }

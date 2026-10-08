@@ -175,7 +175,7 @@ enum UIPreviews {
     }
 
     /// The menus as JSON (`menus.json`: the menu bar menu idle and recording, and the app menu
-    /// bar exactly as installed), plus the "Delayed [3 s | 10 s]" row drawn in light and dark.
+    /// bar exactly as installed), plus the Capture and Delay picker rows drawn in light and dark.
     private static func renderMenus(to directory: URL) throws -> [URL] {
         let hotkeys: [HotkeySlot: Hotkey] = [.capture: .defaultCapture, .record: .defaultRecord]
         let idle = MenuState(hotkeys: hotkeys, version: AppSettings.version)
@@ -195,23 +195,19 @@ enum UIPreviews {
         let statusMenuIdle = MenuDump.describe(menu(AppMenus.statusMenu(idle)))
         let dump: [String: Any] = [
             "statusMenuIdle": statusMenuIdle,
-            "statusMenuAfterPickingWindow": pickTargetInOpenMenu(idle, segment: 1),
+            "statusMenuAfterPicking": pickInOpenMenu(idle),
             "statusMenuRecording": MenuDump.describe(menu(AppMenus.statusMenu(recording))),
             "mainMenu": NSApp.mainMenu.map(MenuDump.describe) ?? [],
         ]
         let json = directory.appendingPathComponent("menus.json")
         try JSONSerialization.data(withJSONObject: dump, options: [.prettyPrinted, .sortedKeys]).write(to: json)
         var written = [json]
-        // The status menu's Capture [Screen | Window | Region] picker and Capture Image's Delayed row.
-        var rows: [(String, MenuEntry)] = AppMenus.statusMenu(idle).compactMap { entry in
-            if case .picker = entry { return ("menu-capture-target-row", entry) }
+        // The status menu's Capture [Screen | Window | Region] and Delay [None | 3 s | 10 s] rows.
+        let rows: [(String, MenuEntry)] = AppMenus.statusMenu(idle).compactMap { entry in
+            if case .picker = entry, let title = entry.title {
+                return (title == "Capture" ? "menu-capture-target-row" : "menu-\(title.lowercased())-row", entry)
+            }
             return nil
-        }
-        if let delayed = AppMenus.statusMenu(idle).compactMap({ entry -> [MenuEntry]? in
-            if case let .submenu("Capture Image", children) = entry { return children }
-            return nil
-        }).first?.first(where: { if case .choices = $0 { true } else { false } }) {
-            rows.append(("menu-delayed-row", delayed))
         }
         for (prefix, entry) in rows {
             for (suffix, appearance) in [("light", NSAppearance.Name.aqua), ("dark", .darkAqua)] {
@@ -235,14 +231,20 @@ enum UIPreviews {
         return written
     }
 
-    /// Builds the idle status menu the way `StatusItemController` does, chooses a segment of its
-    /// Capture picker as a reviewer would (the menu stays open), and describes the menu after: the
-    /// picker shows the new target and the capture submenus already use it.
-    private static func pickTargetInOpenMenu(_ state: MenuState, segment: Int) -> [[String: Any]] {
+    /// Builds the idle status menu the way `StatusItemController` does, chooses Window and 3 s in
+    /// its pickers as a reviewer would (the menu stays open), then chooses Capture Image and
+    /// Capture Video: the pickers show the new choices, and both items capture with them.
+    private static func pickInOpenMenu(_ state: MenuState) -> [String: Any] {
         let open = OpenStatusMenu(state: state)
-        let picker = open.menu.items.compactMap { $0.view as? MenuChoicesView }.first { $0.isPicker }
-        picker?.choose(segment: segment)
-        return MenuDump.describe(open.menu)
+        let pickers = open.menu.items.compactMap { $0.view as? MenuChoicesView }
+        pickers.first?.choose(segment: 1)
+        pickers.last?.choose(segment: 1)
+        for title in ["Capture Image", "Capture Video"] {
+            if let item = open.menu.items.first(where: { $0.title == title }), let action = item.action {
+                NSApp.sendAction(action, to: item.target, from: item)
+            }
+        }
+        return ["menu": MenuDump.describe(open.menu), "captures": open.captures.map(\.summary)]
     }
 
     private static func composite(_ view: NSView, size _: CGSize) throws -> CGImage {
@@ -271,10 +273,12 @@ enum UIPreviews {
     }
 }
 
-/// A status menu with its own settings state, run like `StatusItemController` (for previews).
+/// A status menu with its own settings state, run like `StatusItemController` and
+/// `AppDelegate.perform` (for previews). It records the captures it would start.
 @MainActor
 private final class OpenStatusMenu {
     let menu = NSMenu()
+    private(set) var captures: [CaptureRequest] = []
     private var state: MenuState
 
     init(state: MenuState) {
@@ -283,7 +287,11 @@ private final class OpenStatusMenu {
     }
 
     private func run(_ command: MenuCommand) {
-        if case let .setCaptureTarget(target) = command { state.settings.defaultRequest.target = target }
-        MenuRendering.refreshSubmenus(of: menu, from: AppMenus.statusMenu(state), perform: { [weak self] in self?.run($0) })
+        switch command {
+        case let .setCaptureTarget(target): state.settings.defaultRequest.target = target
+        case let .setCaptureDelay(seconds): state.settings.defaultRequest.delaySeconds = seconds
+        case let .captureDefault(kind): captures.append(state.settings.defaultRequest.with(kind: kind))
+        default: break
+        }
     }
 }
