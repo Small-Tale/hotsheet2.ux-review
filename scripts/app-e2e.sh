@@ -1056,7 +1056,7 @@ ok "a Trash that refuses keeps the draft (exit 5); --delete deletes it immediate
 
 run previews 0 -- --render-ui-previews "$TMP/previews"
 for name in overlay-region-hint overlay-window-hint overlay-region-selection overlay-region-selection-bottom-edge overlay-window-hover recording-dim-region hud-countdown hud-saved hud-recording-countdown hud-recording hud-saved-video hud-recording-narration hud-saved-narrated settings-registered settings-in-use status-bar-icon-light status-bar-icon-dark menu-capture-target-row-light menu-capture-target-row-dark menu-delay-row-light menu-delay-row-dark menu-narrate-row-off-light menu-narrate-row-off-dark menu-narrate-row-on-light menu-narrate-row-on-dark \
-  editor-empty editor-no-media editor-annotated editor-arrow-selected editor-narrow editor-crop-drag editor-crop-tool editor-crop-adjust editor-cropped editor-multi-select editor-zoomed editor-keyboard-insert editor-video-timeline editor-video-narrow editor-video-trimmed editor-video-crop-tool editor-video-cropped editor-video-playing editor-video-range-drag editor-video-trim-drag editor-autoscroll \
+  editor-empty editor-no-media editor-annotated editor-window editor-arrow-selected editor-narrow editor-crop-drag editor-crop-tool editor-crop-adjust editor-cropped editor-multi-select editor-zoomed editor-keyboard-insert editor-video-timeline editor-video-narrow editor-video-trimmed editor-video-crop-tool editor-video-cropped editor-video-playing editor-video-range-drag editor-video-trim-drag editor-autoscroll \
   session-ready session-narrow session-edited session-submitting session-failed session-submitted session-submitted-fitted session-issues session-empty \
   session-existing-looking session-existing-found session-existing-narrow session-existing-not-found session-existing-closed \
   session-existing-failed session-existing-submitted session-existing-selection session-existing-abandoned \
@@ -1132,5 +1132,17 @@ FIT="$TMP/previews/session-submitted-fit.json"
 [[ "$(json "$FIT" 'j.width + "|" + (j.height >= 150 && j.height <= 400) + "|" + j.topKept + "|" + j.resizable')" == "520|true|true|false" ]] \
   || die "submitted window fit $(json "$FIT" 'JSON.stringify(j)')"
 ok "a filed review's Submit Review window shrinks around the success message, top edge kept, no longer resizable"
+
+# HS2-WHP4V1: the editor window's native toolbar: unified, title shown, tools on the right as one
+# group that follows keyboard tool changes, Restore Original only after a crop, Submit Review… works.
+TB="$TMP/previews/editor-toolbar.json"
+[[ "$(json "$TB" 'j.toolbarStyle + "|" + j.titleVisible + "|" + j.opened.identifiers.join()')" == \
+  "unified|true|NSToolbarFlexibleSpaceItem,UXReview.tools,NSToolbarSpaceItem,UXReview.restoreOriginal,UXReview.submitReview" ]] \
+  || die "toolbar: layout $(json "$TB" 'JSON.stringify(j.opened)')"
+[[ "$(json "$TB" 'j.opened.toolTips.join()')" == "Select (V),Rectangle (R),Freehand (F),Arrow (A),Insertion (I),Strike (S),Crop (C)" ]] \
+  || die "toolbar: tools $(json "$TB" 'j.opened.toolTips.join()')"
+[[ "$(json "$TB" '[j.opened.selectedTool, j.opened.restoreHidden, j.cropped.selectedTool, j.cropped.restoreHidden, j.cropped.submit, j.submitted].join("|")')" == \
+  "Select|true|Crop|false|Submit Review…|1" ]] || die "toolbar: states $(json "$TB" 'JSON.stringify(j)')"
+ok "the editor's native toolbar: tools on the right follow the keyboard, Restore Original after a crop, Submit Review… works"
 
 echo "app e2e: $pass checks passed"

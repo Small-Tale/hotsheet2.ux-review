@@ -114,7 +114,8 @@ macos/
     Settings/HeadlessSettings.swift   `--settings` mode with JSON output
     Editor/EditorWindowController.swift  the UX Review window: one per draft, save on close, Add Media / Submit / Show in Finder for its draft, file drop target (docs/04 §4.12.2), MediaChooser
     Editor/EditorModel.swift          observable wrapper: mutate → redraw + autosave, reload on capture
-    Editor/EditorView.swift           tool bar, toast overlay, media strip (⌘/⇧-click multiple selection), layout
+    Editor/EditorToolbar.swift        the editor window's native NSToolbar: tool group, Restore Original, Submit Review… (prominent)
+    Editor/EditorView.swift           toast overlay, media strip (⌘/⇧-click multiple selection), layout
     Editor/CanvasAutoScroller.swift   60 Hz auto-scroll timer while a canvas gesture runs near an edge
     Editor/AnnotationCanvas.swift     NSView canvas: mouse/keyboard → editor (← / → monitor for unedited time fields), drawing via AnnotationRenderer
     Editor/TimelineBar.swift          video timeline: play/pause, typed playhead, scrubber, range grips + trim handles, Trim Start/End; TimeField
@@ -122,6 +123,7 @@ macos/
     Editor/HeadlessAnnotate.swift     `--annotate` mode with JSON output
     Editor/EditorPreviews.swift       editor states + mock screenshots for --render-ui-previews
     Editor/EditorPreviews+Crop.swift  the Crop tool's preview states (image and video crops)
+    Editor/EditorPreviews+Toolbar.swift  the real toolbar on a titled window: editor-toolbar.json, editor-window.png
     Editor/EditorPreviews+Typing.swift  types into the middle of a note through the real text view (editor-note-typing.json)
     Review/ReviewSessionWindowController.swift  one Submit Review window per draft (docs/07 §7.1)
     Review/ReviewSessionModel.swift   observable session: draft refresh, autosaved fields, remove, debounced ticket lookup, submit off-main

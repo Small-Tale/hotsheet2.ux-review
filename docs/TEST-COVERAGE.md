@@ -1336,3 +1336,16 @@ capture files are no longer cropped or trimmed while drafting.
   tool bar has no status text.
 - **Not covered automatically:** the live fade timing and animation.
 
+## HS2-WHP4V1: the editor's tools in a native toolbar
+
+- **App end to end** (`scripts/app-e2e.sh`): `--render-ui-previews` builds a titled window with
+  the real `EditorToolbar` (`editor-toolbar.json`). It must be unified with the title shown, and
+  hold flexible space, tools, space, Restore Original, and Submit Review… in that order. The tool
+  tips name the shortcuts. Select is selected and Restore Original hidden on open; after the C
+  key's tool change and a crop, Crop is selected and Restore Original shown; choosing Submit
+  Review… runs the window's submit.
+- **Visual QA:** `editor-window.png` (the window frame with title bar and toolbar), inspected by hand.
+- **Not covered automatically:** the Liquid Glass look and the prominent Submit Review… tint in a
+  live, active window (offscreen renders draw the prominent button blank); see the follow-up
+  live check.
+

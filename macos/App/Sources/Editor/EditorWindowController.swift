@@ -11,6 +11,8 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
     private static var open: [URL: EditorWindowController] = [:]
 
     let model: EditorModel
+    /// Tools, Restore Original, and Submit Review… in the window's toolbar (`HS2-WHP4V1`).
+    private(set) var toolbar: EditorToolbar?
 
     /// Opens (or brings forward) the editor for the draft in `directory`, showing `mediaId` when given.
     static func show(directory: URL, store: ReviewDraftStore, mediaId: String? = nil) throws {
@@ -60,7 +62,8 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
         super.init(window: window)
         window.delegate = self
         content.onDropFiles = { [weak self] urls in self?.addDroppedFiles(urls) }
-        model.submitReview = { [weak self] in self?.submitReview(nil) }
+        toolbar = EditorToolbar(model: model) { [weak self] in self?.submitReview(nil) }
+        toolbar?.install(on: window)
         model.confirmRemoval = { [weak self] items in self?.confirmRemoval(items) }
     }
 

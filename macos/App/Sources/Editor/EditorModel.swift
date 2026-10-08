@@ -38,9 +38,6 @@ final class EditorModel: ObservableObject {
     @Published private(set) var playback: VideoPlayback?
     private var playbackTimer: Timer?
 
-    /// Opens the Submit Review window for this draft (docs/07 §7.1). Set by the editor window;
-    /// the tool bar shows **Submit Review…** only when it is.
-    var submitReview: (() -> Void)?
     /// Asks before removing captures from the review (docs/06 §6.7.1, §6.7.2). Set by the editor
     /// window; the media strip offers ✕ and **Remove from Review…** only when it is.
     var confirmRemoval: (([MediaItem]) -> Void)?

@@ -2,15 +2,13 @@ import AppKit
 import SwiftUI
 import UXReviewKit
 
-/// The annotation editor window's content: tool bar on top; media strip, canvas, and inspector
-/// below. Spec: docs/06-annotation-editor.md §6.1.
+/// The annotation editor window's content under its native toolbar (`EditorToolbar`): media
+/// strip, canvas, and inspector. Spec: docs/06-annotation-editor.md §6.1.
 struct EditorView: View {
     @ObservedObject var model: EditorModel
 
     var body: some View {
         VStack(spacing: 0) {
-            EditorToolbar(model: model)
-            Divider()
             HStack(spacing: 0) {
                 // Shown with one capture too, so it can be removed (HS2-SSM1E7).
                 if !model.editor.bundle.media.isEmpty {
@@ -33,62 +31,6 @@ struct EditorView: View {
             }
         }
         .frame(minWidth: 900, minHeight: 560)
-    }
-}
-
-struct EditorToolbar: View {
-    @ObservedObject var model: EditorModel
-
-    var body: some View {
-        HStack(spacing: 10) {
-            HStack(spacing: 2) {
-                ForEach(EditorTool.allCases, id: \.self) { tool in
-                    ToolButton(tool: tool, selected: model.editor.tool == tool) {
-                        model.mutate { $0.setTool(tool) }
-                    }
-                }
-            }
-            .padding(3)
-            .background(RoundedRectangle(cornerRadius: 8).fill(Color.primary.opacity(0.06)))
-
-            if let item = model.editor.currentMedia, model.editor.canRestoreOriginal {
-                Button("Restore Original") { model.mutate { _ = $0.restoreOriginal() } }
-                    .help(
-                        item.kind == .video
-                            ? "Remove this video's crop and trim, including ones from an earlier session; hidden annotations come back"
-                            : "Remove this capture's crop, including one from an earlier session; hidden annotations come back"
-                    )
-            }
-            Spacer(minLength: 8)
-            if let submit = model.submitReview {
-                Button("Submit Review…", action: submit)
-                    .buttonStyle(.bordered)
-                    .help("Save and open the Submit Review window for this review (⌘↩)")
-            }
-        }
-        .buttonStyle(.borderless)
-        .padding(.horizontal, 12)
-        .padding(.vertical, 8)
-    }
-}
-
-struct ToolButton: View {
-    let tool: EditorTool
-    let selected: Bool
-    let action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            Image(systemName: tool.symbol)
-                .font(.system(size: 14, weight: .medium))
-                .frame(width: 30, height: 26)
-                .foregroundStyle(selected ? Color.white : Color.primary)
-                .background(RoundedRectangle(cornerRadius: 6).fill(selected ? Color.accentColor : Color.clear))
-                .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .help("\(tool.label) (\(String(tool.shortcut).uppercased()))")
-        .accessibilityLabel(tool.label)
     }
 }
 

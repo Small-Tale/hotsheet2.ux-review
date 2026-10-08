@@ -69,6 +69,7 @@ enum EditorPreviews {
         let keyboardURL = directory.appendingPathComponent("editor-keyboard-insert.png")
         written.append(try snapshot(EditorView(model: keyboardModel), size: wide, to: keyboardURL, interact: typeRThenReturn))
         written.append(try typeInTheMiddleOfANote(to: directory, store: store, draft: draft))
+        written += try renderToolbar(to: directory, store: store, draft: draft)
         // 300 % (1.5 points per pixel) on the clipped-label box, panned so its corner is near the middle.
         try capture(
             "editor-zoomed", size: wide, script: annotations + [.select("#1")],
@@ -80,9 +81,8 @@ enum EditorPreviews {
 
     /// The timeline (docs/06 §6.10) on a draft holding one mock screen recording: annotations with
     /// a range, an instant, and the whole clip, the playhead inside the first range.
-    /// The editor window always offers Submit Review… in the tool bar and capture removal.
+    /// The editor window always offers capture removal.
     private static func offerWindowButtons(_ model: EditorModel) {
-        model.submitReview = {}
         model.confirmRemoval = { _ in }
     }
 

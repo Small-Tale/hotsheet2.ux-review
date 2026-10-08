@@ -13,7 +13,7 @@ to a ticket that already exists.
 
 ## 7.1 Opening
 
-In the UX Review (annotation editor) window, **Submit Review…** in the tool bar or the File menu
+In the UX Review (annotation editor) window, **Submit Review…** in the window toolbar or the File menu
 (⌘↩, `HS2-6HA14G`) saves the editor and opens the **Submit Review** window on *that editor's*
 draft, which need not be the current one (each draft has its own window, docs/05 §5.1.1). With
 no review window in front, File › Submit Review… opens it on the current draft (`HS2-80CTK8`). **Open Session** in the Draft
