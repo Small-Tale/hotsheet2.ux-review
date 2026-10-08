@@ -473,6 +473,28 @@ Each feature gets both unit tests and end-to-end tests. Tests live in
   rejects other keys.
 - **App end to end** (`scripts/app-e2e.sh`): `--annotate` steps the playhead one frame, a range
   end one frame back, and the trim end (one undo step restores the duration and the movie).
+
+## HS2-6XMK1J: frame steps for variable-frame-rate movies
+
+- **Grid choice** (`FrameGridTests`): samples on the nominal grid (10 fps, 29.97 fps, ±0.4 ms
+  jitter, decode order, a zero-length hold frame at the end) keep the constant rate; irregular
+  times, a missing or nonsense nominal rate, or one dropped frame give the real times (rounded
+  up to whole ms, 0 and the end added, sub-ms frames merged); fewer than two usable samples
+  leave the rate to the caller.
+- **Step rule** (`FrameGridTests`): forward and back across irregular gaps, positions between
+  samples, ⇧ ×10 across gaps and clamped at both ends, before the start and past the end, an
+  empty grid, and the average rate.
+- **Editor sequences** (`VariableFrameStepTests`): malformed grids (empty, one boundary,
+  unsorted, duplicates) fall back to 30 fps; the playhead visits every real frame then stops;
+  trim-end steps over still stretches, down to the minimum and back to the whole movie in one
+  undo step; trim-start steps on a mid-frame trim keep the movie's frames (offset clip times,
+  clamped at the movie start); range ends snap and clamp; replacing the grid midway (variable →
+  constant → variable → unknown → empty → refilled) uses the newest.
+- **Real movie** (`VariableFrameRateMovieTests`): an H.264 movie written like a screen
+  recording (irregular frames, clock starting at 5 s) reads back as its exact frame starts;
+  the same writer at a steady 10 fps steps on the 100 ms grid; a missing file reads nil. In an
+  `EditorSession`, scripted arrow keys land on the real frames (showing the right color) and
+  trim-end steps trim through them.
 - **Visual QA:** `editor-video-frame-step`: a range end grip pressed in place, then ⇧→ and ← sent
   as real key events through the canvas (range to 0:02.90, playhead following).
 - **Not covered automatically:** focus in a live window: the canvas taking focus from a time

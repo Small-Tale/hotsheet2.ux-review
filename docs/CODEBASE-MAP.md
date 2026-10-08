@@ -63,9 +63,10 @@ macos/
     Editor/AnnotationEditor+Gestures.swift  draw/move/resize/crop gestures, hit testing, crop + reset crop
     Editor/AnnotationEditor+Time.swift  playhead, annotation time ranges, trim + reset trim, TimeFormat (docs/06 §6.10)
     Editor/AnnotationEditor+Timeline.swift  timeline drags (range ends, trim handles), TimelineHitTest, TimeFormat.parse
-    Editor/AnnotationEditor+FrameStep.swift  ← / → frame steps: TimelineStepTarget (last-used timeline target), frame grid, step rules (docs/06 §6.4, §6.10)
+    Editor/AnnotationEditor+FrameStep.swift  ← / → frame steps: TimelineStepTarget (last-used timeline target), step rules (docs/06 §6.4, §6.10)
+    Editor/FrameGrid.swift            frame grid for frame steps: constant nominal rate or a variable-rate movie's real frame starts (docs/06 §6.10)
     Editor/AnnotationEditor+Media.swift  syncMedia/dropMedia: follow captures added to or removed from the draft (docs/06 §6.7)
-    Editor/VideoTrim.swift            trimmed movie export (AVAssetExportSession), byte-exact restore, frame rate, frame cache
+    Editor/VideoTrim.swift            trimmed movie export (AVAssetExportSession), byte-exact restore, frame grid (sample cursor + edit list), frame cache
     Editor/VideoPlayback.swift        play/pause: AVPlayer on the trimmed clip, player frames, PlaybackRules
     Editor/CanvasViewport.swift       canvas zoom/pan: fit, zoom stops, anchored zoom, clamped pan, AutoScroll near edges (docs/06 §6.2.1)
     Editor/FreehandSmoothing.swift    freehand stroke cleanup: resample, corner-preserving bounded smoothing, gentle simplify

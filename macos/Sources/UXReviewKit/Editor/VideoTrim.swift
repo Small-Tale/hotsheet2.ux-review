@@ -55,27 +55,84 @@ public enum VideoTrim {
         _ = try FileManager.default.replaceItemAt(destination, withItemAt: temporary)
     }
 
-    /// The movie's frame rate (its video track's nominal frames per second), for frame stepping.
-    /// Nil when the file has no readable video track. Blocks until AVFoundation has loaded it.
-    public static func frameRate(of url: URL) -> Double? {
-        let box = RateBox()
+    /// The movie's frame grid, for frame stepping (docs/06 §6.10): its nominal rate when every
+    /// video sample sits on it, else the samples' real start times (variable-frame-rate movies).
+    /// Only the sample table is read (`AVSampleCursor`), not the frames. Falls back to the
+    /// nominal rate when the samples can't be read, and is nil without a readable video track.
+    /// Blocks until AVFoundation has loaded it.
+    public static func frameGrid(of url: URL) -> FrameGrid? {
+        load(url) { asset, track in
+            let rate = try? await track.load(.nominalFrameRate)
+            let nominal = rate.flatMap { $0.isFinite && $0 > 0 ? Double($0) : nil }
+            let duration = try? await asset.load(.duration)
+            let durationMs = duration.flatMap { $0.isNumeric ? Int((CMTimeGetSeconds($0) * 1000).rounded()) : nil }
+            if let times = await sampleTimesMs(track),
+               let grid = FrameGrid.make(sampleTimesMs: times, durationMs: durationMs, nominalRate: nominal) {
+                return grid
+            }
+            return nominal.map { .constant(fps: $0) }
+        }
+    }
+
+    /// Most samples `sampleTimesMs` reads (about 2.3 hours at 60 fps); longer movies step at
+    /// their nominal rate.
+    static let sampleLimit = 500_000
+
+    /// Presentation times (ms on the movie timeline) of the track's samples, in decode order:
+    /// the sample table's media times mapped through the track's edit list, plus the start of
+    /// each edit (the frame showing there). Nil when the track can't provide a sample cursor or
+    /// has more than `sampleLimit` samples.
+    static func sampleTimesMs(_ track: AVAssetTrack) async -> [Double]? {
+        guard await (try? track.load(.canProvideSampleCursors)) == true,
+              let cursor = track.makeSampleCursorAtFirstSampleInDecodeOrder() else { return nil }
+        var media: [CMTime] = []
+        repeat {
+            media.append(cursor.presentationTimeStamp)
+            if media.count > sampleLimit { return nil }
+        } while cursor.stepInDecodeOrder(byCount: 1) == 1
+        let segments = await (try? track.load(.segments)) ?? []
+        let mappings = segments.filter { !$0.isEmpty }.map(\.timeMapping)
+        guard !mappings.isEmpty else {
+            return media.map { CMTimeGetSeconds($0) * 1000 }
+        }
+        var times: [Double] = []
+        for mapping in mappings {
+            let source = mapping.source
+            let target = mapping.target
+            let sourceSeconds = CMTimeGetSeconds(source.duration)
+            guard sourceSeconds > 0 else { continue }
+            let scale = CMTimeGetSeconds(target.duration) / sourceSeconds
+            let targetStart = CMTimeGetSeconds(target.start)
+            times.append(targetStart * 1000)
+            for time in media where source.containsTime(time) {
+                times.append((targetStart + CMTimeGetSeconds(CMTimeSubtract(time, source.start)) * scale) * 1000)
+            }
+        }
+        return times
+    }
+
+    /// Loads `url`'s first video track and runs `read` on it, blocking until it finishes.
+    private static func load<Value: Sendable>(
+        _ url: URL,
+        _ read: @escaping @Sendable (AVURLAsset, AVAssetTrack) async -> Value?
+    ) -> Value? {
+        let box = ResultBox<Value>()
         let done = DispatchSemaphore(value: 0)
         Task.detached {
             let asset = AVURLAsset(url: url)
-            if let track = try? await asset.loadTracks(withMediaType: .video).first,
-               let rate = try? await track.load(.nominalFrameRate), rate.isFinite, rate > 0 {
-                box.rate = Double(rate)
+            if let track = try? await asset.loadTracks(withMediaType: .video).first {
+                box.value = await read(asset, track)
             }
             done.signal()
         }
         done.wait()
-        return box.rate
+        return box.value
     }
 
-    /// Carries the loaded rate out of the detached task; written before the semaphore signals,
+    /// Carries the loaded value out of the detached task; written before the semaphore signals,
     /// read after it.
-    private final class RateBox: @unchecked Sendable {
-        var rate: Double?
+    private final class ResultBox<Value>: @unchecked Sendable {
+        var value: Value?
     }
 
     /// Copies `source` over `destination` byte for byte (restoring a kept original).

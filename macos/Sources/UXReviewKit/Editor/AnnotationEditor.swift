@@ -130,9 +130,9 @@ public struct AnnotationEditor: Sendable {
     /// ← / → step frame by frame; nil after a canvas press or selection, when the arrows move the
     /// selected shape. Navigation state, never undone. Resolve it with `frameStepTarget`.
     public internal(set) var timelineTarget: TimelineStepTarget?
-    /// Each video's frame rate (frames per second), from its movie; frame steps fall back to
-    /// `defaultFrameRate` without one.
-    public internal(set) var frameRates: [String: Double] = [:]
+    /// Each video's frame grid (its frame rate, or a variable-rate movie's frame times), from its
+    /// movie; frame steps fall back to `defaultFrameRate` without one.
+    public internal(set) var frameGrids: [String: FrameGrid] = [:]
     /// Smallest box or arrow a drag creates, in media pixels. The view sets it from its zoom.
     public var minimumSide: Double = 6
     /// How far from a stroke or handle a click still hits, in media pixels.

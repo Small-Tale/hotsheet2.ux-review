@@ -48,14 +48,15 @@ public final class EditorSession {
             trims: priorTrims
         )
         stored = Dictionary(bundle.annotations.map { ($0.id, $0) }) { first, _ in first }
-        loadFrameRates(bundle.media.map(\.id))
+        loadFrameGrids(bundle.media.map(\.id))
     }
 
-    /// Reads each video's frame rate from its movie, for ← / → frame steps (docs/06 §6.10).
-    private func loadFrameRates(_ ids: [String]) {
+    /// Reads each video's frame grid (rate, or variable-rate frame times) from its movie, for
+    /// ← / → frame steps (docs/06 §6.10).
+    private func loadFrameGrids(_ ids: [String]) {
         for id in ids {
             guard let item = editor.media(id), item.kind == .video else { continue }
-            editor.setFrameRate(VideoTrim.frameRate(of: fileURL(item)), for: id)
+            editor.setFrameGrid(VideoTrim.frameGrid(of: fileURL(item)), for: id)
         }
     }
 
@@ -160,9 +161,9 @@ public final class EditorSession {
         for id in changes.removed {
             baseImages[id] = nil
             frames[id] = nil
-            editor.setFrameRate(nil, for: id)
+            editor.setFrameGrid(nil, for: id)
         }
-        loadFrameRates(changes.added)
+        loadFrameGrids(changes.added)
         return changes
     }
 
