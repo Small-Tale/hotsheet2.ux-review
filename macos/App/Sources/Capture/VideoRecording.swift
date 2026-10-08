@@ -216,13 +216,15 @@ final class MicrophoneRecorder: NSObject, AVCaptureAudioDataOutputSampleBufferDe
 
 /// Feeds 10 fps of test-card frames through the real `VideoFileWriter`, timestamped with the
 /// host clock exactly like ScreenCaptureKit frames, and with narration a 440 Hz tone in 100 ms
-/// buffers starting at the first frame. Used with `UXREVIEW_CAPTURE_BACKEND=synthetic`.
+/// buffers starting at the first frame. Used with `UXREVIEW_CAPTURE_BACKEND=synthetic`. With
+/// `stillAfterMs`, the test card stops changing after that long, so no more frames arrive (as
+/// ScreenCaptureKit sends none for a static screen) and the movie is variable-rate.
 final class SyntheticRecorder: ActiveRecording, @unchecked Sendable {
     private let writer: VideoFileWriter
     private let scale: Double
     private var feeders: [Task<Void, Never>] = []
 
-    init(url: URL, width: Int, height: Int, scale: Double, narration: Bool = false) throws {
+    init(url: URL, width: Int, height: Int, scale: Double, narration: Bool = false, stillAfterMs: Int? = nil) throws {
         let size = RegionGeometry.evenPixelSize(width: width, height: height)
         writer = try VideoFileWriter(
             url: url,
@@ -235,8 +237,11 @@ final class SyntheticRecorder: ActiveRecording, @unchecked Sendable {
         let writer = writer
         feeders.append(Task.detached {
             var label = 0
+            let started = ContinuousClock.now
             while !Task.isCancelled {
-                if let card = ImageFiles.testCard(width: size.width, height: size.height, label: label),
+                // Once the screen stops changing, no more frames until the recording stops.
+                let still = stillAfterMs.map { ContinuousClock.now - started >= .milliseconds($0) } ?? false
+                if !still, let card = ImageFiles.testCard(width: size.width, height: size.height, label: label),
                    let frame = VideoFileWriter.pixelBuffer(from: card, width: size.width, height: size.height) {
                     writer.append(frame, at: CMClockGetTime(CMClockGetHostTimeClock()))
                 }

@@ -47,6 +47,8 @@ struct FrameGridTests {
         #expect(Self.rate(ntsc, 2002, nominal: 29.97) == 29.97, "a constant rate is kept exactly, not snapped")
         let fiveFps = (0 ..< 10).map { Double($0) * 200 }
         #expect(Self.rate(fiveFps, 2000, nominal: 5) == 5, "a slow constant rate is real")
+        #expect(Self.rate([0, 0.3] + fiveFps, 2000, nominal: 5) == 5, "times within half a ms count once (HS2-Z4YPV1)")
+        #expect(Self.rate([0] + ntsc, 2002, nominal: 29.97) == 29.97)
         let jitter = tenFps.enumerated().map { $1 + ($0.isMultiple(of: 2) ? 0.4 : -0.4) }
         #expect(Self.rate(jitter, 2000, nominal: 10) == 10, "within half a ms")
         #expect(Self.rate(tenFps.reversed(), 2000, nominal: 10) == 10, "decode order is not presentation order")

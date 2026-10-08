@@ -547,10 +547,14 @@ the clip, and the clip itself can be trimmed.
      doesn't set it. As a rate (at most 240 fps), it snaps to the nearest standard rate (10, 12,
      15, 20, 23.976, 24, 25, 29.97, 30, 48, 50, 59.94, 60, 90, 100, 120) within 10 %, else stays
      as it is. An estimate below 9 fps (frames always more than 0.1 s apart) says little about the
-     intended rate, so the editor uses 30 fps instead. The frame times come from the sample
-     table (`AVSampleCursor`, no decoding), mapped through the track's edit list.
+     intended rate, so the editor uses 30 fps instead.
   4. **Unknown:** with no readable samples (fewer than two, no sample cursor, or more than
      500,000), the nominal rate; without that, 30 fps.
+- **Frame times** for steps 2 and 3 come from the sample table (`AVSampleCursor`, no
+  decoding), mapped through each edit of the track's edit list (offset, and scaled by the
+  edit's rate); samples outside every edit are left out. An edit's start is not a frame time
+  (inside a frame, it would make a short false interval), and times within 0.5 ms of each other
+  count once.
 - **Loading** (`HS2-F999CM`): the editor window reads each rate in the background
   (`EditorSession.FrameRateLoading.inBackground`), since a movie without a recorded rate has its
   whole sample table read. Until it arrives, steps use 30 fps; then the movie's rate. Steps

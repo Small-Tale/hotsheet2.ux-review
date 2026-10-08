@@ -457,6 +457,30 @@ cmp -s "$clip" "$TMP/clip-before-trim.mov" || die "frame step: the undone trim r
 validate_bundle "$adraft/review.json"
 ok "frame steps: → moved the playhead one frame, ← moved the range end one frame, trim-end steps were one undo step"
 
+# HS2-Z4YPV1 / HS2-BADS0F: a variable-frame-rate recording steps one expected frame, not to the
+# next recorded one. The synthetic screen stops changing after 0.4 s, so the 2 s movie has no
+# frames after that (as ScreenCaptureKit sends none for a static screen); it records 10 fps.
+run video-still 0 "${SYN[@]}" UXREVIEW_SYNTHETIC_STILL_AFTER_MS=400 -- \
+  --capture video --target region --rect 10,10,200,120 --duration 2 --drafts-dir "$TMP/still-drafts"
+still_movie="$(json "$TMP/video-still.json" j.file)"
+[[ "$(json "$TMP/video-still.json" 'j.media.durationMs >= 1800')" == true ]] || die "still video: durationMs $(json "$TMP/video-still.json" j.media.durationMs)"
+still_frames="(ffprobe not installed)"
+if command -v ffprobe >/dev/null; then
+  packets="$(ffprobe -v error -select_streams v:0 -count_packets -show_entries stream=nb_read_packets -of csv=p=0 "$still_movie")"
+  [[ "$packets" -le 10 ]] || die "still video: $packets video frames, expected a still stretch"
+  still_frames="($packets recorded frames)"
+fi
+echo '{"steps": [{"op": "time", "ms": 1000}, {"op": "arrow-key", "key": "right"}]}' >"$TMP/script-still-right.json"
+run annotate-still-right 0 -- --annotate "$TMP/script-still-right.json" --drafts-dir "$TMP/still-drafts"
+[[ "$(json "$TMP/annotate-still-right.json" j.currentTimeMs)" == 1100 ]] \
+  || die "still frame step: → from 1000 went to $(json "$TMP/annotate-still-right.json" j.currentTimeMs), expected 1100"
+echo '{"steps": [{"op": "time", "ms": 1000}, {"op": "arrow-key", "key": "left"}, {"op": "arrow-key", "key": "right", "shift": true}]}' >"$TMP/script-still-left.json"
+run annotate-still-left 0 -- --annotate "$TMP/script-still-left.json" --drafts-dir "$TMP/still-drafts"
+still_ms="$(json "$TMP/video-still.json" j.media.durationMs)"
+[[ "$(json "$TMP/annotate-still-left.json" "j.currentTimeMs == Math.min(1900, $still_ms)")" == true ]] \
+  || die "still frame step: ←, ⇧→ from 1000 went to $(json "$TMP/annotate-still-left.json" j.currentTimeMs), expected 900 then 1900"
+ok "variable-rate recording $still_frames: → and ← step 100 ms inside the still stretch, ⇧→ ten frames"
+
 echo '{"steps": [{"op": "paint"}]}' >"$TMP/bad-script.json"
 run annotate-bad 2 -- --annotate "$TMP/bad-script.json" --drafts-dir "$ADRAFTS"
 echo '{"steps": [{"op": "delete"}]}' >"$TMP/bad-step.json"

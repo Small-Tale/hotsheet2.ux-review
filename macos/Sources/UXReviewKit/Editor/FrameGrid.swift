@@ -32,7 +32,8 @@ public struct FrameGrid: Equatable, Sendable {
     /// The rate a movie was meant to play at, for a uniform step grid:
     /// 1. `recordedRate`: the rate UX Review's writer stored in its own recordings;
     /// 2. the nominal rate when every sample (`sampleTimesMs`, presentation times on the movie
-    ///    timeline, any order, `durationMs` long) sits on it: a constant-rate movie;
+    ///    timeline, any order, `durationMs` long; times within `minimumGapMs` count once) sits on
+    ///    it: a constant-rate movie;
     /// 3. otherwise a variable-rate movie's interval: the `intervalPercentile` of the gaps between
     ///    its frames, as a rate snapped to the nearest standard rate within `snapTolerance`. Nil when
     ///    that is below the lowest standard rate (frames only seconds apart say little about the
@@ -47,7 +48,12 @@ public struct FrameGrid: Equatable, Sendable {
         if let recordedRate, FrameGrid(fps: recordedRate).isValid { return recordedRate }
         let nominal = nominalRate.flatMap { FrameGrid(fps: $0).isValid ? $0 : nil }
         let end = durationMs.map(Double.init) ?? .infinity
+        // Frame times within `minimumGapMs` of the previous one are the same time.
         let times = (sampleTimesMs ?? []).filter { $0.isFinite && $0 >= 0 && $0 < end }.sorted()
+            .reduce(into: [Double]()) { kept, time in
+                if let last = kept.last, time - last < minimumGapMs { return }
+                kept.append(time)
+            }
         guard times.count >= 2 else { return nominal }
         if let nominal {
             let frameMs = 1000 / nominal
@@ -56,8 +62,7 @@ public struct FrameGrid: Equatable, Sendable {
             }
             if onGrid { return nominal }
         }
-        let gaps = zip(times, times.dropFirst()).map { $1 - $0 }.filter { $0 >= minimumGapMs }.sorted()
-        guard !gaps.isEmpty else { return nominal }
+        let gaps = zip(times, times.dropFirst()).map { $1 - $0 }.sorted()
         let interval = gaps[Int(Double(gaps.count - 1) * intervalPercentile)]
         let rate = min(1000 / interval, maximumRate)
         guard let lowest = standardRates.min(), rate >= lowest * (1 - snapTolerance) else { return nil }

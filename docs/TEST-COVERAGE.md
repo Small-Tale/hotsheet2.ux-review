@@ -514,6 +514,17 @@ with a uniform grid at the movie's expected rate.
   30; a plain constant 25 fps movie reads 25; a missing file reads nil. In an `EditorSession`,
   scripted arrow keys step one 30 fps frame inside a still stretch (showing the right color),
   ⇧→ ten frames, and trim-end steps trim on the uniform grid.
+- **Edit lists** (`EditListFrameRateTests`, `HS2-Z4YPV1`, `AVMutableMovie` reference movies
+  over a plain 10 fps source): two edits, the second starting inside a frame, map each sample
+  to the time it shows (samples outside the edits left out) and still read 10 fps (counting the
+  edit start as a frame time read 20); an edit slowed to half speed spreads its frames 200 ms
+  apart and still reads 10 fps. `FrameGridTests` also pins that times within 0.5 ms count once,
+  so a duplicate time no longer breaks the constant-rate check.
+- **App end to end** (`scripts/app-e2e.sh`, `HS2-Z4YPV1`): a synthetic region recording whose
+  screen stops changing after 0.4 s (`UXREVIEW_SYNTHETIC_STILL_AFTER_MS`; with ffprobe, at most
+  10 recorded frames in 2 s) steps → from 1.0 s to 1.1 s, and ← then ⇧→ to 1.9 s, inside the
+  still stretch: one recorded-rate (10 fps) frame, not the next recorded sample. The estimate
+  for movies without a recorded rate is covered by the real-movie tests above, not the app.
 - **Background loading** (`VariableFrameRateMovieTests`, `HS2-F999CM`, real movies on the main
   actor): with `.inBackground` a session steps at 30 fps until the movie's recorded 10 fps
   arrives, then steps on the new grid from where it was; a capture picked up later loads in the

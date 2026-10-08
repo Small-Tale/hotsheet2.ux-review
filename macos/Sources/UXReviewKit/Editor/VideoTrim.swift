@@ -93,9 +93,11 @@ public enum VideoTrim {
     static let sampleLimit = 500_000
 
     /// Presentation times (ms on the movie timeline) of the track's samples, in decode order:
-    /// the sample table's media times mapped through the track's edit list, plus the start of
-    /// each edit (the frame showing there). Nil when the track can't provide a sample cursor or
-    /// has more than `sampleLimit` samples.
+    /// the sample table's media times mapped through each edit of the track's edit list (scaled
+    /// by its rate; samples outside every edit are left out). An edit's own start is not a frame
+    /// time: when it starts inside a frame, that frame's real interval began earlier, and a short
+    /// gap there would skew `FrameGrid.expectedRate`. Nil when the track can't provide a sample
+    /// cursor or has more than `sampleLimit` samples.
     static func sampleTimesMs(_ track: AVAssetTrack) async -> [Double]? {
         guard await (try? track.load(.canProvideSampleCursors)) == true,
               let cursor = track.makeSampleCursorAtFirstSampleInDecodeOrder() else { return nil }
@@ -117,7 +119,6 @@ public enum VideoTrim {
             guard sourceSeconds > 0 else { continue }
             let scale = CMTimeGetSeconds(target.duration) / sourceSeconds
             let targetStart = CMTimeGetSeconds(target.start)
-            times.append(targetStart * 1000)
             for time in media where source.containsTime(time) {
                 times.append((targetStart + CMTimeGetSeconds(CMTimeSubtract(time, source.start)) * scale) * 1000)
             }

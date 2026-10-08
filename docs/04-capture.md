@@ -347,7 +347,9 @@ host-clock timestamped, through the real `VideoFileWriter`. With `--narration` i
 440 Hz tone in 100 ms LPCM buffers from the first frame on, standing in for the microphone.
 It draws no pointer or clicks; the pointer options only reach the output JSON.
 `UXREVIEW_SYNTHETIC_MICROPHONE` (`authorized`, the default, or `notDetermined`, `denied`,
-`restricted`, `unavailable`) simulates the microphone's state. Target resolution, delay, context, PNG writing,
+`restricted`, `unavailable`) simulates the microphone's state. `UXREVIEW_SYNTHETIC_STILL_AFTER_MS`
+makes the synthetic screen stop changing that many ms into a recording, so no more frames arrive
+and the movie is variable-rate like a ScreenCaptureKit recording of a static screen. Target resolution, delay, context, PNG writing,
 and the draft store all still run for real. It exists so `scripts/app-e2e.sh` can cover the
 pipeline on machines without Screen Recording permission.
 

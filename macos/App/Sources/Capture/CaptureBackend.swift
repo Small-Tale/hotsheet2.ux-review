@@ -218,12 +218,15 @@ struct ScreenCaptureKitBackend: CaptureBackend {
 /// Renders a test card with the exact pixel size the real capture would have, and stands in a
 /// sine tone for the microphone. It draws no pointer; the pointer options only reach the
 /// headless output. `UXREVIEW_SYNTHETIC_MICROPHONE` (a `MicrophoneAccess` raw value,
-/// default `authorized`) simulates the microphone's permission state for tests.
+/// default `authorized`) simulates the microphone's permission state for tests, and
+/// `UXREVIEW_SYNTHETIC_STILL_AFTER_MS` makes a recording's screen stop changing after that many
+/// ms, so the movie is variable-rate like a ScreenCaptureKit recording of a static screen.
 @MainActor
 struct SyntheticCaptureBackend: CaptureBackend {
     let name = "synthetic"
     var microphone: MicrophoneAccess = ProcessInfo.processInfo.environment["UXREVIEW_SYNTHETIC_MICROPHONE"]
         .flatMap(MicrophoneAccess.init(rawValue:)) ?? .authorized
+    var stillAfterMs: Int? = ProcessInfo.processInfo.environment["UXREVIEW_SYNTHETIC_STILL_AFTER_MS"].flatMap { Int($0) }
 
     func hasPermission() -> Bool { true }
     func requestPermission() -> Bool { true }
@@ -247,7 +250,9 @@ struct SyntheticCaptureBackend: CaptureBackend {
     ) async throws -> ActiveRecording {
         if narration, microphone != .authorized { throw CaptureFailure.microphone(microphone) }
         let (width, height, scale) = try Self.pixelSize(for: source)
-        return try SyntheticRecorder(url: url, width: width, height: height, scale: scale, narration: narration)
+        return try SyntheticRecorder(
+            url: url, width: width, height: height, scale: scale, narration: narration, stillAfterMs: stillAfterMs
+        )
     }
 
     static func pixelSize(for source: CaptureSource) throws -> (Int, Int, Double) {
