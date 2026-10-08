@@ -73,6 +73,8 @@ public indirect enum MenuEntry: Hashable, Sendable {
     case label(String)
     case separator
     case action(String, MenuCommand, shortcut: MenuShortcut? = nil)
+    /// A titled on/off row (a switch). Flipping it runs the command and keeps the menu open
+    /// (`HS2-JBWPP5`), like a picker.
     case toggle(String, isOn: Bool, MenuCommand)
     case submenu(String, [MenuEntry])
     /// A titled row of mutually exclusive options with one selected (a select-one segmented
@@ -89,24 +91,13 @@ public indirect enum MenuEntry: Hashable, Sendable {
     }
 }
 
-/// Where a menu row's own drawing (a picker row's title and control) must go to line up with
-/// the items AppKit draws. Measured on macOS 26 menus (`HS2-T4RS7M`): titles start 16 pt from
-/// the menu's edge, or 30 pt when the menu shows a checkmark column because one of its items is
-/// checked; shortcuts end 18 pt from the right edge.
+/// Where a menu row's own drawing (a picker or toggle row's title and control) must go to line
+/// up with the items AppKit draws. Measured on macOS 26 menus (`HS2-T4RS7M`): titles start 16 pt
+/// from the menu's edge and shortcuts end 18 pt from the right edge. AppKit moves titles 14 pt
+/// right when an item is checked, but no item is: toggles are switch rows (`HS2-JBWPP5`).
 public enum MenuMetrics {
     public static let titleInset = 16.0
-    public static let checkmarkColumnWidth = 14.0
     public static let trailingInset = 18.0
-
-    /// The title inset for a row among `siblings` (the entries of the same menu level).
-    public static func titleInset(among siblings: [MenuEntry]) -> Double {
-        showsCheckmarkColumn(siblings) ? titleInset + checkmarkColumnWidth : titleInset
-    }
-
-    /// Whether AppKit draws a checkmark column: some item at this level is checked.
-    public static func showsCheckmarkColumn(_ siblings: [MenuEntry]) -> Bool {
-        siblings.contains { if case .toggle(_, true, _) = $0 { true } else { false } }
-    }
 }
 
 /// What the menus need to know about the app right now.
@@ -163,7 +154,7 @@ public enum AppMenus {
     ///     Delay    [None | 3 s | 10 s]
     ///     Capture Image                       ⌥⇧⌘U
     ///     Capture Video                       ⌥⇧⌘V
-    ///     Narrate Next Recording with Microphone
+    ///     Narrate Next Recording with Microphone  (switch)
     ///     ───
     ///     Settings…  ⌘,
     ///     Open UX Review

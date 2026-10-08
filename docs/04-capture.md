@@ -246,7 +246,7 @@ A recording can include the reviewer's voice as an AAC audio track (`HS2-T0EY2W`
 
 - **Default:** Settings › Video › **Record microphone narration**, off unless turned on
   ([05-start-and-settings.md](05-start-and-settings.md) §5.3).
-- **One recording:** the menu's **Narrate Next Recording with Microphone** checkbox shows the
+- **One recording:** the menu's **Narrate Next Recording with Microphone** switch shows the
   default and can flip it for the next recording only. Once that recording starts, it reverts to
   the default.
 - While narrating, the "Recording" HUD says "Microphone on.", and the menu shows "Recording

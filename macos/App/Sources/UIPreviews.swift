@@ -197,7 +197,7 @@ enum UIPreviews {
         let dump: [String: Any] = [
             "statusMenuIdle": statusMenuIdle,
             "statusMenuAfterPicking": pickInOpenMenu(idle),
-            // Narrate checked: AppKit adds a checkmark column, so the picker titles move with it.
+            // Narrate on: a switch row, so no checkmark column and the picker titles stay put.
             "statusMenuNarrating": MenuDump.describe(menu(AppMenus.statusMenu(narrating))),
             "statusMenuRecording": MenuDump.describe(menu(AppMenus.statusMenu(recording))),
             "mainMenu": NSApp.mainMenu.map(MenuDump.describe) ?? [],
@@ -205,12 +205,18 @@ enum UIPreviews {
         let json = directory.appendingPathComponent("menus.json")
         try JSONSerialization.data(withJSONObject: dump, options: [.prettyPrinted, .sortedKeys]).write(to: json)
         var written = [json]
-        // The status menu's Capture [Screen | Window | Region] and Delay [None | 3 s | 10 s] rows.
-        let rows: [(String, MenuEntry)] = AppMenus.statusMenu(idle).compactMap { entry in
+        // The status menu's Capture [Screen | Window | Region] and Delay [None | 3 s | 10 s] rows,
+        // and the Narrate switch row off and on.
+        var rows: [(String, MenuEntry)] = AppMenus.statusMenu(idle).compactMap { entry in
             if case .picker = entry, let title = entry.title {
                 return (title == "Capture" ? "menu-capture-target-row" : "menu-\(title.lowercased())-row", entry)
             }
             return nil
+        }
+        for (name, state) in [("menu-narrate-row-off", idle), ("menu-narrate-row-on", narrating)] {
+            if let toggle = AppMenus.statusMenu(state).first(where: { if case .toggle = $0 { true } else { false } }) {
+                rows.append((name, toggle))
+            }
         }
         for (prefix, entry) in rows {
             for (suffix, appearance) in [("light", NSAppearance.Name.aqua), ("dark", .darkAqua)] {
@@ -242,12 +248,14 @@ enum UIPreviews {
         let pickers = open.menu.items.compactMap { $0.view as? MenuChoicesView }
         pickers.first?.choose(segment: 1)
         pickers.last?.choose(segment: 1)
+        // Flipping Narrate runs its command in place; the open menu keeps its rows.
+        open.menu.items.compactMap { $0.view as? MenuToggleView }.first?.flip()
         for title in ["Capture Image", "Capture Video"] {
             if let item = open.menu.items.first(where: { $0.title == title }), let action = item.action {
                 NSApp.sendAction(action, to: item.target, from: item)
             }
         }
-        return ["menu": MenuDump.describe(open.menu), "captures": open.captures.map(\.summary)]
+        return ["menu": MenuDump.describe(open.menu), "captures": open.captures.map(\.summary), "commands": open.commands]
     }
 
     private static func composite(_ view: NSView, size _: CGSize) throws -> CGImage {
@@ -282,6 +290,8 @@ enum UIPreviews {
 private final class OpenStatusMenu {
     let menu = NSMenu()
     private(set) var captures: [CaptureRequest] = []
+    /// Every command run, by name.
+    private(set) var commands: [String] = []
     private var state: MenuState
 
     init(state: MenuState) {
@@ -290,10 +300,12 @@ private final class OpenStatusMenu {
     }
 
     private func run(_ command: MenuCommand) {
+        commands.append(String(describing: command).components(separatedBy: "(").first ?? "")
         switch command {
         case let .setCaptureTarget(target): state.settings.defaultRequest.target = target
         case let .setCaptureDelay(seconds): state.settings.defaultRequest.delaySeconds = seconds
         case let .captureDefault(kind): captures.append(state.settings.defaultRequest.with(kind: kind))
+        case .toggleNarration: state.narratesNextRecording.toggle()
         default: break
         }
     }

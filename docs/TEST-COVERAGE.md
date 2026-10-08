@@ -1121,15 +1121,24 @@ capture files are no longer cropped or trimmed while drafting.
 
 ## HS2-T4RS7M: picker rows line up with ordinary menu items
 
-- **Unit** (`AppMenusTests.pickerTitlesFollowTheCheckmarkColumn`): the title inset is 16 pt,
-  or 30 pt when an item at the same level is checked. Walks narration off → on → on → off, a
-  running capture, the app Capture menu with and without narration, a checked item only in a
-  submenu, and an empty menu.
 - **App end to end** (`scripts/app-e2e.sh`): `menus.json` reports each picker row's
-  `titleInset`. It checks 16 for both rows in the idle menu and 30 in `statusMenuNarrating`.
-- **Not covered automatically:** the measured AppKit offsets themselves (16 / 30 / 18 pt, from
-  the reviewer's screenshots on the ticket). Whether macOS reserves the checkmark column for an
-  unchecked toggle is assumed (it doesn't), and the live menu needs a person at a Mac.
+  `titleInset`: 16 in the idle menu and in `statusMenuNarrating` (Narrate is a switch row since
+  `HS2-JBWPP5`, so there is no checkmark column).
+- **Not covered automatically:** the measured AppKit offsets themselves (16 / 18 pt, from the
+  reviewer's screenshots on the ticket); a person confirmed the live menu on `HS2-RG3JXC`.
+
+## HS2-JBWPP5: flipping Narrate keeps the menu open
+
+- **Unit** (`AppMenusTests`): the status menu and the app Capture menu both carry Narrate as a
+  `.toggle` entry that follows the next-recording choice.
+- **App end to end** (`scripts/app-e2e.sh`): in `menus.json`, the status menu's Narrate row is a
+  switch row (`toggle`), off when idle and on in `statusMenuNarrating`, its title at 16 pt; the
+  app Capture menu has the same row. `statusMenuAfterPicking` flips it in an open menu built like
+  the status item's: the row shows on, the menu keeps all 12 rows, and the command runs between
+  the picker choices and the captures.
+- **Visual QA:** `menu-narrate-row-off/-on-light/-dark` (`--render-ui-previews`), inspected by hand.
+- **Not covered automatically:** that the live menu stays open when the switch is clicked
+  (AppKit keeps menus open for clicks in item views, as for the picker rows); needs a person at a Mac.
 
 ## HS2-JHTAZM: shapes crossing a crop edge are clipped exactly to the media
 

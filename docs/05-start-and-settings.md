@@ -27,8 +27,10 @@ work happens in UX Review's own windows (§5.1.1). When idle, it lists:
    applies at once. A delay starts a countdown ([04-capture.md](04-capture.md) §4.3). Each shows
    its global shortcut (§5.2) when that shortcut starts exactly this capture and is a letter,
    digit, or Space: by default ⌥⇧⌘U on Capture Image and ⌥⇧⌘V on Capture Video.
-5. **Narrate Next Recording with Microphone**: a checkbox that turns narration on or off for the
-   next recording only ([04-capture.md](04-capture.md) §4.9).
+5. **Narrate Next Recording with Microphone**: a switch row that turns narration on or off for
+   the next recording only ([04-capture.md](04-capture.md) §4.9). Like the picker rows, flipping
+   it (the switch or anywhere on the row) keeps the menu open (`HS2-JBWPP5`), so the reviewer sees
+   the new state and can go on to Capture Video. The app's Capture menu shows the same row.
 
    Every target with every delay preset (including 5 s) is in the app menu bar's **Capture** menu
    (§5.1.1). With Region or Window as the target, the picker itself switches: **Space** toggles
@@ -47,10 +49,11 @@ The rows from Capture to Narrate are replaced while a capture runs:
 - While picking, capturing, or saving a recording, by a status line.
 
 The menu entries are described in UXReviewKit (`AppMenus`) and turned into an `NSMenu` by the
-app each time the menu opens. The Capture and Delay rows are drawn by UX Review, so they line up
-with AppKit's items (`MenuMetrics`, `HS2-T4RS7M`): the row title starts where item titles do
-(16 pt from the menu's edge, or 30 pt while Narrate is checked and the menu shows a checkmark
-column), and the segmented control ends where shortcuts end (18 pt from the right edge).
+app each time the menu opens. The Capture, Delay, and Narrate rows are drawn by UX Review, so
+they line up with AppKit's items (`MenuMetrics`, `HS2-T4RS7M`): the row title starts where item
+titles do (16 pt from the menu's edge), and the segmented control or switch ends where shortcuts
+end (18 pt from the right edge). No item is ever checked (Narrate is a switch), so AppKit never
+adds a checkmark column that would move the titles.
 
 ### 5.1.1 UX Review windows, Dock icon, and app menu bar
 
@@ -70,7 +73,7 @@ until closed. The app menu bar:
 | **UX Review** | About UX Review (the standard About panel, titled with the full name Hot Sheet 2 UX Review; docs/00 §0.0); Settings… (⌘,); Hide (⌘H), Hide Others (⌥⌘H), Show All; Quit (⌘Q) |
 | **File** | **New Review** (⌘N): a new empty draft becomes current and opens in its own window; the previous draft stays as it is. **Add Media…** (⌘O): images or movies for the front window's draft ([04-capture.md](04-capture.md) §4.12). **Draft Reviews…** (⇧⌘O, [07-review-session.md](07-review-session.md) §7.9). Save (⌘S). **Submit Review…** (⌘↩, [07-review-session.md](07-review-session.md) §7.1). **Show Review in Finder**. Close Window (⌘W) |
 | **Edit** | Undo (⌘Z), Redo (⇧⌘Z), Cut, Copy, Paste, Select All, Duplicate (⌘D), Remove Capture from Review… (asks first), Remove Capture Now (⌘⌫, no confirmation; both act on the media strip selection, [06-annotation-editor.md](06-annotation-editor.md) §6.7.1–§6.7.2) |
-| **Capture** | Screenshot / Record Video of Screen, Window, or Region; the After Delay submenus with every preset (3, 5, 10 s); the narration checkbox. Replaced by Cancel / Stop / a status line while a capture runs, like the menu bar menu |
+| **Capture** | Screenshot / Record Video of Screen, Window, or Region; the After Delay submenus with every preset (3, 5, 10 s); the Narrate switch row. Replaced by Cancel / Stop / a status line while a capture runs, like the menu bar menu |
 | **Window** | Minimize (⌘M), Zoom, Draft Reviews…, Bring All to Front, and the open windows |
 
 File menu items act on the front window's draft: an editor or Submit Review window answers for
@@ -153,8 +156,8 @@ The Settings window (menu bar menu or app menu › Settings…, ⌘,) has four s
   menu's **Capture [Screen | Window | Region]** row changes the same target. The default is
   Region with no delay.
 - **Video**:
-  - **Record microphone narration**, the narration default for recordings (off). The Capture
-    Video menu's checkbox can change it for one recording. See [04-capture.md](04-capture.md)
+  - **Record microphone narration**, the narration default for recordings (off). The menus'
+    Narrate switch can change it for one recording. See [04-capture.md](04-capture.md)
     §4.9 for the Microphone permission flow.
   - **Show pointer in recordings** (on) and **Show clicks in recordings** (off, a ring at each
     click like QuickTime Player), `HS2-S4GA06`. They apply from the next recording on.

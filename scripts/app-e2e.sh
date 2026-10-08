@@ -1055,7 +1055,7 @@ run drafts-delete-noarg 2 -- --drafts --delete --drafts-dir "$DDRAFTS"
 ok "a Trash that refuses keeps the draft (exit 5); --delete deletes it immediately; --delete outside the drafts folder: exit 6"
 
 run previews 0 -- --render-ui-previews "$TMP/previews"
-for name in overlay-region-hint overlay-window-hint overlay-region-selection overlay-region-selection-bottom-edge overlay-window-hover recording-dim-region hud-countdown hud-saved hud-recording-countdown hud-recording hud-saved-video hud-recording-narration hud-saved-narrated settings-registered settings-in-use status-bar-icon-light status-bar-icon-dark menu-capture-target-row-light menu-capture-target-row-dark menu-delay-row-light menu-delay-row-dark \
+for name in overlay-region-hint overlay-window-hint overlay-region-selection overlay-region-selection-bottom-edge overlay-window-hover recording-dim-region hud-countdown hud-saved hud-recording-countdown hud-recording hud-saved-video hud-recording-narration hud-saved-narrated settings-registered settings-in-use status-bar-icon-light status-bar-icon-dark menu-capture-target-row-light menu-capture-target-row-dark menu-delay-row-light menu-delay-row-dark menu-narrate-row-off-light menu-narrate-row-off-dark menu-narrate-row-on-light menu-narrate-row-on-dark \
   editor-empty editor-no-media editor-annotated editor-arrow-selected editor-narrow editor-crop-drag editor-crop-tool editor-crop-adjust editor-cropped editor-multi-select editor-zoomed editor-keyboard-insert editor-video-timeline editor-video-narrow editor-video-trimmed editor-video-crop-tool editor-video-cropped editor-video-playing editor-video-range-drag editor-video-trim-drag editor-autoscroll \
   session-ready session-narrow session-edited session-submitting session-failed session-submitted session-issues session-empty \
   session-existing-looking session-existing-found session-existing-narrow session-existing-not-found session-existing-closed \
@@ -1077,14 +1077,21 @@ TITLES='m => m.map(i => i.separator ? "-" : i.title + (i.shortcut ? "[" + i.shor
 [[ "$(json "$MENUS" 'j.statusMenuIdle[3].choices.join() + "|" + j.statusMenuIdle[3].selected')" == "None,3 s,10 s|None" ]] \
   || die "menus: Delay picker $(json "$MENUS" 'JSON.stringify(j.statusMenuIdle[3])')"
 [[ "$(json "$MENUS" 'j.statusMenuIdle.filter(i => i.submenu).length')" == 0 ]] || die "menus: status menu has submenus"
-# HS2-T4RS7M: picker titles line up with AppKit's item titles: 16 pt, or 30 pt once Narrate is
-# checked and the menu shows a checkmark column.
-[[ "$(json "$MENUS" '[2, 3].map(i => j.statusMenuIdle[i].titleInset + "/" + j.statusMenuNarrating[i].titleInset).join()')" == "16/30,16/30" ]] \
+# HS2-T4RS7M, HS2-JBWPP5: picker titles line up with AppKit's item titles at 16 pt. Narrate is a
+# switch row, never a checked item, so AppKit adds no checkmark column and the titles stay put.
+[[ "$(json "$MENUS" '[2, 3].map(i => j.statusMenuIdle[i].titleInset + "/" + j.statusMenuNarrating[i].titleInset).join()')" == "16/16,16/16" ]] \
   || die "menus: picker title insets $(json "$MENUS" 'JSON.stringify([j.statusMenuIdle[2], j.statusMenuNarrating[2]])')"
+[[ "$(json "$MENUS" '[j.statusMenuIdle[6], j.statusMenuNarrating[6]].map(i => i.toggle + "/" + i.checked + "/" + i.titleInset).join()')" == "true/false/16,true/true/16" ]] \
+  || die "menus: Narrate switch row $(json "$MENUS" 'JSON.stringify([j.statusMenuIdle[6], j.statusMenuNarrating[6]])')"
+[[ "$(json "$MENUS" 'j.mainMenu.find(m => m.title == "Capture").submenu.filter(i => i.toggle).map(i => i.title).join()')" == "Narrate Next Recording with Microphone" ]] \
+  || die "menus: app Capture menu Narrate switch row"
 # Choosing Window and 3 s in the open menu selects them, and Capture Image/Video then use both.
 PICKED='j.statusMenuAfterPicking'
 [[ "$(json "$MENUS" "$PICKED.menu[2].selected + \"|\" + $PICKED.menu[3].selected + \"|\" + $PICKED.captures.join()")" == "Window|3 s|Screenshot of Window after 3 s,Video of Window after 3 s" ]] \
   || die "menus: after picking Window and 3 s $(json "$MENUS" "JSON.stringify($PICKED)")"
+# HS2-JBWPP5: flipping Narrate in the open menu runs it in place; the menu keeps every row.
+[[ "$(json "$MENUS" "$PICKED.menu[6].checked + \"|\" + $PICKED.menu.length + \"|\" + $PICKED.commands.join()")" == "true|12|setCaptureTarget,setCaptureDelay,toggleNarration,captureDefault,captureDefault" ]] \
+  || die "menus: Narrate flip in the open menu $(json "$MENUS" "JSON.stringify($PICKED)")"
 [[ "$(json "$MENUS" "($TITLES)(j.statusMenuRecording)")" == *"|Stop Recording (1:12)|Recording microphone narration|-|Settings…[⌘,]|"* ]] \
   || die "menus: recording $(json "$MENUS" "($TITLES)(j.statusMenuRecording)")"
 [[ "$(json "$MENUS" 'j.mainMenu.map(m => m.title).join()')" == "UX Review,File,Edit,Capture,Window" ]] || die "menus: main menu bar"

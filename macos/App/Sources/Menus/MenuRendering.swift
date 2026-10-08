@@ -6,17 +6,10 @@ import UXReviewKit
 @MainActor
 enum MenuRendering {
     static func items(_ entries: [MenuEntry], perform: @escaping @MainActor (MenuCommand) -> Void) -> [NSMenuItem] {
-        // Rows drawn by UX Review line their titles up with AppKit's, which move right when a
-        // sibling is checked (`HS2-T4RS7M`). Menus are rebuilt each time they open.
-        let titleInset = MenuMetrics.titleInset(among: entries)
-        return entries.map { item($0, titleInset: titleInset, perform: perform) }
+        entries.map { item($0, perform: perform) }
     }
 
-    static func item(
-        _ entry: MenuEntry,
-        titleInset: Double = MenuMetrics.titleInset,
-        perform: @escaping @MainActor (MenuCommand) -> Void
-    ) -> NSMenuItem {
+    static func item(_ entry: MenuEntry, perform: @escaping @MainActor (MenuCommand) -> Void) -> NSMenuItem {
         switch entry {
         case let .label(title):
             let item = NSMenuItem(title: title, action: nil, keyEquivalent: "")
@@ -29,8 +22,9 @@ enum MenuRendering {
             if let shortcut { item.apply(shortcut) }
             return item
         case let .toggle(title, isOn, command):
-            let item = CommandMenuItem(title: title, command: command, perform: perform)
-            item.state = isOn ? .on : .off
+            // A switch row, not a checkmark item, so flipping it keeps the menu open (`HS2-JBWPP5`).
+            let item = NSMenuItem(title: title, action: nil, keyEquivalent: "")
+            item.view = MenuToggleView(title: title, isOn: isOn, command: command, perform: perform)
             return item
         case let .submenu(title, children):
             let item = NSMenuItem(title: title, action: nil, keyEquivalent: "")
@@ -40,7 +34,7 @@ enum MenuRendering {
             return item
         case let .picker(title, choices, selected):
             let item = NSMenuItem(title: title, action: nil, keyEquivalent: "")
-            item.view = MenuChoicesView(title: title, choices: choices, selected: selected, titleInset: titleInset, perform: perform)
+            item.view = MenuChoicesView(title: title, choices: choices, selected: selected, perform: perform)
             return item
         }
     }
@@ -91,18 +85,16 @@ final class MenuChoicesView: NSView {
     private let perform: @MainActor (MenuCommand) -> Void
     let control: NSSegmentedControl
     /// Where the title starts, lined up with ordinary items' titles (`MenuMetrics`).
-    let titleInset: CGFloat
+    let titleInset = CGFloat(MenuMetrics.titleInset)
 
     init(
         title: String,
         choices: [MenuChoice],
         selected: Int?,
-        titleInset: Double = MenuMetrics.titleInset,
         perform: @escaping @MainActor (MenuCommand) -> Void
     ) {
         self.choices = choices
         self.perform = perform
-        self.titleInset = titleInset
         control = NSSegmentedControl(labels: choices.map(\.title), trackingMode: .selectOne, target: nil, action: nil)
         super.init(frame: CGRect(x: 0, y: 0, width: Self.minimumWidth, height: 28))
         // Stretches to the menu's width, so the control stays right-aligned with the shortcuts.
@@ -154,6 +146,67 @@ final class MenuChoicesView: NSView {
     }
 }
 
+/// "Narrate Next Recording with Microphone   (switch)": an on/off row inside a menu. Flipping
+/// the switch, or clicking anywhere on the row, runs its command and leaves the menu open, so the
+/// reviewer sees the new state and can go on to Capture Video (`HS2-JBWPP5`).
+final class MenuToggleView: NSView {
+    private let command: MenuCommand
+    private let perform: @MainActor (MenuCommand) -> Void
+    let control = NSSwitch()
+    let titleInset = CGFloat(MenuMetrics.titleInset)
+
+    init(title: String, isOn: Bool, command: MenuCommand, perform: @escaping @MainActor (MenuCommand) -> Void) {
+        self.command = command
+        self.perform = perform
+        super.init(frame: CGRect(x: 0, y: 0, width: MenuChoicesView.minimumWidth, height: 26))
+        autoresizingMask = [.width]
+        let label = NSTextField(labelWithString: title)
+        label.font = .menuFont(ofSize: 0)
+        label.textColor = .labelColor
+        control.controlSize = .mini
+        control.state = isOn ? .on : .off
+        control.target = self
+        control.action = #selector(flipped(_:))
+        control.setAccessibilityLabel(title)
+        for view in [label, control] {
+            view.translatesAutoresizingMaskIntoConstraints = false
+            addSubview(view)
+        }
+        NSLayoutConstraint.activate([
+            label.leadingAnchor.constraint(equalTo: leadingAnchor, constant: titleInset),
+            label.centerYAnchor.constraint(equalTo: centerYAnchor),
+            control.leadingAnchor.constraint(greaterThanOrEqualTo: label.trailingAnchor, constant: 16),
+            control.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -MenuMetrics.trailingInset),
+            control.centerYAnchor.constraint(equalTo: centerYAnchor),
+        ])
+        let needed = titleInset + label.intrinsicContentSize.width + 16 + control.intrinsicContentSize.width
+            + MenuMetrics.trailingInset
+        frame.size.width = max(MenuChoicesView.minimumWidth, ceil(needed))
+    }
+
+    @available(*, unavailable)
+    required init?(coder _: NSCoder) { fatalError("not used") }
+
+    var isOn: Bool { control.state == .on }
+
+    /// Flips the switch and runs the command, as a click on the row does (UI previews and tests).
+    func flip() {
+        control.state = isOn ? .off : .on
+        perform(command)
+    }
+
+    @objc private func flipped(_: NSSwitch) {
+        perform(command)
+    }
+
+    /// A click on the title (not the switch) flips it too.
+    override func mouseUp(with event: NSEvent) {
+        if bounds.contains(convert(event.locationInWindow, from: nil)) { flip() }
+    }
+
+    override func mouseDown(with _: NSEvent) {}
+}
+
 /// A plain description of an NSMenu (titles, shortcuts, checkmarks, submenus, custom rows) for
 /// `--render-ui-previews` (`menus.json`), so menu structure can be checked without a display.
 @MainActor
@@ -166,6 +219,11 @@ enum MenuDump {
                 entry["shortcut"] = shortcut(item)
             }
             if item.state == .on { entry["checked"] = true }
+            if let row = item.view as? MenuToggleView {
+                entry["toggle"] = true
+                entry["checked"] = row.isOn
+                entry["titleInset"] = row.titleInset
+            }
             if item.action == nil, item.submenu == nil, item.view == nil { entry["label"] = true }
             if let action = item.action { entry["action"] = NSStringFromSelector(action) }
             if let row = item.view as? MenuChoicesView {
