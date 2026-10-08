@@ -112,7 +112,10 @@ time to open a menu or hover over a control.
 ## 4.4 Pixels
 
 - Captures use ScreenCaptureKit (`SCScreenshotManager`, macOS 14+) at native resolution
-  (`captureResolution = .best`), with no cursor and no window shadow.
+  (`captureResolution = .best`), with no window shadow.
+- Screenshots never include the mouse pointer, whatever the recording settings say
+  (`HS2-S4GA06`). In a still image the pointer would cover the control being reviewed, and an
+  annotation marks the spot instead. macOS screenshots leave it out too.
 - Region math (`RegionGeometry`) converts the dragged rectangle in three steps:
   1. from AppKit's global, bottom-left coordinates
   2. to display-local, top-left points
@@ -212,8 +215,18 @@ reads "Recording in…". Once recording begins:
 
 How the movie is made:
 
-- ScreenCaptureKit `SCStream` captures at up to 30 fps at native resolution, showing the cursor.
+- ScreenCaptureKit `SCStream` captures at up to 30 fps at native resolution.
   `VideoFileWriter` (AVAssetWriter) encodes it as an H.264 QuickTime `.mov`.
+- **Pointer and clicks** (`HS2-S4GA06`), from Settings › Video
+  ([05-start-and-settings.md](05-start-and-settings.md) §5.3):
+  - **Show pointer in recordings** (on by default) sets `SCStreamConfiguration.showsCursor`,
+    so the movie shows what the reviewer is pointing at.
+  - **Show clicks in recordings** (off by default) sets `showMouseClicks`. ScreenCaptureKit
+    then draws a ring at each click, like QuickTime Player's "Show Mouse Clicks in Recording".
+  - The two are independent. Clicks can show without the pointer.
+  - The values are read when the recording starts. A change in Settings applies to the next
+    recording.
+  - Headless `--capture video` uses the saved values too and reports them as `pointer` (§4.11).
 - Only *complete* frames are written. ScreenCaptureKit sends no new frames while the screen is
   static, so the movie runs from the first frame to the moment Stop was pressed, not to the last
   frame. Otherwise a static screen would yield a near-empty clip.
@@ -304,7 +317,8 @@ UXReview --render-ui-previews DIR
 **`--capture`** makes one capture with no UI and prints one JSON object.
 
 - On success: `status: "captured"`, `file`, `draftDirectory`, `media`, `bundleContext`,
-  `delayMs`, `backend`, and for video `narration` (whether the movie has a narration track).
+  `delayMs`, `backend`, and for video `narration` (whether the movie has a narration track)
+  and `pointer` (`{showsPointer, showsClicks}`, the saved Settings it recorded with, §4.9).
 - On failure: `status: "error"`, `error`, `message`.
 - Target flags:
   - `region` needs `--rect`, in display-local, top-left points.
@@ -328,6 +342,7 @@ UXReview --render-ui-previews DIR
 exact pixel size the real capture would have. For video, it feeds 10 fps of test-card frames,
 host-clock timestamped, through the real `VideoFileWriter`. With `--narration` it also feeds a
 440 Hz tone in 100 ms LPCM buffers from the first frame on, standing in for the microphone.
+It draws no pointer or clicks; the pointer options only reach the output JSON.
 `UXREVIEW_SYNTHETIC_MICROPHONE` (`authorized`, the default, or `notDetermined`, `denied`,
 `restricted`, `unavailable`) simulates the microphone's state. Target resolution, delay, context, PNG writing,
 and the draft store all still run for real. It exists so `scripts/app-e2e.sh` can cover the

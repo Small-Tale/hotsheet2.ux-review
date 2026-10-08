@@ -67,7 +67,6 @@ final class StreamRecorder: NSObject, SCStreamOutput, SCStreamDelegate, ActiveRe
         configuration.pixelFormat = kCVPixelFormatType_32BGRA
         configuration.minimumFrameInterval = CMTime(value: 1, timescale: CMTimeScale(framesPerSecond))
         configuration.queueDepth = 6
-        configuration.showsCursor = true // the pointer shows what the reviewer is doing
 
         let writer = try VideoFileWriter(
             url: url,

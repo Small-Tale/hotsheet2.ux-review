@@ -77,6 +77,21 @@ struct CaptureSettingsTests {
         #expect(Hotkey.defaultOpenReview.display == "⌥⇧⌘E")
         #expect(settings.defaultRequest == CaptureRequest(kind: .screenshot, target: .region, delaySeconds: 0))
         #expect(!settings.narration) // narration is opt-in
+        #expect(settings.showPointerInRecordings) // the pointer shows what the reviewer is doing (HS2-S4GA06)
+        #expect(!settings.showClicksInRecordings)
+        #expect(settings.recordingPointer == RecordingPointer(showsPointer: true, showsClicks: false))
+    }
+
+    /// Every pointer/click combination survives a save and reload, and maps to the recording.
+    @Test(arguments: [false, true], [false, true])
+    func persistsPointerSettings(pointer: Bool, clicks: Bool) throws {
+        let store = MemoryStore()
+        let settings = CaptureSettings(narration: true, showPointerInRecordings: pointer, showClicksInRecordings: clicks)
+        try CaptureSettingsStore.save(settings, to: store)
+        let loaded = CaptureSettingsStore.load(from: store)
+        #expect(loaded == settings)
+        #expect(loaded.recordingPointer == RecordingPointer(showsPointer: pointer, showsClicks: clicks))
+        #expect(loaded.narration) // the other fields are untouched
     }
 
     /// Off → on → off, each surviving a save and reload alongside the other fields.
@@ -114,7 +129,8 @@ struct CaptureSettingsTests {
         let json = try #require(store.data(forKey: CaptureSettingsStore.key).flatMap { String(data: $0, encoding: .utf8) })
         #expect(
             json == #"{"captureHotkey":"⌥⇧⌘U","defaultRequest":{"delaySeconds":0,"kind":"screenshot","target":"region"},"#
-                + #""narration":false,"openReviewHotkey":"⌥⇧⌘E","recordHotkey":"⌥⇧⌘V"}"#
+                + #""narration":false,"openReviewHotkey":"⌥⇧⌘E","recordHotkey":"⌥⇧⌘V","#
+                + #""showClicksInRecordings":false,"showPointerInRecordings":true}"#
         )
     }
 
@@ -139,6 +155,15 @@ struct CaptureSettingsTests {
         (#"{"recordHotkey":"⌃⌘9"}"#, CaptureSettings(recordHotkey: Hotkey("⌃⌘9"), openReviewHotkey: .defaultOpenReview)),
         (#"{"openReviewHotkey":null}"#, CaptureSettings(openReviewHotkey: nil)),
         (#"{"openReviewHotkey":"⌃⌥⌘R"}"#, CaptureSettings(openReviewHotkey: Hotkey("⌃⌥⌘R"))),
+        // Settings saved before the pointer settings existed show the pointer, not clicks (HS2-S4GA06).
+        (
+            #"{"captureHotkey":"⌥⇧⌘U","narration":true}"#,
+            CaptureSettings(narration: true, showPointerInRecordings: true, showClicksInRecordings: false)
+        ),
+        (#"{"showPointerInRecordings":false}"#, CaptureSettings(showPointerInRecordings: false)),
+        (#"{"showClicksInRecordings":true}"#, CaptureSettings(showClicksInRecordings: true)),
+        (#"{"showPointerInRecordings":null}"#, CaptureSettings()), // null → the default
+        (#"{"showClicksInRecordings":1}"#, CaptureSettings()), // wrong type → all defaults
     ])
     func loadsPartialOrBrokenValues(json: String, expected: CaptureSettings) {
         let store = MemoryStore()
@@ -321,6 +346,27 @@ struct SettingsCommandTests {
         #expect(try none.apply(to: CaptureSettings(narration: true)).narration)
     }
 
+    @Test func setsPointerAndClicks() throws {
+        let both = try #require(try SettingsCommand.parse(["--settings", "--set-show-pointer", "off", "--set-show-clicks", "ON"]))
+        #expect(both.changesSomething)
+        #expect(both.showPointer == false && both.showClicks == true)
+        #expect(
+            try both.apply(to: CaptureSettings()) == CaptureSettings(showPointerInRecordings: false, showClicksInRecordings: true)
+        )
+        // One at a time leaves the other as it was.
+        let pointerOn = try #require(try SettingsCommand.parse(["--settings", "--set-show-pointer", "on"]))
+        #expect(
+            try pointerOn.apply(to: CaptureSettings(showPointerInRecordings: false, showClicksInRecordings: true))
+                == CaptureSettings(showClicksInRecordings: true)
+        )
+        let clicksOff = try #require(try SettingsCommand.parse(["--settings", "--set-show-clicks", "off"]))
+        #expect(try clicksOff.apply(to: CaptureSettings(showClicksInRecordings: true)) == CaptureSettings())
+        // Absent: unchanged, and nothing to save.
+        let none = try #require(try SettingsCommand.parse(["--settings"]))
+        #expect(!none.changesSomething)
+        #expect(none.showPointer == nil && none.showClicks == nil)
+    }
+
     @Test func setsTheRecordHotkey() throws {
         let command = try #require(try SettingsCommand.parse(["--settings", "--set-record-hotkey", "ctrl+opt+cmd+F7"]))
         #expect(try command.apply(to: CaptureSettings()).recordHotkey == Hotkey("⌃⌥⌘F7"))
@@ -378,6 +424,9 @@ struct SettingsCommandTests {
         (["--settings", "--set-record-hotkey"], CommandLineError.missingValue("--set-record-hotkey")),
         (["--settings", "--set-narration", "yes"], CommandLineError.invalidValue("--set-narration", "yes")),
         (["--settings", "--set-narration"], CommandLineError.missingValue("--set-narration")),
+        (["--settings", "--set-show-pointer", "maybe"], CommandLineError.invalidValue("--set-show-pointer", "maybe")),
+        (["--settings", "--set-show-pointer"], CommandLineError.missingValue("--set-show-pointer")),
+        (["--settings", "--set-show-clicks", "true"], CommandLineError.invalidValue("--set-show-clicks", "true")),
     ])
     func rejectsBadValues(arguments: [String], expected: CommandLineError) {
         #expect(throws: expected) { try SettingsCommand.parse(arguments) }

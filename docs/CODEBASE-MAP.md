@@ -59,7 +59,7 @@ macos/
     Review/DraftsCommand.swift        `--drafts` / `--discard-draft [--delete]` parsing (docs/07 §7.10)
     Review/SubmitCommand.swift        `--submit` parsing (`--to-ticket`, `--exclude`), MediaThumbnail (capture list previews: the crop, or the frame at the trim start)
     Settings/Hotkey.swift             global hotkey model: parse/display, Carbon codes (docs/05 §5.2)
-    Settings/CaptureSettings.swift    settings + KeyValueStoring persistence, HotkeySlot (capture/record, duplicate rules), HotkeyAction
+    Settings/CaptureSettings.swift    settings + KeyValueStoring persistence, RecordingPointer (pointer/clicks in recordings), HotkeySlot (capture/record, duplicate rules), HotkeyAction
     Settings/SettingsCommand.swift    `--settings` argument parsing (docs/05 §5.5)
     Settings/RecentProjects.swift     recent target projects + persistence (docs/07 §7.6)
     Settings/ProductName.swift        full (Hot Sheet 2 UX Review) and short (UX Review) product names (docs/00 §0.0)

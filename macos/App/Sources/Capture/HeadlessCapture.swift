@@ -17,6 +17,8 @@ enum HeadlessCapture {
         var delayMs: Int
         /// Video only: whether the movie has a narration track.
         var narration: Bool?
+        /// Video only: how the recording showed the pointer (the saved settings).
+        var pointer: RecordingPointer?
     }
 
     struct Failure: Encodable {
@@ -56,18 +58,13 @@ enum HeadlessCapture {
             let pipeline = CapturePipeline(backend: backend, store: store)
             let outcome: CaptureOutcome
             var narration: Bool?
+            var pointer: RecordingPointer?
             if command.request.kind == .video {
-                let context = CaptureContextProvider.context(for: source, displayScale: nil)
-                let startedAt = Date()
-                let recording = try await backend.startRecording(
-                    source,
-                    to: CapturePipeline.temporaryMovieURL(),
-                    narration: command.narration
-                ) {}
-                try await Task.sleep(for: .seconds(command.durationSeconds ?? 1))
-                let video = try await recording.stop()
-                narration = video.hasNarration
-                outcome = try pipeline.addVideo(video, context: context, startedAt: startedAt)
+                let options = CaptureSettingsStore.load(from: AppSettings.defaults).recordingPointer
+                pointer = options
+                let recorded = try await record(source, command: command, pointer: options, backend: backend, pipeline: pipeline)
+                outcome = recorded.outcome
+                narration = recorded.narration
             } else {
                 outcome = try await pipeline.screenshot(source)
             }
@@ -78,7 +75,8 @@ enum HeadlessCapture {
                 media: outcome.media,
                 bundleContext: outcome.draft.bundle.context,
                 delayMs: delayMs,
-                narration: narration
+                narration: narration,
+                pointer: pointer
             )))
             return 0
         } catch let failure as CaptureFailure {
@@ -88,6 +86,28 @@ enum HeadlessCapture {
         } catch {
             return fail(CaptureFailure.failed(String(describing: error)))
         }
+    }
+
+    /// Records `source` for the command's duration and adds the movie to the draft. Returns the
+    /// outcome and whether the movie has narration.
+    private static func record(
+        _ source: CaptureSource,
+        command: CaptureCommand,
+        pointer: RecordingPointer,
+        backend: CaptureBackend,
+        pipeline: CapturePipeline
+    ) async throws -> (outcome: CaptureOutcome, narration: Bool) {
+        let context = CaptureContextProvider.context(for: source, displayScale: nil)
+        let startedAt = Date()
+        let recording = try await backend.startRecording(
+            source,
+            to: CapturePipeline.temporaryMovieURL(),
+            narration: command.narration,
+            pointer: pointer
+        ) {}
+        try await Task.sleep(for: .seconds(command.durationSeconds ?? 1))
+        let video = try await recording.stop()
+        return (try pipeline.addVideo(video, context: context, startedAt: startedAt), video.hasNarration)
     }
 
     /// Turns the command's flags into a capture source without showing any picker.

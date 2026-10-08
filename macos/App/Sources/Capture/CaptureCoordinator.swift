@@ -28,6 +28,8 @@ final class CaptureCoordinator: ObservableObject {
     var stopHint: @MainActor () -> String = { "Stop from the menu bar" }
     /// The Settings default for narration (`CaptureSettings.narration`).
     var narrationDefault: @MainActor () -> Bool = { false }
+    /// How recordings show the pointer (`CaptureSettings.recordingPointer`).
+    var recordingPointer: @MainActor () -> RecordingPointer = { RecordingPointer() }
 
     /// Whether the next recording will include narration.
     var narratesNextRecording: Bool { narrationChoice ?? narrationDefault() }
@@ -182,7 +184,8 @@ final class CaptureCoordinator: ObservableObject {
                 recording = try await backend.startRecording(
                     source,
                     to: CapturePipeline.temporaryMovieURL(),
-                    narration: narration
+                    narration: narration,
+                    pointer: recordingPointer()
                 ) { [weak self] in
                     self?.stopRecording() // the display or window went away: keep what was recorded
                 }

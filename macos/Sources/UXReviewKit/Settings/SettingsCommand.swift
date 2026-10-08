@@ -4,7 +4,7 @@ import Foundation
 ///
 ///     UXReview --settings [--set-hotkey ⌥⇧⌘U|none] [--set-record-hotkey ⌥⇧⌘V|none]
 ///                         [--set-open-hotkey ⌥⇧⌘E|none] [--set-target display|window|region] [--set-delay N]
-///                         [--set-narration on|off]
+///                         [--set-narration on|off] [--set-show-pointer on|off] [--set-show-clicks on|off]
 ///
 /// Applies the changes (if any), saves them, registers the hotkeys, and prints the result.
 /// Spec: docs/05-start-and-settings.md §5.5.
@@ -19,6 +19,10 @@ public struct SettingsCommand: Equatable, Sendable {
     public var delaySeconds: Int?
     /// Records microphone narration by default.
     public var narration: Bool?
+    /// Shows the mouse pointer in recordings.
+    public var showPointer: Bool?
+    /// Shows mouse clicks in recordings.
+    public var showClicks: Bool?
 
     public init(
         hotkey: Hotkey?? = nil,
@@ -26,7 +30,9 @@ public struct SettingsCommand: Equatable, Sendable {
         openReviewHotkey: Hotkey?? = nil,
         target: CaptureTarget? = nil,
         delaySeconds: Int? = nil,
-        narration: Bool? = nil
+        narration: Bool? = nil,
+        showPointer: Bool? = nil,
+        showClicks: Bool? = nil
     ) {
         self.hotkey = hotkey
         self.recordHotkey = recordHotkey
@@ -34,10 +40,13 @@ public struct SettingsCommand: Equatable, Sendable {
         self.target = target
         self.delaySeconds = delaySeconds
         self.narration = narration
+        self.showPointer = showPointer
+        self.showClicks = showClicks
     }
 
     public var changesSomething: Bool {
-        hotkey != nil || recordHotkey != nil || openReviewHotkey != nil || target != nil || delaySeconds != nil || narration != nil
+        hotkey != nil || recordHotkey != nil || openReviewHotkey != nil || target != nil || delaySeconds != nil
+            || narration != nil || showPointer != nil || showClicks != nil
     }
 
     static let hotkeyFlags: [(HotkeySlot, String)] = [
@@ -71,14 +80,21 @@ public struct SettingsCommand: Equatable, Sendable {
             }
             return seconds
         }
-        command.narration = try values.optional("--set-narration").map { text in
+        command.narration = try parseSwitch(values, flag: "--set-narration")
+        command.showPointer = try parseSwitch(values, flag: "--set-show-pointer")
+        command.showClicks = try parseSwitch(values, flag: "--set-show-clicks")
+        return command
+    }
+
+    /// `on` / `off` (any case); nil when the flag is absent.
+    private static func parseSwitch(_ values: ArgumentValues, flag: String) throws -> Bool? {
+        try values.optional(flag).map { text in
             switch text.lowercased() {
             case "on": return true
             case "off": return false
-            default: throw CommandLineError.invalidValue("--set-narration", text)
+            default: throw CommandLineError.invalidValue(flag, text)
             }
         }
-        return command
     }
 
     /// `nil` when the flag is absent, `.some(nil)` for `none`.
@@ -100,6 +116,8 @@ public struct SettingsCommand: Equatable, Sendable {
         if let target { settings.defaultRequest.target = target }
         if let delaySeconds { settings.defaultRequest.delaySeconds = delaySeconds }
         if let narration { settings.narration = narration }
+        if let showPointer { settings.showPointerInRecordings = showPointer }
+        if let showClicks { settings.showClicksInRecordings = showClicks }
         for (slot, flag) in Self.hotkeyFlags where hotkeyChange(slot) != nil {
             if let chosen = settings[slot], let problem = settings.problem(with: chosen, for: slot) {
                 throw CommandLineError.invalidValue(flag, "\(chosen.display): \(problem)")

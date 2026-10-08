@@ -141,9 +141,13 @@ The Settings window (menu bar menu or app menu › Settings…, ⌘,) has three 
   This is what the Capture hotkey does. The Record video hotkey uses the same target and delay,
   and the menu bar menu's Capture Image and Capture Video use the target (§5.1). The default is
   Region with no delay.
-- **Video**: **Record microphone narration**, the narration default for recordings (off). The
-  Capture Video menu's checkbox can change it for one recording. See [04-capture.md](04-capture.md) §4.9 for the
-  Microphone permission flow.
+- **Video**:
+  - **Record microphone narration**, the narration default for recordings (off). The Capture
+    Video menu's checkbox can change it for one recording. See [04-capture.md](04-capture.md)
+    §4.9 for the Microphone permission flow.
+  - **Show pointer in recordings** (on) and **Show clicks in recordings** (off, a ring at each
+    click like QuickTime Player), `HS2-S4GA06`. They apply from the next recording on.
+    Screenshots never include the pointer ([04-capture.md](04-capture.md) §4.4, §4.9).
 - **Global shortcuts**: one recorder each for **Start default capture**, **Record video**, and
   **Open UX Review**.
   Click one, then press a combination.
@@ -158,12 +162,14 @@ The Settings window (menu bar menu or app menu › Settings…, ⌘,) has three 
 Persistence: settings are saved as JSON under the defaults key `captureSettings`:
 
 ```json
-{"captureHotkey":"⌥⇧⌘U","defaultRequest":{"delaySeconds":0,"kind":"screenshot","target":"region"},"narration":false,"openReviewHotkey":"⌥⇧⌘E","recordHotkey":"⌥⇧⌘V"}
+{"captureHotkey":"⌥⇧⌘U","defaultRequest":{"delaySeconds":0,"kind":"screenshot","target":"region"},"narration":false,"openReviewHotkey":"⌥⇧⌘E","recordHotkey":"⌥⇧⌘V","showClicksInRecordings":false,"showPointerInRecordings":true}
 ```
 
 - Missing fields take their defaults. Settings saved before `recordHotkey` existed get ⌥⇧⌘V,
   settings saved before `openReviewHotkey` existed get ⌥⇧⌘E,
-  and settings saved before `narration` existed record without narration.
+  settings saved before `narration` existed record without narration, and settings saved
+  before `showPointerInRecordings` / `showClicksInRecordings` existed show the pointer but not
+  clicks.
 - An explicit `null` for `captureHotkey` or `recordHotkey` means that shortcut is disabled.
 - An unreadable value falls back to all defaults.
 
@@ -180,7 +186,7 @@ app's own (`com.smalltale.uxreview`), or the suite named by `UXREVIEW_DEFAULTS_S
 ```
 UXReview --settings [--set-hotkey ⌥⇧⌘U|none] [--set-record-hotkey ⌥⇧⌘V|none]
                     [--set-open-hotkey ⌥⇧⌘E|none] [--set-target display|window|region] [--set-delay N]
-                    [--set-narration on|off]
+                    [--set-narration on|off] [--set-show-pointer on|off] [--set-show-clicks on|off]
 ```
 
 This mode applies and saves the changes, registers all three hotkeys exactly as the app would,
@@ -192,5 +198,6 @@ message}`, `openReviewHotkey {status, message}`, and `defaultCapture`.
   shortcut. In that case nothing is saved. Swapping the two in one command is allowed.
 
 `scripts/app-e2e.sh` uses this mode to check persistence across launches (including turning
-narration on and off), registration of all three
+narration, the pointer, and clicks on and off, and that a headless recording uses the saved
+pointer settings), registration of all three
 hotkeys, a real conflict for each against a running menu bar instance, and duplicate rejection.

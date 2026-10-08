@@ -33,6 +33,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
             return hotkey.map { "Stop from the menu bar or press \($0.display)" } ?? "Stop from the menu bar"
         }
         capture.narrationDefault = { [weak settings] in settings?.settings.narration ?? false }
+        capture.recordingPointer = { [weak settings] in settings?.settings.recordingPointer ?? RecordingPointer() }
         self.capture = capture
         self.settings = settings
         statusItem = StatusItemController(

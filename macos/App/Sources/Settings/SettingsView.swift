@@ -28,6 +28,11 @@ struct SettingsView: View {
                 Text("Adds your voice to recordings. Change it for one recording from the Capture Video menu. Needs Microphone permission.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
+                Toggle("Show pointer in recordings", isOn: binding(\.showPointerInRecordings))
+                Toggle("Show clicks in recordings", isOn: binding(\.showClicksInRecordings))
+                Text("Clicks show as a ring where you click, like QuickTime Player. Screenshots never include the pointer.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
             Section("Global shortcuts") {
                 ForEach(HotkeySlot.allCases, id: \.self) { slot in

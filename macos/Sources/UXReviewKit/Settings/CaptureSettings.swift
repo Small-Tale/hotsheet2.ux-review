@@ -14,19 +14,33 @@ public struct CaptureSettings: Codable, Equatable, Sendable {
     /// Whether recordings include microphone narration by default (off). The menu can change it
     /// for the next recording only. Spec: docs/04-capture.md §4.9.
     public var narration: Bool
+    /// Whether recordings show the mouse pointer (on). Screenshots never do. Spec:
+    /// docs/04-capture.md §4.9.
+    public var showPointerInRecordings: Bool
+    /// Whether recordings draw a ring at each mouse click, like QuickTime Player (off).
+    public var showClicksInRecordings: Bool
 
     public init(
         defaultRequest: CaptureRequest = CaptureRequest(kind: .screenshot, target: .region),
         captureHotkey: Hotkey? = .defaultCapture,
         recordHotkey: Hotkey? = .defaultRecord,
         openReviewHotkey: Hotkey? = .defaultOpenReview,
-        narration: Bool = false
+        narration: Bool = false,
+        showPointerInRecordings: Bool = true,
+        showClicksInRecordings: Bool = false
     ) {
         self.defaultRequest = defaultRequest
         self.captureHotkey = captureHotkey
         self.recordHotkey = recordHotkey
         self.openReviewHotkey = openReviewHotkey
         self.narration = narration
+        self.showPointerInRecordings = showPointerInRecordings
+        self.showClicksInRecordings = showClicksInRecordings
+    }
+
+    /// How recordings show the pointer, per these settings.
+    public var recordingPointer: RecordingPointer {
+        RecordingPointer(showsPointer: showPointerInRecordings, showsClicks: showClicksInRecordings)
     }
 
     public subscript(slot: HotkeySlot) -> Hotkey? {
@@ -63,7 +77,10 @@ public struct CaptureSettings: Codable, Equatable, Sendable {
         return earlier.contains { self[$0] == hotkey } ? nil : hotkey
     }
 
-    private enum CodingKeys: String, CodingKey { case defaultRequest, captureHotkey, recordHotkey, openReviewHotkey, narration }
+    private enum CodingKeys: String, CodingKey {
+        case defaultRequest, captureHotkey, recordHotkey, openReviewHotkey, narration
+        case showPointerInRecordings, showClicksInRecordings
+    }
 
     /// Missing fields take their defaults, so older or partial settings still load. An explicit
     /// `null` hotkey stays disabled.
@@ -81,6 +98,10 @@ public struct CaptureSettings: Codable, Equatable, Sendable {
             ? try container.decodeIfPresent(Hotkey.self, forKey: .openReviewHotkey)
             : defaults.openReviewHotkey
         narration = try container.decodeIfPresent(Bool.self, forKey: .narration) ?? defaults.narration
+        showPointerInRecordings = try container.decodeIfPresent(Bool.self, forKey: .showPointerInRecordings)
+            ?? defaults.showPointerInRecordings
+        showClicksInRecordings = try container.decodeIfPresent(Bool.self, forKey: .showClicksInRecordings)
+            ?? defaults.showClicksInRecordings
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -90,6 +111,21 @@ public struct CaptureSettings: Codable, Equatable, Sendable {
         try container.encode(recordHotkey, forKey: .recordHotkey)
         try container.encode(openReviewHotkey, forKey: .openReviewHotkey)
         try container.encode(narration, forKey: .narration)
+        try container.encode(showPointerInRecordings, forKey: .showPointerInRecordings)
+        try container.encode(showClicksInRecordings, forKey: .showClicksInRecordings)
+    }
+}
+
+/// How a recording shows the mouse pointer: ScreenCaptureKit's `showsCursor` and
+/// `showMouseClicks`. The two are independent, so clicks can be shown without the pointer.
+/// Spec: docs/04-capture.md §4.9.
+public struct RecordingPointer: Codable, Equatable, Sendable {
+    public var showsPointer: Bool
+    public var showsClicks: Bool
+
+    public init(showsPointer: Bool = true, showsClicks: Bool = false) {
+        self.showsPointer = showsPointer
+        self.showsClicks = showsClicks
     }
 }
 

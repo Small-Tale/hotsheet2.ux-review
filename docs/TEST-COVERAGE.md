@@ -63,7 +63,8 @@ Each feature gets both unit tests and end-to-end tests. Tests live in
   - the picker's target: UX Review's own windows on top occlude rather than being skipped,
     while its HUD and overlay levels do not (HS2-AR8Q2G regression)
   - which of UX Review's own windows display and region captures keep: all but capture chrome
-    (HS2-63B0PJ), while the picker still never picks them
+    (HS2-63B0PJ), while the picker still never picks them; the real ScreenCaptureKit output is
+    manual QA (`HS2-JG04GX`)
 - **Live window list** (`LiveWindowListTests`, HS2-VJ8VE8 regression): the window pick re-reads
   the window list while it runs.
   - transition matrix: no list / fresh / stale × pointer move, timer, click, mode switch; only a
@@ -73,6 +74,8 @@ Each feature gets both unit tests and end-to-end tests. Tests live in
   - the pick follows windows that move, resize, reorder, open, and close (empty → refill),
     including a click inside the pointer throttle window
   - floating windows still win and UX Review's own windows still occlude on a refreshed list
+  - not covered automatically: the live timer and pointer refresh against real windows
+    (`HS2-JG04GX`)
 - **Picker focus** (`PickerFocusTests`): focus is handed back only when UX Review took it
   during picking; never after a switch to a third app, or when UX Review was frontmost.
   - coordinate flips
@@ -546,6 +549,24 @@ Each feature gets both unit tests and end-to-end tests. Tests live in
 - **Not covered automatically:** a real microphone (system prompt, real audio sync, unplugging
   mid-recording), the permission alerts, and the menu checkbox. A test must never trigger a real
   Microphone prompt, and clicking menus is `HS2-HA9TW3`. Manual QA is `HS2-2T9RMA`.
+
+## HS2-S4GA06: pointer and clicks in recordings
+
+- **Settings** (`CaptureSettingsTests`, `SettingsCommandTests`):
+  - defaults: pointer on, clicks off
+  - all four pointer × clicks combinations persist and map to `RecordingPointer`
+  - older settings without the fields load with the defaults; `null` takes the default; a
+    wrong type falls back to all defaults; the stored JSON
+  - `--set-show-pointer` / `--set-show-clicks on|off` (any case), each leaving the other
+    alone; bad and missing values rejected
+- **App end to end** (`scripts/app-e2e.sh`):
+  - fresh settings report pointer on and clicks off
+  - a synthetic headless recording reports the saved `pointer` options before and after
+    `--set-show-pointer off --set-show-clicks on`; a screenshot reports none
+  - bad values exit 2
+- **Visual QA:** the Settings window's Video section (`settings-registered`) shows both toggles.
+- **Not covered automatically:** that ScreenCaptureKit really draws the pointer and click rings
+  into the movie. That needs Screen Recording permission and a live session (`HS2-JG04GX`).
 
 ## HS2-CRJDJ8: review session flow and submit
 

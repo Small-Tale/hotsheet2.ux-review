@@ -197,7 +197,9 @@ run settings-default 0 "${SUITE_ENV[@]}" -- --settings
 [[ "$(json "$TMP/settings-default.json" j.settings.recordHotkey)" == "⌥⇧⌘V" ]] || die "settings: default record hotkey"
 [[ "$(json "$TMP/settings-default.json" j.settings.openReviewHotkey)" == "⌥⇧⌘E" ]] || die "settings: default open hotkey"
 [[ "$(json "$TMP/settings-default.json" j.settings.narration)" == false ]] || die "settings: narration on by default"
-ok "fresh settings: ⌥⇧⌘U starts a region screenshot, ⌥⇧⌘V records video, ⌥⇧⌘E opens UX Review, no narration"
+[[ "$(json "$TMP/settings-default.json" j.settings.showPointerInRecordings)" == true ]] || die "settings: pointer hidden by default"
+[[ "$(json "$TMP/settings-default.json" j.settings.showClicksInRecordings)" == false ]] || die "settings: clicks shown by default"
+ok "fresh settings: ⌥⇧⌘U starts a region screenshot, ⌥⇧⌘V records video, ⌥⇧⌘E opens UX Review, no narration, pointer but no clicks"
 
 run settings-narration-on 0 "${SUITE_ENV[@]}" -- --settings --set-narration on
 run settings-narration-read 0 "${SUITE_ENV[@]}" -- --settings
@@ -206,6 +208,26 @@ run settings-narration-bad 2 "${SUITE_ENV[@]}" -- --settings --set-narration may
 run settings-narration-off 0 "${SUITE_ENV[@]}" -- --settings --set-narration off
 [[ "$(json "$TMP/settings-narration-off.json" j.settings.narration)" == false ]] || die "settings: narration not turned off"
 ok "narration default persists across launches (on, then off); a bad value is rejected"
+
+echo "pointer and clicks in recordings (HS2-S4GA06)"
+run pointer-default-video 0 "${SUITE_ENV[@]}" "${SYN[@]}" -- --capture video --duration 1 --drafts-dir "$TMP/pointer-drafts"
+[[ "$(json "$TMP/pointer-default-video.json" '`${j.pointer.showsPointer} ${j.pointer.showsClicks}`')" == "true false" ]] \
+  || die "pointer: a default recording reports $(json "$TMP/pointer-default-video.json" 'JSON.stringify(j.pointer)')"
+run pointer-set 0 "${SUITE_ENV[@]}" -- --settings --set-show-pointer off --set-show-clicks on
+run pointer-read 0 "${SUITE_ENV[@]}" -- --settings
+[[ "$(json "$TMP/pointer-read.json" '`${j.settings.showPointerInRecordings} ${j.settings.showClicksInRecordings}`')" == "false true" ]] \
+  || die "pointer: settings not persisted"
+run pointer-video 0 "${SUITE_ENV[@]}" "${SYN[@]}" -- --capture video --duration 1 --drafts-dir "$TMP/pointer-drafts"
+[[ "$(json "$TMP/pointer-video.json" '`${j.pointer.showsPointer} ${j.pointer.showsClicks}`')" == "false true" ]] \
+  || die "pointer: the recording did not use the saved settings"
+run pointer-screenshot 0 "${SUITE_ENV[@]}" "${SYN[@]}" -- --capture screenshot --drafts-dir "$TMP/pointer-drafts"
+[[ "$(json "$TMP/pointer-screenshot.json" '"pointer" in j')" == false ]] || die "pointer: a screenshot reports pointer options"
+run pointer-bad 2 "${SUITE_ENV[@]}" -- --settings --set-show-pointer maybe
+run pointer-bad-clicks 2 "${SUITE_ENV[@]}" -- --settings --set-show-clicks 1
+run pointer-reset 0 "${SUITE_ENV[@]}" -- --settings --set-show-pointer on --set-show-clicks off
+[[ "$(json "$TMP/pointer-reset.json" '`${j.settings.showPointerInRecordings} ${j.settings.showClicksInRecordings}`')" == "true false" ]] \
+  || die "pointer: settings not turned back"
+ok "recordings show the pointer and no clicks by default; both settings persist, reach headless recordings, and reject bad values"
 
 # Pick combinations unlikely to be taken on the test machine.
 run settings-set 0 "${SUITE_ENV[@]}" -- --settings --set-hotkey "ctrl+opt+cmd+F7" --set-record-hotkey "ctrl+opt+cmd+F8" --set-open-hotkey "ctrl+opt+cmd+F9" --set-target window --set-delay 3

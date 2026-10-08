@@ -69,12 +69,14 @@ protocol CaptureBackend {
     /// Shows the system Microphone prompt (only while `notDetermined`). Returns whether access was granted.
     func requestMicrophoneAccess() async -> Bool
     /// Starts recording `source` into a QuickTime movie at `url`, with a microphone narration
-    /// track when `narration` is set (access must already be granted). `onUnexpectedStop` runs on
-    /// the main actor if the recording ends by itself (display unplugged, window closed).
+    /// track when `narration` is set (access must already be granted), showing the mouse pointer
+    /// and clicks as `pointer` says. `onUnexpectedStop` runs on the main actor if the recording
+    /// ends by itself (display unplugged, window closed).
     func startRecording(
         _ source: CaptureSource,
         to url: URL,
         narration: Bool,
+        pointer: RecordingPointer,
         onUnexpectedStop: @escaping @MainActor () -> Void
     ) async throws -> ActiveRecording
 }
@@ -100,6 +102,8 @@ struct ScreenCaptureKitBackend: CaptureBackend {
     func screenshot(_ source: CaptureSource) async throws -> CapturedImage {
         guard hasPermission() else { throw CaptureFailure.permissionDenied }
         let (filter, configuration) = try await Self.makeFilter(for: source)
+        // Screenshots never show the pointer: it would cover what is being reviewed, and an
+        // annotation marks the spot instead (docs/04 §4.4).
         configuration.showsCursor = false
         do {
             let image = try await SCScreenshotManager.captureImage(contentFilter: filter, configuration: configuration)
@@ -183,11 +187,15 @@ struct ScreenCaptureKitBackend: CaptureBackend {
         _ source: CaptureSource,
         to url: URL,
         narration: Bool,
+        pointer: RecordingPointer,
         onUnexpectedStop: @escaping @MainActor () -> Void
     ) async throws -> ActiveRecording {
         guard hasPermission() else { throw CaptureFailure.permissionDenied }
         if narration, microphoneAccess() != .authorized { throw CaptureFailure.microphone(microphoneAccess()) }
         let (filter, configuration) = try await Self.makeFilter(for: source)
+        // The pointer shows what the reviewer is doing; both are Settings › Video (HS2-S4GA06).
+        configuration.showsCursor = pointer.showsPointer
+        configuration.showMouseClicks = pointer.showsClicks
         return try await StreamRecorder.start(
             filter: filter,
             configuration: configuration,
@@ -208,7 +216,8 @@ struct ScreenCaptureKitBackend: CaptureBackend {
 }
 
 /// Renders a test card with the exact pixel size the real capture would have, and stands in a
-/// sine tone for the microphone. `UXREVIEW_SYNTHETIC_MICROPHONE` (a `MicrophoneAccess` raw value,
+/// sine tone for the microphone. It draws no pointer; the pointer options only reach the
+/// headless output. `UXREVIEW_SYNTHETIC_MICROPHONE` (a `MicrophoneAccess` raw value,
 /// default `authorized`) simulates the microphone's permission state for tests.
 @MainActor
 struct SyntheticCaptureBackend: CaptureBackend {
@@ -233,6 +242,7 @@ struct SyntheticCaptureBackend: CaptureBackend {
         _ source: CaptureSource,
         to url: URL,
         narration: Bool,
+        pointer _: RecordingPointer,
         onUnexpectedStop _: @escaping @MainActor () -> Void
     ) async throws -> ActiveRecording {
         if narration, microphone != .authorized { throw CaptureFailure.microphone(microphone) }
