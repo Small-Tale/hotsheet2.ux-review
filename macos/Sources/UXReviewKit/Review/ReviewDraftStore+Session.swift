@@ -32,7 +32,8 @@ public extension ReviewDraftStore {
     }
 
     /// Removes one capture: its media item, every annotation on it, its file, and its kept
-    /// original (`originals/<file>` plus its crop/trim record). Nothing changes when `mediaId`
+    /// crop or trim (`edits.json`), and any original an older draft kept (`originals/<file>` plus its record). Nothing changes when
+    /// `mediaId`
     /// is unknown or review.json can't be written; leftover files are removed best effort.
     @discardableResult
     func removeMedia(_ mediaId: String, from directory: URL) throws -> ReviewDraft {
@@ -51,6 +52,12 @@ public extension ReviewDraftStore {
         let originals = directory.appendingPathComponent(EditorSession.originalsDirectory, isDirectory: true)
         let original = originals.appendingPathComponent(item.filename)
         if fileManager.fileExists(atPath: original.path) { try? fileManager.removeItem(at: original) }
+        var edits = DraftEdits.load(from: directory)
+        if edits.crops[item.filename] != nil || edits.trims[item.filename] != nil {
+            edits.crops[item.filename] = nil
+            edits.trims[item.filename] = nil
+            try? edits.save(to: directory)
+        }
         var index = OriginalsIndex.load(from: originals)
         if index.crops[item.filename] != nil || index.trims[item.filename] != nil {
             index.crops[item.filename] = nil

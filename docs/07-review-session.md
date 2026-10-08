@@ -34,8 +34,8 @@ Reviews window (§7.9) opens it on any other draft.
 New captures and editor saves appear while the window is open: it follows the draft-changed
 notification the capture pipeline and the editor already post.
 
-**Removing a capture** deletes its file, every annotation on it, and its kept original under
-`originals/` with its crop/trim record. An open editor on the draft stays open and drops that
+**Removing a capture** deletes its file, every annotation on it, its crop or trim in
+`edits.json`, and any kept original under `originals/` from an older draft. An open editor on the draft stays open and drops that
 capture, its annotations, and its undo history (docs/06 §6.7); its unsaved edits to other
 captures are kept. Numbering of later
 captures continues (a removed `capture-2.png` leaves a gap).
@@ -81,21 +81,29 @@ editing|failed → submitting(creatingTicket → attachingMedia) → submitted  
 
 ## 7.5 Staging and clean-up
 
-The draft folder **is** the staging area: the captured files, `review.json`, and `originals/`
-live in `Drafts/<id>/` from the first capture on. `DraftSubmitter` (UXReviewKit) files it:
+The draft folder holds everything from the first capture on: the captured files (never
+rewritten while drafting), `review.json`, and `edits.json` with each crop and trim (docs/06 §6.6,
+§6.10). `DraftSubmitter` (UXReviewKit) files it:
 
 1. Saves the title (trimmed) and summary into the draft, under the store's lock.
-2. Submits with `ReviewSubmitter` ([03-hotsheet-integration.md](03-hotsheet-integration.md) §3.2):
+2. **Applies crops and trims** (`SubmissionStaging`, `HS2-71SSJG`). With none, the draft folder
+   itself is filed. Otherwise a hidden `Drafts/<id>/.submission/` folder gets a cropped PNG for
+   each cropped image, a trimmed movie for each trimmed one, and copies of the rest. The bundle
+   gets the cropped sizes and trimmed lengths, annotations clipped to them, and those entirely
+   outside left out. The folder is removed afterwards, whatever happens. A missing or unreadable
+   file fails here, before anything is created. Drafts from before this convert first (docs/06
+   §6.6).
+3. Submits with `ReviewSubmitter` ([03-hotsheet-integration.md](03-hotsheet-integration.md) §3.2):
    validate, write `review.json`, `new`, then one `attach` batch of the media plus `review.json`.
-   `originals/` and `submission.json` are never attached.
-3. **On success** it deletes the draft folder. When it was the current draft, the `current`
+   `edits.json`, `originals/`, and `submission.json` are never attached.
+4. **On success** it deletes the draft folder. When it was the current draft, the `current`
    pointer goes too, so the next capture starts a new review. If the folder can't be deleted,
    the result says so (`draftRemoved: false`); it is no longer current either way.
-4. **When the ticket was created but the attach failed**, the draft is kept and
+5. **When the ticket was created but the attach failed**, the draft is kept and
    `Drafts/<id>/submission.json` records the ticket (`storePath`, `ticket {slug, file}`,
    `createdAt`). The failure names the ticket, and **Try Again** attaches to it instead of
    creating a second one. A retry into a different store ignores the record and starts over.
-5. **Any other failure** (validation, a missing file, `hotsheet-cli new` failing) keeps the
+6. **Any other failure** (validation, a missing file, `hotsheet-cli new` failing) keeps the
    draft unchanged apart from the saved title and summary.
 
 Deleting a draft that isn't directly inside the drafts folder (the folder itself, `current`, a

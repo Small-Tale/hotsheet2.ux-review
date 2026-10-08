@@ -232,10 +232,14 @@ extension EncodingTests {
             let trimmed = session.editor.trim(to: TimeRange(startMs: 500, endMs: 1500))
             #expect(trimmed)
             try session.save()
-            let saved = try store.load(draft.directory).bundle.media[0]
-            #expect(saved.hasAudio == true)
-            #expect(abs((saved.durationMs ?? 0) - 1000) <= 80)
-            let audio = try await VideoFileWriter.inspectAudio(draft.directory.appendingPathComponent("capture-1.mov"))
+            #expect(try store.load(draft.directory).bundle.media[0].hasAudio == true)
+            // The trimmed clip is made when submitting (HS2-71SSJG); it keeps the narration.
+            let staged = try SubmissionStaging.prepare(store.load(draft.directory))
+            defer { staged.cleanUp() }
+            let submitted = staged.bundle.media[0]
+            #expect(submitted.hasAudio == true)
+            #expect(abs((submitted.durationMs ?? 0) - 1000) <= 80)
+            let audio = try await VideoFileWriter.inspectAudio(staged.mediaDirectory.appendingPathComponent("capture-1.mov"))
             #expect(audio != nil)
             session.editor.undo()
             try session.save()

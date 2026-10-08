@@ -102,7 +102,7 @@ Drafts/
     review.json             uxreview/bundle/v1 bundle, media appended per capture
     capture-1.png
     capture-2.png
-    originals/              untouched copies of cropped images (docs/06 §6.6), never attached
+    edits.json              crops and trims, applied only when submitting (docs/06 §6.6), never attached
 ```
 
 - **First capture**: creates a draft. Its title is "<App> review", or "UX review" when the app

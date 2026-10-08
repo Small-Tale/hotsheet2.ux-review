@@ -1,5 +1,6 @@
 import Foundation
 
+/// Legacy (before `HS2-71SSJG`, read only by `ReviewDraftStore.migrateLegacyEdits`).
 /// `<draft>/originals/crops.json`: for each image whose untouched original is kept under
 /// `originals/`, the crop (relative to that original) that produced the current file, and for
 /// each such movie, the trim. It lets a later editor session restore the original and map

@@ -238,11 +238,13 @@ struct FrameStepEditTests {
         editor.arrowKey(forward: false, large: true)
         #expect(editor.currentDurationMs == 3000 && editor.document.trims["v1"] == Clip.range(0, 3000))
         #expect(editor.currentTimeMs == 3000, "the playhead shows the new end, as when dragging")
-        #expect(editor.annotation("a2")?.timeRange == Clip.range(3000, 3000), "ranges are clamped into the clip")
+        #expect(editor.annotation("a2")?.timeRange == Clip.range(3000, 3500), "ranges are kept exactly (HS2-71SSJG)")
         editor.arrowKey(forward: false)
         #expect(editor.currentDurationMs == 2900)
-        #expect(editor.annotation("a2") == nil, "outside the trim: removed")
-        #expect(editor.message == "Trimmed to 2.9 s. Removed 1 annotation outside the trim.")
+        #expect(editor.annotation("a2").map(editor.isOutsideEdit) == true, "outside the trim: hidden, not removed")
+        #expect(
+            editor.message == "Trimmed to 2.9 s. 1 annotation outside the trim is hidden."
+        )
         editor.arrowKey(forward: true)
         #expect(editor.currentDurationMs == 3000, "stepping outward brings trimmed time back")
         editor.undo()
@@ -250,7 +252,7 @@ struct FrameStepEditTests {
         #expect(!editor.canUndo, "consecutive steps of one end are one undo step")
         editor.redo()
         #expect(editor.currentDurationMs == 3000)
-        #expect(editor.bundle.validate().isEmpty)
+        #expect(editor.submissionBundle.validate().isEmpty)
     }
 
     @Test func trimEndStopsAtTheMinimumClipAndTheOriginalEnd() {
@@ -268,9 +270,12 @@ struct FrameStepEditTests {
         editor.stepFrames(100, target: .trimEnd)
         #expect(editor.currentDurationMs == 4000 && editor.document.trims["v1"] == nil, "back to the whole original: no trim")
         #expect(!editor.canRestoreOriginal)
-        #expect(editor.annotation("a1") == nil && editor.annotation("a2") == nil, "annotations cut on the way stay cut")
+        #expect(
+            editor.annotation("a1")?.timeRange == Clip.range(1000, 2000) && editor.annotation("a2")?.timeRange == Clip.range(3000, 3500),
+            "annotations hidden on the way come back intact (HS2-71SSJG)"
+        )
         editor.undo()
-        #expect(editor.annotation("a1")?.timeRange == Clip.range(1000, 2000), "undo brings them back")
+        #expect(editor.annotation("a1")?.timeRange == Clip.range(1000, 2000))
     }
 
     @Test func trimStartStepsShiftRangesAndCanStepBackOut() {
@@ -285,11 +290,11 @@ struct FrameStepEditTests {
         #expect(editor.annotation("a1")?.timeRange == Clip.range(900, 1900), "ranges move with the clip")
         editor.arrowKey(forward: true, large: true)
         #expect(editor.document.trims["v1"] == Clip.range(1100, 4000))
-        #expect(editor.annotation("a1")?.timeRange == Clip.range(0, 900))
+        #expect(editor.annotation("a1")?.timeRange == Clip.range(-100, 900), "exact, partly before the clip")
         editor.arrowKey(forward: false, large: true)
         editor.arrowKey(forward: false)
         #expect(editor.document.trims["v1"] == nil, "back to the whole original")
-        #expect(editor.annotation("a1")?.timeRange == Clip.range(1100, 2000), "the part cut off a range stays cut")
+        #expect(editor.annotation("a1")?.timeRange == Clip.range(1000, 2000), "nothing was cut off the range (HS2-71SSJG)")
         let moved5 = editor.arrowKey(forward: false)
         #expect(!moved5, "nothing before the original's start")
         editor.undo()
@@ -303,7 +308,8 @@ struct FrameStepEditTests {
         #expect(editor.currentDurationMs == 100)
         let moved6 = editor.stepFrames(1, target: .trimStart)
         #expect(!moved6)
-        #expect(editor.annotation("a1") == nil && editor.annotation("a2") == nil && editor.selection == nil)
+        #expect(editor.bundle.annotations.allSatisfy(editor.isOutsideEdit) && editor.selection == nil)
+        #expect(editor.submissionBundle.annotations.isEmpty)
     }
 
     @Test func trimStepsComposeWithEarlierTrimsOnTheOriginalGrid() {

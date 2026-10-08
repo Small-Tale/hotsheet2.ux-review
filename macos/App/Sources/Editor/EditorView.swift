@@ -56,21 +56,12 @@ struct EditorToolbar: View {
                 .help("Redo (⇧⌘Z)")
                 .disabled(!model.editor.canRedo)
             if let item = model.editor.currentMedia, model.editor.canRestoreOriginal {
-                let video = item.kind == .video
-                if model.session.resetRestoresOriginal(item.id) {
-                    Button("Restore Original") { model.mutate { _ = $0.restoreOriginal() } }
-                        .help(
-                            video
-                                ? "Undo every trim of this video, including earlier sessions'; annotation times move back with it"
-                                : "Undo every crop of this capture, including earlier sessions'; annotations move back with it"
-                        )
-                } else {
-                    Button(video ? "Reset Trim" : "Reset Crop") { model.mutate { _ = $0.restoreOriginal() } }
-                        .help(
-                            video ? "Restore this video to its length when the editor opened" :
-                                "Restore this image to its size when the editor opened"
-                        )
-                }
+                Button("Restore Original") { model.mutate { _ = $0.restoreOriginal() } }
+                    .help(
+                        item.kind == .video
+                            ? "Undo every trim of this video, including earlier sessions'; hidden annotations come back"
+                            : "Undo every crop of this capture, including earlier sessions'; hidden annotations come back"
+                    )
             }
             Spacer(minLength: 8)
             StatusLine(model: model)

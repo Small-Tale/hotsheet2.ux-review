@@ -40,6 +40,9 @@ macos/
     Capture/CapturePhase.swift        capture life-cycle transition rules (docs/04 §4.10)
     Capture/CaptureCommand.swift      `--capture` argument parsing (docs/04 §4.11)
     Review/ReviewDraftStore.swift     draft reviews on disk, createEmptyDraft for New Review (docs/04 §4.6)
+    Review/DraftEdits.swift           edits.json (crops + trims until submitting), EditProjection: exact maps, outside rules, clipping (docs/06 §6.6, §6.10)
+    Review/DraftEdits+Legacy.swift    migrateLegacyEdits: originals/ + crops.json drafts → edits.json
+    Review/SubmissionStaging.swift    applies crops + trims into .submission/ when filing (docs/07 §7.5)
     Review/MediaImporter.swift        existing images/movies → draft (PNG re-encode, movie copy), `--import` parsing (docs/04 §4.12)
     Review/MediaOpenRouting.swift     Finder Open With / editor drop routing plan (dedupe, all-or-nothing), OpenBatch, `--open-media` parsing (docs/04 §4.12.1)
     Review/ReviewSession.swift        session state machine, SessionIssue rules + messages, DraftSubmitter (docs/07)
@@ -63,10 +66,10 @@ macos/
     Editor/CanvasViewport.swift       canvas zoom/pan: fit, zoom stops, anchored zoom, clamped pan, AutoScroll near edges (docs/06 §6.2.1)
     Editor/FreehandSmoothing.swift    freehand stroke cleanup: resample, corner-preserving bounded smoothing, gentle simplify
     Editor/ShapeGeometry.swift        MediaFrame pixel ↔ normalized, handles, hit distance, translate/resize
-    Editor/OriginalsIndex.swift       originals/crops.json: crop/trim relative to each kept original, trust rules (docs/06 §6.6, §6.10)
+    Editor/OriginalsIndex.swift       legacy originals/crops.json and its trust rules, read only to migrate older drafts (docs/06 §6.6)
     Editor/ImageCrop.swift            PixelRect snapping, annotation transform into a crop
     Editor/AnnotationRenderer.swift   CoreGraphics drawing of shapes, badges, handles, crop overlay; IntentPalette
-    Editor/EditorSession.swift        editor + files: display images, video frames, save + reload (follow added/removed media), crop + trim writes, originals/
+    Editor/EditorSession.swift        editor + files: display images, video frames, save + reload (follow added/removed media), edits.json, exact no-drift save
     Editor/EditorScript.swift         JSON editing scripts + `--annotate` parsing (docs/06 §6.9)
   Tests/UXReviewKitTests/      Swift Testing unit + end-to-end tests (docs/TEST-COVERAGE.md)
   App/Resources/Assets.xcassets  StatusBarIcon template vector (menu bar icon, docs/05 §5.1)

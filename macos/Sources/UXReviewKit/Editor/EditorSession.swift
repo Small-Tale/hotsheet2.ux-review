@@ -3,86 +3,60 @@ import CoreGraphics
 import Foundation
 
 /// One open annotation editor on a draft review: the `AnnotationEditor` state plus the files
-/// behind it. It loads the images and video frames, saves the bundle through
-/// `ReviewDraftStore.update` (so captures added meanwhile are kept), and writes cropped images
-/// and trimmed movies. The editor window and the headless `--annotate` mode share it.
-/// Spec: docs/06-annotation-editor.md §6.6, §6.7, and §6.10.
+/// behind it. It loads the images and video frames, and saves the bundle through
+/// `ReviewDraftStore.update` (so captures added meanwhile are kept). The editor window and the
+/// headless `--annotate` mode share it. Spec: docs/06-annotation-editor.md §6.6, §6.7, and §6.10.
 ///
-/// Crops and trims stay undoable after saving: each file is rewritten from the session's base
-/// file, cropped or trimmed as currently edited. The first time a capture is ever cropped or
-/// trimmed, its untouched file is kept under `originals/` in the draft (never submitted), and
-/// `originals/crops.json` records the crop or trim relative to it. A later session then uses the
-/// original as the base, with that edit already applied, so Restore Original brings it back
-/// (`OriginalsIndex`).
+/// Crops and trims are not destructive while the review is a draft (`HS2-71SSJG`): capture files
+/// are never rewritten. `review.json` keeps each file's own size and duration, with annotations
+/// in its coordinates and times, and `edits.json` (`DraftEdits`) records each crop and trim. The
+/// editor works in crop and trim coordinates (`EditProjection.editing`); saving maps back
+/// exactly. Submitting applies the crop and trim (`SubmissionStaging`).
 public final class EditorSession {
+    /// Where drafts made before `HS2-71SSJG` kept untouched originals (`DraftEdits.migrateLegacy`).
     public static let originalsDirectory = "originals"
 
     public var editor: AnnotationEditor
     public let directory: URL
     public let store: ReviewDraftStore
-    /// Image files as they were when the session opened, loaded before anything overwrites them.
+    /// Images as their files hold them (uncropped), loaded once.
     private var baseImages: [String: CGImage] = [:]
-    private var savedCrops: [String: PixelRect] = [:]
-    private var savedTrims: [String: TimeRange] = [:]
-    /// Media whose base is their `originals/` copy (crops and trims are relative to it).
-    private var tracked: Set<String> = []
     private var frames: [String: VideoFrames] = [:]
-    /// Copies of movies taken before this session first rewrote them, for movies whose base is
-    /// the file as found (an untrusted original exists, so the file can't become the original).
-    private var sessionBases: [String: URL] = [:]
+    /// Each annotation as last read from or written to disk (file coordinates and times). Saving
+    /// keeps these exactly for annotations the reviewer didn't change, so mapping into a crop and
+    /// back never drifts by rounding.
+    private var stored: [String: Annotation] = [:]
 
     public init(store: ReviewDraftStore, directory: URL, mediaId: String? = nil) throws {
         self.store = store
         self.directory = directory
+        try store.migrateLegacyEdits(directory)
         let bundle = try store.load(directory).bundle
-        let originals = directory.appendingPathComponent(Self.originalsDirectory, isDirectory: true)
-        let index = OriginalsIndex.load(from: originals)
+        let (crops, trims) = DraftEdits.load(from: directory).byMediaId(in: bundle)
         var priors: [String: PriorCrop] = [:]
-        for item in bundle.media where item.kind == .image {
-            let size = (try? ImageFiles.pixelSize(of: originals.appendingPathComponent(item.filename)))
-                .map { PixelRect(x: 0, y: 0, width: $0.width, height: $0.height) }
-            if let prior = index.prior(
-                filename: item.filename, originalSize: size, currentWidth: item.pixelWidth, currentHeight: item.pixelHeight
-            ) {
-                priors[item.id] = prior
+        var priorTrims: [String: PriorTrim] = [:]
+        for item in bundle.media {
+            if let crop = crops[item.id] { priors[item.id] = PriorCrop(originalSize: EditProjection.size(of: item), crop: crop) }
+            if let trim = trims[item.id], let duration = item.durationMs {
+                priorTrims[item.id] = PriorTrim(originalDurationMs: duration, trim: trim)
             }
         }
-        var trims: [String: PriorTrim] = [:]
-        for item in bundle.media where item.kind == .video {
-            let exists = FileManager.default.fileExists(atPath: originals.appendingPathComponent(item.filename).path)
-            if let prior = index.priorTrim(filename: item.filename, originalExists: exists, currentDurationMs: item.durationMs) {
-                trims[item.id] = prior
-            }
-        }
-        tracked = Set(priors.keys).union(trims.keys)
-        editor = AnnotationEditor(bundle: bundle, mediaId: mediaId, originals: priors, trims: trims)
-        savedCrops = editor.document.crops
-        savedTrims = editor.document.trims
+        editor = AnnotationEditor(
+            bundle: EditProjection.editing(bundle, crops: crops, trims: trims),
+            mediaId: mediaId,
+            originals: priors,
+            trims: priorTrims
+        )
+        stored = Dictionary(bundle.annotations.map { ($0.id, $0) }) { first, _ in first }
         loadFrameRates(bundle.media.map(\.id))
     }
 
-    /// Reads each video's frame rate from its base movie, for ← / → frame steps (docs/06 §6.10).
+    /// Reads each video's frame rate from its movie, for ← / → frame steps (docs/06 §6.10).
     private func loadFrameRates(_ ids: [String]) {
         for id in ids {
             guard let item = editor.media(id), item.kind == .video else { continue }
-            editor.setFrameRate(VideoTrim.frameRate(of: baseMovie(item)), for: id)
+            editor.setFrameRate(VideoTrim.frameRate(of: fileURL(item)), for: id)
         }
-    }
-
-    deinit {
-        for url in sessionBases.values {
-            try? FileManager.default.removeItem(at: url)
-        }
-    }
-
-    private var originalsURL: URL { directory.appendingPathComponent(Self.originalsDirectory, isDirectory: true) }
-
-    /// True when Reset Crop brings back the untouched original: the base is the `originals/`
-    /// copy, or there is no copy yet (the file itself is untouched). False only for an original
-    /// kept before crops were recorded, where Reset Crop returns to the file as this session found it.
-    public func resetRestoresOriginal(_ mediaId: String) -> Bool {
-        guard let item = editor.media(mediaId) else { return false }
-        return tracked.contains(mediaId) || !FileManager.default.fileExists(atPath: originalsURL.appendingPathComponent(item.filename).path)
     }
 
     public func fileURL(_ item: MediaItem) -> URL { directory.appendingPathComponent(item.filename) }
@@ -98,25 +72,17 @@ public final class EditorSession {
         return ImageCrop.apply(crop, to: base)
     }
 
-    /// Writes changed crops and the bundle. It first catches up with the draft (`reload`), so a
-    /// capture removed meanwhile is never written back: no annotations on it, no crop or trim
-    /// file. Returns how the editor's media changed (captures added or removed meanwhile).
+    /// Writes the bundle (in the files' own coordinates) and `edits.json`. It first catches up
+    /// with the draft (`reload`), so a capture removed meanwhile is never written back. Returns
+    /// how the editor's media changed (captures added or removed meanwhile).
     @discardableResult
     public func save() throws -> MediaChanges {
         let before = try reload()
-        let document = editor.document
-        for item in document.bundle.media where item.kind == .image && document.crops[item.id] != savedCrops[item.id] {
-            try writeCrop(item, crop: document.crops[item.id])
-            savedCrops[item.id] = document.crops[item.id]
-        }
-        for item in document.bundle.media where item.kind == .video && document.trims[item.id] != savedTrims[item.id] {
-            try writeTrim(item, trim: document.trims[item.id])
-            savedTrims[item.id] = document.trims[item.id]
-        }
+        let persisted = persistable()
         let saved = try store.update(directory) { disk in
-            let edited = Dictionary(document.bundle.media.map { ($0.id, $0) }) { first, _ in first }
+            let files = Dictionary(persisted.bundle.media.map { ($0.id, $0) }) { first, _ in first }
             for index in disk.media.indices {
-                if let item = edited[disk.media[index].id] {
+                if let item = files[disk.media[index].id] {
                     disk.media[index].pixelWidth = item.pixelWidth
                     disk.media[index].pixelHeight = item.pixelHeight
                     disk.media[index].durationMs = item.durationMs
@@ -124,16 +90,54 @@ public final class EditorSession {
             }
             // A capture removed between the reload above and this write keeps its annotations out.
             let present = Set(disk.media.map(\.id))
-            disk.annotations = document.bundle.annotations.filter { present.contains($0.mediaId) }
+            disk.annotations = persisted.bundle.annotations.filter { present.contains($0.mediaId) }
+            var edits = DraftEdits.load(from: directory)
+            let names = Set(disk.media.map(\.filename))
+            edits.crops = persisted.edits.crops.filter { names.contains($0.key) }
+            edits.trims = persisted.edits.trims.filter { names.contains($0.key) }
+            try edits.save(to: directory)
         }
+        stored = Dictionary(saved.bundle.annotations.map { ($0.id, $0) }) { first, _ in first }
         editor.markSaved()
         let after = apply(editor.syncMedia(with: saved.bundle))
         return MediaChanges(added: before.added + after.added, removed: before.removed + after.removed)
     }
 
+    /// The editor's document in the files' own space: media at their files' sizes and durations,
+    /// annotations mapped out of their crop and trim, and the crops and trims by filename.
+    func persistable() -> (bundle: ReviewBundle, edits: DraftEdits) {
+        let document = editor.document
+        var bundle = document.bundle
+        var edits = DraftEdits()
+        for index in bundle.media.indices {
+            let item = bundle.media[index]
+            if let size = editor.originalSizes[item.id] {
+                bundle.media[index].pixelWidth = size.width
+                bundle.media[index].pixelHeight = size.height
+            }
+            if item.kind == .video, let duration = editor.originalDurations[item.id] { bundle.media[index].durationMs = duration }
+            if let crop = document.crops[item.id] { edits.crops[item.filename] = crop }
+            if let trim = document.trims[item.id] { edits.trims[item.filename] = trim }
+        }
+        bundle.annotations = document.bundle.annotations.map { annotation in
+            let crop = document.crops[annotation.mediaId]
+            let trim = document.trims[annotation.mediaId]
+            let size = editor.originalSizes[annotation.mediaId]
+            var file = annotation
+            if let crop, let size {
+                let previous = stored[annotation.id].map(\.shape)
+                file.shape = previous.flatMap { EditProjection.shape($0, into: crop, of: size) == annotation.shape ? $0 : nil }
+                    ?? EditProjection.shape(annotation.shape, outOf: crop, to: size)
+            }
+            if let trim, let range = annotation.timeRange { file.timeRange = EditProjection.range(range, outOf: trim) }
+            return file
+        }
+        return (bundle, edits)
+    }
+
     /// Remove from Review in the editor (`HS2-SSM1E7`): saves this session's edits first, so
     /// unsaved work on the other captures is kept, then removes the capture from the draft
-    /// (`ReviewDraftStore.removeMedia`: its file, annotations, and kept original) and catches up.
+    /// (`ReviewDraftStore.removeMedia`: its file, annotations, and crop or trim) and catches up.
     /// The editor then shows a neighboring capture. It can't be undone.
     @discardableResult
     public func removeCapture(_ mediaId: String) throws -> MediaChanges {
@@ -155,11 +159,7 @@ public final class EditorSession {
     private func apply(_ changes: MediaChanges) -> MediaChanges {
         for id in changes.removed {
             baseImages[id] = nil
-            savedCrops[id] = nil
-            savedTrims[id] = nil
-            tracked.remove(id)
             frames[id] = nil
-            if let copy = sessionBases.removeValue(forKey: id) { try? FileManager.default.removeItem(at: copy) }
             editor.setFrameRate(nil, for: id)
         }
         loadFrameRates(changes.added)
@@ -187,83 +187,21 @@ public final class EditorSession {
 
     private func baseImage(_ item: MediaItem) -> CGImage? {
         if let image = baseImages[item.id] { return image }
-        let url = tracked.contains(item.id) ? originalsURL.appendingPathComponent(item.filename) : fileURL(item)
-        let image = try? ImageFiles.loadImage(at: url)
+        let image = try? ImageFiles.loadImage(at: fileURL(item))
         baseImages[item.id] = image
         return image
     }
 
-    /// The movie that trims are relative to: the kept original, a session copy, or the file.
-    private func baseMovie(_ item: MediaItem) -> URL {
-        if tracked.contains(item.id) { return originalsURL.appendingPathComponent(item.filename) }
-        return sessionBases[item.id] ?? fileURL(item)
-    }
-
-    /// A player for `mediaId` as currently trimmed, playing the same movie the frames come from.
-    /// Nil for images. Make a new one after the trim changes.
+    /// A player for `mediaId` as currently trimmed. Nil for images. Make a new one after the
+    /// trim changes.
     public func playback(_ mediaId: String) -> VideoPlayback? {
         guard let item = editor.media(mediaId), item.kind == .video, let duration = item.durationMs else { return nil }
-        return VideoPlayback(url: baseMovie(item), offsetMs: editor.document.trims[item.id]?.startMs ?? 0, durationMs: duration)
+        return VideoPlayback(url: fileURL(item), offsetMs: editor.document.trims[item.id]?.startMs ?? 0, durationMs: duration)
     }
 
     private func frame(_ item: MediaItem, atMs millis: Int) -> CGImage? {
-        let base = baseMovie(item)
-        if frames[item.id]?.url != base { frames[item.id] = VideoFrames(url: base) }
+        let url = fileURL(item)
+        if frames[item.id]?.url != url { frames[item.id] = VideoFrames(url: url) }
         return frames[item.id]?.frame(atMs: (editor.document.trims[item.id]?.startMs ?? 0) + millis)
-    }
-
-    private func writeTrim(_ item: MediaItem, trim: TimeRange?) throws {
-        let url = fileURL(item)
-        let originals = originalsURL
-        let original = originals.appendingPathComponent(item.filename)
-        if !tracked.contains(item.id), sessionBases[item.id] == nil {
-            if !FileManager.default.fileExists(atPath: original.path) {
-                // First trim ever: the base is the untouched file, so from now on it is the original.
-                try FileManager.default.createDirectory(at: originals, withIntermediateDirectories: true)
-                try FileManager.default.copyItem(at: url, to: original)
-                tracked.insert(item.id)
-            } else {
-                // An original this session can't trust: never overwrite it; keep the file as found.
-                let copy = FileManager.default.temporaryDirectory
-                    .appendingPathComponent("uxreview-base-\(UUID().uuidString).\(url.pathExtension)")
-                try FileManager.default.copyItem(at: url, to: copy)
-                sessionBases[item.id] = copy
-            }
-        }
-        let base = baseMovie(item)
-        if let trim {
-            try VideoTrim.export(base, range: trim, to: url)
-        } else {
-            try VideoTrim.restore(base, to: url)
-        }
-        var index = OriginalsIndex.load(from: originals)
-        let length = editor.originalDurations[item.id] ?? item.durationMs ?? 0
-        let kept = trim ?? TimeRange(startMs: 0, endMs: length)
-        index.trims[item.filename] = tracked.contains(item.id)
-            ? TrimRecord(startMs: kept.startMs, endMs: kept.endMs, originalDurationMs: length)
-            : nil
-        try index.save(to: originals)
-    }
-
-    private func writeCrop(_ item: MediaItem, crop: PixelRect?) throws {
-        guard let base = baseImage(item) else { throw ImageFileError.unreadable(fileURL(item)) }
-        let url = fileURL(item)
-        let originals = originalsURL
-        let original = originals.appendingPathComponent(item.filename)
-        if !FileManager.default.fileExists(atPath: original.path) {
-            // First crop ever: the base is the untouched file, so from now on it is the original.
-            try FileManager.default.createDirectory(at: originals, withIntermediateDirectories: true)
-            try FileManager.default.copyItem(at: url, to: original)
-            tracked.insert(item.id)
-        }
-        guard let pixels = crop.map({ ImageCrop.apply($0, to: base) }) ?? base else { throw ImageFileError.cannotWrite(url) }
-        try ImageFiles.writePNG(pixels, to: url)
-        // Record the crop relative to the original, or forget it when the base isn't the original
-        // (an original kept before crops were recorded, whose offset is unknown).
-        var index = OriginalsIndex.load(from: originals)
-        index.crops[item.filename] = tracked.contains(item.id)
-            ? crop ?? PixelRect(x: 0, y: 0, width: base.width, height: base.height)
-            : nil
-        try index.save(to: originals)
     }
 }

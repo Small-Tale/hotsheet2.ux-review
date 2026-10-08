@@ -146,7 +146,7 @@ public struct AnnotationEditor: Sendable {
 
     /// `originals` gives, for images cropped in an earlier session, the size of the untouched
     /// original and the crop (relative to it) that made the current file. The editor then edits
-    /// relative to the original: the crop starts applied, and Reset Crop restores the original.
+    /// relative to the original: the crop starts applied, and Restore Original restores the original.
     ///
     /// `trims` does the same for movies trimmed in an earlier session.
     public init(

@@ -270,12 +270,21 @@ public struct DraftSubmitter: Sendable {
         } catch {
             throw SubmissionFailure(message: ReviewSubmitter.describe(error))
         }
+        // Crops and trims are applied only now (HS2-71SSJG).
+        let staged: SubmissionStaging
+        do {
+            try store.migrateLegacyEdits(directory)
+            staged = try SubmissionStaging.prepare(store.load(directory))
+        } catch {
+            throw SubmissionFailure(message: "Couldn't prepare the cropped or trimmed media: \(ReviewSubmitter.describe(error))")
+        }
+        defer { staged.cleanUp() }
         let pending = store.pendingSubmission(in: directory).flatMap { $0.storePath == storePath.path ? $0 : nil }
         let ticket: CreatedTicket
         do {
             ticket = try ReviewSubmitter(client: client).file(
-                draft.bundle,
-                mediaDirectory: directory,
+                staged.bundle,
+                mediaDirectory: staged.mediaDirectory,
                 existingTicket: pending?.ticket,
                 progress: progress
             )
@@ -295,8 +304,8 @@ public struct DraftSubmitter: Sendable {
         return SubmittedReview(
             ticket: ticket,
             title: draft.bundle.title,
-            mediaCount: draft.bundle.media.count,
-            annotationCount: draft.bundle.annotations.count,
+            mediaCount: staged.bundle.media.count,
+            annotationCount: staged.bundle.annotations.count,
             storePath: storePath.path,
             submittedAt: now(),
             draftRemoved: removed

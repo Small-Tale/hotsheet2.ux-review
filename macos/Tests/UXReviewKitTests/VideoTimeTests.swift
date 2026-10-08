@@ -149,41 +149,6 @@ struct VideoTimeTests {
 
     // MARK: Trimming
 
-    @Test func trimShiftsClampsAndRemovesRangesAndSetsTheDuration() throws {
-        var editor = Self.clipEditor(annotations: [
-            Self.box("a1", nil),
-            Self.box("a2", Self.range(500, 1500)), // straddles the start: clamped to 0…500
-            Self.box("a3", Self.range(1200, 2200)), // inside: shifted to 200…1200
-            Self.box("a4", Self.range(2800, 3500)), // straddles the end: 1800…2000
-            Self.box("a5", Self.range(100, 900)), // entirely before: removed
-            Self.box("a6", Self.range(3001, 3001)), // instant after the end: removed
-            Self.box("a7", Self.range(3000, 3000)), // instant at the end: kept at 2000
-        ])
-        editor.select("a5")
-        editor.setCurrentTime(1500)
-        let done8 = editor.trim(to: Self.range(1000, 3000))
-        #expect(done8)
-        #expect(editor.currentMedia?.durationMs == 2000)
-        #expect(editor.document.trims["v1"] == Self.range(1000, 3000))
-        let ranges = Dictionary(uniqueKeysWithValues: editor.bundle.annotations.map { ($0.id, $0.timeRange) })
-        #expect(ranges.keys.sorted() == ["a1", "a2", "a3", "a4", "a7"])
-        #expect(ranges["a1"] == .some(nil))
-        #expect(ranges["a2"] == Self.range(0, 500))
-        #expect(ranges["a3"] == Self.range(200, 1200))
-        #expect(ranges["a4"] == Self.range(1800, 2000))
-        #expect(ranges["a7"] == Self.range(2000, 2000))
-        #expect(editor.selection == nil, "the removed selection is cleared")
-        #expect(editor.currentTimeMs == 500, "the playhead stays on the same frame")
-        #expect(editor.message == "Trimmed to 2.0 s. Removed 2 annotations outside the trim.")
-        #expect(editor.bundle.validate().isEmpty)
-
-        editor.undo()
-        #expect(editor.bundle.annotations.count == 7 && editor.currentMedia?.durationMs == 4000)
-        #expect(editor.document.trims.isEmpty && editor.currentTimeMs == 1500)
-        editor.redo()
-        #expect(editor.bundle.annotations.count == 5 && editor.currentTimeMs == 500)
-    }
-
     @Test func trimsComposeAndResetMapsRangesBack() {
         var editor = Self.clipEditor(annotations: [Self.box("a1", Self.range(1500, 2500))])
         editor.setCurrentTime(1000)
@@ -232,7 +197,8 @@ struct VideoTimeTests {
         var editor = Self.clipEditor(annotations: [Self.box("a1", Self.range(0, 100))])
         let done15 = editor.trim(to: Self.range(2000, 4000))
         #expect(done15)
-        #expect(editor.bundle.annotations.isEmpty)
+        #expect(editor.annotation("a1").map(editor.isOutsideEdit) == true)
+        #expect(editor.submissionBundle.annotations.isEmpty)
         editor.undo()
         let done16 = editor.trim(to: Self.range(0, 1000))
         #expect(done16)
@@ -247,7 +213,8 @@ struct VideoTimeTests {
         for _ in 0 ..< 3 {
             let done17 = editor.trim(to: Self.range(0, 2000))
             #expect(done17)
-            #expect(editor.bundle.annotations.isEmpty)
+            #expect(editor.annotation("a1").map(editor.isOutsideEdit) == true)
+            #expect(editor.submissionBundle.annotations.isEmpty)
             editor.undo()
             #expect(editor.annotation("a1")?.timeRange == Self.range(3000, 3500))
             let done18 = editor.trim(to: Self.range(2500, 4000))

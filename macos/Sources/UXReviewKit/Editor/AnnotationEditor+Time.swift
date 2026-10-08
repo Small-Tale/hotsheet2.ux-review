@@ -19,7 +19,28 @@ public extension AnnotationEditor {
     /// Annotations on `mediaId` that show at the playhead (images: all of them), in review order.
     func visibleAnnotations(on mediaId: String) -> [Annotation] {
         let time = mediaId == currentMediaId ? currentTimeMs : 0
-        return annotations(on: mediaId).filter { $0.isVisible(atMs: time) }
+        return annotations(on: mediaId).filter { $0.isVisible(atMs: time) && !isOutsideEdit($0) }
+    }
+
+    /// Whether `annotation` lies entirely outside its image's crop or its movie's trim. Such an
+    /// annotation stays in the draft, hidden, and comes back when the crop or trim is widened or
+    /// restored; submitting leaves it out (`HS2-71SSJG`, docs/06 §6.6, §6.10).
+    func isOutsideEdit(_ annotation: Annotation) -> Bool {
+        guard let item = media(annotation.mediaId) else { return false }
+        if document.crops[item.id] != nil, EditProjection.isOutside(annotation.shape) { return true }
+        if document.trims[item.id] != nil, let range = annotation.timeRange, let duration = item.durationMs {
+            return EditProjection.isOutside(range, durationMs: duration)
+        }
+        return false
+    }
+
+    /// The bundle as it would be submitted now: annotations clipped to each crop and trim, and
+    /// those entirely outside left out (`EditProjection.clippedToMedia`).
+    var submissionBundle: ReviewBundle { EditProjection.clippedToMedia(bundle).bundle }
+
+    /// How many annotations on `mediaId` lie outside its crop or trim.
+    func outsideCount(on mediaId: String) -> Int {
+        annotations(on: mediaId).count(where: isOutsideEdit)
     }
 
     /// Moves the playhead, clamped to the current video. Annotations stay selected even when they
@@ -136,8 +157,9 @@ extension AnnotationEditor {
     /// Keeps `startMs`…`endMs` of `item` (millis into the clip as trimmed). Unlike `trim(to:)`,
     /// the ends may lie outside the clip, down to `-trim start` and up to the original's end, which
     /// brings back trimmed-away time (a frame step outward); a trim back to the whole original
-    /// drops the trim. Ranges move with the clip and are clamped into it; annotations entirely
-    /// outside it are removed. The playhead stays on the same frame. The caller checks the limits.
+    /// drops the trim. Ranges move with the clip exactly; ranges outside it are hidden, not
+    /// removed, and come back when the trim is widened or restored (`HS2-71SSJG`). The playhead
+    /// stays on the same frame. The caller checks the limits.
     mutating func applyTrim(_ item: MediaItem, startMs start: Int, endMs end: Int, coalescing key: CoalesceKey? = nil) -> Bool {
         guard let duration = item.durationMs else { return false }
         let previous = document.trims[item.id] ?? TimeRange(startMs: 0, endMs: duration)
@@ -145,29 +167,22 @@ extension AnnotationEditor {
         let base = TimeRange(startMs: previous.startMs + start, endMs: previous.startMs + end)
         guard base.startMs >= 0, base.endMs <= original, base != previous else { return false }
         let kept = end - start
-        var removed = 0
         let changed = perform(coalescing: key) { snapshot in
             snapshot.document.trims[item.id] = base == TimeRange(startMs: 0, endMs: original) ? nil : base
             snapshot.document.bundle.setDuration(item.id, kept)
-            snapshot.document.bundle.annotations = snapshot.document.bundle.annotations.compactMap { annotation in
-                guard annotation.mediaId == item.id, let range = annotation.timeRange else { return annotation }
-                guard range.endMs >= start, range.startMs <= end else {
-                    removed += 1
-                    return nil
-                }
-                var moved = annotation
-                moved.timeRange = TimeRange(startMs: max(range.startMs, start) - start, endMs: min(range.endMs, end) - start)
-                return moved
-            }
-            if let selected = snapshot.selection, !snapshot.document.bundle.annotations.contains(where: { $0.id == selected }) {
-                snapshot.selection = nil
+            for index in snapshot.document.bundle.annotations.indices where snapshot.document.bundle.annotations[index].mediaId == item.id {
+                guard let range = snapshot.document.bundle.annotations[index].timeRange else { continue }
+                snapshot.document.bundle.annotations[index].timeRange = TimeRange(
+                    startMs: range.startMs - start,
+                    endMs: range.endMs - start
+                )
             }
             snapshot.timeMs = min(max(snapshot.timeMs - start, 0), kept)
             return true
         }
         guard changed else { return false }
-        message = "Trimmed to \(TimeFormat.seconds(kept))."
-            + (removed > 0 ? " Removed \(removed) annotation\(removed == 1 ? "" : "s") outside the trim." : "")
+        if let selected = selection, let annotation = annotation(selected), isOutsideEdit(annotation) { selection = nil }
+        message = "Trimmed to \(TimeFormat.seconds(kept))." + outsideNote(item.id, "trim")
         return true
     }
 

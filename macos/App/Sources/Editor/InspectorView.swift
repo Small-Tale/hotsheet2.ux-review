@@ -195,7 +195,9 @@ struct AnnotationList: View {
                                 annotation: annotation,
                                 selected: annotation.id == model.editor.selection,
                                 onVideo: model.editor.currentDurationMs != nil,
-                                showing: annotation.isVisible(atMs: model.editor.currentTimeMs)
+                                showing: annotation.isVisible(atMs: model.editor.currentTimeMs),
+                                outside: model.editor.isOutsideEdit(annotation)
+                                    ? (model.editor.currentDurationMs != nil ? "trim" : "crop") : nil
                             )
                             .onTapGesture { model.mutate { $0.select(annotation.id) } }
                         }
@@ -215,6 +217,9 @@ struct AnnotationRow: View {
     var onVideo = false
     /// False when the playhead is outside the annotation's range (it is dimmed).
     var showing = true
+    /// "crop" or "trim" when the annotation lies outside it: hidden, and left out when submitting
+    /// (HS2-71SSJG, docs/06 §6.6).
+    var outside: String?
 
     var body: some View {
         HStack(alignment: .top, spacing: 8) {
@@ -222,7 +227,11 @@ struct AnnotationRow: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text("\(annotation.shape.label) · \(annotation.effectiveIntents.map(\.rawValue).joined(separator: ", "))")
                     .font(.callout.weight(.medium))
-                if onVideo {
+                if let outside {
+                    Label("Outside the \(outside) · left out when submitting", systemImage: "eye.slash")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                } else if onVideo {
                     Label(TimeFormat.range(annotation.timeRange), systemImage: "clock")
                         .font(.caption.monospacedDigit())
                         .foregroundStyle(.secondary)
@@ -236,7 +245,7 @@ struct AnnotationRow: View {
         }
         .padding(.horizontal, 6)
         .padding(.vertical, 6)
-        .opacity(showing ? 1 : 0.55)
+        .opacity(showing && outside == nil ? 1 : 0.55)
         .background(RoundedRectangle(cornerRadius: 6).fill(selected ? Color.accentColor.opacity(0.18) : Color.clear))
         .contentShape(Rectangle())
     }

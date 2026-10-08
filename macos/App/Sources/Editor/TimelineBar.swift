@@ -163,14 +163,18 @@ struct TimelineTrack: View {
     private var ranged: [(number: Int, annotation: Annotation)] {
         let editor = model.editor
         return editor.annotations(on: editor.currentMediaId ?? "").compactMap { annotation in
-            guard annotation.timeRange != nil, let number = editor.number(of: annotation.id) else { return nil }
+            // Ranges outside the trim are hidden (HS2-71SSJG); the rest are drawn clamped to the clip.
+            guard annotation.timeRange != nil, !editor.isOutsideEdit(annotation), let number = editor.number(of: annotation.id)
+            else { return nil }
             return (number, annotation)
         }
     }
 
     @ViewBuilder
     private func rangeMark(_ entry: (number: Int, annotation: Annotation), x: (Int) -> CGFloat) -> some View {
-        let range = entry.annotation.timeRange ?? TimeRange(startMs: 0, endMs: 0)
+        let duration = model.editor.currentDurationMs ?? 0
+        let raw = entry.annotation.timeRange ?? TimeRange(startMs: 0, endMs: 0)
+        let range = TimeRange(startMs: min(max(raw.startMs, 0), duration), endMs: min(max(raw.endMs, 0), duration))
         let selected = entry.annotation.id == model.editor.selection
         let color = Color(cgColor: IntentPalette.color(entry.annotation.primaryIntent))
         let width = max(x(range.endMs) - x(range.startMs), 5)

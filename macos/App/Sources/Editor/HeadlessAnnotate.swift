@@ -15,8 +15,10 @@ enum HeadlessAnnotate {
         var type: String
         var intents: [Intent]
         var note: String
-        /// Video only; omitted for the whole clip.
+        /// Video only; omitted for the whole clip. In the clip as trimmed.
         var timeRange: TimeRange?
+        /// Entirely outside the crop or trim: kept in the draft, left out when submitting (HS2-71SSJG).
+        var outside: Bool
     }
 
     struct Success: Encodable {
@@ -78,7 +80,8 @@ enum HeadlessAnnotate {
                 annotations: bundle.annotations.enumerated().map { index, annotation in
                     Row(
                         number: index + 1, id: annotation.id, mediaId: annotation.mediaId, type: annotation.shape.kind,
-                        intents: annotation.effectiveIntents, note: annotation.note, timeRange: annotation.timeRange
+                        intents: annotation.effectiveIntents, note: annotation.note, timeRange: annotation.timeRange,
+                        outside: session.editor.isOutsideEdit(annotation)
                     )
                 },
                 rendered: rendered

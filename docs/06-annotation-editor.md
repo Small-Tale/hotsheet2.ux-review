@@ -298,44 +298,51 @@ Crop applies to images only.
 - On release, the rectangle snaps outward to whole pixels and clips to the image. It must be at
   least 8 × 8 px. A crop covering the whole image does nothing.
 
-**What a crop does to annotations** (`ImageCrop.transform`):
+**Not destructive until submitting** (`HS2-71SSJG`). A crop never changes the capture file and
+never deletes annotations while the review is a draft:
 
-- Annotations move into the cropped image's coordinates.
-- Boxes are clipped to the crop.
-- Path points outside it are pulled to its edge.
-- Shapes entirely outside it (including ones only touching its edge) are **removed**.
-- The status line says how many were removed, for example "Cropped to 1180 × 560 px. Removed 2
-  annotations outside the crop." Undo brings them back.
+- Annotations move with the crop **exactly** (`EditProjection`, an affine map that never clips).
+- Annotations entirely outside the crop are **hidden, not removed**. They aren't drawn,
+  hit-tested, or exposed to VoiceOver. The inspector lists them dimmed with "Outside the crop ·
+  left out when submitting". The status line says how many, for example "Cropped to 1180 × 560
+  px. 2 annotations outside the crop are hidden."
+- Shapes that stick out of the crop are drawn clipped to the image, as they will be submitted.
+- Widening the crop again (Restore Original, then a larger crop) or undo brings hidden
+  annotations back unchanged, in any later session.
 
 **Crops within a session:**
 
 - Crops compose: a second crop is relative to the first.
-- **Restore Original** returns the image to its untouched original, even when it was cropped
-  in an earlier session, and maps the annotations back. It is undoable.
-- A crop stays undoable after it is saved. Each save rewrites the image file from the
-  session's base image, cropped by the current crop.
+- **Restore Original** returns to the whole capture and maps every annotation back exactly. It
+  is undoable.
 
-**Original files.** The first time a capture is ever cropped, its untouched file is kept as
-`originals/<filename>` in the draft. `originals/crops.json` (`OriginalsIndex`, `HS2-6PV1N3`)
-records the crop that produced the current file, relative to that original:
+**On disk** (`DraftEdits`, `<draft>/edits.json`):
 
 ```json
-{"crops": {"capture-1.png": {"height": 200, "width": 300, "x": 20, "y": 20}}, "version": 1}
+{"crops": {"capture-1.png": {"height": 200, "width": 300, "x": 20, "y": 20}}, "trims": {}, "version": 1}
 ```
 
-- **Later sessions.** When a session opens, an image with a trusted record uses the original
-  as its base, with the recorded crop already applied. This doesn't mark the editor dirty.
-  Restore Original, new crops (relative to the original), and undo then work exactly as within
-  one session. Each save updates the record. After a restore it records the full image.
-- **When a record is trusted:** the original exists, the crop lies inside it, and the current
-  file is exactly the crop's size. With no record, an original the same size as the file must
-  be identical, so it counts as a full-image record.
-- **Otherwise** (an original kept before crops were recorded, or an unreadable, mismatched, or
-  other-version index), the image is edited relative to the file as found. The button reads
-  **Reset Crop** and returns only to that file. Cropping such an image drops its unknown
-  record, and the original is never overwritten.
-- Neither `originals/` nor `crops.json` is ever attached to the ticket.
-- `media[].pixelWidth/Height` always describe the file as it is now.
+- The capture file is never rewritten while drafting. `review.json` keeps the file's own
+  `pixelWidth`/`pixelHeight`, with annotations in the file's coordinates (within 0…10000, so the
+  draft validates). `edits.json` records the crop relative to the file, by filename; it is
+  removed when nothing is cropped or trimmed.
+- **Later sessions** open with the crop applied (`EditProjection.editing`), without marking the
+  editor dirty. Saving maps back exactly. An annotation the reviewer didn't change keeps its
+  stored shape, so reopening and saving never drifts by rounding.
+- A record that doesn't fit its file (outside it, another version, unreadable) is ignored: the
+  capture shows uncropped.
+- **Submitting** applies the crop ([07-review-session.md](07-review-session.md) §7.5): a cropped
+  PNG is made in a staging folder, and annotations are clipped to it
+  (`EditProjection.clippedToMedia`: boxes are clipped, points pulled to the edge). Annotations
+  entirely outside are left out of the ticket only.
+- `edits.json` is never attached.
+
+**Drafts from before `HS2-71SSJG`** kept a cropped file, its untouched original as
+`originals/<filename>`, and the crop in `originals/crops.json` (`OriginalsIndex`, trusted only when
+the original exists, the crop lies inside it, and the file is exactly the crop's size). Opening
+or submitting such a draft converts it once (`ReviewDraftStore.migrateLegacyEdits`): the original
+goes back in place, annotations map back exactly, and the crop moves to `edits.json`. Untrusted
+records leave the file as it is (the original stays under `originals/`).
 
 ## 6.7 History and saving
 
@@ -599,43 +606,30 @@ after it.
 - **Limits:** the kept clip must be at least 100 ms. A trim to the whole clip does nothing.
   Trims are refused for images ("Only videos can be trimmed.").
 - **Annotations:** the clip's `durationMs` becomes the kept length. Ranges shift with the clip
-  and are clamped into it. Annotations whose range lies entirely outside it are **removed**
-  ("Trimmed to 2.5 s. Removed 1 annotation outside the trim."), and undo brings them back.
-  Whole-clip annotations stay whole-clip. The playhead stays on the same frame.
-- **Composing:** a second trim is relative to the first. **Restore Original** (Reset Trim for an
-  untrusted original, as with crops) returns to the full length and maps ranges back. It is
-  undoable.
-- **Validity:** every range stays within `durationMs`, so `timeRangeBeyondDuration` never fires
-  for an edited bundle.
+  **exactly**, never clamped (`HS2-71SSJG`). A range partly outside shows while the playhead is in
+  its kept part; one entirely outside is **hidden, not removed** ("Trimmed to 2.5 s. 1 annotation
+  outside the trim is hidden."), listed dimmed in the inspector, and comes back when the trim is
+  widened or restored. Whole-clip annotations stay whole-clip. The playhead stays on the same
+  frame.
+- **Composing:** a second trim is relative to the first. **Restore Original** returns to the full
+  length and maps ranges back exactly. It is undoable.
+- **Validity:** the draft's `review.json` keeps ranges in the movie's own time, within its
+  length. Submitting clamps them into the trimmed clip and leaves out the ones entirely outside.
 
 **Typing times.** Time fields accept `0:01.50`, `1:02.5`, `1:00:02` (hours), `1.5`, `1.5 s`, and
 `1500 ms` (`TimeFormat.parse`). Values after a colon must be below 60. Anything else beeps and
 the field reverts. After Return, focus goes back to the canvas, so its keys work again.
 
-**Files.** Saving a changed trim rewrites the movie:
+**Files.** A trim never rewrites the movie while drafting (`HS2-71SSJG`):
 
-- **Export:** `AVAssetExportSession` at the highest-quality preset writes the kept part from
-  the session's base movie to a temporary file, which then replaces the movie. Re-encoding makes
-  the cut frame-accurate instead of snapping to key frames. The container follows the file
-  extension (`.mov`, `.mp4`, `.m4v`).
-- **Audio:** the export keeps the movie's audio track (such as narration), so a trimmed video
-  keeps its `hasAudio` flag ([02-review-bundle.md](02-review-bundle.md) §2.2). Saving rewrites
-  only the media's size and `durationMs` in `review.json`.
-- **Restoring:** the full length is restored by copying the original back byte for byte.
-- **Originals:** the first trim keeps the untouched movie as `originals/<filename>`.
-  `originals/crops.json` records the trim and the original's length under `trims`:
-
-```json
-{"crops": {}, "trims": {"capture-2.mov": {"endMs": 900, "originalDurationMs": 1000, "startMs": 200}}, "version": 1}
-```
-
-- **Later sessions** start with that trim applied, without marking the editor dirty, and can
-  restore the original.
-- **When a record is trusted:** the original exists, the trim lies inside its recorded length,
-  and the clip's `durationMs` is exactly the trim's length. Unlike crops, there is no implicit
-  full-length record.
-- **Otherwise** the movie is edited relative to the file as found. Before the first rewrite,
-  the session copies that file to a temporary base. The existing original is never overwritten,
-  and its record is dropped.
-- **Indexes:** indexes without `trims` (from before this feature) still load. Indexes without
-  trims don't write the key.
+- `edits.json` records it under `trims` (ms of the movie, by filename; §6.6), and
+  `review.json` keeps the movie's own `durationMs` and ranges in its time. Frames and playback
+  come from the movie itself, offset by the trim.
+- **Submitting** exports the kept part to the staging folder
+  ([07-review-session.md](07-review-session.md) §7.5): `AVAssetExportSession` at the
+  highest-quality preset, re-encoded so the cut is frame-accurate instead of snapping to key
+  frames. The container follows the file extension (`.mov`, `.mp4`, `.m4v`). The export keeps
+  the audio track (such as narration), so the clip keeps its `hasAudio` flag
+  ([02-review-bundle.md](02-review-bundle.md) §2.2).
+- **Older drafts** trimmed in place (the original under `originals/` with a `trims` record in
+  `originals/crops.json`) convert on open, as crops do (§6.6).

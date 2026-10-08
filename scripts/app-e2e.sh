@@ -298,42 +298,43 @@ run annotate 0 -- --annotate "$TMP/script-annotate.json" --drafts-dir "$ADRAFTS"
 [[ "$(json "$adraft/review.json" 'j.annotations[4].shape.closed')" == false ]] || die "annotate: redo of open outline lost"
 ok "every shape drawn through the real editor, with notes, intents, undo/redo, and delete+undo"
 
-[[ "$(png_size "$shot")" == 300x200 ]] || die "annotate: cropped PNG is $(png_size "$shot")"
-[[ "$(json "$adraft/review.json" '`${j.media[0].pixelWidth}x${j.media[0].pixelHeight}`')" == 300x200 ]] || die "annotate: media size not updated"
-[[ "$(png_size "$adraft/originals/capture-1.png")" == "$original_size" ]] || die "annotate: original not kept"
+# HS2-71SSJG: a crop is recorded in edits.json; the PNG and review.json keep the whole capture.
+cp "$shot" "$TMP/shot-before-crop.png"
+cmp -s "$shot" "$TMP/shot-before-crop.png" || die "annotate: copy"
+[[ "$(png_size "$shot")" == "$original_size" ]] || die "annotate: the PNG was rewritten to $(png_size "$shot")"
+[[ ! -e "$adraft/originals" ]] || die "annotate: an originals folder was made"
+[[ "$(json "$adraft/edits.json" '`${j.crops["capture-1.png"].x},${j.crops["capture-1.png"].y},${j.crops["capture-1.png"].width}x${j.crops["capture-1.png"].height}`')" == "20,20,300x200" ]] \
+  || die "annotate: crop not recorded in edits.json"
+[[ "$(json "$adraft/review.json" '`${j.media[0].pixelWidth}x${j.media[0].pixelHeight}`')" == "$original_size" ]] || die "annotate: media size changed"
+[[ "$(json "$TMP/annotate.json" '`${j.media[0].pixelWidth}x${j.media[0].pixelHeight}`')" == 300x200 ]] || die "annotate: the editor is not cropped"
 json "$TMP/annotate.json" 'j.messages.join("|")' | grep -q "Cropped to 300 × 200 px" || die "annotate: crop message"
 json "$TMP/annotate.json" 'j.messages.join("|")' | grep -q "Videos can't be cropped" || die "annotate: video crop not refused"
 [[ "$(json "$adraft/review.json" 'j.media[1].kind + ":" + j.annotations[5].mediaId')" == video:m2 ]] || die "annotate: video annotation"
 validate_bundle "$adraft/review.json"
-ok "crop rewrote the PNG to 300x200 and kept the $original_size original; video refused crop; review.json validates"
+ok "crop recorded in edits.json (20,20 300x200); the $original_size PNG and review.json are untouched; video refused crop; review.json validates"
 
 [[ "$(png_size "$TMP/annotated/capture-1-annotated.png")" == 300x200 ]] || die "annotate: render size"
 [[ -s "$TMP/annotated/capture-2-annotated.png" ]] || die "annotate: video poster render missing"
-ok "--render-dir draws the annotated image and the video's poster frame"
+ok "--render-dir draws the cropped image with its annotations and the video's poster frame"
 
 # Reopening continues from the saved state: undo history is per session, so undo does nothing.
 echo '{"steps": [{"op": "undo"}, {"op": "select", "id": "#1"}, {"op": "nudge", "dx": 5, "dy": 0}]}' >"$TMP/script-annotate2.json"
 run annotate-again 0 -- --annotate "$TMP/script-annotate2.json" --drafts-dir "$ADRAFTS"
 [[ "$(json "$TMP/annotate-again.json" j.annotations.length)" == 6 ]] || die "annotate: reopen lost annotations"
-[[ "$(png_size "$shot")" == 300x200 ]] || die "annotate: reopen changed the crop"
-ok "a second session reopens the saved draft and edits it"
+[[ "$(json "$TMP/annotate-again.json" '`${j.media[0].pixelWidth}x${j.media[0].pixelHeight}`')" == 300x200 ]] || die "annotate: reopen lost the crop"
+ok "a second session reopens the saved draft, still cropped, and edits it"
 
-# HS2-6PV1N3: the crop is recorded next to the original, so a later session can restore it.
-[[ "$(json "$adraft/originals/crops.json" '`${j.crops["capture-1.png"].x},${j.crops["capture-1.png"].y},${j.crops["capture-1.png"].width}x${j.crops["capture-1.png"].height}`')" == "20,20,300x200" ]] \
-  || die "restore: crop not recorded in originals/crops.json"
-before_restore="$(json "$adraft/review.json" 'JSON.stringify(j.annotations[0].shape)')"
+before_restore="$(json "$adraft/review.json" 'JSON.stringify(j.annotations.map(a => a.shape))')"
 echo '{"steps": [{"op": "media", "media": "m1"}, {"op": "restore-original"}]}' >"$TMP/script-restore.json"
 run annotate-restore 0 -- --annotate "$TMP/script-restore.json" --drafts-dir "$ADRAFTS"
-[[ "$(png_size "$shot")" == "$original_size" ]] || die "restore: PNG is $(png_size "$shot"), expected $original_size"
-sips -s format bmp "$shot" --out "$TMP/restored.bmp" >/dev/null && sips -s format bmp "$adraft/originals/capture-1.png" --out "$TMP/original.bmp" >/dev/null
-cmp -s "$TMP/restored.bmp" "$TMP/original.bmp" || die "restore: pixels differ from the original"
-[[ "$(json "$adraft/review.json" '`${j.media[0].pixelWidth}x${j.media[0].pixelHeight}`')" == "$original_size" ]] || die "restore: media size"
-[[ "$(json "$adraft/review.json" 'JSON.stringify(j.annotations[0].shape)')" != "$before_restore" ]] || die "restore: annotations not mapped back"
-[[ "$(json "$adraft/review.json" j.annotations.length)" == 6 ]] || die "restore: annotations lost"
+cmp -s "$shot" "$TMP/shot-before-crop.png" || die "restore: the PNG changed"
+[[ ! -e "$adraft/edits.json" ]] || die "restore: edits.json still records a crop"
+[[ "$(json "$adraft/review.json" 'JSON.stringify(j.annotations.map(a => a.shape))')" == "$before_restore" ]] || die "restore: annotations moved"
+[[ "$(json "$TMP/annotate-restore.json" '`${j.media[0].pixelWidth}x${j.media[0].pixelHeight}`')" == "$original_size" ]] || die "restore: editor size"
 validate_bundle "$adraft/review.json"
-ok "a third session restores the $original_size original from the earlier crop, pixel for pixel, with annotations mapped back"
+ok "a third session restores the $original_size original: edits.json is gone and every annotation stays exactly where it was"
 
-# HS2-GBM8JN: trim the recorded clip and give its annotation a time range.
+# HS2-GBM8JN + HS2-71SSJG: trim the recorded clip; the movie is never rewritten while drafting.
 clip="$adraft/capture-2.mov"
 clip_ms="$(json "$adraft/review.json" j.media[1].durationMs)"
 cp "$clip" "$TMP/clip-before-trim.mov"
@@ -347,29 +348,31 @@ cat >"$TMP/script-trim.json" <<'JSON'
 ]}
 JSON
 run annotate-trim 0 -- --annotate "$TMP/script-trim.json" --drafts-dir "$ADRAFTS" --render-dir "$TMP/trimmed"
-[[ "$(json "$adraft/review.json" j.media[1].durationMs)" == 700 ]] || die "trim: durationMs $(json "$adraft/review.json" j.media[1].durationMs)"
-[[ "$(json "$TMP/annotate-trim.json" 'j.annotations.map(a => a.timeRange ? a.timeRange.startMs + "-" + a.timeRange.endMs : "all").join(",")')" == "all,all,all,all,all,100-400" ]] \
-  || die "trim: ranges $(json "$TMP/annotate-trim.json" 'JSON.stringify(j.annotations.map(a => a.timeRange))')"
-json "$TMP/annotate-trim.json" 'j.messages.join("|")' | grep -q "Trimmed to 0.7 s. Removed 1 annotation outside the trim." || die "trim: message"
-cmp -s "$adraft/originals/capture-2.mov" "$TMP/clip-before-trim.mov" || die "trim: original not kept byte for byte"
-[[ "$(json "$adraft/originals/crops.json" '`${j.trims["capture-2.mov"].startMs}-${j.trims["capture-2.mov"].endMs}/${j.trims["capture-2.mov"].originalDurationMs}`')" == "200-900/$clip_ms" ]] \
-  || die "trim: not recorded in originals/crops.json"
-if command -v ffprobe >/dev/null; then
-  secs="$(ffprobe -v error -show_entries format=duration -of csv=p=0 "$clip")"
-  node -e "process.exit(Math.abs(parseFloat('$secs') - 0.7) <= 0.11 ? 0 : 1)" || die "trim: ffprobe duration $secs"
-  ok "trim: the movie file is now $secs s (ffprobe)"
-fi
+[[ "$(json "$TMP/annotate-trim.json" j.media[1].durationMs)" == 700 ]] || die "trim: the editor clip is $(json "$TMP/annotate-trim.json" j.media[1].durationMs) ms"
+[[ "$(json "$adraft/review.json" j.media[1].durationMs)" == "$clip_ms" ]] || die "trim: review.json duration changed"
+[[ "$(json "$TMP/annotate-trim.json" 'j.annotations.map(a => (a.timeRange ? a.timeRange.startMs + "-" + a.timeRange.endMs : "all") + (a.outside ? "!" : "")).join(",")')" == "all,all,all,all,all,100-400,-180--150!" ]] \
+  || die "trim: ranges $(json "$TMP/annotate-trim.json" 'JSON.stringify(j.annotations.map(a => [a.timeRange, a.outside]))')"
+[[ "$(json "$adraft/review.json" 'j.annotations[5].timeRange.startMs + "-" + j.annotations[5].timeRange.endMs + "," + j.annotations[6].timeRange.startMs + "-" + j.annotations[6].timeRange.endMs')" == "300-600,20-50" ]] \
+  || die "trim: review.json ranges are not in the movie's own time"
+json "$TMP/annotate-trim.json" 'j.messages.join("|")' | grep -q "Trimmed to 0.7 s. 1 annotation outside the trim is hidden." || die "trim: message"
+cmp -s "$clip" "$TMP/clip-before-trim.mov" || die "trim: the movie was rewritten"
+[[ "$(json "$adraft/edits.json" '`${j.trims["capture-2.mov"].startMs}-${j.trims["capture-2.mov"].endMs}`')" == "200-900" ]] \
+  || die "trim: not recorded in edits.json"
 [[ -s "$TMP/trimmed/capture-2-annotated.png" ]] || die "trim: render missing"
 validate_bundle "$adraft/review.json"
-ok "trimmed the clip to 700 ms: ranges shifted and clamped, out-of-range annotation removed, original kept, review.json validates"
+ok "trimmed to 700 ms in edits.json: the movie is untouched, ranges shift exactly, the one outside is hidden but kept, review.json validates"
 
 echo '{"steps": [{"op": "media", "media": "m2"}, {"op": "restore-original"}]}' >"$TMP/script-untrim.json"
 run annotate-untrim 0 -- --annotate "$TMP/script-untrim.json" --drafts-dir "$ADRAFTS"
 cmp -s "$clip" "$TMP/clip-before-trim.mov" || die "untrim: movie differs from the original"
-[[ "$(json "$adraft/review.json" j.media[1].durationMs)" == "$clip_ms" ]] || die "untrim: durationMs"
-[[ "$(json "$adraft/review.json" 'j.annotations[5].timeRange.startMs + "-" + j.annotations[5].timeRange.endMs')" == "300-600" ]] || die "untrim: range not mapped back"
+[[ ! -e "$adraft/edits.json" ]] || die "untrim: edits.json still records a trim"
+[[ "$(json "$TMP/annotate-untrim.json" 'j.annotations.map(a => a.outside).some(x => x)')" == false ]] || die "untrim: something is still outside"
+[[ "$(json "$adraft/review.json" 'j.annotations[5].timeRange.startMs + "-" + j.annotations[5].timeRange.endMs')" == "300-600" ]] || die "untrim: range changed"
 validate_bundle "$adraft/review.json"
-ok "a later session restores the untrimmed movie byte for byte, with time ranges mapped back"
+ok "a later session restores the whole movie: nothing was rewritten and the hidden annotation is back"
+# Drop the extra insertion so the later timeline checks see the six annotations they expect.
+echo '{"steps": [{"op": "media", "media": "m2"}, {"op": "select", "id": "#7"}, {"op": "delete"}]}' >"$TMP/script-drop7.json"
+run annotate-drop7 0 -- --annotate "$TMP/script-drop7.json" --drafts-dir "$ADRAFTS"
 
 echo '{"steps": [{"op": "media", "media": "m1"}, {"op": "time", "ms": 5}]}' >"$TMP/script-time-image.json"
 run annotate-time-image 2 -- --annotate "$TMP/script-time-image.json" --drafts-dir "$ADRAFTS"
@@ -525,9 +528,11 @@ run submit-clip 0 "${SYN[@]}" -- --capture video --narration --target region --r
 [[ "$(json "$TMP/submit-clip.json" j.media.hasAudio)" == true ]] || die "submit: the narrated clip is not marked hasAudio"
 sdraft="$(json "$TMP/submit-shot.json" j.draftDirectory)"
 [[ "$(json "$TMP/submit-clip.json" j.draftDirectory)" == "$sdraft" ]] || die "submit: captures went to different drafts"
-echo '{"steps": [{"op": "tool", "tool": "rect"}, {"op": "drag", "points": [[30, 30], [150, 90]]}, {"op": "note", "text": "Clipped label"}, {"op": "intent", "intent": "bug"}, {"op": "media", "media": "m2"}, {"op": "tool", "tool": "insertion"}, {"op": "drag", "points": [[50, 40]]}, {"op": "note", "text": "Add a hint"}]}' >"$TMP/script-submit.json"
+echo '{"steps": [{"op": "tool", "tool": "rect"}, {"op": "drag", "points": [[30, 30], [150, 90]]}, {"op": "note", "text": "Clipped label"}, {"op": "intent", "intent": "bug"}, {"op": "media", "media": "m2"}, {"op": "tool", "tool": "insertion"}, {"op": "drag", "points": [[50, 40]]}, {"op": "note", "text": "Add a hint"}, {"op": "media", "media": "m1"}, {"op": "tool", "tool": "rect"}, {"op": "drag", "points": [[300, 200], [380, 240]]}, {"op": "crop", "rect": [0, 0, 200, 120]}, {"op": "media", "media": "m2"}, {"op": "trim", "start": 0, "end": 800}]}' >"$TMP/script-submit.json"
 run submit-annotate 0 -- --annotate "$TMP/script-submit.json" --drafts-dir "$SDRAFTS"
-ok "a two-capture session (screenshot + video) with an annotation on each"
+shot_size="$(png_size "$sdraft/capture-1.png")"
+[[ "$shot_size" != 200x120 ]] || die "submit: the draft PNG was cropped before submitting"
+ok "a two-capture session (screenshot + video) with an annotation on each, the screenshot cropped to 200x120 (plus one annotation outside the crop) and the clip trimmed to 0.8 s"
 
 run submit-noproject 3 -- --submit --drafts-dir "$SDRAFTS" --project "$TMP/noproj"
 [[ "$(json "$TMP/submit-noproject.json" j.error)" == hotSheetUnavailable ]] || die "submit: no-store error"
@@ -557,7 +562,7 @@ json "$TMP/submit-flaky.json" j.message | grep -q "the store is locked" || die "
 
 run submit 0 HOTSHEET_CLI="$TMP/flaky-cli" -- --submit "${SUB[@]}"
 [[ "$(json "$TMP/submit.json" j.slug)" == "$slug" ]] || die "submit: retry created another ticket"
-[[ "$(json "$TMP/submit.json" '`${j.mediaCount}/${j.annotationCount}/${j.draftRemoved}`')" == "2/2/true" ]] || die "submit: counts"
+[[ "$(json "$TMP/submit.json" '`${j.mediaCount}/${j.annotationCount}/${j.draftRemoved}`')" == "2/2/true" ]] || die "submit: counts (the annotation outside the crop is left out)"
 [[ ! -e "$sdraft" ]] || die "submit: the submitted draft was not deleted"
 [[ -f "$(json "$TMP/submit.json" j.ticketFile)" ]] || die "submit: no ticket file"
 hs -C "$TMP/subproj.hs2" show "$slug" >"$TMP/submitted-ticket.md"
@@ -572,6 +577,19 @@ run submit-again 2 -- --submit "${SUB[@]}"
 [[ "$(json "$TMP/submit-again.json" j.error)" == noDraft ]] || die "submit: the filed draft is still current"
 grep -F "\`attachment:capture-2.mov\` (video," "$TMP/submitted-ticket.md" | grep -qF "with audio)" \
   || die "submit: the narrated clip's media line does not say 'with audio'"
+# HS2-71SSJG: the crop and trim were applied only now, to what Hot Sheet received.
+filed_png="$(find "$TMP/subproj.hs2" -path '*attachments*' -name capture-1.png | head -1)"
+filed_mov="$(find "$TMP/subproj.hs2" -path '*attachments*' -name capture-2.mov | head -1)"
+filed_json="$(find "$TMP/subproj.hs2" -path '*attachments*' -name review.json | head -1)"
+[[ -n "$filed_png" && "$(png_size "$filed_png")" == 200x120 ]] || die "submit: the filed PNG is not the crop ($(png_size "$filed_png"))"
+[[ "$(json "$filed_json" '`${j.media[0].pixelWidth}x${j.media[0].pixelHeight}/${j.media[1].durationMs}/${j.annotations.length}`')" == "200x120/800/2" ]] \
+  || die "submit: filed review.json $(json "$filed_json" '`${j.media[0].pixelWidth}x${j.media[0].pixelHeight}/${j.media[1].durationMs}/${j.annotations.length}`')"
+validate_bundle "$filed_json"
+if command -v ffprobe >/dev/null; then
+  secs="$(ffprobe -v error -show_entries format=duration -of csv=p=0 "$filed_mov")"
+  node -e "process.exit(Math.abs(parseFloat('$secs') - 0.8) <= 0.11 ? 0 : 1)" || die "submit: filed clip is $secs s"
+fi
+ok "the ticket received the 200x120 crop and the 0.8 s clip, with the annotation outside the crop left out; review.json validates"
 ok "attach failure keeps the draft (exit 5, ticket named); retry attaches to the same ticket; the draft is deleted; ticket has both captures (the narrated one marked with audio), the summary, and review.json"
 
 # HS2-2QP0GM: a capture removed by the review session leaves an open editor consistent.

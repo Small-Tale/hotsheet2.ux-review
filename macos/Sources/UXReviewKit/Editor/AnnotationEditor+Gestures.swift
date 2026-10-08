@@ -16,7 +16,7 @@ public extension AnnotationEditor {
         switch tool {
         case .select:
             if let selected = selectedAnnotation, selected.mediaId == item.id, selected.isVisible(atMs: currentTimeMs),
-               let handle = handle(of: selected.shape, at: start, in: frame) {
+               !isOutsideEdit(selected), let handle = handle(of: selected.shape, at: start, in: frame) {
                 gestureBase = snapshot
                 gesture = .resizing(annotationId: selected.id, handle: handle, origin: selected.shape)
             } else if let hit = hitTest(start) {
@@ -171,7 +171,7 @@ public extension AnnotationEditor {
         guard let item = currentMedia else { return nil }
         let frame = MediaFrame(item)
         let candidates = annotations(on: item.id).enumerated().compactMap { index, annotation -> (Annotation, Double, Int)? in
-            guard annotation.isVisible(atMs: currentTimeMs) else { return nil }
+            guard annotation.isVisible(atMs: currentTimeMs), !isOutsideEdit(annotation) else { return nil }
             return annotation.shape.hitDistance(point, in: frame, tolerance: hitTolerance).map { (annotation, $0, index) }
         }
         return candidates.min { lhs, rhs in
@@ -185,8 +185,9 @@ public extension AnnotationEditor {
     // MARK: Crop
 
     /// Crops the current image to `rect` (media pixels, snapped outward to whole pixels).
-    /// Annotations move with the image; those left entirely outside are removed (undo brings
-    /// them back). Returns false, with a message, when the crop is refused.
+    /// Annotations move with the image exactly; those left outside are hidden, not removed, and
+    /// come back when the crop is widened or restored. The file itself is cropped only when the
+    /// review is submitted (`HS2-71SSJG`). Returns false, with a message, when the crop is refused.
     @discardableResult
     mutating func crop(to rect: CGRect) -> Bool {
         guard let item = currentMedia else { return false }
@@ -201,32 +202,22 @@ public extension AnnotationEditor {
             return false
         }
         guard pixels != Self.size(of: item) else { return false }
-        let frame = MediaFrame(item)
-        var removed = 0
+        let current = Self.size(of: item)
         let changed = perform { snapshot in
-            let previous = snapshot.document.crops[item.id] ?? Self.size(of: item)
+            let previous = snapshot.document.crops[item.id] ?? current
             snapshot.document.crops[item.id] = PixelRect(
                 x: previous.x + pixels.x, y: previous.y + pixels.y, width: pixels.width, height: pixels.height
             )
             snapshot.document.bundle.resize(item.id, width: pixels.width, height: pixels.height)
-            snapshot.document.bundle.annotations = snapshot.document.bundle.annotations.compactMap { annotation in
-                guard annotation.mediaId == item.id else { return annotation }
-                guard let shape = ImageCrop.transform(annotation.shape, from: frame, crop: pixels) else {
-                    removed += 1
-                    return nil
-                }
-                var moved = annotation
-                moved.shape = shape
-                return moved
-            }
-            if let selected = snapshot.selection, !snapshot.document.bundle.annotations.contains(where: { $0.id == selected }) {
-                snapshot.selection = nil
+            for index in snapshot.document.bundle.annotations.indices where snapshot.document.bundle.annotations[index].mediaId == item.id {
+                let shape = snapshot.document.bundle.annotations[index].shape
+                snapshot.document.bundle.annotations[index].shape = EditProjection.shape(shape, into: pixels, of: current)
             }
             return true
         }
         guard changed else { return false }
-        message = "Cropped to \(pixels.width) × \(pixels.height) px."
-            + (removed > 0 ? " Removed \(removed) annotation\(removed == 1 ? "" : "s") outside the crop." : "")
+        if let selected = selection, let annotation = annotation(selected), isOutsideEdit(annotation) { selection = nil }
+        message = "Cropped to \(pixels.width) × \(pixels.height) px." + outsideNote(item.id, "crop")
         tool = .select
         return true
     }
@@ -236,22 +227,28 @@ public extension AnnotationEditor {
     @discardableResult
     mutating func resetCrop() -> Bool {
         guard let item = currentMedia, let crop = document.crops[item.id], let original = originalSizes[item.id] else { return false }
-        let frame = MediaFrame(item)
-        let full = MediaFrame(width: Double(original.width), height: Double(original.height))
         return perform { snapshot in
             snapshot.document.crops[item.id] = nil
             snapshot.document.bundle.resize(item.id, width: original.width, height: original.height)
             for index in snapshot.document.bundle.annotations.indices where snapshot.document.bundle.annotations[index].mediaId == item.id {
-                snapshot.document.bundle.annotations[index].shape = snapshot.document.bundle.annotations[index].shape.mapPoints { point in
-                    let pixel = frame.pixel(point)
-                    return full.norm(CGPoint(x: pixel.x + Double(crop.x), y: pixel.y + Double(crop.y)))
-                }
+                let shape = snapshot.document.bundle.annotations[index].shape
+                snapshot.document.bundle.annotations[index].shape = EditProjection.shape(shape, outOf: crop, to: original)
             }
             return true
         }
     }
 
     // MARK: Helpers
+
+    /// " 2 annotations outside the crop are hidden.", or "" when none are. They stay in the
+    /// draft; the inspector says they are left out when submitting.
+    func outsideNote(_ mediaId: String, _ noun: String) -> String {
+        switch outsideCount(on: mediaId) {
+        case 0: ""
+        case 1: " 1 annotation outside the \(noun) is hidden."
+        case let count: " \(count) annotations outside the \(noun) are hidden."
+        }
+    }
 
     internal func clamp(_ point: CGPoint, _ frame: MediaFrame) -> CGPoint {
         CGPoint(x: min(max(point.x, 0), frame.width), y: min(max(point.y, 0), frame.height))

@@ -69,6 +69,9 @@ final class FakeHotSheetClient: HotSheetClient, @unchecked Sendable {
     var createError: Error?
     /// Thrown by the next attaches (each failure consumes one entry), like a CLI failure.
     var attachErrors: [Error] = []
+    /// Called with the files of each successful attach while they still exist (staged media is
+    /// removed after submitting), so tests can read what Hot Sheet would receive.
+    var inspectAttached: (([URL]) throws -> Void)?
     /// Number tickets so duplicates are visible (`HS-TEST01`, `HS-TEST02`, …).
     var numbered = false
 
@@ -80,6 +83,7 @@ final class FakeHotSheetClient: HotSheetClient, @unchecked Sendable {
 
     func attach(files: [URL], to slug: String, batchLabel: String?, purpose: String?) throws {
         if !attachErrors.isEmpty { throw attachErrors.removeFirst() }
+        try inspectAttached?(files)
         attached.append((files, slug, batchLabel, purpose))
     }
 }

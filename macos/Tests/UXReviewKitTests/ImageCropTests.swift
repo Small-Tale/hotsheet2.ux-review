@@ -62,7 +62,9 @@ struct ImageCropTests {
         #expect(ImageCrop.transform(outside, from: frame, crop: crop) == nil)
     }
 
-    @Test func croppingInTheEditorMovesAnnotationsAndRemovesOutsiders() {
+    /// HS2-71SSJG: a crop maps annotations exactly and hides the ones outside instead of
+    /// removing them; restoring or undoing brings them back unchanged.
+    @Test func croppingInTheEditorMovesAnnotationsAndHidesOutsiders() {
         var editor = Fixture.editor()
         Fixture.draw(&editor, .rect, [Fixture.p(200, 150), Fixture.p(300, 200)]) // inside
         Fixture.draw(&editor, .insertion, [Fixture.p(900, 450)]) // outside
@@ -71,10 +73,20 @@ struct ImageCropTests {
         #expect(editor.tool == .select)
         #expect(editor.currentMedia?.pixelWidth == 500 && editor.currentMedia?.pixelHeight == 250)
         #expect(editor.document.crops["m1"] == crop)
-        #expect(editor.bundle.annotations.map(\.shape) == [.rect(NormRect(x: 2000, y: 2000, width: 2000, height: 2000))])
-        #expect(editor.selection == nil) // the selected insertion was cropped away
-        #expect(editor.message == "Cropped to 500 × 250 px. Removed 1 annotation outside the crop.")
-        #expect(editor.bundle.validate().isEmpty)
+        #expect(editor.bundle.annotations.map(\.shape) == [
+            .rect(NormRect(x: 2000, y: 2000, width: 2000, height: 2000)),
+            .insertion(NormPoint(x: 16000, y: 14000)), // kept, beyond the crop
+        ])
+        #expect(editor.isOutsideEdit(editor.bundle.annotations[1]))
+        #expect(editor.visibleAnnotations(on: "m1").map(\.id) == ["a1"])
+        #expect(editor.hitTest(Fixture.p(499, 249)) == nil)
+        #expect(editor.selection == nil) // the selected insertion is now outside the crop
+        #expect(
+            editor.message == "Cropped to 500 × 250 px. 1 annotation outside the crop is hidden."
+        )
+        // What would be submitted leaves it out and is valid.
+        #expect(editor.submissionBundle.annotations.map(\.id) == ["a1"])
+        #expect(editor.submissionBundle.validate().isEmpty)
 
         // A second crop composes with the first, relative to the original image.
         let cropped = editor.crop(to: CGRect(x: 50, y: 25, width: 200, height: 100))
@@ -86,10 +98,18 @@ struct ImageCropTests {
         editor.undo()
         #expect(editor.document.crops["m1"] == nil)
         #expect(editor.currentMedia?.pixelWidth == 1000)
-        #expect(editor.bundle.annotations.count == 2) // the removed one is back
+        #expect(editor.bundle.annotations.map(\.shape).last == .insertion(MediaFrame(width: 1000, height: 500).norm(Fixture.p(900, 450))))
         editor.redo()
         editor.redo()
         #expect(editor.document.crops["m1"] == PixelRect(x: 150, y: 125, width: 200, height: 100))
+        // Restore Original after two crops: every annotation is back exactly where it was drawn.
+        let restored = editor.restoreOriginal()
+        #expect(restored)
+        #expect(editor.bundle.annotations.map(\.shape) == [
+            .rect(MediaFrame(width: 1000, height: 500).norm(CGRect(x: 200, y: 150, width: 100, height: 50))),
+            .insertion(MediaFrame(width: 1000, height: 500).norm(Fixture.p(900, 450))),
+        ])
+        #expect(editor.visibleAnnotations(on: "m1").count == 2)
     }
 
     @Test func refusedCropsChangeNothing() {

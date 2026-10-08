@@ -86,7 +86,9 @@ extension EncodingTests {
             #expect(try Self.color(session.displayImage("m1")) == "blue", "the clip's end shows its last frame")
         }
 
-        @Test func trimWritesTheClipKeepsTheOriginalAndReopensRestorable() async throws {
+        /// HS2-71SSJG: a trim is recorded in edits.json and the movie is never rewritten; only
+        /// submitting exports the trimmed clip, with ranges in its time.
+        @Test func trimIsRecordedNotAppliedAndSubmissionStagesTheClip() async throws {
             let fixture = try await Fixture()
             let originalBytes = try Data(contentsOf: fixture.movieURL)
             let originalDuration = try #require(fixture.onDisk().media[0].durationMs)
@@ -99,32 +101,41 @@ extension EncodingTests {
             let kept = originalDuration - 1000
             try session.save()
 
-            // The file is the trimmed clip (blue only), review.json agrees, and the original is kept.
+            // The file and review.json keep the whole movie; edits.json has the trim.
             let disk = try fixture.onDisk()
             #expect(disk.validate().isEmpty)
-            #expect(disk.media[0].durationMs == kept)
-            #expect(disk.annotations[0].timeRange == TimeRange(startMs: 200, endMs: 800))
-            let length1 = try await Self.duration(fixture.movieURL)
-            #expect(abs(length1 - kept) <= 110, "within a frame")
-            #expect(try Data(contentsOf: fixture.originalURL) == originalBytes)
+            #expect(disk.media[0].durationMs == originalDuration)
+            #expect(disk.annotations[0].timeRange == TimeRange(startMs: 1200, endMs: 1800))
+            #expect(try Data(contentsOf: fixture.movieURL) == originalBytes)
             #expect(
-                OriginalsIndex.load(from: fixture.originalURL.deletingLastPathComponent()).trims["capture-1.mov"]
-                    == TrimRecord(startMs: 1000, endMs: originalDuration, originalDurationMs: originalDuration)
+                DraftEdits.load(from: fixture.draft.directory)
+                    .trims == ["capture-1.mov": TimeRange(startMs: 1000, endMs: originalDuration)]
             )
             #expect(try Self.color(session.displayImage("m1", atMs: 0)) == "blue")
+
+            // Submitting stages the trimmed clip (blue only) and the ranges in its time.
+            let staged = try SubmissionStaging.prepare(fixture.store.load(fixture.draft.directory))
+            let stagedMovie = staged.mediaDirectory.appendingPathComponent("capture-1.mov")
+            let length1 = try await Self.duration(stagedMovie)
+            #expect(abs(length1 - kept) <= 110, "within a frame")
+            #expect(staged.bundle.media[0].durationMs == kept)
+            #expect(staged.bundle.annotations[0].timeRange == TimeRange(startMs: 200, endMs: 800))
+            #expect(staged.bundle.validate().isEmpty)
+            staged.cleanUp()
+            #expect(!FileManager.default.fileExists(atPath: staged.mediaDirectory.path))
 
             // A new session starts trimmed (not dirty), shows the clip, and restores the original.
             let reopened = try fixture.session()
             #expect(!reopened.editor.isDirty && reopened.editor.canRestoreOriginal)
             #expect(reopened.editor.document.trims["m1"] == TimeRange(startMs: 1000, endMs: originalDuration))
+            #expect(reopened.editor.annotation("a1")?.timeRange == TimeRange(startMs: 200, endMs: 800))
             #expect(try Self.color(reopened.displayImage("m1", atMs: 0)) == "blue")
             let done3 = reopened.editor.restoreOriginal()
             #expect(done3)
             #expect(reopened.editor.annotation("a1")?.timeRange == TimeRange(startMs: 1200, endMs: 1800))
             try reopened.save()
-            #expect(try Data(contentsOf: fixture.movieURL) == originalBytes, "restored byte for byte")
-            #expect(try fixture.onDisk().media[0].durationMs == originalDuration)
-            #expect(try fixture.onDisk().validate().isEmpty)
+            #expect(DraftEdits.load(from: fixture.draft.directory).isEmpty)
+            #expect(try Data(contentsOf: fixture.movieURL) == originalBytes)
             #expect(try Self.color(reopened.displayImage("m1", atMs: 0)) == "red")
         }
 
@@ -139,22 +150,23 @@ extension EncodingTests {
             session.editor.undo()
             try session.save()
             #expect(try fixture.onDisk().media[0].durationMs == full)
-            let length2 = try await Self.duration(fixture.movieURL)
-            #expect(abs(length2 - full) <= 110)
+            #expect(DraftEdits.load(from: fixture.draft.directory).isEmpty)
             session.editor.redo()
             session.editor.setCurrentTime(500)
             let trimmed = session.editor.trimStartToPlayhead() // 500…1000 of the original
             #expect(trimmed)
             try session.save()
-            #expect(session.editor.document.trims["m1"] == TimeRange(startMs: 500, endMs: 1000))
-            let length3 = try await Self.duration(fixture.movieURL)
+            #expect(DraftEdits.load(from: fixture.draft.directory).trims["capture-1.mov"] == TimeRange(startMs: 500, endMs: 1000))
+            let staged = try SubmissionStaging.prepare(fixture.store.load(fixture.draft.directory))
+            defer { staged.cleanUp() }
+            let length3 = try await Self.duration(staged.mediaDirectory.appendingPathComponent("capture-1.mov"))
             #expect(abs(length3 - 500) <= 110)
-            #expect(try fixture.onDisk().validate().isEmpty)
+            #expect(staged.bundle.validate().isEmpty)
         }
 
+        /// A kept original with no trim record (a legacy draft, or copied by hand) is left alone.
         @Test func anUntrustedOriginalIsNeverOverwritten() async throws {
             let fixture = try await Fixture()
-            // An original with no trim record (for example, copied by hand).
             try FileManager.default.createDirectory(at: fixture.originalURL.deletingLastPathComponent(), withIntermediateDirectories: true)
             try Data("not a movie".utf8).write(to: fixture.originalURL)
             let session = try fixture.session()
@@ -163,11 +175,10 @@ extension EncodingTests {
             #expect(done5)
             try session.save()
             #expect(try Self.color(session.displayImage("m1", atMs: 0)) == "blue")
-            session.editor.undo() // back to the file as this session found it
+            session.editor.undo()
             try session.save()
             #expect(try Self.color(session.displayImage("m1", atMs: 0)) == "red")
             #expect(try Data(contentsOf: fixture.originalURL) == Data("not a movie".utf8))
-            #expect(OriginalsIndex.load(from: fixture.originalURL.deletingLastPathComponent()).trims.isEmpty)
         }
 
         @Test func scriptDrivesTimeRangesAndTrims() async throws {
@@ -185,19 +196,24 @@ extension EncodingTests {
             ]}
             """.utf8))
             let messages = try script.run(on: session)
-            #expect(messages.contains("Trimmed to 0.9 s. Removed 1 annotation outside the trim."))
+            #expect(messages.contains(
+                "Trimmed to 0.9 s. 1 annotation outside the trim is hidden."
+            ))
             let disk = try fixture.onDisk()
-            #expect(disk.annotations.map(\.id) == ["a1"])
-            #expect(disk.annotations[0].timeRange == nil)
-            #expect(disk.media[0].durationMs == 900)
+            #expect(disk.annotations.map(\.id) == ["a1", "a2"], "the strike outside the trim is kept in the draft")
+            #expect(disk.annotations[0].timeRange == nil && disk.annotations[1].timeRange == TimeRange(startMs: 100, endMs: 300))
             #expect(disk.validate().isEmpty)
+            let submitted = try SubmissionStaging.prepare(fixture.store.load(fixture.draft.directory))
+            defer { submitted.cleanUp() }
+            #expect(submitted.bundle.annotations.map(\.id) == ["a1"] && submitted.dropped == ["a2"])
+            #expect(submitted.bundle.media[0].durationMs == 900)
 
             let bad = try EditorScript.parse(Data(#"{"steps": [{"op": "select"}, {"op": "range", "start": 0, "end": 10}]}"#.utf8))
             #expect(throws: EditorScriptError.failed(step: 1, "nothing selected")) { try bad.run(on: session) }
         }
 
         /// ← / → (HS2-8FTZ09) end to end: the session reads the movie's 10 fps, and scripted arrow
-        /// keys step the scrubber, then the trim end, frame by frame; the trim is exported on save.
+        /// keys step the scrubber, then the trim end, frame by frame; the trim is exported when submitting.
         @Test func arrowKeysStepFramesOfTheRealMovie() async throws {
             let fixture = try await Fixture()
             let session = try fixture.session()
@@ -215,8 +231,10 @@ extension EncodingTests {
             let messages = try script.run(on: session)
             #expect(messages.last == "Trimmed to 0.9 s.")
             #expect(session.editor.currentTimeMs == 900, "the playhead shows the new end")
-            #expect(try fixture.onDisk().media[0].durationMs == 900)
-            let length = try await Self.duration(fixture.movieURL)
+            #expect(DraftEdits.load(from: fixture.draft.directory).trims["capture-1.mov"] == TimeRange(startMs: 0, endMs: 900))
+            let staged = try SubmissionStaging.prepare(fixture.store.load(fixture.draft.directory))
+            defer { staged.cleanUp() }
+            let length = try await Self.duration(staged.mediaDirectory.appendingPathComponent("capture-1.mov"))
             #expect(abs(length - 900) <= 50, "exported \(length) ms")
             #expect(try Self.color(session.displayImage(id, atMs: 850)) == "red", "frames 0…8 are red")
 

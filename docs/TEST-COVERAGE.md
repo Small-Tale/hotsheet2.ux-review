@@ -321,8 +321,8 @@ Each feature gets both unit tests and end-to-end tests. Tests live in
   - a third `--annotate` session runs `restore-original`: the PNG is back to the original size
     and pixel-identical (BMP compare), the media size is updated, annotations are mapped back,
     and the schema validates
-- **Not covered automatically:** the tool bar button's label switch (Restore Original / Reset
-  Crop), a one-line view over `EditorSession.resetRestoresOriginal`, which is unit-tested.
+- (The Reset Crop / Reset Trim label variant was removed by `HS2-71SSJG`; the button is always
+  Restore Original.)
 
 ## HS2-M8ZFS0: VoiceOver and keyboard-only access to canvas annotations
 
@@ -772,3 +772,38 @@ Each feature gets both unit tests and end-to-end tests. Tests live in
   selected thumbnail (a single-capture video now has the strip too).
 - **Not covered automatically:** clicking ✕ or the context menu and the confirmation sheet in a
   live window (`HS2-PPT7E2`-style manual QA).
+
+## HS2-71SSJG: crops and trims are not destructive until submitting
+
+Supersedes the file-rewriting checks listed under HS2-9H7WZ8, HS2-6PV1N3, and HS2-GBM8JN above:
+capture files are no longer cropped or trimmed while drafting.
+
+- **Projection** (`DraftEditsTests`): exact maps into and out of a crop (round trip within one
+  unit over a grid, beyond 0…10000 when outside) and a trim (exact); outside rules for boxes,
+  points, paths, and ranges (edges count as inside); clipping for submission (boxes clipped, an
+  arrow pulled to the edge, ranges clamped, outsiders dropped, the result validates);
+  `edits.json` round trip, empty → no file, other version and unreadable ignored, and records
+  that don't fit their file ignored.
+- **Editor** (`ImageCropTests`, `VideoTrimEditTests`, `VideoTimeTests`, `FrameStepTests`,
+  `TimelineDragTests`): a crop or trim keeps every annotation, hides the ones outside (not drawn,
+  not hit-tested, selection cleared), says how many are hidden, and Restore Original, undo, or
+  stepping a trim back out brings them back unchanged; `submissionBundle` validates.
+- **Session and files** (`EditorSessionCropTests`, `VideoTrimSessionTests`, real PNGs and movies):
+  saving writes `edits.json`, never the capture file; review.json keeps the file's size,
+  duration, and coordinates; later sessions open cropped or trimmed and restore without loss;
+  five idle sessions never drift; drafts cropped the old way migrate on open (original back in
+  place, annotations mapped back, crop in edits.json) and untrusted records leave the file as
+  found; a missing image fails submit staging, not the save; a trimmed narrated clip keeps its
+  audio when staged.
+- **Filing** (`DraftEditsTests.submittingACroppedDraftFilesTheCropAndClippedAnnotations`): the
+  attached PNG is the crop, the attached review.json has cropped sizes and clipped annotations,
+  and the annotation outside the crop is left out of the ticket.
+- **App end to end** (`scripts/app-e2e.sh`): `--annotate` records the crop and trim in
+  edits.json with the PNG and movie byte-identical; hidden annotations are flagged `outside` and
+  come back with `restore-original`; `--submit` of a cropped and trimmed draft files a 200x120 PNG
+  and a 0.8 s clip (ffprobe) with the outsider left out, and the filed review.json validates.
+- **Visual QA:** `editor-cropped` (hidden annotations listed dimmed with "Outside the crop · left
+  out when submitting"; a shape sticking out is clipped to the image; the shorter status line
+  fits).
+- **Not covered automatically:** the live inspector and timeline with hidden ranges on a real
+  movie (offscreen renders only).

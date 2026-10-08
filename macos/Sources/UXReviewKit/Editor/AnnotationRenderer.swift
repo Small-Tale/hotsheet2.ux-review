@@ -93,9 +93,14 @@ public struct AnnotationRenderer {
         crop: CGRect? = nil,
         in context: CGContext
     ) {
+        // Shapes that stick out of a crop are drawn clipped to the image, as they will be
+        // submitted (HS2-71SSJG); a stroke's width of slack keeps edge strokes whole.
+        context.saveGState()
+        context.clip(to: imageRect.insetBy(dx: -lineWidth * 2, dy: -lineWidth * 2))
         for item in items {
             drawShape(item.annotation.shape, intent: item.annotation.primaryIntent, selected: item.annotation.id == selection, in: context)
         }
+        context.restoreGState()
         if let preview {
             drawShape(preview, intent: preview.defaultIntent, selected: false, in: context)
         }

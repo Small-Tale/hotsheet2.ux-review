@@ -64,7 +64,8 @@ extension EditorSessionTests {
         #expect(!FileManager.default.fileExists(atPath: directory.appendingPathComponent("capture-1.png").path))
         let disk = try fixture.onDisk()
         #expect(disk.media.map(\.id) == ["m2"])
-        #expect(disk.media.first?.pixelWidth == 200) // m2's unsaved crop was saved first
+        // m2's unsaved crop was saved first (as a record; the file keeps its size).
+        #expect(DraftEdits.load(from: directory).crops["capture-2.png"] == PixelRect(x: 0, y: 0, width: 200, height: 200))
         #expect(disk.annotations.map(\.mediaId) == ["m2"])
         #expect(disk.validate().isEmpty)
         #expect(session.editor.currentMediaId == "m2")
