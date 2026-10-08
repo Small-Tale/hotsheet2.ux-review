@@ -35,7 +35,7 @@ UX Review** (or a click on the Dock icon) opens it on the current draft
   window. The canvas then says "No captures in this review yet" and how to add some, and the
   inspector says "Add an image or movie to start annotating."
 - Each draft gets one window, which stays until closed. Opening it again brings it forward.
-- **Add Media…** (tool bar or File menu, ⌘O) adds existing images or movies to *this window's*
+- **Add Media…** (File menu, ⌘O; no tool bar button, `HS2-BSDXHA`) adds existing images or movies to *this window's*
   draft, like a drop ([04-capture.md](04-capture.md) §4.12.2), and shows the first one.
 - Finder Open With and a drop on the Dock icon add to the current draft and open its editor
   on the first one ([04-capture.md](04-capture.md) §4.12.1).
@@ -44,7 +44,7 @@ UX Review** (or a click on the Dock icon) opens it on the current draft
 
 | Area | Contents |
 | --- | --- |
-| Tool bar | Tools (§6.3), **Restore Original** (only while the image is cropped or the video trimmed, §6.6, §6.10), a status line ("Editing…" / "Saved to draft", the last editor message, or a save error), zoom, **Add Media…** (⌘O, see Opening), and **Submit Review…** (⌘↩): saves, then opens the Submit Review window on this editor's draft ([07-review-session.md](07-review-session.md) §7.1). Undo and redo are in the Edit menu only (⌘Z / ⇧⌘Z, `HS2-0C8ZVN`) |
+| Tool bar | Tools (§6.3), **Restore Original** (only while the image is cropped or the video trimmed, §6.6, §6.10), a status line ("Editing…" / "Saved to draft", the last editor message, or a save error), zoom, and **Submit Review…** (⌘↩): saves, then opens the Submit Review window on this editor's draft ([07-review-session.md](07-review-session.md) §7.1). Undo and redo are in the Edit menu only (⌘Z / ⇧⌘Z, `HS2-0C8ZVN`) |
 | Media strip (left, whenever the review has a capture) | Thumbnails (with the current crop) plus a count badge of annotations on each. Click one to show it; ⌘-click and ⇧-click select several (§6.7.2). Videos are marked. The shown thumbnail has a ✕ button, and every thumbnail a **Remove from Review…** context menu item (§6.7.1) |
 | Canvas | The current capture fitted to the view (at most 2×) or zoomed (§6.2.1), on a dark backdrop, with annotations drawn on top. A video shows the frame at the playhead |
 | Timeline (under the canvas, videos only) | Play/pause, frame step, playhead time, **Trim Start** / **Trim End**, and the scrubber with each annotation's time range (§6.10) |

@@ -70,7 +70,7 @@ final class AnnotationCanvasView: NSView {
         reportSize()
         guard let model, let item = model.editor.currentMedia, let renderer = renderer() else {
             drawPlaceholder(
-                "No captures in this review yet.\nAdd Media… (⌘O), drop images or movies here, or capture from the menu bar."
+                "No captures in this review yet.\nFile › Add Media… (⌘O), drop images or movies here, or capture from the menu bar."
             )
             return
         }

@@ -365,7 +365,7 @@ dark strips (`status-bar-icon-light.png`, `status-bar-icon-dark.png`), and the a
 Media captured elsewhere, such as a ⇧⌘4 screenshot on the Desktop or an older recording, can
 be annotated without capturing it again (`HS2-6A13WZ`).
 
-**Menu:** **Add Media…** (File menu or the editor tool bar, ⌘O) shows an open panel for images
+**Menu:** **Add Media…** (File menu, ⌘O) shows an open panel for images
 and movies. Several files can be chosen at once. From an editor or Submit Review window, the
 files go into that window's draft (§4.12.2). Otherwise UX Review:
 

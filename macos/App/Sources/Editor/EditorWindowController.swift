@@ -61,7 +61,6 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
         window.delegate = self
         content.onDropFiles = { [weak self] urls in self?.addDroppedFiles(urls) }
         model.submitReview = { [weak self] in self?.submitReview(nil) }
-        model.addMedia = { [weak self] in self?.addMedia(nil) }
         model.confirmRemoval = { [weak self] items in self?.confirmRemoval(items) }
     }
 
@@ -115,7 +114,7 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
     @objc func duplicate(_: Any?) { model.mutate { _ = $0.duplicateSelection() } }
     @objc func saveDocument(_: Any?) { model.save() }
 
-    /// Add Media… (tool bar, ⌘O): choose images or movies to add to *this* draft, like a drop.
+    /// File › Add Media… (⌘O): choose images or movies to add to *this* draft, like a drop.
     @objc func addMedia(_: Any?) {
         guard let window else { return }
         let panel = MediaChooser.panel()

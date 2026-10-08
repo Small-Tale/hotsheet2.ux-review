@@ -80,10 +80,9 @@ enum EditorPreviews {
 
     /// The timeline (docs/06 §6.10) on a draft holding one mock screen recording: annotations with
     /// a range, an instant, and the whole clip, the playhead inside the first range.
-    /// The editor window always offers Add Media… and Submit Review… in the tool bar.
+    /// The editor window always offers Submit Review… in the tool bar and capture removal.
     private static func offerWindowButtons(_ model: EditorModel) {
         model.submitReview = {}
-        model.addMedia = {}
         model.confirmRemoval = { _ in }
     }
 
