@@ -431,7 +431,8 @@ Each feature gets both unit tests and end-to-end tests. Tests live in
     and malformed `play` ops are rejected
 - **App end to end** (`scripts/app-e2e.sh`): `--annotate` with `play` on the synthetic recording
   advances the reported `currentTimeMs` in real time, stops at the clip end, and exits 2 on an
-  image.
+  image. The step's time counts from when the player starts moving and the check's floor is a
+  quarter of the step, so it holds under heavy machine load (HS2-5J2SGB).
 - **Visual QA:** `editor-video-playing` (the pause button, and the playhead moved while playing).
 - **Not covered automatically:** pressing K and the play button in a live window, and audio
   output. Both call the same `togglePlayback`; live-window automation is `HS2-HA9TW3`.

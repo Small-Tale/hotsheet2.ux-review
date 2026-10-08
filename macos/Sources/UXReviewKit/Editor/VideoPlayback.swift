@@ -37,6 +37,10 @@ public final class VideoPlayback {
     /// True from `play` until `pause` or the end of the clip (the player pauses itself there).
     public var isPlaying: Bool { started && player.rate != 0 }
 
+    /// True once the player is actually moving after `play`: its seek has finished and it is no
+    /// longer waiting to buffer. On a loaded machine that can take a few hundred millis.
+    public var isAdvancing: Bool { started && player.timeControlStatus == .playing }
+
     /// Starts playing from `millis` into the clip. From the end, it restarts at the beginning.
     public func play(fromMs millis: Int) {
         let start = PlaybackRules.startPosition(millis, durationMs: durationMs)

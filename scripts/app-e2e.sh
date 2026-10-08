@@ -452,9 +452,12 @@ run annotate-time-image 2 -- --annotate "$TMP/script-time-image.json" --drafts-d
 ok "a time step on an image: exit 2"
 
 # HS2-QNFCR0: play the clip through the real AVPlayer path; playing is navigation, not an edit.
+# The 400 ms count from when the player starts moving (HS2-5J2SGB), so a slow start under heavy
+# load does not shorten it; the floor (a quarter of the step past the start) still fails when
+# playback is broken or stalls, without depending on AVPlayer keeping exact real time.
 echo '{"steps": [{"op": "media", "media": "m2"}, {"op": "time", "ms": 100}, {"op": "play", "ms": 400}]}' >"$TMP/script-play.json"
 run annotate-play 0 -- --annotate "$TMP/script-play.json" --drafts-dir "$ADRAFTS"
-[[ "$(json "$TMP/annotate-play.json" "j.currentMediaId == 'm2' && j.currentTimeMs >= 250 && j.currentTimeMs <= $clip_ms")" == true ]] \
+[[ "$(json "$TMP/annotate-play.json" "j.currentMediaId == 'm2' && j.currentTimeMs >= 200 && j.currentTimeMs <= $clip_ms")" == true ]] \
   || die "play: playhead at $(json "$TMP/annotate-play.json" j.currentTimeMs) after 400 ms from 100"
 echo '{"steps": [{"op": "media", "media": "m2"}, {"op": "time", "ms": 600}, {"op": "play", "ms": 3000}]}' >"$TMP/script-play-end.json"
 run annotate-play-end 0 -- --annotate "$TMP/script-play-end.json" --drafts-dir "$ADRAFTS"

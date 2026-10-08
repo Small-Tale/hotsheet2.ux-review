@@ -53,6 +53,7 @@ extension EncodingTests {
             #expect(playback.isPlaying)
             let stopped = playback.pause()
             #expect(!playback.isPlaying)
+            #expect(!playback.isAdvancing, "a paused player is not advancing")
             // Monotonic, and moving at roughly real time (generous: CI machines stall).
             #expect(seen == seen.sorted())
             #expect((150 ... 1100).contains(stopped), "stopped at \(stopped)")
@@ -123,7 +124,8 @@ extension EncodingTests {
             let session = try fixture.session()
             let script = try EditorScript.parse(Data(#"{"steps": [{"op": "time", "ms": 200}, {"op": "play", "ms": 400}]}"#.utf8))
             try script.run(on: session)
-            #expect((350 ... 1300).contains(session.editor.currentTimeMs), "playhead at \(session.editor.currentTimeMs)")
+            // The 400 ms count from when the player starts moving (HS2-5J2SGB); generous: CI stalls.
+            #expect((300 ... 1300).contains(session.editor.currentTimeMs), "playhead at \(session.editor.currentTimeMs)")
             #expect(!session.editor.isDirty, "playing is navigation, not an edit")
             #expect(throws: (any Error).self) { try EditorScript.parse(Data(#"{"steps": [{"op": "play"}]}"#.utf8)) }
             #expect(throws: (any Error).self) { try EditorScript.parse(Data(#"{"steps": [{"op": "play", "ms": -1}]}"#.utf8)) }

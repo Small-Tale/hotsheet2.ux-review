@@ -564,7 +564,7 @@ pixels of the crop, except with the Crop tool on an image, where they are pixels
 | `{"op": "time", "ms": 1500}` | Move the playhead on the current video, as the scrubber does (fails on an image) |
 | `{"op": "arrow-key", "key": "right", "shift": true}` | ← / → on the canvas (`shift` optional): a frame step of the last-used timeline target, or a nudge (§6.4) |
 | `{"op": "timeline-drag", "handle": "range-end", "ms": [900, 700]}`, `cancel-timeline-drag` | Press a timeline handle (`range-start`, `range-end`, `trim-start`, `trim-end`), drag through those times, then release (or press Esc). Range handles need a selection with a time range |
-| `{"op": "play", "ms": 400}` | Play the current video in real time for up to 0…60000 ms, then pause; it stops early at the clip end (fails on an image) |
+| `{"op": "play", "ms": 400}` | Play the current video in real time for up to 0…60000 ms, then pause; it stops early at the clip end (fails on an image). The time counts from when the player starts moving (it waits up to 5 s for that), so a slow start on a loaded machine does not shorten the step |
 | `{"op": "range", "start": 200, "end": 900}`, `{"op": "range"}` | Set the selection's time range in ms, or make it the whole clip (fails on an image's annotation) |
 | `{"op": "trim", "start": 200, "end": 900}`, `{"op": "reset-trim"}` | Keep that part of the current video, or restore its length (§6.10) |
 | `{"op": "restore-original"}` | Restore Original: the current capture's crop, and a video's trim (§6.6) |

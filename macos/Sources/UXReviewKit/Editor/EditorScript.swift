@@ -304,6 +304,9 @@ public extension EditorScript {
         }
     }
 
+    /// How long a `play` step waits for the player to start moving before it gives up waiting.
+    static let playStartTimeoutSeconds = 5.0
+
     /// Crop/trim resets, video time, and ← / → on the current media.
     private static func applyToMedia(_ step: Step, in session: EditorSession) throws {
         switch step {
@@ -317,16 +320,7 @@ public extension EditorScript {
             guard session.editor.beginTimelineDrag(handle) else { throw StepFailure.reason("no selected time range to drag") }
             times.forEach { session.editor.updateTimelineDrag(toMs: $0) }
             if cancel { session.editor.cancelTimelineDrag() } else { session.editor.endTimelineDrag() }
-        case let .play(millis):
-            guard let id = session.editor.currentMediaId, let playback = session.playback(id) else {
-                throw StepFailure.reason("the current media is not a video")
-            }
-            playback.play(fromMs: session.editor.currentTimeMs)
-            let deadline = Date().addingTimeInterval(Double(millis) / 1000)
-            while Date() < deadline, playback.isPlaying {
-                RunLoop.current.run(until: min(deadline, Date().addingTimeInterval(0.01)))
-            }
-            session.editor.setCurrentTime(playback.pause())
+        case let .play(millis): try play(for: millis, in: session)
         case let .trim(range): session.editor.trim(to: range)
         case .resetTrim: session.editor.resetTrim()
         case let .arrowKey(forward, shift):
@@ -334,6 +328,26 @@ public extension EditorScript {
             session.editor.arrowKey(forward: forward, large: shift)
         default: break
         }
+    }
+
+    /// Plays the current video for `millis` of real time, then pauses there.
+    private static func play(for millis: Int, in session: EditorSession) throws {
+        guard let id = session.editor.currentMediaId, let playback = session.playback(id) else {
+            throw StepFailure.reason("the current media is not a video")
+        }
+        playback.play(fromMs: session.editor.currentTimeMs)
+        // Count the step's time from when the player actually starts moving, not from the
+        // call: under heavy load the seek and first frames can eat most of a short step
+        // (HS2-5J2SGB). A player that never starts falls through and leaves the playhead put.
+        let startBy = Date().addingTimeInterval(playStartTimeoutSeconds)
+        while Date() < startBy, playback.isPlaying, !playback.isAdvancing {
+            RunLoop.current.run(until: min(startBy, Date().addingTimeInterval(0.01)))
+        }
+        let deadline = Date().addingTimeInterval(Double(millis) / 1000)
+        while Date() < deadline, playback.isPlaying {
+            RunLoop.current.run(until: min(deadline, Date().addingTimeInterval(0.01)))
+        }
+        session.editor.setCurrentTime(playback.pause())
     }
 
     /// Pointer drags and keyboard inserts.
