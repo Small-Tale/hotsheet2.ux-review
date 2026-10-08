@@ -64,6 +64,14 @@ struct ReviewSessionView: View {
                 }
             }
 
+            // Where the review goes comes first (HS2-8HMGTD).
+            Section {
+                ProjectRow(model: model)
+            } header: {
+                Text("Hot Sheet project")
+            }
+            .disabled(!editable)
+
             Section {
                 TextField("Title", text: $model.title, prompt: Text("What was reviewed"))
                     .accessibilityIdentifier("session-title")
@@ -123,13 +131,6 @@ struct ReviewSessionView: View {
                         .disabled(!editable || model.session.bundle.media.isEmpty)
                 }
             }
-
-            Section {
-                ProjectRow(model: model)
-            } header: {
-                Text("Hot Sheet project")
-            }
-            .disabled(!editable)
 
             Section {
                 ReviewDestinationRows(model: model)

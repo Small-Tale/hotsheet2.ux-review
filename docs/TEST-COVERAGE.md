@@ -1394,3 +1394,10 @@ text stacked one word per line at 99 pt wide. The empty Draft Reviews window was
   `EditorPreviews.renderToolbar` waits up to 2 s for Restore Original to show before reading the
   toolbar, instead of a single 50 ms run loop turn that a loaded machine could miss. A real
   regression still fails: the state never arrives and the check reads it as before.
+
+## HS2-8HMGTD: Hot Sheet project first in Submit Review
+
+- **Visual QA:** `session-ready`, `session-narrow`, and `session-issues` (`--render-ui-previews`)
+  show Hot Sheet project above Review, Captures, and Ticket; inspected by hand.
+- **Not covered automatically:** the section order itself. SwiftUI builds no accessibility tree
+  for an offscreen `Form`, so there is nothing to read the order from without a live window.
