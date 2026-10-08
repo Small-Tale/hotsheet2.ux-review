@@ -86,8 +86,10 @@ public enum Shape: Equatable, Hashable, Sendable {
     case rect(NormRect)
     /// Hand-drawn outline of a non-rectangular region; `closed` joins the last point to the first.
     case freehand(points: [NormPoint], closed: Bool)
-    /// A path ending in an arrowhead at its last point, for example "move this here".
-    case arrow(points: [NormPoint])
+    /// A path from its first point to its last, with a head at each end (`ArrowHeads`). The
+    /// standard arrow has a head at the last point only, for example "move this here"; other
+    /// heads mark a span, a relation, or a line (`HS2-HQV9R8`).
+    case arrow(points: [NormPoint], heads: ArrowHeads = .standard)
     /// Caret marking an insertion point.
     case insertion(NormPoint)
     /// Strike / X marker over something that should be removed.
@@ -106,10 +108,15 @@ public enum Shape: Equatable, Hashable, Sendable {
     public var defaultIntent: Intent {
         switch self {
         case .rect, .freehand: .comment
-        case .arrow: .move
+        case let .arrow(_, heads): heads.pointsOneWay ? .move : .comment
         case .insertion: .insert
         case .strike: .remove
         }
+    }
+
+    /// An arrow's heads when they differ from the standard arrow ("start flat, end flat"), else nil.
+    public var arrowHeadsSummary: String? {
+        if case let .arrow(_, heads) = self { heads.summary } else { nil }
     }
 
     /// Axis-aligned bounds, used to project any shape onto Hot Sheet 2's rectangle-only
@@ -119,7 +126,7 @@ public enum Shape: Equatable, Hashable, Sendable {
         switch self {
         case let .rect(rect), let .strike(rect):
             return rect
-        case let .freehand(pts, _), let .arrow(pts):
+        case let .freehand(pts, _), let .arrow(pts, _):
             points = pts
         case let .insertion(point):
             points = [point]
@@ -140,7 +147,7 @@ public enum Shape: Equatable, Hashable, Sendable {
 }
 
 extension Shape: Codable {
-    private enum CodingKeys: String, CodingKey { case type, rect, points, closed, point }
+    private enum CodingKeys: String, CodingKey { case type, rect, points, closed, point, startHead, endHead }
 
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
@@ -153,7 +160,11 @@ extension Shape: Codable {
                 points: container.decode([NormPoint].self, forKey: .points),
                 closed: container.decodeIfPresent(Bool.self, forKey: .closed) ?? true
             )
-        case "arrow": self = try .arrow(points: container.decode([NormPoint].self, forKey: .points))
+        case "arrow":
+            self = try .arrow(points: container.decode([NormPoint].self, forKey: .points), heads: ArrowHeads(
+                start: container.decodeIfPresent(ArrowHead.self, forKey: .startHead) ?? ArrowHeads.standard.start,
+                end: container.decodeIfPresent(ArrowHead.self, forKey: .endHead) ?? ArrowHeads.standard.end
+            ))
         case "insertion": self = try .insertion(container.decode(NormPoint.self, forKey: .point))
         default:
             throw DecodingError.dataCorruptedError(forKey: .type, in: container, debugDescription: "Unknown shape type \(type)")
@@ -168,9 +179,71 @@ extension Shape: Codable {
         case let .freehand(points, closed):
             try container.encode(points, forKey: .points)
             try container.encode(closed, forKey: .closed)
-        case let .arrow(points): try container.encode(points, forKey: .points)
+        case let .arrow(points, heads):
+            try container.encode(points, forKey: .points)
+            // Only heads that differ from the standard arrow are written.
+            if heads.start != ArrowHeads.standard.start { try container.encode(heads.start, forKey: .startHead) }
+            if heads.end != ArrowHeads.standard.end { try container.encode(heads.end, forKey: .endHead) }
         case let .insertion(point): try container.encode(point, forKey: .point)
         }
+    }
+}
+
+/// What an arrow ends with (`HS2-HQV9R8`). Spec: docs/02-review-bundle.md.
+public enum ArrowHead: String, Codable, CaseIterable, Sendable {
+    /// No head: the line just ends.
+    case none
+    /// An open arrowhead: two strokes in a V.
+    case open
+    /// A filled triangle; the standard arrow's head.
+    case closed
+    /// A bar across the line, as on a span or dimension line.
+    case flat
+    /// A hollow circle.
+    case openCircle
+    /// A filled circle.
+    case closedCircle
+
+    /// The style's name in the editor, for VoiceOver, and in ticket text.
+    public var displayName: String {
+        switch self {
+        case .none: "None"
+        case .open: "Open"
+        case .closed: "Closed"
+        case .flat: "Flat"
+        case .openCircle: "Open circle"
+        case .closedCircle: "Closed circle"
+        }
+    }
+
+    /// An arrowhead proper (open or closed), as opposed to a bar, a circle, or nothing.
+    public var pointsTheWay: Bool { self == .open || self == .closed }
+}
+
+/// The heads at an arrow's start (first point) and end (last point).
+public struct ArrowHeads: Hashable, Sendable {
+    public var start: ArrowHead
+    public var end: ArrowHead
+
+    public init(start: ArrowHead, end: ArrowHead) {
+        self.start = start
+        self.end = end
+    }
+
+    /// Today's arrow: nothing at the start, a filled head at the end.
+    public static let standard = ArrowHeads(start: .none, end: .closed)
+
+    /// An arrowhead at exactly one end and nothing at the other: the arrow shows a direction,
+    /// so its default intent is move. Anything else (both ends, bars, circles, no heads) marks a
+    /// span or a relation and defaults to comment.
+    public var pointsOneWay: Bool {
+        (end.pointsTheWay && start == .none) || (start.pointsTheWay && end == .none)
+    }
+
+    /// "start flat, end closed circle" for the ticket text and VoiceOver; nil for the standard arrow.
+    public var summary: String? {
+        guard self != .standard else { return nil }
+        return "start \(start.displayName.lowercased()), end \(end.displayName.lowercased())"
     }
 }
 

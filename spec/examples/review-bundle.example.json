@@ -35,6 +35,13 @@
       "note" : "The list flickers while the sidebar animates.",
       "shape" : { "closed" : true, "points" : [ { "x" : 400, "y" : 1000 }, { "x" : 3000, "y" : 900 }, { "x" : 3200, "y" : 7000 }, { "x" : 500, "y" : 7200 } ], "type" : "freehand" },
       "timeRange" : { "endMs" : 4250, "startMs" : 2500 }
+    },
+    {
+      "id" : "a6",
+      "intents" : [ ],
+      "mediaId" : "m1",
+      "note" : "This gap should match the one above.",
+      "shape" : { "endHead" : "flat", "points" : [ { "x" : 6000, "y" : 4000 }, { "x" : 6000, "y" : 4600 } ], "startHead" : "flat", "type" : "arrow" }
     }
   ],
   "context" : {

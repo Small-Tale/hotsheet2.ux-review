@@ -56,7 +56,7 @@ public extension ReviewBundle {
             rect.isValid ? [] : [.shapeOutOfBounds(annotationId: id)]
         case let .insertion(point):
             point.isInBounds ? [] : [.shapeOutOfBounds(annotationId: id)]
-        case let .arrow(points):
+        case let .arrow(points, _):
             pointIssues(points, minimum: 2, annotationId: id)
         case let .freehand(points, _):
             pointIssues(points, minimum: 3, annotationId: id)

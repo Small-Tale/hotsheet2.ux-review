@@ -11,6 +11,7 @@ import Foundation
 ///       {"op": "drag", "points": [[40, 40], [200, 120]]},
 ///       {"op": "note", "text": "Label is clipped"},
 ///       {"op": "intent", "intent": "bug"},
+///       {"op": "heads", "start": "flat", "end": "flat"},
 ///       {"op": "undo"}, {"op": "redo"}, {"op": "save"}
 ///     ]}
 public struct EditorScript: Decodable, Equatable, Sendable {
@@ -28,6 +29,8 @@ public struct EditorScript: Decodable, Equatable, Sendable {
         case note(String)
         case intent(Intent)
         case closed(Bool)
+        /// An arrow's heads; a missing end keeps its current head (`HS2-HQV9R8`).
+        case heads(start: ArrowHead?, end: ArrowHead?)
         case delete
         case duplicate
         case nudge(dx: Double, dy: Double)
@@ -138,7 +141,7 @@ extension EditorScript.Step: Decodable {
         case "select": self = try .select(container.decodeIfPresent(String.self, forKey: .id))
         case "note": self = try .note(container.decode(String.self, forKey: .text))
         case "intent": self = try .intent(container.decode(Intent.self, forKey: .intent))
-        case "closed": self = try .closed(container.decode(Bool.self, forKey: .closed))
+        case "closed", "heads": self = try Self.outline(op, in: container)
         case "nudge": self = try .nudge(dx: container.decode(Double.self, forKey: .dx), dy: container.decode(Double.self, forKey: .dy))
         case "crop", "insert": self = try Self.geometry(op, in: container)
         case "time", "play", "timeline-drag", "cancel-timeline-drag", "arrow-key": self = try Self.playhead(op, in: container)
@@ -191,6 +194,17 @@ extension EditorScript.Step: Decodable {
             throw DecodingError.dataCorruptedError(forKey: .millis, in: container, debugDescription: "play needs 0…60000 ms")
         }
         return .play(millis)
+    }
+
+    /// `closed` (a freehand outline) and `heads` (an arrow's, `start`, `end`, or both).
+    private static func outline(_ op: String, in container: KeyedDecodingContainer<CodingKeys>) throws -> EditorScript.Step {
+        if op == "closed" { return try .closed(container.decode(Bool.self, forKey: .closed)) }
+        let start = try container.decodeIfPresent(ArrowHead.self, forKey: .start)
+        let end = try container.decodeIfPresent(ArrowHead.self, forKey: .end)
+        guard start != nil || end != nil else {
+            throw DecodingError.dataCorruptedError(forKey: .start, in: container, debugDescription: "heads needs start, end, or both")
+        }
+        return .heads(start: start, end: end)
     }
 
     /// `range` (optional `start`/`end`, both or neither) and `trim` (`start` and `end`).
@@ -256,7 +270,7 @@ public extension EditorScript {
             guard let reference else { return session.editor.select(nil) }
             guard let id = resolve(reference, in: session.editor) else { throw StepFailure.reason("unknown annotation \(reference)") }
             session.editor.select(id)
-        case .note, .intent, .closed, .delete, .duplicate, .nudge, .range:
+        case .note, .intent, .closed, .heads, .delete, .duplicate, .nudge, .range:
             try applyToSelection(step, in: session)
         case let .crop(rect): session.editor.crop(to: rect)
         case .resetCrop, .restoreOriginal, .time, .play, .timelineDrag, .trim, .resetTrim, .arrowKey:
@@ -344,6 +358,11 @@ public extension EditorScript {
         case let .note(text): session.editor.setNote(text, for: id)
         case let .intent(intent): session.editor.toggleIntent(intent, for: id)
         case let .closed(closed): session.editor.setClosed(closed, for: id)
+        case let .heads(start, end):
+            guard case let .arrow(_, current)? = session.editor.annotation(id)?.shape else {
+                throw StepFailure.reason("heads apply to arrows")
+            }
+            session.editor.setArrowHeads(ArrowHeads(start: start ?? current.start, end: end ?? current.end), for: id)
         case .delete: session.editor.deleteSelection()
         case .duplicate: session.editor.duplicateSelection()
         case let .nudge(dx, dy): session.editor.nudgeSelection(dx: dx, dy: dy)

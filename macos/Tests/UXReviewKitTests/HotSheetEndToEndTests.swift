@@ -65,6 +65,9 @@ struct HotSheetEndToEndTests {
         #expect(!ticket.contains("role: ai"))
         #expect(ticket.contains("## Instructions for the AI processing this ticket"))
         #expect(ticket.contains("### #5 · bug · `attachment:capture-2.mov`"))
+        // HS2-HQV9R8: a span's heads reach the ticket, and it defaults to comment.
+        #expect(ticket.contains("### #6 · comment · `attachment:capture-1.png`"))
+        #expect(ticket.contains("- Shape: arrow (start flat, end flat);"))
         // HS2-EZN3NG: the narrated clip is flagged in the ticket text and in the attached bundle.
         #expect(ticket.contains("(video, 2880×1800, 0:08.000, with audio)"))
         #expect(ticket.contains("have a sound track, usually the reviewer's spoken narration"))

@@ -7,7 +7,7 @@ struct ReviewBundleTests {
         let bundle = try TestSupport.exampleBundle()
         #expect(bundle.schema == ReviewBundle.currentSchema)
         #expect(bundle.media.map(\.kind) == [.image, .video])
-        #expect(bundle.annotations.map(\.shape.kind) == ["rect", "arrow", "strike", "insertion", "freehand"])
+        #expect(bundle.annotations.map(\.shape.kind) == ["rect", "arrow", "strike", "insertion", "freehand", "arrow"])
         #expect(bundle.validate().isEmpty)
     }
 

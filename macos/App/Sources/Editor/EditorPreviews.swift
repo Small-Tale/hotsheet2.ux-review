@@ -47,6 +47,8 @@ enum EditorPreviews {
         // Both captures selected (⌘-click), the second one shown (docs/06 §6.7.2).
         try capture("editor-multi-select", size: wide, script: annotations + [.clickMedia("m2", .toggle)])
         try capture("editor-arrow-selected", size: wide, script: annotations + [.select("#3")])
+        // HS2-HQV9R8: every head style, on separate arrows, the last (a span) selected.
+        try capture("editor-arrow-heads", size: wide, script: annotations + arrowHeadStyles)
         try capture("editor-narrow", size: CGSize(width: 900, height: 560), script: annotations + [.select("#2")])
         // HS2-AH6HW4: the capture sidebar dragged wider; its thumbnails grow with it.
         try capture("editor-wide-sidebar", size: wide, script: annotations + [.select("#1")], stripWidth: 240)
@@ -265,8 +267,7 @@ enum EditorPreviews {
                 editor.beginGesture(at: points[0])
                 points.dropFirst().forEach { editor.updateGesture(to: $0) }
                 editor.endGesture()
-            case let .note(text): if let id = editor.selection { editor.setNote(text, for: id) }
-            case let .intent(intent): if let id = editor.selection { editor.toggleIntent(intent, for: id) }
+            case .note, .intent, .heads: editSelection(step, in: &editor)
             case let .select(reference):
                 let id = reference.flatMap { Int($0.dropFirst()) }.flatMap { number in
                     editor.bundle.annotations.indices.contains(number - 1) ? editor.bundle.annotations[number - 1].id : nil

@@ -70,7 +70,7 @@ editor), and ⌘W work.
 | `rect` | Outline with a light fill |
 | `strike` | Outline with an X across it |
 | `freehand` | Path, closed by default with a light fill. Open paths get no fill |
-| `arrow` | Polyline with a filled head at its last point |
+| `arrow` | Polyline with a head at each end, by default a filled head at its last point only. Heads: none, open (V), closed (filled triangle), flat (a bar across the line), open circle (the line stops at its edge), closed circle (`HS2-HQV9R8`) |
 | `insertion` | A text cursor (I-beam) standing on the point, with a proofreading caret below it |
 
 **Strokes:**
@@ -301,6 +301,14 @@ shape's default intent is shown as on, with a "default" hint.
   region".
 
 **Freehand outlines** also get a **Closed outline** checkbox.
+
+**Arrows** also get **Arrow heads**: **Start** and **End** menus with None, Open, Closed, Flat,
+Open circle, and Closed circle (`HS2-HQV9R8`, docs/02 §2.4). New arrows start as the standard
+arrow (None at the start, Closed at the end). Each change is one undo step. An arrow that points
+one way defaults to *move*; with any other heads its default intent is *comment*, so its color and
+the ticket's intent follow the heads unless the reviewer chose intents. VoiceOver reads
+non-standard heads after the shape, for example "Annotation 2: Arrow, start flat, end flat,
+comment."
 
 ## 6.6 Crop
 
@@ -549,6 +557,7 @@ pixels of the crop, except with the Crop tool on an image, where they are pixels
 | `{"op": "cancel-drag", "points": …}` | The same, but Esc instead of release |
 | `{"op": "select", "id": "a2"}` / `"#2"` / no id | Select by id or review number, or deselect |
 | `{"op": "note", "text": …}`, `{"op": "intent", "intent": "bug"}`, `{"op": "closed", "closed": false}` | Edit the selection (intent toggles) |
+| `{"op": "heads", "start": "flat", "end": "closed"}` | Set the selected arrow's heads (either one may be left out to keep it; fails on other shapes) |
 | `{"op": "delete"}`, `{"op": "duplicate"}`, `{"op": "nudge", "dx": 1, "dy": 0}` | Act on the selection |
 | `{"op": "insert", "point": [x, y]}` (point optional; default the media center) | ⏎ with the current drawing tool (§6.4) |
 | `{"op": "crop", "rect": [x, y, w, h]}`, `{"op": "reset-crop"}` | Set the current image's crop (pixels of the original, replacing any crop; the whole image removes it), or remove it (§6.6) |
@@ -578,6 +587,7 @@ editor offscreen through the real views, on a draft of mock app screenshots:
 - `editor-empty`
 - `editor-annotated` (rect selected)
 - `editor-arrow-selected`
+- `editor-arrow-heads`: one arrow per head style, and a selected span with its Arrow heads menus
 - `editor-narrow` (the 900 × 560 minimum)
 - `editor-crop-drag` (a first crop being drawn with the Crop tool)
 - `editor-crop-tool` (the crop made: the original with the crop rectangle and its handles, the

@@ -54,9 +54,18 @@ conversion. Rectangles must have positive size and lie fully inside the media
 | --- | --- | --- | --- |
 | `rect` | `rect {x,y,width,height}` | `comment` | Rectangular region |
 | `freehand` | `points[]` (at least 3), `closed` (default `true`) | `comment` | Non-rectangular outline |
-| `arrow` | `points[]` (at least 2), arrowhead at the last point | `move` | "Move this there" and similar |
+| `arrow` | `points[]` (at least 2); `startHead` (default `none`) and `endHead` (default `closed`) | `move` when it points one way, else `comment` | "Move this there", or with other heads a span, a relation, or a line |
 | `insertion` | `point {x,y}` | `insert` | Insert something here |
 | `strike` | `rect` | `remove` | Remove the struck element |
+
+**Arrow heads** (`HS2-HQV9R8`). Each end of an arrow has its own head: `none`, `open` (a V of
+two strokes), `closed` (a filled triangle), `flat` (a bar across the line, as on a span or
+dimension line), `openCircle`, or `closedCircle`. The standard arrow, with nothing at the start
+and `closed` at the end, writes neither field; writers omit a head that is its default. An arrow
+with an arrowhead (`open` or `closed`) at exactly one end and `none` at the other points one way,
+and its default intent is `move`. Any other combination (both ends, bars, circles, a plain line)
+marks a span or relation, and its default intent is `comment`. In the ticket text, non-standard
+heads follow the shape, for example `Shape: arrow (start flat, end flat)`.
 
 Each shape has a bounding box that projects it onto Hot Sheet's rectangle-only annotations:
 

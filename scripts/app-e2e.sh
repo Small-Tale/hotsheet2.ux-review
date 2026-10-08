@@ -344,6 +344,31 @@ run annotate-again 0 -- --annotate "$TMP/script-annotate2.json" --drafts-dir "$A
 [[ "$(json "$TMP/annotate-again.json" '`${j.media[0].pixelWidth}x${j.media[0].pixelHeight}`')" == 300x200 ]] || die "annotate: reopen lost the crop"
 ok "a second session reopens the saved draft, still cropped, and edits it"
 
+# HS2-HQV9R8: an arrow's heads through the real editor: set (one undo step), saved to review.json
+# with the default intent following them, drawn; a missing end keeps its head; back to standard
+# writes no heads; heads on a rectangle fail.
+cat >"$TMP/script-heads.json" <<'JSON'
+{"steps": [
+  {"op": "select", "id": "#2"}, {"op": "heads", "start": "closed", "end": "closed"},
+  {"op": "heads", "start": "flat", "end": "flat"}, {"op": "undo"}, {"op": "redo"},
+  {"op": "heads", "end": "openCircle"}
+]}
+JSON
+run annotate-heads 0 -- --annotate "$TMP/script-heads.json" --drafts-dir "$ADRAFTS" --render-dir "$TMP/heads"
+[[ "$(json "$adraft/review.json" 'j.annotations[1].shape.type + "|" + j.annotations[1].shape.startHead + "|" + j.annotations[1].shape.endHead')" == "arrow|flat|openCircle" ]] \
+  || die "heads: review.json $(json "$adraft/review.json" 'JSON.stringify(j.annotations[1].shape)')"
+[[ "$(json "$TMP/annotate-heads.json" 'j.annotations[1].intents.join()')" == comment ]] || die "heads: a span should default to comment"
+validate_bundle "$adraft/review.json"
+[[ -s "$TMP/heads/capture-1-annotated.png" ]] || die "heads: render missing"
+echo '{"steps": [{"op": "select", "id": "#2"}, {"op": "heads", "start": "none", "end": "closed"}]}' >"$TMP/script-heads-standard.json"
+run annotate-heads-standard 0 -- --annotate "$TMP/script-heads-standard.json" --drafts-dir "$ADRAFTS"
+[[ "$(json "$adraft/review.json" '"startHead" in j.annotations[1].shape || "endHead" in j.annotations[1].shape')" == false ]] \
+  || die "heads: a standard arrow wrote heads $(json "$adraft/review.json" 'JSON.stringify(j.annotations[1].shape)')"
+[[ "$(json "$TMP/annotate-heads-standard.json" 'j.annotations[1].intents.join()')" == move ]] || die "heads: a standard arrow should default to move"
+echo '{"steps": [{"op": "select", "id": "#1"}, {"op": "heads", "end": "flat"}]}' >"$TMP/script-heads-rect.json"
+run annotate-heads-rect 2 -- --annotate "$TMP/script-heads-rect.json" --drafts-dir "$ADRAFTS"
+ok "arrow heads set through the editor (undo/redo), saved and validated, drawn; standard heads write nothing; a rectangle refuses heads"
+
 before_restore="$(json "$adraft/review.json" 'JSON.stringify(j.annotations.map(a => a.shape))')"
 echo '{"steps": [{"op": "media", "media": "m1"}, {"op": "restore-original"}]}' >"$TMP/script-restore.json"
 run annotate-restore 0 -- --annotate "$TMP/script-restore.json" --drafts-dir "$ADRAFTS"
@@ -1056,7 +1081,7 @@ ok "a Trash that refuses keeps the draft (exit 5); --delete deletes it immediate
 
 run previews 0 -- --render-ui-previews "$TMP/previews"
 for name in overlay-region-hint overlay-window-hint overlay-region-selection overlay-region-selection-bottom-edge overlay-window-hover recording-dim-region hud-countdown hud-saved hud-recording-countdown hud-recording hud-saved-video hud-recording-narration hud-saved-narrated settings-registered settings-in-use status-bar-icon-light status-bar-icon-dark menu-capture-target-row-light menu-capture-target-row-dark menu-delay-row-light menu-delay-row-dark menu-narrate-row-off-light menu-narrate-row-off-dark menu-narrate-row-on-light menu-narrate-row-on-dark \
-  editor-empty editor-no-media editor-annotated editor-window editor-wide-sidebar editor-arrow-selected editor-narrow editor-crop-drag editor-crop-tool editor-crop-adjust editor-cropped editor-multi-select editor-zoomed editor-keyboard-insert editor-video-timeline editor-video-narrow editor-video-trimmed editor-video-crop-tool editor-video-cropped editor-video-playing editor-video-range-drag editor-video-trim-drag editor-autoscroll \
+  editor-empty editor-no-media editor-annotated editor-window editor-wide-sidebar editor-arrow-selected editor-arrow-heads editor-narrow editor-crop-drag editor-crop-tool editor-crop-adjust editor-cropped editor-multi-select editor-zoomed editor-keyboard-insert editor-video-timeline editor-video-narrow editor-video-trimmed editor-video-crop-tool editor-video-cropped editor-video-playing editor-video-range-drag editor-video-trim-drag editor-autoscroll \
   session-ready session-narrow session-edited session-submitting session-failed session-submitted session-submitted-fitted session-issues session-empty \
   session-existing-looking session-existing-found session-existing-narrow session-existing-not-found session-existing-closed \
   session-existing-failed session-existing-submitted session-existing-selection session-existing-abandoned \

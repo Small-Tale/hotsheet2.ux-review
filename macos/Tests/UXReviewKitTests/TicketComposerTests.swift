@@ -36,7 +36,7 @@ struct TicketComposerTests {
 
     @Test func projectsEveryAnnotationOntoHotSheetRectanglesPerMedia() throws {
         let composed = try TicketComposer.compose(TestSupport.exampleBundle())
-        #expect(composed.hotSheetAnnotations["m1"]?.map(\.id) == ["a1", "a2", "a3", "a4"])
+        #expect(composed.hotSheetAnnotations["m1"]?.map(\.id) == ["a1", "a2", "a3", "a4", "a6"])
         let clip = try #require(composed.hotSheetAnnotations["m2"]?.first)
         #expect(clip == HotSheetMediaAnnotation(
             id: "a5", x: 400, y: 900, width: 2800, height: 6300, startMs: 2500, endMs: 4250,

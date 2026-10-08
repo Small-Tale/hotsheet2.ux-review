@@ -145,7 +145,8 @@ public enum TicketComposer {
         for (index, annotation) in bundle.annotations.enumerated() {
             let filename = filenameById[annotation.mediaId].map { storedNames[$0] ?? $0 } ?? annotation.mediaId
             let bounds = annotation.shape.bounds
-            var meta = "- Shape: \(annotation.shape.kind); region (0–10000): x \(bounds.x), y \(bounds.y), "
+            let heads = annotation.shape.arrowHeadsSummary.map { " (\($0))" } ?? ""
+            var meta = "- Shape: \(annotation.shape.kind)\(heads); region (0–10000): x \(bounds.x), y \(bounds.y), "
                 + "w \(bounds.width), h \(bounds.height)"
             if let range = annotation.timeRange {
                 meta += "\n- Time: \(formatTime(range.startMs))–\(formatTime(range.endMs))"

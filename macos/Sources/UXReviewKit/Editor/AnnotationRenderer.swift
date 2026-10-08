@@ -121,7 +121,7 @@ public struct AnnotationRenderer {
     func drawShape(_ shape: Shape, intent: Intent, selected: Bool, in context: CGContext) {
         let path = CGMutablePath()
         var fill: CGFloat = 0
-        var arrowHead: (tip: CGPoint, from: CGPoint)?
+        var arrowEnds: [ArrowEnd] = []
         switch shape {
         case let .rect(rect):
             path.addRect(self.rect(frame.pixel(rect)))
@@ -139,10 +139,8 @@ public struct AnnotationRenderer {
                 path.closeSubpath()
                 fill = 0.12
             }
-        case let .arrow(points):
-            let mapped = points.map(point)
-            path.addLines(between: mapped)
-            if mapped.count >= 2 { arrowHead = (mapped[mapped.count - 1], mapped[mapped.count - 2]) }
+        case let .arrow(points, heads):
+            arrowEnds = addArrow(points, heads: heads, width: selected ? lineWidth * 1.4 : lineWidth, to: path)
         case let .insertion(location):
             // A text cursor (I-beam) standing on the point, with a proofreading caret just below.
             let anchor = point(location)
@@ -177,28 +175,10 @@ public struct AnnotationRenderer {
         context.setStrokeColor(IntentPalette.color(intent))
         context.setLineWidth(width)
         context.strokePath()
-        if let arrowHead {
-            drawArrowHead(tip: arrowHead.tip, from: arrowHead.from, width: width, intent: intent, in: context)
+        for end in arrowEnds {
+            drawArrowHead(end, width: width, intent: intent, in: context)
         }
         context.restoreGState()
-    }
-
-    private func drawArrowHead(tip: CGPoint, from: CGPoint, width: CGFloat, intent: Intent, in context: CGContext) {
-        let angle = atan2(tip.y - from.y, tip.x - from.x)
-        let length = width * 4 + 6
-        let spread = CGFloat.pi / 7
-        let head = CGMutablePath()
-        head.move(to: tip)
-        head.addLine(to: CGPoint(x: tip.x - length * cos(angle - spread), y: tip.y - length * sin(angle - spread)))
-        head.addLine(to: CGPoint(x: tip.x - length * cos(angle + spread), y: tip.y - length * sin(angle + spread)))
-        head.closeSubpath()
-        context.addPath(head)
-        context.setStrokeColor(CGColor(gray: 0, alpha: 0.45))
-        context.setLineWidth(2.5)
-        context.strokePath()
-        context.addPath(head)
-        context.setFillColor(IntentPalette.color(intent))
-        context.fillPath()
     }
 
     // MARK: Badges and handles
@@ -210,7 +190,7 @@ public struct AnnotationRenderer {
         let radius = badgeRadius
         let anchor: CGPoint
         switch shape {
-        case let .arrow(points) where !points.isEmpty:
+        case let .arrow(points, _) where !points.isEmpty:
             let tail = point(points[0])
             anchor = CGPoint(x: tail.x - radius - 3, y: tail.y - radius - 3)
         case let .insertion(location):

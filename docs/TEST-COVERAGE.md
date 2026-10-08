@@ -1401,3 +1401,23 @@ text stacked one word per line at 99 pt wide. The empty Draft Reviews window was
   show Hot Sheet project above Review, Captures, and Ticket; inspected by hand.
 - **Not covered automatically:** the section order itself. SwiftUI builds no accessibility tree
   for an offscreen `Form`, so there is nothing to read the order from without a live window.
+
+## HS2-HQV9R8: arrow heads at each end
+
+- **Unit** (`ArrowHeadsTests`): the standard arrow writes no heads, and only non-default heads are
+  written; all 36 combinations round-trip; older arrows read as standard; an unknown head is
+  rejected; the schema's `arrowHead` enum matches the model; the example's span. The default
+  intent across all 36 combinations (move only for a one-way arrow). Editor: new arrows are
+  standard; set, set again, undo, undo, redo, and a no-op (one undo step each); not on a rectangle
+  or a missing id; chosen intents survive a head change; nudge, vertex drag, duplicate, and crop
+  keep the heads. VoiceOver label; the `heads` script op (missing end kept, empty and unknown
+  rejected); the ticket's shape line; the line stopping at an open circle.
+- **Hot Sheet end to end** (`HotSheetEndToEndTests`): the example's span is filed as `#6 · comment`
+  with `Shape: arrow (start flat, end flat)`.
+- **App end to end** (`scripts/app-e2e.sh`): `--annotate` sets heads on a real draft with
+  undo/redo; `review.json` holds `startHead`/`endHead`, validates against the schema, and the span
+  defaults to comment; going back to standard writes no heads and defaults to move; heads on a
+  rectangle exit 2; `--render-dir` draws it.
+- **Visual QA:** `editor-arrow-heads` (`--render-ui-previews`): one arrow per style and a selected
+  span with its Arrow heads menus, inspected by hand (the first render showed the menus pushing the
+  inspector wider than 300 pt; fixed).

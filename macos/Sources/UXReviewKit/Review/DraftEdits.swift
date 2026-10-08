@@ -120,7 +120,7 @@ public enum EditProjection {
         let points: [NormPoint] = switch shape {
         case let .rect(rect), let .strike(rect):
             [NormPoint(x: rect.x, y: rect.y), NormPoint(x: rect.x + rect.width, y: rect.y + rect.height)]
-        case let .freehand(pts, _), let .arrow(pts):
+        case let .freehand(pts, _), let .arrow(pts, _):
             pts
         case let .insertion(point):
             [point]

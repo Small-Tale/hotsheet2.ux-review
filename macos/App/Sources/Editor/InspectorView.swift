@@ -51,6 +51,12 @@ struct AnnotationDetail: View {
                 .toggleStyle(.checkbox)
             }
 
+            if case let .arrow(_, heads) = annotation.shape {
+                ArrowHeadsEditor(heads: heads) { heads in
+                    model.mutate { _ = $0.setArrowHeads(heads, for: annotation.id) }
+                }
+            }
+
             if model.editor.media(annotation.mediaId)?.kind == .video {
                 TimeRangeEditor(model: model, annotation: annotation)
             }
@@ -81,6 +87,44 @@ struct AnnotationDetail: View {
             .overlay(RoundedRectangle(cornerRadius: 6).stroke(Color.primary.opacity(0.15)))
         }
         .onChange(of: model.focusNoteRequest) { noteFocused = true }
+    }
+}
+
+/// An arrow's Start and End heads (`HS2-HQV9R8`, docs/06 §6.3): none, open, closed, flat, or an
+/// open or closed circle at each end.
+struct ArrowHeadsEditor: View {
+    let heads: ArrowHeads
+    let set: (ArrowHeads) -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("Arrow heads").font(.caption).foregroundStyle(.secondary)
+            // Two columns sharing the inspector's 300 pt, so neither menu pushes it wider.
+            Grid(alignment: .leading, horizontalSpacing: 8, verticalSpacing: 6) {
+                GridRow {
+                    Text("Start")
+                    Text("End")
+                }
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+                GridRow {
+                    picker("Start", heads.start) { set(ArrowHeads(start: $0, end: heads.end)) }
+                    picker("End", heads.end) { set(ArrowHeads(start: heads.start, end: $0)) }
+                }
+            }
+        }
+    }
+
+    private func picker(_ title: String, _ value: ArrowHead, _ choose: @escaping (ArrowHead) -> Void) -> some View {
+        Picker(title, selection: Binding(get: { value }, set: choose)) {
+            ForEach(ArrowHead.allCases, id: \.self) { head in
+                Text(head.displayName).tag(head)
+            }
+        }
+        .pickerStyle(.menu)
+        .labelsHidden()
+        .frame(maxWidth: .infinity)
+        .accessibilityLabel("\(title) head")
     }
 }
 

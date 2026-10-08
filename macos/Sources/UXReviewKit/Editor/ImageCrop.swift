@@ -76,9 +76,9 @@ public enum ImageCrop {
         case let .freehand(points, closed):
             guard intersects(frame.pixel(shape.bounds), cropRect) else { return nil }
             return .freehand(points: points.map(moved), closed: closed)
-        case let .arrow(points):
+        case let .arrow(points, heads):
             guard intersects(frame.pixel(shape.bounds), cropRect) else { return nil }
-            return .arrow(points: points.map(moved))
+            return .arrow(points: points.map(moved), heads: heads)
         }
     }
 

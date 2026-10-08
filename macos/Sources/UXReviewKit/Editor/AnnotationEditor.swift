@@ -476,14 +476,17 @@ public extension Shape {
 }
 
 public extension AnnotationEditor {
-    /// What VoiceOver reads for an annotation on the canvas: number, shape, intents, and note,
-    /// for example "Annotation 1: Rectangle, comment, bug. Field label is clipped."
+    /// What VoiceOver reads for an annotation on the canvas: number, shape (with an arrow's heads
+    /// when they aren't the standard ones), intents, and note, for example
+    /// "Annotation 1: Rectangle, comment, bug. Field label is clipped."
     /// Spec: docs/06-annotation-editor.md §6.4.
     func accessibilityLabel(for id: String) -> String? {
         guard let annotation = bundle.annotations.first(where: { $0.id == id }), let number = number(of: id) else { return nil }
         let intents = annotation.effectiveIntents.map(\.rawValue).joined(separator: ", ")
         let note = annotation.note.trimmingCharacters(in: .whitespacesAndNewlines)
         let time = annotation.timeRange.map { ", shows \(TimeFormat.range($0))" } ?? ""
-        return "Annotation \(number): \(annotation.shape.displayName), \(intents)\(time)." + (note.isEmpty ? " No note." : " \(note)")
+        let heads = annotation.shape.arrowHeadsSummary.map { ", \($0)" } ?? ""
+        return "Annotation \(number): \(annotation.shape.displayName)\(heads), \(intents)\(time)." +
+            (note.isEmpty ? " No note." : " \(note)")
     }
 }

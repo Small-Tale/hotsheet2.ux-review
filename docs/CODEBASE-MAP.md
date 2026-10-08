@@ -67,6 +67,7 @@ macos/
     Settings/AppMenus.swift           menu bar menu as MenuEntry lists per phase, MenuShortcut, WindowPresence (docs/05 §5.1)
     Settings/WindowFrameFit.swift     a restored window frame shrunk and moved onto the screen's visible area (docs/05 §5.1.1)
     Editor/AnnotationEditor.swift     editor state machine: document, selection, undo/redo, intent toggle (docs/06)
+    Editor/AnnotationEditor+ArrowHeads.swift  setArrowHeads: an arrow's start and end heads, undoable (HS2-HQV9R8)
     Editor/AnnotationEditor+Gestures.swift  draw/move/resize gestures, hit testing
     Editor/AnnotationEditor+Crop.swift  one crop per capture (relative to the original), the Crop tool's canvas space (shows the original), draw/move/resize crop gestures, reset crop (docs/06 §6.6)
     Editor/AnnotationEditor+Time.swift  playhead, annotation time ranges, trim + reset trim, TimeFormat (docs/06 §6.10)
@@ -83,6 +84,7 @@ macos/
     Editor/OriginalsIndex.swift       legacy originals/crops.json and its trust rules, read only to migrate older drafts (docs/06 §6.6)
     Editor/ImageCrop.swift            PixelRect snapping and even sides (video crops), annotation transform into a crop
     Editor/AnnotationRenderer.swift   CoreGraphics drawing of shapes, badges, handles, crop overlay; IntentPalette
+    Editor/AnnotationRenderer+ArrowHeads.swift  each arrow end drawn in its ArrowHead style
     Editor/EditorSession.swift        editor + files: display images, video frames, frame rates (now or in the background), save + reload (follow added/removed media), edits.json, exact no-drift save
     Editor/MediaStripWidth.swift      the resizable capture sidebar: width range, drag rule, thumbnail size
     Editor/EditorToast.swift          toasts over the canvas: which message shows, info fades / errors stay (ToastPresenter)
@@ -126,6 +128,7 @@ macos/
     Editor/HeadlessAnnotate.swift     `--annotate` mode with JSON output
     Editor/EditorPreviews.swift       editor states + mock screenshots for --render-ui-previews
     Editor/EditorPreviews+Crop.swift  the Crop tool's preview states (image and video crops)
+    Editor/EditorPreviews+ArrowHeads.swift  every head style and a selected span (editor-arrow-heads)
     Editor/EditorPreviews+Toolbar.swift  the real toolbar on a titled window: editor-toolbar.json, editor-window.png
     Editor/EditorPreviews+Typing.swift  types into the middle of a note through the real text view (editor-note-typing.json)
     Review/ReviewSessionWindowController.swift  one Submit Review window per draft (docs/07 §7.1)

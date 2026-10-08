@@ -18,6 +18,10 @@
   },
   "$defs": {
     "coord": { "type": "integer", "minimum": 0, "maximum": 10000 },
+    "arrowHead": {
+      "description": "How an arrow end is drawn: none, open (a V of two strokes), closed (a filled triangle), flat (a bar across the line), openCircle, or closedCircle.",
+      "enum": ["none", "open", "closed", "flat", "openCircle", "closedCircle"]
+    },
     "point": {
       "type": "object",
       "required": ["x", "y"],
@@ -71,7 +75,9 @@
           "additionalProperties": false,
           "properties": {
             "type": { "const": "arrow" },
-            "points": { "type": "array", "minItems": 2, "items": { "$ref": "#/$defs/point" } }
+            "points": { "type": "array", "minItems": 2, "items": { "$ref": "#/$defs/point" } },
+            "startHead": { "$ref": "#/$defs/arrowHead", "default": "none", "description": "Head at the first point. Writers omit it when it is none." },
+            "endHead": { "$ref": "#/$defs/arrowHead", "default": "closed", "description": "Head at the last point. Writers omit it when it is closed." }
           }
         },
         {

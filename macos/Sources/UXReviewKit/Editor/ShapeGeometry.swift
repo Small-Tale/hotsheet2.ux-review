@@ -102,7 +102,7 @@ public extension Shape {
         case .freehand:
             let box = frame.pixel(bounds)
             return BoxHandle.allCases.map { (.box($0), $0.position(in: box)) }
-        case let .arrow(points):
+        case let .arrow(points, _):
             return points.enumerated().map { (.vertex($0.offset), frame.pixel($0.element)) }
         case .insertion:
             return []
@@ -123,7 +123,7 @@ public extension Shape {
             } else {
                 distance = Geometry.distance(point, toPolyline: closed ? pixels + pixels.prefix(1) : pixels)
             }
-        case let .arrow(points):
+        case let .arrow(points, _):
             distance = Geometry.distance(point, toPolyline: points.map(frame.pixel))
         case let .insertion(location):
             // The cursor glyph stands above its point and the caret hangs below; both count.
@@ -150,7 +150,7 @@ public extension Shape {
         switch self {
         case let .rect(rect), let .strike(rect):
             [NormPoint(x: rect.x, y: rect.y), NormPoint(x: rect.x + rect.width, y: rect.y + rect.height)]
-        case let .freehand(points, _), let .arrow(points):
+        case let .freehand(points, _), let .arrow(points, _):
             points.isEmpty ? [NormPoint(x: 0, y: 0)] : points
         case let .insertion(point):
             [point]
@@ -163,7 +163,7 @@ public extension Shape {
         case let .rect(rect): .rect(Self.mapRect(rect, transform))
         case let .strike(rect): .strike(Self.mapRect(rect, transform))
         case let .freehand(points, closed): .freehand(points: points.map(transform), closed: closed)
-        case let .arrow(points): .arrow(points: points.map(transform))
+        case let .arrow(points, heads): .arrow(points: points.map(transform), heads: heads)
         case let .insertion(point): .insertion(transform(point))
         }
     }
@@ -193,10 +193,10 @@ public extension Shape {
                 return frame.norm(CGPoint(x: new.minX + fractionX * new.width, y: new.minY + fractionY * new.height))
             }
             return .freehand(points: scaled, closed: closed)
-        case let (.arrow(points), .vertex(index)) where points.indices.contains(index):
+        case let (.arrow(points, heads), .vertex(index)) where points.indices.contains(index):
             var moved = points
             moved[index] = frame.norm(target)
-            return .arrow(points: moved)
+            return .arrow(points: moved, heads: heads)
         default:
             return self
         }
