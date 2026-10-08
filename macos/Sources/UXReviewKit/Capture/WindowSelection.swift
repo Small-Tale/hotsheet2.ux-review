@@ -66,6 +66,18 @@ public enum WindowSelection {
         windows.first { isPickable($0, excludingPID: excludingPID) && $0.frame.contains(point) }
     }
 
+    /// The window the interactive picker targets under `point`: the frontmost window that is
+    /// actually visible there. UX Review's own windows (owned by `ownPID`) are never picked, but
+    /// they still occlude: when one of them is on top under the pointer, nothing is picked rather
+    /// than a window the reviewer cannot see behind it (HS2-AR8Q2G). Own windows above the
+    /// pickable layers (the capture HUD, the picker overlay itself) are not occluders.
+    public static func pickTarget(at point: CGPoint, in windows: [WindowSnapshot], ownPID: Int32) -> WindowSnapshot? {
+        guard let front = windows.first(where: { isPickable($0, excludingPID: nil) && $0.frame.contains(point) }) else {
+            return nil
+        }
+        return front.ownerPID == ownPID ? nil : front
+    }
+
     /// The frontmost normal-level (layer 0) window owned by `pid`, used to name the window being
     /// reviewed and as the default headless window target. Floating palettes are skipped so they
     /// never stand in for the document window.

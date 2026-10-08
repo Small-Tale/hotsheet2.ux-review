@@ -60,6 +60,10 @@ Each feature gets both unit tests and end-to-end tests. Tests live in
   - a realistic front-to-back snapshot: small and floating windows on top win over large
     windows behind them (HS2-1JWVYC regression)
   - front window per app, which stays on layer 0
+  - the picker's target: UX Review's own windows on top occlude rather than being skipped,
+    while its HUD and overlay levels do not (HS2-AR8Q2G regression)
+- **Picker focus** (`PickerFocusTests`): focus is handed back only when UX Review took it
+  during picking; never after a switch to a third app, or when UX Review was frontmost.
   - coordinate flips
   - parsing window-server dictionaries
 - **Context** (`CaptureContextBuilderTests`): OS version strings, trimming, and dropping blanks.

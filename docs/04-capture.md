@@ -28,6 +28,11 @@ listing each preset for each target. See [05-start-and-settings.md](05-start-and
 
 ## 4.2 Picking a target
 
+The region and window overlays never activate UX Review. They are non-activating panels that
+still take the keyboard, so Esc works, while every app's windows stay in the order the
+reviewer sees. In particular UX Review's own windows (editor, Submit Review, Draft Reviews,
+Settings) are not raised over the app being reviewed (HS2-AR8Q2G).
+
 - **Display**: no UI. The display under the pointer is captured.
 - **Region**: every display is dimmed and shows a crosshair and the hint "Drag to select a
   region · Esc to cancel".
@@ -44,12 +49,18 @@ listing each preset for each target. See [05-start-and-settings.md](05-start-and
     and palettes (3), modal panels (8), and utility windows (19). The Dock, the menu bar,
     status items, menus, and system overlays never can.
   - A window must be visible and at least 40×40 pt.
-  - UX Review's own windows are skipped.
+  - UX Review's own windows are never picked, but they still cover what is behind them. When
+    one is on top under the pointer, nothing is highlighted and a click does nothing, rather
+    than picking a window the reviewer cannot see. UX Review's windows above the app levels
+    (the capture HUD, the picker overlay) do not count.
   - The default headless window target and the capture context's window name still use the
     app's frontmost normal (layer-0) window, never a floating palette.
 - **Esc** cancels silently.
-- When picking ends, the app that was frontmost before is reactivated, so its hover and focus
-  states survive the delay.
+- When picking ends, focus stays where it was, so the reviewed app's hover and focus states
+  survive the delay.
+  - If UX Review did become active during picking, the app that was frontmost before is
+    reactivated, unless the reviewer switched to a third app meanwhile.
+  - If UX Review was frontmost when picking began, its key window gets the keyboard back.
 
 ## 4.3 Delay and countdown
 

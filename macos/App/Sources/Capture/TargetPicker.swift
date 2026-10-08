@@ -29,7 +29,10 @@ protocol OverlayState: AnyObject {
     var hoveredFrame: CGRect? { get }
 }
 
-/// One overlay window per display, all sharing a session's state.
+/// One overlay window per display, all sharing a session's state. The overlays are
+/// non-activating panels: picking never activates UX Review, so its own windows (the editor,
+/// Submit Review, Settings) are not raised over the app being reviewed, and the window order the
+/// picker snapshotted stays the order on screen (HS2-AR8Q2G).
 @MainActor
 final class PickerSession: OverlayState {
     let mode: CaptureTarget
@@ -38,6 +41,7 @@ final class PickerSession: OverlayState {
     private let windows: [WindowSnapshot]
     private let primaryHeight = DisplayDirectory.primaryHeight
     private var previousApp: NSRunningApplication?
+    private weak var previousKeyWindow: NSWindow?
 
     private(set) var dragStart: CGPoint?
     private(set) var dragCurrent: CGPoint?
@@ -52,8 +56,9 @@ final class PickerSession: OverlayState {
         try await withCheckedThrowingContinuation { continuation in
             self.continuation = continuation
             previousApp = CaptureContextProvider.frontmostOtherApp()
+            previousKeyWindow = NSApp.keyWindow
             overlays = DisplayDirectory.displays().map { OverlayWindow(display: $0, session: self) }
-            NSApp.activate(ignoringOtherApps: true)
+            // No `NSApp.activate`: the overlay panel takes key (for Esc) without activating.
             for overlay in overlays {
                 overlay.orderFrontRegardless()
             }
@@ -112,7 +117,7 @@ final class PickerSession: OverlayState {
     func updateHover(at point: CGPoint) {
         guard mode == .window else { return }
         let serverPoint = WindowSelection.windowServerPoint(fromAppKit: point, primaryHeight: primaryHeight)
-        let next = WindowSelection.topmostWindow(at: serverPoint, in: windows, excludingPID: CaptureContextProvider.ownPID)
+        let next = WindowSelection.pickTarget(at: serverPoint, in: windows, ownPID: CaptureContextProvider.ownPID)
         if next != hovered {
             hovered = next
             redraw()
@@ -136,16 +141,37 @@ final class PickerSession: OverlayState {
             overlay.orderOut(nil)
         }
         overlays.removeAll()
-        // Hand focus back so hover states and menus in the reviewed app behave normally.
-        previousApp?.activate()
+        restoreFocus()
         continuation.resume(with: result)
+    }
+
+    /// The overlays never activate UX Review, so focus normally never moved. If UX Review did
+    /// become active meanwhile, hand focus back to the reviewed app so its hover states and menus
+    /// behave normally; if UX Review was frontmost to begin with, give its key window back.
+    private func restoreFocus() {
+        let ownPID = CaptureContextProvider.ownPID
+        if let pid = PickerFocus.appToReactivate(
+            previousPID: previousApp?.processIdentifier,
+            frontmostPIDNow: NSWorkspace.shared.frontmostApplication?.processIdentifier,
+            ownPID: ownPID
+        ) {
+            NSRunningApplication(processIdentifier: pid)?.activate()
+        } else if NSApp.isActive, let previousKeyWindow, previousKeyWindow.isVisible {
+            previousKeyWindow.makeKey()
+        }
     }
 }
 
-/// Borderless, transparent, above everything, on every Space.
-final class OverlayWindow: NSWindow {
+/// Borderless, transparent, above everything, on every Space. A non-activating panel: it becomes
+/// key so Esc reaches it, but showing or clicking it never activates UX Review.
+final class OverlayWindow: NSPanel {
     init(display: DisplayDirectory.Display, session: PickerSession) {
-        super.init(contentRect: display.screen.frame, styleMask: .borderless, backing: .buffered, defer: false)
+        // `.nonactivatingPanel` must be set at creation to take effect in the window server.
+        super.init(
+            contentRect: display.screen.frame, styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false
+        )
+        hidesOnDeactivate = false
+        becomesKeyOnlyIfNeeded = false
         setFrame(display.screen.frame, display: false)
         level = .screenSaver
         isOpaque = false

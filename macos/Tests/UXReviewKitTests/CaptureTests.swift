@@ -190,6 +190,52 @@ struct WindowSelectionTests {
         #expect(WindowSelection.topmostWindow(at: CGPoint(x: 110, y: 110), in: windows, excludingPID: nil)?.windowID == 1)
     }
 
+    /// HS2-AR8Q2G regression: a UX Review window on top occludes, so the picker never targets a
+    /// window the reviewer cannot see behind it.
+    @Test func ownWindowsOnTopOccludeInsteadOfBeingSkipped() {
+        // Our window 1 covers everything: nothing is picked under it, anywhere.
+        #expect(WindowSelection.pickTarget(at: CGPoint(x: 110, y: 110), in: windows, ownPID: Self.ourPID) == nil)
+        #expect(WindowSelection.pickTarget(at: CGPoint(x: 1000, y: 800), in: windows, ownPID: Self.ourPID) == nil)
+        // The older rule would have picked Safari behind it.
+        #expect(WindowSelection.topmostWindow(at: CGPoint(x: 110, y: 110), in: windows, excludingPID: Self.ourPID)?.windowID == 4)
+    }
+
+    @Test func pickTargetMatchesTopmostWindowWhenOurWindowsAreBehindOrAway() {
+        let editor = WindowSnapshot(
+            windowID: 7, ownerPID: Self.ourPID, ownerName: "UX Review", title: "Editor", layer: 0,
+            frame: CGRect(x: 600, y: 0, width: 600, height: 600)
+        )
+        let hud = WindowSnapshot(
+            windowID: 8, ownerPID: Self.ourPID, ownerName: "UX Review", title: nil, layer: 25,
+            frame: CGRect(x: 0, y: 0, width: 300, height: 100)
+        )
+        let overlay = WindowSnapshot(
+            windowID: 9, ownerPID: Self.ourPID, ownerName: "UX Review", title: nil, layer: 1000,
+            frame: CGRect(x: 0, y: 0, width: 2000, height: 2000)
+        )
+        let safari = WindowSnapshot(
+            windowID: 4, ownerPID: 10, ownerName: "Safari", title: "Settings", layer: 0,
+            frame: CGRect(x: 50, y: 50, width: 800, height: 600)
+        )
+        let palette = WindowSnapshot(
+            windowID: 10, ownerPID: 13, ownerName: "Preview", title: "Inspector", layer: 3,
+            frame: CGRect(x: 700, y: 100, width: 200, height: 200)
+        )
+        // Front to back: overlay and HUD above everything, the reviewed app's palette, Safari,
+        // then our editor behind Safari (the reviewed app was frontmost).
+        let list = [overlay, hud, palette, safari, editor]
+        let pick = { (point: CGPoint) in WindowSelection.pickTarget(at: point, in: list, ownPID: Self.ourPID)?.windowID }
+        #expect(pick(CGPoint(x: 60, y: 60)) == 4) // under the HUD and overlay: they do not occlude
+        #expect(pick(CGPoint(x: 750, y: 150)) == 10) // the palette over Safari over our editor
+        #expect(pick(CGPoint(x: 820, y: 300)) == 4) // Safari overlaps our editor and is in front
+        #expect(pick(CGPoint(x: 1000, y: 300)) == nil) // only our editor is there
+        #expect(pick(CGPoint(x: 1500, y: 1500)) == nil) // nothing pickable at all
+        // Once our editor is raised above Safari, it occludes the overlap.
+        let raised = [overlay, hud, editor, palette, safari]
+        #expect(WindowSelection.pickTarget(at: CGPoint(x: 820, y: 300), in: raised, ownPID: Self.ourPID) == nil)
+        #expect(WindowSelection.pickTarget(at: CGPoint(x: 100, y: 300), in: raised, ownPID: Self.ourPID)?.windowID == 4)
+    }
+
     /// HS2-1JWVYC regression. Shaped like a real macOS 27 `CGWindowListCopyWindowInfo` list, front
     /// to back: the menu bar (24) and a screen-wide system overlay (24) first, then a floating
     /// palette (3) over a small layer-0 window, over maximized windows, then Notification Center
@@ -410,5 +456,32 @@ struct CaptureCommandTests {
         #expect(CommandLineError.missingValue("--delay").description == "--delay needs a value")
         #expect(CommandLineError.invalidValue("--delay", "x").description == "Invalid --delay: x")
         #expect(CommandLineError.missing("--rect").description == "Missing --rect")
+    }
+}
+
+/// HS2-AR8Q2G: the picker hands focus back only when UX Review took it during picking.
+struct PickerFocusTests {
+    static let ours: Int32 = 99
+
+    @Test func leavesFocusAloneWhenNothingChanged() {
+        #expect(PickerFocus.appToReactivate(previousPID: 10, frontmostPIDNow: 10, ownPID: Self.ours) == nil)
+    }
+
+    @Test func reactivatesThePreviousAppWhenUXReviewTookFocus() {
+        #expect(PickerFocus.appToReactivate(previousPID: 10, frontmostPIDNow: Self.ours, ownPID: Self.ours) == 10)
+    }
+
+    @Test func respectsASwitchToAThirdApp() {
+        #expect(PickerFocus.appToReactivate(previousPID: 10, frontmostPIDNow: 12, ownPID: Self.ours) == nil)
+    }
+
+    @Test func neverActivatesAnotherAppWhenUXReviewWasFrontmost() {
+        #expect(PickerFocus.appToReactivate(previousPID: nil, frontmostPIDNow: Self.ours, ownPID: Self.ours) == nil)
+        #expect(PickerFocus.appToReactivate(previousPID: Self.ours, frontmostPIDNow: Self.ours, ownPID: Self.ours) == nil)
+        #expect(PickerFocus.appToReactivate(previousPID: nil, frontmostPIDNow: 10, ownPID: Self.ours) == nil)
+    }
+
+    @Test func noFrontmostAppNowLeavesFocusAlone() {
+        #expect(PickerFocus.appToReactivate(previousPID: 10, frontmostPIDNow: nil, ownPID: Self.ours) == nil)
     }
 }
