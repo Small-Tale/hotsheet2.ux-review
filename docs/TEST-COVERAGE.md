@@ -1189,7 +1189,10 @@ capture files are no longer cropped or trimmed while drafting.
   - Claude model → tier for aliases (`opus`, `sonnet`, `fable`, `mythos`, `haiku`, `opus[1m]`,
     `opusplan`), full and Bedrock-style ids, old `claude-3-5-…` ids, date suffixes, and unknown
     models.
-  - Tool → target.
+  - Recognising Claude model ids under any tool (`HS2-8G9F3R`): `claude-…`, antigravity's
+    `-thinking` ids, `anthropic/` and OpenRouter paths, Bedrock prefixes, dotted and `@date`
+    versions; bare aliases, `claude-instant`, and ids that merely contain `claude-` are not.
+  - Tool → target, and a Claude model picking Claude's rule under antigravity, opencode, and codex.
   - Parsing the CLI's JSON.
 - **Detection** (`MediaScalingTests`, fake process runner):
   - `ai-settings get --json` arguments, with the inherited AI actor scrubbed.
@@ -1221,6 +1224,7 @@ capture files are no longer cropped or trimmed while drafting.
     `ffprobe`), and the filed `review.json` match the docs' standard-tier sizes (computed by the
     reference rule in node), with even movie sides, and the annotations are the draft's.
   - Codex and a CLI without `ai-settings` give 2048×1280.
+  - opencode running `anthropic/claude-opus-4-7` gets Claude's high-resolution tier (`HS2-8G9F3R`).
   - `--downscale off` and the setting off file 3840×2400.
 - **Visual QA:** the `session-*` renders (`--render-ui-previews`) show the mock captures scaled
   for Claude's standard tier (the 1600×1000 mock reads "1389×868 scaled for Claude").

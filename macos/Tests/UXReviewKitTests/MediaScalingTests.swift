@@ -124,12 +124,57 @@ struct MediaScalingTests {
         ("claude-fable-5-1", .highResolution),
         ("us.anthropic.claude-opus-4-7", .highResolution),
         ("anthropic.claude-opus-4-6-v1", .standard),
+        ("claude-opus-4-6-thinking", .standard),
+        ("anthropic/claude-opus-4-7", .highResolution),
+        ("openrouter/anthropic/claude-opus-4.7", .highResolution),
+        ("anthropic/claude-sonnet-4.5", .standard),
+        ("claude-3.5-sonnet", .standard),
+        ("claude-opus-4-7@20260101", .highResolution),
         ("default", .standard),
         ("gpt-6.1-sol", .standard),
         ("", .standard),
     ])
     func claudeModelsMapToTheirTier(model: String, tier: ClaudeVisionTier) {
         #expect(ClaudeVisionTier.of(model: model) == tier)
+    }
+
+    @Test(arguments: [
+        ("claude-sonnet-4-6", true),
+        ("claude-opus-4-6-thinking", true),
+        ("Claude-Opus-5-5", true),
+        ("anthropic/claude-sonnet-4-5", true),
+        ("openrouter/anthropic/claude-opus-4.7", true),
+        ("us.anthropic.claude-opus-4-7", true),
+        ("anthropic.claude-opus-4-6-v1", true),
+        ("claude-opus-4-7[1m]", true),
+        ("opus", false), // a bare alias only means Claude under the `claude` tool
+        ("sonnet", false),
+        ("claude", false),
+        ("claude-", false),
+        ("claude-instant-1", false),
+        ("gpt-claude-opus", false),
+        ("my-claude-sonnet-finetune", false),
+        ("gemini-3.8-flash-high", false),
+        ("gpt-6.1-sol", false),
+        ("", false),
+    ])
+    func recognisesClaudeModelIds(model: String, isClaude: Bool) {
+        #expect(ClaudeVisionTier.isClaudeModel(model) == isClaude)
+    }
+
+    @Test func aClaudeModelPicksClaudesRuleUnderAnyTool() {
+        let antigravityOld = AIToolSettings(tool: "antigravity", model: "claude-opus-4-6-thinking")
+        #expect(MediaScaleTarget.forTool(antigravityOld) == .claudeStandard)
+        #expect(MediaScaleTarget.forTool(AIToolSettings(tool: "antigravity", model: "claude-sonnet-4-6")) == .claudeStandard)
+        #expect(MediaScaleTarget.forTool(AIToolSettings(tool: "opencode", model: "anthropic/claude-opus-4-7")) == .claudeHighResolution)
+        #expect(MediaScaleTarget.forTool(AIToolSettings(tool: "opencode", model: "anthropic/claude-sonnet-5-5")) == .claudeHighResolution)
+        #expect(MediaScaleTarget.forTool(AIToolSettings(tool: "codex", model: "claude-opus-5-5")) == .claudeHighResolution)
+        #expect(MediaScaleTarget.forTool(antigravityOld).audience == "Claude")
+        // Unrecognised ids keep the tool's own target.
+        #expect(MediaScaleTarget.forTool(AIToolSettings(tool: "opencode", model: "opus")) == .fallback)
+        #expect(MediaScaleTarget.forTool(AIToolSettings(tool: "opencode", model: "openai/gpt-6.1-sol")) == .fallback)
+        #expect(MediaScaleTarget.forTool(AIToolSettings(tool: "opencode")) == .fallback)
+        #expect(MediaScaleTarget.forTool(AIToolSettings(tool: "codex", model: "sonnet")) == .codex)
     }
 
     @Test func eachToolGetsItsTarget() {

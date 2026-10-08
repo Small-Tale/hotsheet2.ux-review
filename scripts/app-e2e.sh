@@ -997,6 +997,11 @@ ok "Claude (Haiku, standard tier): the 3840x2400 image is filed at $std_png and 
 downscale_case codex 2048x1280 HOTSHEET_CLI="$TMP/ai-cli" AI_JSON='{"tool":"codex","model":"gpt-6.1-sol","effort":"low"}' -- --downscale on
 [[ "$(json "$TMP/codex.json" j.scaledFor)" == Codex ]] || die "codex: scaledFor"
 ok "Codex: filed within 2048x2048 (2048x1280)"
+# A Claude model under another tool picks Claude's rule (HS2-8G9F3R).
+hi_png="$(claude_size 3840 2400 2576 4784)"
+downscale_case opencode-claude "$hi_png" HOTSHEET_CLI="$TMP/ai-cli" AI_JSON='{"tool":"opencode","model":"anthropic/claude-opus-4-7"}' -- --downscale on
+[[ "$(json "$TMP/opencode-claude.json" j.scaledFor)" == Claude ]] || die "opencode-claude: scaledFor"
+ok "opencode running anthropic/claude-opus-4-7: Claude's high-resolution tier ($hi_png)"
 downscale_case oldcli 2048x1280 HOTSHEET_CLI="$TMP/ai-cli" AI_FAIL=1 -- --downscale on
 [[ "$(json "$TMP/oldcli.json" j.scaledFor)" == AI ]] || die "oldcli: scaledFor"
 ok "a CLI without ai-settings: the 2048 px fallback"

@@ -51,7 +51,7 @@ macos/
     Review/ReviewSelection.swift      the part of a review that goes to an existing ticket (what is left out), apply/prune (docs/07 §7.2.2)
     Review/SubmissionPreview.swift    each capture as it will be filed (cropped size, trimmed length, AI-scaled size, annotations left out) for the Submit Review window (docs/07 §7.2)
     Review/SubmissionStaging.swift    applies crops + trims, then AI downscaling, into .submission/ when filing: cropped PNGs, movies trimmed + cropped + scaled in one export (docs/07 §7.5)
-    Review/MediaScaling.swift         PixelSize, AIToolSettings (ai-settings JSON), MediaScaleTarget (Claude tiers' resize rule, Codex / 2048 px fallback, even movie sides), ClaudeVisionTier model mapping (docs/07 §7.5.1)
+    Review/MediaScaling.swift         PixelSize, AIToolSettings (ai-settings JSON), MediaScaleTarget (Claude tiers' resize rule, Codex / 2048 px fallback, even movie sides), ClaudeVisionTier model mapping and Claude-model recognition under any tool (docs/07 §7.5.1)
     Review/MediaImporter.swift        existing images/movies → draft (PNG re-encode, movie copy), `--import` parsing (docs/04 §4.12)
     Review/MediaOpenRouting.swift     Finder Open With / editor drop routing plan (dedupe, all-or-nothing), OpenBatch, `--open-media` parsing (docs/04 §4.12.1)
     Review/ReviewSession.swift        session state machine, SessionIssue rules + messages, DraftSubmitter (docs/07)

@@ -70,14 +70,16 @@ public struct MediaScaleTarget: Codable, Equatable, Hashable, Sendable {
     /// Any other tool, or when the tool can't be determined: 2048 px on the longest side.
     public static let fallback = MediaScaleTarget(rule: .longestEdge(2048), audience: "AI")
 
-    /// The target for a project's default AI tool; `fallback` when it is unknown.
+    /// The target for a project's default AI tool; `fallback` when it is unknown. A model that is
+    /// recognisably a Claude model picks Claude's rule whatever the tool, such as antigravity's
+    /// `claude-opus-4-6-thinking` or opencode's `anthropic/claude-sonnet-4-5` (`HS2-8G9F3R`).
     public static func forTool(_ settings: AIToolSettings?) -> MediaScaleTarget {
         guard let settings else { return .fallback }
-        switch settings.tool.lowercased() {
-        case "claude": return ClaudeVisionTier.of(model: settings.model) == .highResolution ? .claudeHighResolution : .claudeStandard
-        case "codex": return .codex
-        default: return .fallback
+        let tool = settings.tool.lowercased()
+        if tool == "claude" || ClaudeVisionTier.isClaudeModel(settings.model) {
+            return ClaudeVisionTier.of(model: settings.model) == .highResolution ? .claudeHighResolution : .claudeStandard
         }
+        return tool == "codex" ? .codex : .fallback
     }
 
     /// Asks the project's Hot Sheet (`HotSheetClient.aiSettings`) for its default AI tool.
@@ -185,7 +187,8 @@ public enum ClaudeVisionTier: Equatable, Sendable {
             return alias == "haiku" ? .standard : .highResolution // `opusplan` is Opus too
         }
         guard let range = name.range(of: "claude-") else { return .standard }
-        let parts = name[range.upperBound...].split(separator: "-").map(String.init)
+        // `-`, and `.` / `@` as in OpenRouter's `claude-opus-4.7` and Vertex's `claude-opus-4-7@2025…`.
+        let parts = name[range.upperBound...].split(whereSeparator: { "-.@".contains($0) }).map(String.init)
         guard let familyIndex = parts.firstIndex(where: { families.contains($0) }) else { return .standard }
         if parts[familyIndex] == "fable" || parts[familyIndex] == "mythos" { return .highResolution }
         // `claude-opus-4-7` puts the version after the family; `claude-3-5-sonnet` before it.
@@ -193,6 +196,22 @@ public enum ClaudeVisionTier: Equatable, Sendable {
         let before = Array(parts[..<familyIndex])
         guard let version = Self.version(after) ?? Self.version(before) else { return .standard }
         return version.major > 4 || version.major == 4 && version.minor >= 7 ? .highResolution : .standard
+    }
+
+    /// Whether `model` is recognisably a Claude model id, whichever tool runs it: an id starting
+    /// `claude-` (`claude-sonnet-4-6`, antigravity's `claude-opus-4-6-thinking`), after a provider
+    /// path (`anthropic/claude-…`, `openrouter/anthropic/claude-…`) or a Bedrock-style prefix
+    /// (`us.anthropic.claude-…`), and naming a Claude family. Bare aliases such as `opus` count
+    /// only under the `claude` tool, so they are not recognised here; nor is anything else.
+    public static func isClaudeModel(_ model: String?) -> Bool {
+        guard var name = model?.lowercased().trimmingCharacters(in: .whitespaces), !name.isEmpty else { return false }
+        if let bracket = name.firstIndex(of: "[") { name = String(name[..<bracket]) }
+        if let slash = name.lastIndex(of: "/") { name = String(name[name.index(after: slash)...]) }
+        guard name.hasPrefix("claude-") || name.contains("anthropic.claude-"),
+              let range = name.range(of: "claude-")
+        else { return false }
+        let families: Set<String> = ["opus", "sonnet", "haiku", "fable", "mythos"]
+        return name[range.upperBound...].split(whereSeparator: { "-.@".contains($0) }).contains { families.contains(String($0)) }
     }
 
     /// `["4", "7"]` → 4.7; a date suffix (`20250929`) is not a minor version.
