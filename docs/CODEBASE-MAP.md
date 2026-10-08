@@ -39,7 +39,7 @@ macos/
     Capture/RecordingDim.swift        dim bands + outline around a region being recorded (docs/04 §4.9)
     Capture/CaptureContextBuilder.swift  CaptureContext mapping, OS version string
     Capture/ImageFiles.swift          PNG read/write, test card image (ImageIO)
-    Capture/VideoFileWriter.swift     H.264 .mov writer (AVAssetWriter) + optional AAC narration track, ends at the stop time (docs/04 §4.9)
+    Capture/VideoFileWriter.swift     H.264 .mov writer (AVAssetWriter) + optional AAC narration track, ends at the stop time, records its frame rate as metadata (docs/04 §4.9)
     Capture/Narration.swift           MicrophoneAccess, NarrationPlan (permission decision), SyntheticAudio tone buffers
     Capture/CapturePhase.swift        capture life-cycle transition rules (docs/04 §4.10)
     Capture/CaptureCommand.swift      `--capture` argument parsing (docs/04 §4.11)
@@ -69,9 +69,9 @@ macos/
     Editor/AnnotationEditor+Time.swift  playhead, annotation time ranges, trim + reset trim, TimeFormat (docs/06 §6.10)
     Editor/AnnotationEditor+Timeline.swift  timeline drags (range ends, trim handles), TimelineHitTest, TimeFormat.parse
     Editor/AnnotationEditor+FrameStep.swift  ← / → frame steps: TimelineStepTarget (last-used timeline target), step rules (docs/06 §6.4, §6.10)
-    Editor/FrameGrid.swift            frame grid for frame steps: constant nominal rate or a variable-rate movie's real frame starts (docs/06 §6.10)
+    Editor/FrameGrid.swift            uniform frame grid for frame steps at a movie's expected rate (recorded, constant nominal, or a variable-rate movie's snapped interval) (docs/06 §6.10)
     Editor/AnnotationEditor+Media.swift  syncMedia/dropMedia: follow captures added to or removed from the draft (docs/06 §6.7)
-    Editor/VideoTrim.swift            trimmed movie export (AVAssetExportSession), byte-exact restore, frame grid (sample cursor + edit list), frame cache
+    Editor/VideoTrim.swift            trimmed movie export (AVAssetExportSession), byte-exact restore, expected frame rate (recorded metadata, sample cursor + edit list), frame cache
     Editor/VideoPlayback.swift        play/pause: AVPlayer on the trimmed clip, player frames, PlaybackRules
     Editor/CanvasViewport.swift       canvas zoom/pan: fit, zoom stops, anchored zoom, clamped pan, AutoScroll near edges (docs/06 §6.2.1)
     Editor/FreehandSmoothing.swift    freehand stroke cleanup: resample, corner-preserving bounded smoothing, gentle simplify

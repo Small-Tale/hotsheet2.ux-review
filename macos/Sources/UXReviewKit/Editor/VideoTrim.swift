@@ -14,8 +14,8 @@ public enum VideoTrimError: Error, Equatable, CustomStringConvertible {
     }
 }
 
-/// Movie file work for the editor: frames at a time (for the canvas and timeline) and trimmed
-/// exports. Spec: docs/06-annotation-editor.md §6.10.
+/// Movie file work for the editor: frames at a time (for the canvas and timeline), the expected
+/// frame rate (for frame steps), and trimmed exports. Spec: docs/06-annotation-editor.md §6.10.
 public enum VideoTrim {
     /// The container type to write for a movie file name, by extension.
     static func fileType(for url: URL) -> AVFileType? {
@@ -55,23 +55,31 @@ public enum VideoTrim {
         _ = try FileManager.default.replaceItemAt(destination, withItemAt: temporary)
     }
 
-    /// The movie's frame grid, for frame stepping (docs/06 §6.10): its nominal rate when every
-    /// video sample sits on it, else the samples' real start times (variable-frame-rate movies).
-    /// Only the sample table is read (`AVSampleCursor`), not the frames. Falls back to the
-    /// nominal rate when the samples can't be read, and is nil without a readable video track.
-    /// Blocks until AVFoundation has loaded it.
-    public static func frameGrid(of url: URL) -> FrameGrid? {
+    /// The movie's expected frame rate, for frame steps on a uniform grid (docs/06 §6.10,
+    /// `FrameGrid.expectedRate`): the rate a UX Review recording stored
+    /// (`VideoFileWriter.frameRateMetadataKey`), else the nominal rate when the samples sit on it,
+    /// else a variable-rate movie's interval snapped to a standard rate. Only metadata and the
+    /// sample table (`AVSampleCursor`) are read, not the frames, and the sample table only when
+    /// no rate was stored. Nil without a readable video track or a usable rate. Blocks until
+    /// AVFoundation has loaded it.
+    public static func frameRate(of url: URL) -> Double? {
         load(url) { asset, track in
+            if let recorded = await recordedFrameRate(asset), recorded >= 1 { return recorded }
             let rate = try? await track.load(.nominalFrameRate)
             let nominal = rate.flatMap { $0.isFinite && $0 > 0 ? Double($0) : nil }
             let duration = try? await asset.load(.duration)
             let durationMs = duration.flatMap { $0.isNumeric ? Int((CMTimeGetSeconds($0) * 1000).rounded()) : nil }
-            if let times = await sampleTimesMs(track),
-               let grid = FrameGrid.make(sampleTimesMs: times, durationMs: durationMs, nominalRate: nominal) {
-                return grid
-            }
-            return nominal.map { .constant(fps: $0) }
+            return await FrameGrid.expectedRate(sampleTimesMs: sampleTimesMs(track), durationMs: durationMs, nominalRate: nominal)
         }
+    }
+
+    /// The frame rate `VideoFileWriter` stored in the movie, if any.
+    static func recordedFrameRate(_ asset: AVURLAsset) async -> Double? {
+        let items = await (try? asset.load(.metadata)) ?? []
+        guard let item = items.first(where: {
+            $0.keySpace == .quickTimeMetadata && ($0.key as? String) == VideoFileWriter.frameRateMetadataKey
+        }) else { return nil }
+        return await (try? item.load(.numberValue))?.doubleValue
     }
 
     /// Most samples `sampleTimesMs` reads (about 2.3 hours at 60 fps); longer movies step at

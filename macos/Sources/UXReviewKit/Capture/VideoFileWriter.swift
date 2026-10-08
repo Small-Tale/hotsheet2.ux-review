@@ -39,8 +39,14 @@ public struct AudioTrackFormat: Equatable, Sendable {
 /// first video frame and ends at the time passed to `finish`, so a screen that stops changing
 /// still records for the full duration (ScreenCaptureKit only delivers frames when something
 /// changes). Audio from before the first frame is dropped, and audio after the end is trimmed
-/// with the video, so the tracks stay in sync. Thread-safe. Spec: docs/04-capture.md §4.9.
+/// with the video, so the tracks stay in sync. The movie records the frame rate it was made for
+/// (`frameRateMetadataKey`), since its variable-rate samples don't show it. Thread-safe.
+/// Spec: docs/04-capture.md §4.9.
 public final class VideoFileWriter: @unchecked Sendable {
+    /// QuickTime metadata key (`mdta`) holding the frame rate a recording was made for, an
+    /// integer. The editor's frame steps use it (docs/06 §6.10).
+    public static let frameRateMetadataKey = "com.smalltale.uxreview.frame-rate"
+
     public let url: URL
     public let width: Int
     public let height: Int
@@ -75,6 +81,7 @@ public final class VideoFileWriter: @unchecked Sendable {
         } catch {
             throw VideoWriterError.cannotCreate(error.localizedDescription)
         }
+        writer.metadata = [Self.frameRateItem(framesPerSecond)]
         input = AVAssetWriterInput(mediaType: .video, outputSettings: [
             AVVideoCodecKey: AVVideoCodecType.h264,
             AVVideoWidthKey: width,
@@ -109,6 +116,16 @@ public final class VideoFileWriter: @unchecked Sendable {
         guard writer.startWriting() else {
             throw VideoWriterError.cannotCreate(writer.error?.localizedDescription ?? "startWriting failed")
         }
+    }
+
+    /// The metadata item recording `framesPerSecond`.
+    static func frameRateItem(_ framesPerSecond: Int) -> AVMetadataItem {
+        let item = AVMutableMetadataItem()
+        item.keySpace = .quickTimeMetadata
+        item.key = frameRateMetadataKey as NSString
+        item.value = NSNumber(value: Int32(clamping: framesPerSecond))
+        item.dataType = kCMMetadataBaseDataType_SInt32 as String
+        return item
     }
 
     /// Appends one frame. Frames that arrive while the encoder is busy, out of order, or after

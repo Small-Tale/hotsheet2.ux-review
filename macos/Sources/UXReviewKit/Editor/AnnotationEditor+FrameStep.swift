@@ -37,30 +37,20 @@ public extension AnnotationEditor {
     /// How many frames ⇧← / ⇧→ step.
     static let largeFrameStep = 10
 
-    /// The frame grid frame steps use for `mediaId`: its movie's, else `defaultFrameRate`.
+    /// The frame grid frame steps use for `mediaId`: its movie's expected rate, else
+    /// `defaultFrameRate`.
     func frameGrid(of mediaId: String) -> FrameGrid {
-        frameGrids[mediaId] ?? .constant(fps: Self.defaultFrameRate)
+        frameGrids[mediaId] ?? FrameGrid(fps: Self.defaultFrameRate)
     }
 
-    /// The frame rate frame steps use for `mediaId` (a variable-rate movie's average).
-    func frameRate(of mediaId: String) -> Double { frameGrid(of: mediaId).averageRate }
+    /// The frame rate frame steps use for `mediaId`.
+    func frameRate(of mediaId: String) -> Double { frameGrid(of: mediaId).fps }
 
-    /// Records a video's constant frame rate (from its movie); nil or a nonsense rate means unknown.
+    /// Records a video's expected frame rate (from its movie, `FrameGrid.expectedRate`); nil or a
+    /// nonsense rate means unknown.
     mutating func setFrameRate(_ rate: Double?, for mediaId: String) {
-        setFrameGrid(rate.map { .constant(fps: $0) }, for: mediaId)
-    }
-
-    /// Records a video's frame grid (from its movie); nil, a nonsense rate, or fewer than two
-    /// ascending sample boundaries means unknown.
-    mutating func setFrameGrid(_ grid: FrameGrid?, for mediaId: String) {
-        switch grid {
-        case let .constant(fps) where fps.isFinite && fps >= 1:
-            frameGrids[mediaId] = grid
-        case let .samples(bounds) where bounds.count >= 2 && zip(bounds, bounds.dropFirst()).allSatisfy { $0 < $1 }:
-            frameGrids[mediaId] = grid
-        default:
-            frameGrids[mediaId] = nil
-        }
+        let grid = rate.map(FrameGrid.init(fps:))
+        frameGrids[mediaId] = grid?.isValid == true ? grid : nil
     }
 
     /// What ← / → step on the current media, resolved from `timelineTarget`: nil when they move
@@ -134,10 +124,10 @@ public extension AnnotationEditor {
     }
 
     /// The time `frames` frames from `millis` (clip as trimmed) on `mediaId`'s movie, not clamped.
-    /// Frames sit on the movie's own grid (`FrameGrid`), so a trimmed clip keeps it: at a constant
-    /// rate frame k starts at ⌈k · 1000 / fps⌉ ms of the base movie; a variable-rate movie uses its
-    /// frames' real start times. Forward goes to the start of a later frame; back goes to the start
-    /// of the frame showing first when `millis` is inside it.
+    /// Frames sit on the movie's uniform grid at its expected rate (`FrameGrid`), so a trimmed clip
+    /// keeps it: frame k starts at ⌈k · 1000 / fps⌉ ms of the base movie, even where a
+    /// variable-rate movie recorded no frame. Forward goes to the start of a later frame; back goes
+    /// to the start of the frame showing first when `millis` is inside it.
     func frameTime(from millis: Int, frames: Int, of mediaId: String) -> Int {
         let offset = document.trims[mediaId]?.startMs ?? 0
         return frameGrid(of: mediaId).time(from: offset + millis, frames: frames) - offset

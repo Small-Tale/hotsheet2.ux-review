@@ -51,12 +51,11 @@ public final class EditorSession {
         loadFrameGrids(bundle.media.map(\.id))
     }
 
-    /// Reads each video's frame grid (rate, or variable-rate frame times) from its movie, for
-    /// ← / → frame steps (docs/06 §6.10).
+    /// Reads each video's expected frame rate from its movie, for ← / → frame steps (docs/06 §6.10).
     private func loadFrameGrids(_ ids: [String]) {
         for id in ids {
             guard let item = editor.media(id), item.kind == .video else { continue }
-            editor.setFrameGrid(VideoTrim.frameGrid(of: fileURL(item)), for: id)
+            editor.setFrameRate(VideoTrim.frameRate(of: fileURL(item)), for: id)
         }
     }
 
@@ -161,7 +160,7 @@ public final class EditorSession {
         for id in changes.removed {
             baseImages[id] = nil
             frames[id] = nil
-            editor.setFrameGrid(nil, for: id)
+            editor.setFrameRate(nil, for: id)
         }
         loadFrameGrids(changes.added)
         return changes

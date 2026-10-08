@@ -2,8 +2,8 @@
 
 Status: implemented on macOS (`HS2-9H7WZ8`). Freehand smoothing is `HS2-5N1GFW`. Zoom/pan is
 `HS2-9Y9DDY`. Video trim and annotation time ranges are `HS2-GBM8JN` (§6.10). Arrow-key frame steps are
-`HS2-8FTZ09` (§6.4, §6.10); variable-frame-rate movies step through their real frames since
-`HS2-6XMK1J` (§6.10).
+`HS2-8FTZ09` (§6.4, §6.10); since `HS2-BADS0F` every movie, variable-frame-rate ones included,
+steps on a uniform grid at its expected frame rate (§6.10).
 
 The editor marks up the captures of a draft review ([04-capture.md](04-capture.md) §4.6). It
 writes shapes, notes, and intents into the draft's `review.json`
@@ -423,7 +423,7 @@ and capturing again reuses its id and file name, and that is a removal plus an a
 | State machine, gestures, crop, intent toggle | `UXReviewKit/Editor/AnnotationEditor.swift`, `AnnotationEditor+Gestures.swift` |
 | Playhead, time ranges, trim | `UXReviewKit/Editor/AnnotationEditor+Time.swift` |
 | ← / → frame steps, last-used timeline target | `UXReviewKit/Editor/AnnotationEditor+FrameStep.swift` |
-| Frame grids (constant or variable rate) | `UXReviewKit/Editor/FrameGrid.swift`; read by `VideoTrim.frameGrid` |
+| Frame grid and expected frame rate | `UXReviewKit/Editor/FrameGrid.swift`; read by `VideoTrim.frameRate` |
 | Following captures added or removed while open | `UXReviewKit/Editor/AnnotationEditor+Media.swift` |
 | Movie frames, frame times, and trimmed export | `UXReviewKit/Editor/VideoTrim.swift` |
 | Pixel ↔ normalized space, handles, hit testing, move/resize | `UXReviewKit/Editor/ShapeGeometry.swift` |
@@ -523,21 +523,34 @@ the clip, and the clip itself can be trimmed.
 **Frame steps** (`HS2-8FTZ09`). ← / → move the last-used timeline target (§6.4) one frame,
 ⇧← / ⇧→ ten frames:
 
-- **Frames:** steps snap to the movie's own frames, measured in ms of the base movie, so a
-  trimmed clip keeps them. Forward goes to the start of a later frame; back from inside a frame
-  goes to that frame's start first. `EditorSession` reads each video's frame grid (`FrameGrid`)
-  from the base movie when it opens or picks up a capture (`VideoTrim.frameGrid`):
-  - **Constant rate:** when every video sample sits on the track's nominal rate (within 0.5 ms
-    of frame k at k · 1000 / fps), frame k starts at ⌈k · 1000 / fps⌉ ms and the grid goes on
-    past the ends (the rules below clamp).
-  - **Variable rate** (`HS2-6XMK1J`): otherwise (screen recordings only get a frame when
-    something changes; some imports), steps go through the samples' real start times: 0, each
-    later frame's start rounded up to a whole ms (frames within one ms merge), and the movie's
-    end, where its last frame stops. Steps stop at 0 and at the end. A long still stretch is one
-    frame, so ⇧← / ⇧→ cross ten real frames however far apart. The times come from the sample
-    table (`AVSampleCursor`, no decoding), mapped through the track's edit list.
-  - **Unknown:** with no readable samples (fewer than two, no sample cursor, or more than
-    500,000), the nominal rate; without that, 30 fps.
+- **Frames:** steps snap to a uniform grid at the movie's **expected** frame rate, measured in
+  ms of the base movie, so a trimmed clip keeps it: frame k starts at ⌈k · 1000 / fps⌉ ms, and
+  the grid goes on past the ends (the rules below clamp). Forward goes to the start of a later
+  frame; back from inside a frame goes to that frame's start first.
+- **Not the recorded samples** (`HS2-BADS0F`): a variable-frame-rate movie (screen recordings
+  only get a frame when something changes; some imports) still steps one expected frame at a
+  time. A still stretch is many steps, never one jump of seconds; the canvas shows whatever
+  frame is showing at that time. Which samples were written is an encoding detail the reviewer
+  doesn't need to know.
+- **The expected rate** (`FrameGrid.expectedRate`, read by `VideoTrim.frameRate` when
+  `EditorSession` opens or picks up a capture), the first that applies:
+  1. **Recorded:** UX Review's own recordings store the rate they were made for (30 fps, the
+     `SCStream` `minimumFrameInterval`; the synthetic recorder's 10 fps) as QuickTime metadata
+     `com.smalltale.uxreview.frame-rate` (`VideoFileWriter.frameRateMetadataKey`, docs/04 §4.9).
+     Their samples can't show it: the writer's timestamps follow the host clock, and AVFoundation's
+     `nominalFrameRate` for such a track is only the average (a mostly still recording reads as
+     a few fps).
+  2. **Constant rate:** when every video sample sits on the track's nominal rate (within 0.5 ms
+     of frame k at k · 1000 / fps), that rate, exactly (29.97 stays 29.97).
+  3. **Variable rate, estimated:** otherwise the frame interval is the 10th percentile of the
+     gaps between consecutive frame times (gaps under 0.5 ms ignored), so one odd short gap
+     doesn't set it. As a rate (at most 240 fps), it snaps to the nearest standard rate (10, 12,
+     15, 20, 23.976, 24, 25, 29.97, 30, 48, 50, 59.94, 60, 90, 100, 120) within 10 %, else stays
+     as it is. An estimate below 9 fps (frames always more than 0.1 s apart) says little about the
+     intended rate, so the editor uses 30 fps instead. The frame times come from the sample
+     table (`AVSampleCursor`, no decoding), mapped through the track's edit list.
+  4. **Unknown:** with no readable samples (fewer than two, no sample cursor, or more than
+     500,000), the nominal rate; without that, 30 fps.
 - **Playhead:** clamps to the clip. Navigation, so not undoable.
 - **Trim start / end:** trims through the same rules and message as the trim handles. Stepping
   outward brings back trimmed-away time, up to the original's ends; reaching the whole original

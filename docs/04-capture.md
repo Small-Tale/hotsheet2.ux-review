@@ -216,7 +216,10 @@ reads "Recording in…". Once recording begins:
 How the movie is made:
 
 - ScreenCaptureKit `SCStream` captures at up to 30 fps at native resolution.
-  `VideoFileWriter` (AVAssetWriter) encodes it as an H.264 QuickTime `.mov`.
+  `VideoFileWriter` (AVAssetWriter) encodes it as an H.264 QuickTime `.mov`. The movie records
+  the rate it was made for (30) as QuickTime metadata `com.smalltale.uxreview.frame-rate`, since
+  its samples only follow the screen's changes; the editor's frame steps use it
+  ([06-annotation-editor.md](06-annotation-editor.md) §6.10).
 - **Pointer and clicks** (`HS2-S4GA06`), from Settings › Video
   ([05-start-and-settings.md](05-start-and-settings.md) §5.3):
   - **Show pointer in recordings** (on by default) sets `SCStreamConfiguration.showsCursor`,

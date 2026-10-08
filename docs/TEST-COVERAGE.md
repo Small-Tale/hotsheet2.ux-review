@@ -488,27 +488,32 @@ Each feature gets both unit tests and end-to-end tests. Tests live in
 - **App end to end** (`scripts/app-e2e.sh`): `--annotate` steps the playhead one frame, a range
   end one frame back, and the trim end (one undo step restores the duration and the movie).
 
-## HS2-6XMK1J: frame steps for variable-frame-rate movies
+## HS2-6XMK1J, HS2-BADS0F: frame steps for variable-frame-rate movies
 
-- **Grid choice** (`FrameGridTests`): samples on the nominal grid (10 fps, 29.97 fps, ±0.4 ms
-  jitter, decode order, a zero-length hold frame at the end) keep the constant rate; irregular
-  times, a missing or nonsense nominal rate, or one dropped frame give the real times (rounded
-  up to whole ms, 0 and the end added, sub-ms frames merged); fewer than two usable samples
-  leave the rate to the caller.
-- **Step rule** (`FrameGridTests`): forward and back across irregular gaps, positions between
-  samples, ⇧ ×10 across gaps and clamped at both ends, before the start and past the end, an
-  empty grid, and the average rate.
-- **Editor sequences** (`VariableFrameStepTests`): malformed grids (empty, one boundary,
-  unsorted, duplicates) fall back to 30 fps; the playhead visits every real frame then stops;
-  trim-end steps over still stretches, down to the minimum and back to the whole movie in one
-  undo step; trim-start steps on a mid-frame trim keep the movie's frames (offset clip times,
-  clamped at the movie start); range ends snap and clamp; replacing the grid midway (variable →
-  constant → variable → unknown → empty → refilled) uses the newest.
-- **Real movie** (`VariableFrameRateMovieTests`): an H.264 movie written like a screen
-  recording (irregular frames, clock starting at 5 s) reads back as its exact frame starts;
-  the same writer at a steady 10 fps steps on the 100 ms grid; a missing file reads nil. In an
-  `EditorSession`, scripted arrow keys land on the real frames (showing the right color) and
-  trim-end steps trim through them.
+`HS2-6XMK1J` stepped through a variable-rate movie's real samples; `HS2-BADS0F` replaced that
+with a uniform grid at the movie's expected rate.
+
+- **Expected rate** (`FrameGridTests`): a recorded rate wins (also without samples; a nonsense
+  one is ignored); samples on the nominal grid (10, 29.97, and 5 fps, ±0.4 ms jitter, decode
+  order, a zero-length hold frame at the end) keep the nominal rate exactly; variable-rate
+  movies (jittery 30 and 60 fps screen recordings with still stretches, a dropped frame, one odd
+  short gap, the irregular burst movie, a 24 fps interval, a 37 fps one, a 1 ms one capped at
+  240) give their snapped interval with or without a nominal rate; frames seconds apart give
+  nil (the editor's 30 fps); fewer than two usable samples, no sample table, or sub-0.5 ms gaps
+  fall back to the nominal rate, and a nonsense nominal rate to nil. Snapping picks the nearest
+  standard rate by ratio (29.9 → 29.97, 55 → 59.94) and leaves 72 alone.
+- **Step rule** (`FrameGridTests`): the uniform grid forward and back, inside a still stretch,
+  ⇧ ×10, past the start (callers clamp), and which rates are valid.
+- **Editor sequences** (`VariableFrameStepTests`): at 30 fps the playhead steps one expected
+  frame out of a still stretch, ⇧ ten (1/3 s), and clamps at both ends; trim-end steps go down
+  and back to the whole movie; a range end steps; replacing the rate midway (30 → 10 →
+  unknown → nonsense → 25) uses the newest.
+- **Real movies** (`VariableFrameRateMovieTests`): a `VideoFileWriter` movie with irregular
+  frames reads its recorded 30 fps, and a steady one its recorded 10; another writer's jittery
+  30 fps-capped screen recording (plain `AVAssetWriter`, no metadata, host-like clock) reads
+  30; a plain constant 25 fps movie reads 25; a missing file reads nil. In an `EditorSession`,
+  scripted arrow keys step one 30 fps frame inside a still stretch (showing the right color),
+  ⇧→ ten frames, and trim-end steps trim on the uniform grid.
 - **Visual QA:** `editor-video-frame-step`: a range end grip pressed in place, then ⇧→ and ← sent
   as real key events through the canvas (range to 0:02.90, playhead following).
 - **Not covered automatically:** focus in a live window: the canvas taking focus from a time

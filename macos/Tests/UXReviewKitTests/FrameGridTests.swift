@@ -2,222 +2,180 @@ import Foundation
 import Testing
 @testable import UXReviewKit
 
-/// Frame grids for ← / → frame steps (docs/06-annotation-editor.md §6.10, `HS2-6XMK1J`): which
-/// movies keep the constant nominal grid and which step through their real sample times, and the
-/// step rule on an irregular grid (starts, ends, positions between samples, ⇧ ×10 across gaps).
+/// Frame grids for ← / → frame steps (docs/06-annotation-editor.md §6.10, `HS2-BADS0F`): every
+/// movie steps on a uniform grid at its expected rate. Covers how that rate is worked out (a
+/// recorded rate, a constant nominal rate, a variable-rate movie's snapped interval, fallbacks),
+/// and the uniform step rule.
 struct FrameGridTests {
     /// An irregular movie: 4000 ms, frames at these starts (a burst, then long still stretches).
-    static let bounds = [0, 100, 150, 400, 420, 1000, 1500, 1530, 1560, 1900, 3000, 4000]
-    static let grid = FrameGrid.samples(bounds)
+    static let irregular: [Double] = [0, 100, 150, 400, 420, 1000, 1500, 1530, 1560, 1900, 3000]
 
-    // MARK: Constant or variable
+    /// A screen recording capped at `fps`: bursts of frames one interval apart (± clock jitter of
+    /// up to `jitter` ms), separated by still stretches of 1.5 s. Ends after the last frame.
+    static func screenRecording(fps: Double, bursts: Int = 4, jitter: Double = 1.7) -> (times: [Double], durationMs: Int) {
+        var times: [Double] = []
+        var time = 0.0
+        for burst in 0 ..< bursts {
+            for frame in 0 ..< 8 {
+                times.append(time)
+                let wobble = Double((burst * 8 + frame) % 3 - 1) * jitter
+                time += 1000 / fps + wobble
+            }
+            time += 1500
+        }
+        return (times, Int(time.rounded(.up)))
+    }
 
-    @Test func samplesOnTheNominalGridKeepTheConstantRate() {
+    static func rate(_ times: [Double], _ durationMs: Int?, nominal: Double?, recorded: Double? = nil) -> Double? {
+        FrameGrid.expectedRate(recordedRate: recorded, sampleTimesMs: times, durationMs: durationMs, nominalRate: nominal)
+    }
+
+    // MARK: Expected rate
+
+    @Test func aRecordedRateWins() {
+        let screen = Self.screenRecording(fps: 30)
+        #expect(Self.rate(screen.times, screen.durationMs, nominal: 4.5, recorded: 30) == 30)
+        #expect(Self.rate([], nil, nominal: nil, recorded: 10) == 10, "even without readable samples")
+        #expect(Self.rate(screen.times, screen.durationMs, nominal: 4.5, recorded: 0) == 30, "a nonsense recorded rate is ignored")
+        #expect(Self.rate(screen.times, screen.durationMs, nominal: 4.5, recorded: .nan) == 30)
+    }
+
+    @Test func samplesOnTheNominalGridKeepTheNominalRate() {
         let tenFps = (0 ..< 20).map { Double($0) * 100 }
-        #expect(FrameGrid.make(sampleTimesMs: tenFps, durationMs: 2000, nominalRate: 10) == .constant(fps: 10))
+        #expect(Self.rate(tenFps, 2000, nominal: 10) == 10)
         let ntsc = (0 ..< 60).map { Double($0) * 1001 / 30 }
-        #expect(FrameGrid.make(sampleTimesMs: ntsc, durationMs: 2002, nominalRate: 29.97) == .constant(fps: 29.97))
+        #expect(Self.rate(ntsc, 2002, nominal: 29.97) == 29.97, "a constant rate is kept exactly, not snapped")
+        let fiveFps = (0 ..< 10).map { Double($0) * 200 }
+        #expect(Self.rate(fiveFps, 2000, nominal: 5) == 5, "a slow constant rate is real")
         let jitter = tenFps.enumerated().map { $1 + ($0.isMultiple(of: 2) ? 0.4 : -0.4) }
-        #expect(FrameGrid.make(sampleTimesMs: jitter, durationMs: 2000, nominalRate: 10) == .constant(fps: 10), "within half a ms")
-        #expect(
-            FrameGrid.make(sampleTimesMs: tenFps.reversed(), durationMs: 2000, nominalRate: 10) == .constant(fps: 10),
-            "decode order is not presentation order"
-        )
-        #expect(
-            FrameGrid.make(sampleTimesMs: tenFps + [2000], durationMs: 2000, nominalRate: 10) == .constant(fps: 10),
-            "a zero-length hold frame at the end is not a frame"
-        )
+        #expect(Self.rate(jitter, 2000, nominal: 10) == 10, "within half a ms")
+        #expect(Self.rate(tenFps.reversed(), 2000, nominal: 10) == 10, "decode order is not presentation order")
+        #expect(Self.rate(tenFps + [2000], 2000, nominal: 10) == 10, "a zero-length hold frame at the end is not a frame")
     }
 
-    @Test func irregularSamplesGiveTheirOwnTimes() {
-        let times: [Double] = [0, 100, 150, 400, 420, 1000, 1500, 1530, 1560, 1900, 3000]
-        // AVFoundation's nominal rate for such a movie is its average: no constant grid fits.
-        #expect(FrameGrid.make(sampleTimesMs: times, durationMs: 4000, nominalRate: 2.75) == Self.grid)
-        #expect(FrameGrid.make(sampleTimesMs: times, durationMs: 4000, nominalRate: nil) == Self.grid)
-        #expect(FrameGrid.make(sampleTimesMs: times, durationMs: 4000, nominalRate: .nan) == Self.grid)
+    @Test func variableRateMoviesUseTheirIntendedRate() {
+        // Screen recordings: AVFoundation's nominal rate is the average, far below the cap.
+        let thirty = Self.screenRecording(fps: 30)
+        #expect(Self.rate(thirty.times, thirty.durationMs, nominal: 4.5) == 30, "31.6 fps of jittery gaps snaps to 30")
+        let sixty = Self.screenRecording(fps: 60, jitter: 0.5)
+        #expect(Self.rate(sixty.times, sixty.durationMs, nominal: 8) == 60)
+        #expect(Self.rate(thirty.times, thirty.durationMs, nominal: nil) == 30, "no nominal rate needed")
+        // A constant-rate movie with a dropped frame is variable, at its own rate.
         let dropped = (0 ..< 20).filter { $0 != 7 }.map { Double($0) * 100 }
+        #expect(Self.rate(dropped, 2000, nominal: 9.5) == 10)
+        // An odd short gap (a duplicate-ish frame) among many doesn't set the rate.
+        var outlier = (0 ..< 30).map { Double($0) * 1000 / 30 }
+        outlier.append(500 + 5)
+        #expect(Self.rate(outlier, 1000, nominal: 31) == 30)
+        // The shortest gaps of the irregular movie are 20 and 30 ms: 50 fps.
+        #expect(Self.rate(Self.irregular, 4000, nominal: 2.75) == 50)
+        #expect(Self.rate([0, 41.67, 83.33, 2000], 3000, nominal: 1.3) == 24, "within 10 % of 24")
         #expect(
-            FrameGrid.make(sampleTimesMs: dropped, durationMs: 2000, nominalRate: 10) == .samples(dropped.map { Int($0) } + [2000]),
-            "a constant-rate movie with a dropped frame is variable"
+            Self.rate([0, 27, 54, 2000], 3000, nominal: 1.3).map { abs($0 - 1000 / 27) < 1e-9 } == true,
+            "37 fps: no standard rate is near"
         )
-        #expect(
-            FrameGrid.make(sampleTimesMs: [250, 33.3334, 66.6667], durationMs: 300, nominalRate: nil) == .samples([0, 34, 67, 250, 300]),
-            "the first whole ms of each frame; time 0 always starts one"
-        )
-        #expect(
-            FrameGrid.make(sampleTimesMs: [0, 10.2, 10.6, 20], durationMs: nil, nominalRate: nil) == .samples([0, 11, 20]),
-            "frames inside one ms collapse; no end without a duration"
-        )
+        #expect(Self.rate([0, 1, 2, 3], 10, nominal: nil) == 240, "capped")
     }
 
-    @Test func tooFewUsableSamplesLeaveTheRateToTheCaller() {
-        #expect(FrameGrid.make(sampleTimesMs: [], durationMs: 1000, nominalRate: 30) == nil)
-        #expect(FrameGrid.make(sampleTimesMs: [0], durationMs: 1000, nominalRate: 30) == nil)
-        #expect(FrameGrid.make(sampleTimesMs: [0, 1000, 1200, -5, .nan, .infinity], durationMs: 1000, nominalRate: nil) == nil)
+    @Test func framesOnlySecondsApartLeaveTheRateToTheCaller() {
+        #expect(Self.rate([0, 500, 1700], 3000, nominal: 1) == nil, "2 fps is no intended rate: the editor's 30 fps")
+        #expect(Self.rate([0, 1500, 3200], 4000, nominal: nil) == nil)
     }
 
-    // MARK: Stepping an irregular grid
-
-    @Test func stepsGoToTheRealFrameStarts() {
-        let grid = Self.grid
-        #expect(grid.time(from: 0, frames: 1) == 100)
-        #expect(grid.time(from: 100, frames: 1) == 150)
-        #expect(grid.time(from: 150, frames: -1) == 100)
-        #expect(grid.time(from: 420, frames: 1) == 1000, "a still stretch is one frame")
-        #expect(grid.time(from: 1000, frames: -1) == 420)
-        // Between samples: forward to the next frame, back to the start of the one showing.
-        #expect(grid.time(from: 700, frames: 1) == 1000)
-        #expect(grid.time(from: 700, frames: -1) == 420)
-        #expect(grid.time(from: 999, frames: -2) == 400)
-        #expect(grid.time(from: 1001, frames: -1) == 1000)
-        // ⇧: 10 frames across the irregular gaps.
-        #expect(grid.time(from: 0, frames: 10) == 3000)
-        #expect(grid.time(from: 3500, frames: -10) == 100, "back from inside a frame: its start counts as one")
-        #expect(grid.time(from: 1530, frames: -10) == 0, "clamped at the first frame")
-        #expect(grid.time(from: 2000, frames: 10) == 4000, "clamped at the movie end")
+    @Test func tooFewUsableSamplesFallBackToTheNominalRate() {
+        #expect(Self.rate([], 1000, nominal: 30) == 30)
+        #expect(Self.rate([0], 1000, nominal: 25) == 25)
+        #expect(FrameGrid.expectedRate(sampleTimesMs: nil, durationMs: 1000, nominalRate: 24) == 24, "no sample table")
+        #expect(Self.rate([0, 1000, 1200, -5, .nan, .infinity], 1000, nominal: nil) == nil)
+        #expect(Self.rate([0, 0.2], nil, nominal: 12) == 12, "frames inside half a ms are one time")
+        #expect(Self.rate([], 1000, nominal: 0) == nil)
+        #expect(Self.rate([], 1000, nominal: .infinity) == nil)
     }
 
-    @Test func theEndsStopTheSteps() {
-        let grid = Self.grid
-        #expect(grid.time(from: 0, frames: -1) == 0)
-        #expect(grid.time(from: 4000, frames: 1) == 4000)
-        #expect(grid.time(from: 3999, frames: 1) == 4000)
-        #expect(grid.time(from: 4000, frames: -1) == 3000)
-        #expect(grid.time(from: 5000, frames: -1) == 4000, "past the end: back to the end first")
-        #expect(grid.time(from: -50, frames: 1) == 0, "before the start: forward to the first frame")
-        #expect(grid.time(from: -50, frames: -1) == 0)
-        #expect(FrameGrid.samples([]).time(from: 70, frames: 1) == 70, "a malformed empty grid moves nothing")
+    @Test func snapping() {
+        #expect(FrameGrid.snapped(31.6) == 30)
+        #expect(FrameGrid.snapped(29.9) == 30000.0 / 1001, "NTSC is nearer")
+        #expect(FrameGrid.snapped(23.95) == 24000.0 / 1001)
+        #expect(FrameGrid.snapped(55) == 60000.0 / 1001, "the nearest by ratio")
+        #expect(FrameGrid.snapped(72) == 72)
     }
 
-    @Test func theConstantGridIsTheNominalRule() {
-        let grid = FrameGrid.constant(fps: 30)
+    // MARK: Stepping the uniform grid
+
+    @Test func theGridIsUniform() {
+        let grid = FrameGrid(fps: 30)
         #expect(grid.time(from: 0, frames: 1) == 34)
         #expect(grid.time(from: 33, frames: 1) == 34)
         #expect(grid.time(from: 50, frames: -1) == 34)
-        #expect(grid.time(from: 0, frames: -1) == -33, "a constant grid goes on past the start; callers clamp")
-        #expect(grid.averageRate == 30)
-        #expect(Self.grid.averageRate == 2.75, "11 frames in 4 s")
-        #expect(FrameGrid.samples([5]).averageRate == AnnotationEditor.defaultFrameRate)
+        #expect(grid.time(from: 0, frames: -1) == -33, "the grid goes on past the start; callers clamp")
+        // A still stretch of a screen recording is many grid frames, not one jump.
+        #expect(grid.time(from: 420, frames: 1) == 434)
+        #expect(grid.time(from: 1000, frames: 10) == 1334)
+        #expect(grid.time(from: 1001, frames: -1) == 1000)
+        #expect(FrameGrid(fps: 30).isValid && FrameGrid(fps: 1).isValid)
+        #expect(!FrameGrid(fps: 0.5).isValid && !FrameGrid(fps: .nan).isValid && !FrameGrid(fps: .infinity).isValid)
     }
 }
 
-/// The editor on a variable-frame-rate movie (`HS2-6XMK1J`): the same 4000 ms clip as
-/// `FrameStepTests`, with `FrameGridTests.bounds` for frames. Walks the playhead, trim ends, and
-/// range ends across irregular gaps, trimmed clips, and grids replaced or dropped midway.
+/// The editor stepping a variable-frame-rate movie (`HS2-BADS0F`): the same 4000 ms clip as
+/// `FrameStepTests` at the expected 30 fps, whatever its real samples. Steps cross still
+/// stretches one frame at a time; rates replaced, dropped, and refilled midway take effect.
 struct VariableFrameStepTests {
     typealias Clip = VideoTimeTests
 
     static func editor(select: Bool = false) -> AnnotationEditor {
-        var editor = FrameStepTests.editor(select: select, fps: nil)
-        editor.setFrameGrid(FrameGridTests.grid, for: "v1")
-        return editor
+        FrameStepTests.editor(select: select, fps: 30)
     }
 
-    @Test func malformedGridsFallBackTo30Fps() {
+    @Test func playheadStepsOneExpectedFrameAtATime() {
         var editor = Self.editor()
-        #expect(editor.frameGrid(of: "v1") == FrameGridTests.grid)
-        for bad in [FrameGrid.samples([]), .samples([0]), .samples([0, 200, 100]), .samples([0, 100, 100]), .constant(fps: 0)] {
-            editor.setFrameGrid(FrameGridTests.grid, for: "v1")
-            editor.setFrameGrid(bad, for: "v1")
-            #expect(editor.frameGrid(of: "v1") == .constant(fps: 30), "\(bad)")
-        }
-        editor.setFrameGrid(FrameGridTests.grid, for: "v1")
-        editor.setFrameGrid(nil, for: "v1")
-        #expect(editor.frameRate(of: "v1") == 30, "a removed movie forgets its grid")
-    }
-
-    @Test func playheadStepsThroughTheRealFrames() {
-        var editor = Self.editor()
-        editor.movePlayhead(to: 0)
-        var visited = [0]
-        while editor.arrowKey(forward: true) {
-            visited.append(editor.currentTimeMs)
-        }
-        #expect(visited == FrameGridTests.bounds, "every frame once, then the clip end")
-        editor.arrowKey(forward: false, large: true)
-        #expect(editor.currentTimeMs == 100)
-        editor.arrowKey(forward: false, large: true)
-        #expect(editor.currentTimeMs == 0)
-        editor.movePlayhead(to: 1200) // inside the frame starting at 1000
-        editor.arrowKey(forward: false)
-        #expect(editor.currentTimeMs == 1000)
+        editor.movePlayhead(to: 420) // e.g. the last real frame before a long still stretch
+        editor.arrowKey(forward: true)
+        #expect(editor.currentTimeMs == 434, "the next 30 fps frame, not the next recorded one")
         editor.arrowKey(forward: true, large: true)
-        #expect(editor.currentTimeMs == 4000)
+        #expect(editor.currentTimeMs == 767, "⇧: ten frames, 1/3 s")
+        editor.arrowKey(forward: false, large: true)
+        #expect(editor.currentTimeMs == 434)
+        editor.arrowKey(forward: false)
+        #expect(editor.currentTimeMs == 400)
+        editor.movePlayhead(to: 3990)
+        editor.arrowKey(forward: true, large: true)
+        #expect(editor.currentTimeMs == 4000, "clamped to the clip end")
+        editor.movePlayhead(to: 20)
+        editor.arrowKey(forward: false, large: true)
+        #expect(editor.currentTimeMs == 0, "clamped to the start")
         #expect(!editor.canUndo)
     }
 
-    @Test func trimEndStepsOverStillStretchesAndBackToTheWholeMovie() {
-        var editor = Self.editor()
+    @Test func trimAndRangeEndsStepExpectedFrames() {
+        var editor = Self.editor(select: true)
         editor.stepFrames(-1, target: .trimEnd)
-        #expect(editor.document.trims["v1"] == Clip.range(0, 3000), "the last frame lasted 1 s")
-        editor.stepFrames(-3, target: .trimEnd)
-        #expect(editor.document.trims["v1"] == Clip.range(0, 1530), "three frames back: 1900, 1560, 1530")
-        #expect(editor.currentTimeMs == 1530)
+        #expect(editor.document.trims["v1"] == Clip.range(0, 3967))
         editor.stepFrames(-10, target: .trimEnd)
-        #expect(editor.currentDurationMs == 100, "clamped to the shortest clip, which is also a frame start")
-        editor.stepFrames(1, target: .trimEnd)
-        #expect(editor.document.trims["v1"] == Clip.range(0, 150))
+        #expect(editor.document.trims["v1"] == Clip.range(0, 3634))
         editor.stepFrames(100, target: .trimEnd)
         #expect(editor.document.trims["v1"] == nil, "back to the whole movie")
-        editor.undo()
-        #expect(editor.document.trims["v1"] == nil && !editor.canUndo, "one coalesced step")
-    }
-
-    @Test func aTrimmedClipKeepsTheMoviesFrames() {
-        var editor = Self.editor()
-        editor.trim(to: Clip.range(120, 4000)) // inside the frame starting at 100
-        editor.stepFrames(1, target: .trimStart)
-        #expect(editor.document.trims["v1"] == Clip.range(150, 4000))
-        editor.stepFrames(1, target: .trimStart)
-        #expect(editor.document.trims["v1"] == Clip.range(400, 4000))
-        // Clip times are offset by the trim; the movie's frames don't move.
-        #expect(editor.frameTime(from: 0, frames: 1, of: "v1") == 20, "420 ms of the movie")
-        #expect(editor.frameTime(from: 0, frames: -1, of: "v1") == -250, "150 ms: before the clip")
-        editor.movePlayhead(to: 300) // 700 ms of the movie
-        editor.arrowKey(forward: false)
-        #expect(editor.currentTimeMs == 20)
-        editor.stepFrames(-10, target: .trimStart)
-        #expect(editor.document.trims["v1"] == nil, "clamped at the movie start: the whole movie")
-        editor.trim(to: Clip.range(1000, 1600))
-        editor.stepFrames(-1, target: .trimEnd)
-        #expect(editor.document.trims["v1"] == Clip.range(1000, 1560))
-        editor.stepFrames(-2, target: .trimEnd)
-        #expect(editor.document.trims["v1"] == Clip.range(1000, 1500), "two frames back from a frame start")
-    }
-
-    @Test func rangeEndsSnapToTheRealFrames() {
-        var editor = Self.editor(select: true)
         editor.setRangeEnd(.rangeEnd, toMs: 2000, for: "a1")
         editor.arrowKey(forward: false)
-        #expect(editor.annotation("a1")?.timeRange == Clip.range(1000, 1900))
-        editor.arrowKey(forward: true)
-        editor.arrowKey(forward: true)
-        #expect(editor.annotation("a1")?.timeRange == Clip.range(1000, 4000), "clamped to the clip")
-        editor.stepFrames(-1, target: .rangeStart("a1"))
-        #expect(editor.annotation("a1")?.timeRange == Clip.range(420, 4000))
-        editor.stepFrames(10, target: .rangeStart("a1"))
-        #expect(editor.annotation("a1")?.timeRange == Clip.range(4000, 4000), "a start past the end drags it along")
-        #expect(editor.currentTimeMs == 4000)
+        #expect(editor.annotation("a1")?.timeRange == Clip.range(1000, 1967))
     }
 
-    @Test func replacingTheGridMidwayUsesTheNewFrames() {
+    @Test func replacingTheRateMidwayUsesTheNewGrid() {
         var editor = Self.editor()
         editor.movePlayhead(to: 420)
         editor.arrowKey(forward: true)
-        #expect(editor.currentTimeMs == 1000)
-        editor.setFrameRate(10, for: "v1") // e.g. the movie was replaced by a constant-rate one
+        #expect(editor.currentTimeMs == 434)
+        editor.setFrameRate(10, for: "v1") // e.g. the rate arrived from the movie later
         editor.arrowKey(forward: true)
-        #expect(editor.currentTimeMs == 1100)
-        editor.setFrameGrid(FrameGridTests.grid, for: "v1")
+        #expect(editor.currentTimeMs == 500)
+        editor.setFrameRate(nil, for: "v1")
         editor.arrowKey(forward: true)
-        #expect(editor.currentTimeMs == 1500, "1100 is inside the frame starting at 1000")
-        editor.setFrameGrid(nil, for: "v1")
-        editor.arrowKey(forward: true)
-        #expect(editor.currentTimeMs == 1534, "unknown: 30 fps")
-        // Empty, then refilled.
-        editor.setFrameGrid(.samples([]), for: "v1")
-        editor.setFrameGrid(FrameGridTests.grid, for: "v1")
+        #expect(editor.currentTimeMs == 534, "unknown: 30 fps")
+        editor.setFrameRate(0, for: "v1") // empty, then refilled
+        editor.setFrameRate(25, for: "v1")
         editor.arrowKey(forward: false)
-        #expect(editor.currentTimeMs == 1530)
+        #expect(editor.currentTimeMs == 520)
+        editor.arrowKey(forward: false)
+        #expect(editor.currentTimeMs == 480)
     }
 }
