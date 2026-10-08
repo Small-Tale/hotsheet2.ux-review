@@ -6,15 +6,26 @@ import UXReviewKit
 /// strip, canvas, and inspector. Spec: docs/06-annotation-editor.md §6.1.
 struct EditorView: View {
     @ObservedObject var model: EditorModel
+    /// The media strip's width as last dragged, kept across windows and launches (`HS2-AH6HW4`).
+    @AppStorage("editorMediaStripWidth", store: AppSettings.defaults) private var savedStripWidth = Double(MediaStripWidth.standard)
+    /// Previews fix the width instead of reading the saved one.
+    var stripWidthOverride: CGFloat?
+    /// The width while the divider is being dragged; saved when the drag ends.
+    @State private var draggedStripWidth: CGFloat?
+    @State private var dragStartWidth: CGFloat?
+
+    private var stripWidth: CGFloat {
+        draggedStripWidth ?? stripWidthOverride ?? MediaStripWidth.clamped(CGFloat(savedStripWidth))
+    }
 
     var body: some View {
         VStack(spacing: 0) {
             HStack(spacing: 0) {
                 // Shown with one capture too, so it can be removed (HS2-SSM1E7).
                 if !model.editor.bundle.media.isEmpty {
-                    MediaStrip(model: model)
-                        .frame(width: 112)
-                    Divider()
+                    MediaStrip(model: model, width: stripWidth)
+                        .frame(width: stripWidth)
+                    StripDivider(width: stripWidth, drag: dragStrip, end: endStripDrag, set: setStripWidth)
                 }
                 VStack(spacing: 0) {
                     AnnotationCanvas(model: model)
@@ -31,6 +42,60 @@ struct EditorView: View {
             }
         }
         .frame(minWidth: 900, minHeight: 560)
+    }
+
+    private func dragStrip(_ translation: CGFloat) {
+        let start = dragStartWidth ?? stripWidth
+        dragStartWidth = start
+        draggedStripWidth = MediaStripWidth.dragged(from: start, by: translation)
+    }
+
+    private func endStripDrag() {
+        if let draggedStripWidth { savedStripWidth = Double(draggedStripWidth) }
+        draggedStripWidth = nil
+        dragStartWidth = nil
+    }
+
+    private func setStripWidth(_ width: CGFloat) {
+        savedStripWidth = Double(MediaStripWidth.clamped(width))
+    }
+}
+
+/// The line between the media strip and the canvas, which drags to resize the strip
+/// (`HS2-AH6HW4`). Double-click returns it to the standard width; VoiceOver adjusts it in steps.
+struct StripDivider: View {
+    let width: CGFloat
+    let drag: (CGFloat) -> Void
+    let end: () -> Void
+    let set: (CGFloat) -> Void
+
+    var body: some View {
+        Divider()
+            .overlay {
+                Color.clear
+                    .frame(width: 9)
+                    .contentShape(Rectangle())
+                    .onHover { inside in
+                        if inside { NSCursor.columnResize.push() } else { NSCursor.pop() }
+                    }
+                    .gesture(
+                        DragGesture(minimumDistance: 1, coordinateSpace: .global)
+                            .onChanged { drag($0.translation.width) }
+                            .onEnded { _ in end() }
+                    )
+                    .onTapGesture(count: 2) { set(MediaStripWidth.standard) }
+            }
+            .accessibilityElement()
+            .accessibilityLabel("Capture sidebar width")
+            .accessibilityValue("\(Int(width)) points")
+            .accessibilityAdjustableAction { direction in
+                switch direction {
+                case .increment: set(width + 16)
+                case .decrement: set(width - 16)
+                @unknown default: break
+                }
+            }
+            .help("Drag to resize the capture sidebar; double-click for the standard width")
     }
 }
 
@@ -90,6 +155,7 @@ struct ToastView: View {
 /// last one clicked.
 struct MediaStrip: View {
     @ObservedObject var model: EditorModel
+    var width = MediaStripWidth.standard
 
     var body: some View {
         let selection = Set(model.editor.selectedMediaIds)
@@ -100,8 +166,9 @@ struct MediaStrip: View {
                     let selected = selection.contains(item.id)
                     Button { model.mutate { $0.clickMedia(item.id, Self.click(NSEvent.modifierFlags)) } } label: {
                         VStack(spacing: 4) {
+                            let size = MediaStripWidth.thumbnail(for: width)
                             thumbnail(item)
-                                .frame(width: 88, height: 60)
+                                .frame(width: size.width, height: size.height)
                                 .clipShape(RoundedRectangle(cornerRadius: 4))
                                 .overlay(
                                     RoundedRectangle(cornerRadius: 4)

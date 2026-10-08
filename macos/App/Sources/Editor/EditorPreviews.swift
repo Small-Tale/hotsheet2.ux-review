@@ -28,14 +28,17 @@ enum EditorPreviews {
         var written: [URL] = []
         // Nothing is saved, so every state starts from the same empty draft.
         func capture(
-            _ name: String, size: CGSize, script: [EditorScript.Step], pressed: [CGPoint] = [], viewport: CanvasViewport? = nil
+            _ name: String, size: CGSize, script: [EditorScript.Step], pressed: [CGPoint] = [], viewport: CanvasViewport? = nil,
+            stripWidth: CGFloat = MediaStripWidth.standard
         ) throws {
             let model = try EditorModel(session: EditorSession(store: store, directory: draft.directory))
             offerWindowButtons(model)
             script.forEach { apply($0, to: model) }
             if let viewport { model.setViewport(viewport) }
             hold(pressed, in: model)
-            written.append(try snapshot(EditorView(model: model), size: size, to: directory.appendingPathComponent("\(name).png")))
+            let view = EditorView(model: model, stripWidthOverride: stripWidth)
+            written.append(try snapshot(view, size: size, to: directory.appendingPathComponent("\(name).png")))
+            model.cancelAutosave()
         }
         let wide = CGSize(width: 1240, height: 800)
         try capture("editor-empty", size: wide, script: [])
@@ -45,31 +48,16 @@ enum EditorPreviews {
         try capture("editor-multi-select", size: wide, script: annotations + [.clickMedia("m2", .toggle)])
         try capture("editor-arrow-selected", size: wide, script: annotations + [.select("#3")])
         try capture("editor-narrow", size: CGSize(width: 900, height: 560), script: annotations + [.select("#2")])
+        // HS2-AH6HW4: the capture sidebar dragged wider; its thumbnails grow with it.
+        try capture("editor-wide-sidebar", size: wide, script: annotations + [.select("#1")], stripWidth: 240)
         // The Crop tool (docs/06 §6.6): a first crop being drawn on the original; the crop made,
         // shown on the original with its handles (the tool stays Crop); its right edge being
         // dragged; and the cropped capture once another tool is chosen.
         for (name, steps, pressed) in cropStates {
             try capture(name, size: wide, script: annotations + steps, pressed: pressed)
         }
-        // Keyboard only: R, then Return inserts a rectangle at the canvas middle (real key events
-        // through the canvas); the canvas's accessibility tree is written next to the render.
-        let keyboardModel = try EditorModel(session: EditorSession(store: store, directory: draft.directory))
-        offerWindowButtons(keyboardModel)
-        annotations.forEach { apply($0, to: keyboardModel) }
-        func typeRThenReturn(_ canvas: AnnotationCanvasView) throws {
-            for (characters, code) in [("r", UInt16(15)), ("\r", UInt16(36))] {
-                guard let event = NSEvent.keyEvent(
-                    with: .keyDown, location: .zero, modifierFlags: [], timestamp: 0, windowNumber: canvas.window?.windowNumber ?? 0,
-                    context: nil, characters: characters, charactersIgnoringModifiers: characters, isARepeat: false, keyCode: code
-                ) else { throw CaptureFailure.failed("no key event") }
-                canvas.keyDown(with: event)
-            }
-            written.append(try writeAccessibility(of: canvas, to: directory.appendingPathComponent("editor-accessibility.json")))
-        }
-        let keyboardURL = directory.appendingPathComponent("editor-keyboard-insert.png")
-        written.append(try snapshot(EditorView(model: keyboardModel), size: wide, to: keyboardURL, interact: typeRThenReturn))
-        written.append(try typeInTheMiddleOfANote(to: directory, store: store, draft: draft))
-        written += try renderToolbar(to: directory, store: store, draft: draft)
+        written += try renderKeyboardInsert(to: directory, store: store, draft: draft, size: wide)
+        written += try renderWindowInteractions(to: directory, store: store, draft: draft)
         // 300 % (1.5 points per pixel) on the clipped-label box, panned so its corner is near the middle.
         try capture(
             "editor-zoomed", size: wide, script: annotations + [.select("#1")],
@@ -82,7 +70,7 @@ enum EditorPreviews {
     /// The timeline (docs/06 §6.10) on a draft holding one mock screen recording: annotations with
     /// a range, an instant, and the whole clip, the playhead inside the first range.
     /// The editor window always offers capture removal.
-    private static func offerWindowButtons(_ model: EditorModel) {
+    static func offerWindowButtons(_ model: EditorModel) {
         model.confirmRemoval = { _ in }
     }
 
@@ -280,7 +268,7 @@ enum EditorPreviews {
     }
 
     /// The canvas's accessibility element and its children, as VoiceOver sees them.
-    private static func writeAccessibility(of canvas: AnnotationCanvasView, to url: URL) throws -> URL {
+    static func writeAccessibility(of canvas: AnnotationCanvasView, to url: URL) throws -> URL {
         struct Element: Encodable {
             var label: String
             var role: String
@@ -311,7 +299,7 @@ enum EditorPreviews {
         return url
     }
 
-    private static func snapshot(
+    static func snapshot(
         _ view: some View, size: CGSize, to url: URL, interact: ((AnnotationCanvasView) throws -> Void)? = nil
     ) throws -> URL {
         // cacheDisplay skips the window's own background, so paint it (else the tool bar's

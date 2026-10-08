@@ -218,6 +218,13 @@ final class EditorModel: ObservableObject {
         mutate { $0.show(mediaId: mediaId) }
     }
 
+    /// Drops a pending autosave. Previews render states of a shared scratch draft and must never
+    /// write one back, or a later state would open with an earlier one's crop.
+    func cancelAutosave() {
+        saveTask?.cancel()
+        saveTask = nil
+    }
+
     func scheduleSave() {
         saveTask?.cancel()
         guard editor.isDirty, editor.gesture == nil, editor.timelineDrag == nil else { return }

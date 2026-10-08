@@ -83,6 +83,7 @@ macos/
     Editor/ImageCrop.swift            PixelRect snapping and even sides (video crops), annotation transform into a crop
     Editor/AnnotationRenderer.swift   CoreGraphics drawing of shapes, badges, handles, crop overlay; IntentPalette
     Editor/EditorSession.swift        editor + files: display images, video frames, frame rates (now or in the background), save + reload (follow added/removed media), edits.json, exact no-drift save
+    Editor/MediaStripWidth.swift      the resizable capture sidebar: width range, drag rule, thumbnail size
     Editor/EditorToast.swift          toasts over the canvas: which message shows, info fades / errors stay (ToastPresenter)
     Editor/EditorScript.swift         JSON editing scripts + `--annotate` parsing (docs/06 §6.9)
   Tests/UXReviewKitTests/      Swift Testing unit + end-to-end tests (docs/TEST-COVERAGE.md)
@@ -115,7 +116,7 @@ macos/
     Editor/EditorWindowController.swift  the UX Review window: one per draft, save on close, Add Media / Submit / Show in Finder for its draft, file drop target (docs/04 §4.12.2), MediaChooser
     Editor/EditorModel.swift          observable wrapper: mutate → redraw + autosave, reload on capture
     Editor/EditorToolbar.swift        the editor window's native NSToolbar: tool group, Restore Original, Submit Review… (prominent)
-    Editor/EditorView.swift           toast overlay, media strip (⌘/⇧-click multiple selection), layout
+    Editor/EditorView.swift           toast overlay, media strip (resizable via StripDivider) (⌘/⇧-click multiple selection), layout
     Editor/CanvasAutoScroller.swift   60 Hz auto-scroll timer while a canvas gesture runs near an edge
     Editor/AnnotationCanvas.swift     NSView canvas: mouse/keyboard → editor (← / → monitor for unedited time fields), drawing via AnnotationRenderer
     Editor/TimelineBar.swift          video timeline: play/pause, typed playhead, scrubber, range grips + trim handles, Trim Start/End; TimeField

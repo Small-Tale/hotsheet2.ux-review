@@ -4,6 +4,11 @@ import UXReviewKit
 
 /// The editor window's native toolbar (docs/06 §6.1, `HS2-WHP4V1`).
 extension EditorPreviews {
+    /// Typing in a note (`editor-note-typing.json`) and the window toolbar.
+    static func renderWindowInteractions(to directory: URL, store: ReviewDraftStore, draft: ReviewDraft) throws -> [URL] {
+        try [typeInTheMiddleOfANote(to: directory, store: store, draft: draft)] + renderToolbar(to: directory, store: store, draft: draft)
+    }
+
     /// A titled window with the real `EditorToolbar` over the editor, as the editor window builds
     /// it: the toolbar's items after opening (Select tool, nothing to restore), after the C key's
     /// tool change and a crop (Crop selected, Restore Original shown), written to
@@ -50,6 +55,7 @@ extension EditorPreviews {
            let action = submit.action {
             NSApp.sendAction(action, to: submit.target, from: submit)
         }
+        model.cancelAutosave()
         let url = directory.appendingPathComponent("editor-toolbar.json")
         try JSONSerialization.data(
             withJSONObject: [

@@ -1349,3 +1349,14 @@ capture files are no longer cropped or trimmed while drafting.
   live, active window (offscreen renders draw the prominent button blank); see the follow-up
   live check.
 
+## HS2-AH6HW4: the capture sidebar is resizable
+
+- **Unit** (`MediaStripWidthTests`): widths clamp to 96–320 pt, and a NaN or infinite saved width
+  becomes the standard 112. The standard strip keeps 88 × 60 thumbnails, which scale with the
+  width. Drags past either end stick there and come back within the same drag (measured from the
+  drag's start); a second drag starts where the first ended.
+- **Visual QA:** `editor-wide-sidebar` (`--render-ui-previews`, a 240 pt strip with larger
+  thumbnails) next to the standard-width editor renders.
+- **Not covered automatically:** dragging the live divider, its resize cursor, and the
+  double-click reset; see the live-check follow-up.
+
