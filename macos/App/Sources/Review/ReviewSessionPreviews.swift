@@ -144,6 +144,12 @@ enum ReviewSessionPreviews {
             addedToExistingTicket: true, ticketTitle: existingTicket.title
         )))
         try shoot("session-existing-submitted", submitted, Self.size)
+
+        // HS2-00TXV6: only part of the review goes to the ticket.
+        let part = existing("HS-YCDZ2A", .success(existingTicket))
+        part.setIncluded(media: "m2", false)
+        part.setIncluded(draft.bundle.annotations[1], false)
+        try shoot("session-existing-selection", part, CGSize(width: 640, height: 1240))
     }
 
     /// Two mock screenshots and a 2 s mock recording, titled, with an annotation or two on each.

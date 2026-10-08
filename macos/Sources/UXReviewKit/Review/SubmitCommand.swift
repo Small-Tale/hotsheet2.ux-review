@@ -3,7 +3,7 @@ import CoreGraphics
 import Foundation
 import ImageIO
 
-/// `UXReview --submit [--drafts-dir DIR] [--draft NAME] [--project DIR] [--title T] [--summary S] [--to-ticket REF]`:
+/// `UXReview --submit [--drafts-dir DIR] [--draft NAME] [--project DIR] [--title T] [--summary S] [--to-ticket REF [--exclude IDS]]`:
 /// files a draft (the current one unless `--draft` names one) in the project's Hot Sheet store
 /// with no UI and prints JSON; `--to-ticket` adds it to that existing ticket instead of a new one.
 /// `--project` is read by the app's settings, like `--status`. Spec: docs/07-review-session.md §7.8.
@@ -14,19 +14,37 @@ public struct SubmitCommand: Equatable, Sendable {
     public var summary: String?
     /// The existing ticket to add the review to, as typed (a slug, ULID, or ticket reference).
     public var toTicket: String?
+    /// With `toTicket`: media and annotation ids left out of what is added (`--exclude m2,a3`).
+    public var exclude: [String]
 
     public init(
         draftsDirectory: URL? = nil,
         draft: String? = nil,
         title: String? = nil,
         summary: String? = nil,
-        toTicket: String? = nil
+        toTicket: String? = nil,
+        exclude: [String] = []
     ) {
         self.draftsDirectory = draftsDirectory
         self.draft = draft
         self.title = title
         self.summary = summary
         self.toTicket = toTicket
+        self.exclude = exclude
+    }
+
+    /// `exclude` as a selection of `bundle`.
+    /// - Throws: `invalidValue("--exclude", ids)` naming ids that are neither a capture nor an
+    ///   annotation of the review.
+    public func selection(in bundle: ReviewBundle) throws -> ReviewSelection {
+        let media = Set(bundle.media.map(\.id))
+        let annotations = Set(bundle.annotations.map(\.id))
+        let unknown = exclude.filter { !media.contains($0) && !annotations.contains($0) }
+        guard unknown.isEmpty else { throw CommandLineError.invalidValue("--exclude", unknown.joined(separator: ",")) }
+        return ReviewSelection(
+            excludedMedia: Set(exclude.filter(media.contains)),
+            excludedAnnotations: Set(exclude.filter(annotations.contains))
+        )
     }
 
     /// Returns nil when `--submit` is absent.
@@ -41,12 +59,19 @@ public struct SubmitCommand: Equatable, Sendable {
         if let toTicket, TicketReference.parse(toTicket) == nil {
             throw CommandLineError.invalidValue("--to-ticket", toTicket)
         }
+        let exclude = try values.optional("--exclude").map {
+            $0.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
+        }
+        if let exclude, exclude.isEmpty || toTicket == nil {
+            throw CommandLineError.invalidValue("--exclude", toTicket == nil ? "needs --to-ticket" : "")
+        }
         return try SubmitCommand(
             draftsDirectory: values.optional("--drafts-dir").map { URL(fileURLWithPath: $0, isDirectory: true) },
             draft: draft,
             title: values.optional("--title"),
             summary: values.optional("--summary"),
-            toTicket: toTicket
+            toTicket: toTicket,
+            exclude: exclude ?? []
         )
     }
 }

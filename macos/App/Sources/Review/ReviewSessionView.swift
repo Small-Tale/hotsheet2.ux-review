@@ -222,8 +222,9 @@ struct ReviewSessionView: View {
             if let notice = model.notice {
                 IssueLabel(text: notice)
             } else if model.session.canSubmit {
-                let media = model.session.bundle.media.count
-                let preview = model.preview
+                // What will be sent: the chosen part when adding to an existing ticket (§7.2.2).
+                let preview = model.sentPreview
+                let media = preview.media.count
                 let annotations = preview.annotationCount
                 let leftOut = preview.leftOutCount == 0 ? "" : " (\(preview.leftOutCount) left out)"
                 Text("\(media) capture\(media == 1 ? "" : "s") · \(annotations) annotation\(annotations == 1 ? "" : "s")\(leftOut)")
@@ -415,7 +416,11 @@ private struct SubmittedView: View {
             ? "The review “\(review.title)” is a note on this ticket. \(media), \(annotations), and review.json are attached in \(store)."
             : "\(media), \(annotations), and review.json are attached in \(store). "
             + "An AI working the ticket splits it into one ticket per change."
-        if !review.draftRemoved { text += "\nThe draft folder could not be deleted; it is no longer the current review." }
+        if let left = review.remainingCaptures {
+            text += "\nThe draft keeps what wasn't added (\(left) capture\(left == 1 ? "" : "s")) for later."
+        } else if !review.draftRemoved {
+            text += "\nThe draft folder could not be deleted; it is no longer the current review."
+        }
         return text
     }
 }

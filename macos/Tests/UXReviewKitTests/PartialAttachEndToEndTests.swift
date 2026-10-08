@@ -77,4 +77,56 @@ extension HotSheetEndToEndTests {
         #expect(show.components(separatedBy: "## UX review: Partial").count == 2, "exactly one review note")
         #expect(try hs("ls").stdout.split(separator: "\n").count(where: { $0.contains("HS-") }) == 1)
     }
+
+    /// HS2-00TXV6 with the real CLI: only the chosen capture and annotation go to the ticket, the
+    /// note numbers them from #1, and the draft keeps the rest.
+    @Test(.enabled(if: cli != nil, "hotsheet-cli not installed"), .timeLimit(.minutes(2)))
+    func addsOnlyTheChosenPartToAnExistingTicket() throws {
+        let cli = try #require(Self.cli)
+        let root = try TestSupport.makeTempDirectory()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let store = root.appendingPathComponent("project.hs2")
+        var env = ProcessInfo.processInfo.environment
+        env["HOTSHEET_ACTOR_ROLE"] = nil
+        env["HOTSHEET_ACTOR_ID"] = nil
+        let runner = SystemProcessRunner()
+        func hs(_ args: String...) throws -> ProcessResult {
+            try runner.run(executable: cli, arguments: ["-C", store.path] + args, environment: env, currentDirectory: nil)
+        }
+        try #require(try hs("init").exitCode == 0)
+        let client = HotSheetCLIClient(executable: cli, storePath: store, runner: runner)
+        let created = try client.createTicketReportingFile(NewTicket(title: "Accounts page", details: "Body."))
+        let existing = try #require(try client.findTicket(created.slug))
+
+        let drafts = ReviewDraftStore(root: root.appendingPathComponent("Drafts"))
+        let draft = try Self.imageAndVideoDraft(in: drafts, raw: root)
+        try drafts.update(draft) { bundle in
+            bundle.annotations = [
+                Annotation(id: "a1", mediaId: "m1", shape: .insertion(NormPoint(x: 100, y: 100)), intents: [.bug], note: "Send me"),
+                Annotation(id: "a2", mediaId: "m1", shape: .insertion(NormPoint(x: 200, y: 200)), note: "Keep me"),
+                Annotation(id: "a3", mediaId: "m2", shape: .insertion(NormPoint(x: 300, y: 300)), note: "Video later"),
+            ]
+        }
+        let result = try DraftSubmitter(store: drafts, client: client, storePath: store).submit(
+            draft, title: "Part one", into: existing,
+            selection: ReviewSelection(excludedMedia: ["m2"], excludedAnnotations: ["a2"])
+        )
+        #expect(result.mediaCount == 1 && result.annotationCount == 1 && result.remainingCaptures == 2)
+
+        let show = try hs("show", created.slug).stdout
+        #expect(show.contains("filename: capture-1.png") && show.contains("filename: review.json"))
+        #expect(!show.contains("filename: capture-2.mov"))
+        #expect(show.contains("#### #1 · bug · `attachment:capture-1.png`"))
+        #expect(show.contains("Send me") && !show.contains("Keep me") && !show.contains("Video later"))
+        let filed = try #require(
+            FileManager.default.enumerator(at: store, includingPropertiesForKeys: nil)?.compactMap { $0 as? URL }
+                .first { $0.lastPathComponent == "review.json" }
+        )
+        let bundle = try ReviewBundle.makeDecoder().decode(ReviewBundle.self, from: Data(contentsOf: filed))
+        #expect(bundle.media.map(\.id) == ["m1"] && bundle.annotations.map(\.id) == ["a1"])
+        #expect(bundle.validate().isEmpty)
+
+        let left = try drafts.load(draft).bundle
+        #expect(left.media.map(\.id) == ["m1", "m2"] && left.annotations.map(\.id) == ["a2", "a3"])
+    }
 }

@@ -20,6 +20,8 @@ public struct PendingSubmission: Codable, Equatable, Sendable {
     /// The review was being added to `ticket`, an existing ticket (not one this draft created).
     /// Records from before this field mark it with `attachedNames` alone.
     public var toExistingTicket: Bool?
+    /// Only part of the review was being added (§7.2.2); a retry sends the same part.
+    public var selection: ReviewSelection?
 
     public init(
         storePath: String,
@@ -27,7 +29,8 @@ public struct PendingSubmission: Codable, Equatable, Sendable {
         createdAt: Date,
         attachedNames: [String: String]? = nil,
         partialAttach: PartialAttach? = nil,
-        toExistingTicket: Bool? = nil
+        toExistingTicket: Bool? = nil,
+        selection: ReviewSelection? = nil
     ) {
         self.storePath = storePath
         self.ticket = ticket
@@ -35,6 +38,7 @@ public struct PendingSubmission: Codable, Equatable, Sendable {
         self.attachedNames = attachedNames
         self.partialAttach = partialAttach
         self.toExistingTicket = toExistingTicket
+        self.selection = selection
     }
 
     /// The record belongs to adding the review to an existing ticket, so it is never a created
@@ -102,6 +106,28 @@ public extension ReviewDraftStore {
             try? index.save(to: originals)
         }
         return draft
+    }
+
+    /// After part of the review went to an existing ticket (§7.2.2): removes every annotation the
+    /// selection sent, then every capture it sent that has no annotations left, and the
+    /// submission record. Returns how many captures remain; when none do, the draft is deleted
+    /// like a submitted one and the result is 0.
+    func removeSent(_ selection: ReviewSelection, from directory: URL) throws -> Int {
+        // First, so a retry after a failed clean-up never sends the same part (or note) again.
+        try? FileManager.default.removeItem(at: directory.appendingPathComponent(Self.pendingSubmissionFilename))
+        let draft = try update(directory) { bundle in
+            bundle.annotations.removeAll(where: selection.includes)
+        }
+        let kept = Set(draft.bundle.annotations.map(\.mediaId))
+        for item in draft.bundle.media where selection.includes(media: item.id) && !kept.contains(item.id) {
+            try removeMedia(item.id, from: directory)
+        }
+        let left = try load(directory).bundle.media.count
+        guard left > 0 else {
+            try removeSubmitted(directory)
+            return 0
+        }
+        return left
     }
 
     /// The half-finished submission recorded for this draft, if any (unreadable records are ignored).

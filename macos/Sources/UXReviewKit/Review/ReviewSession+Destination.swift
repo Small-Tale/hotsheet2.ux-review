@@ -65,6 +65,8 @@ public enum TicketIssue: Equatable, Sendable {
     case notFound(String, store: String)
     case closed(String, status: String)
     case lookupFailed(String, reason: String)
+    /// Every capture is left out of what goes to the ticket (§7.2.2).
+    case nothingSelected
 
     public var message: String {
         switch self {
@@ -80,6 +82,8 @@ public enum TicketIssue: Equatable, Sendable {
             "\(slug) is \(status.replacingOccurrences(of: "_", with: " ")). Choose an open ticket."
         case let .lookupFailed(reference, reason):
             "Couldn't look up \(reference): \(reason)"
+        case .nothingSelected:
+            "Choose at least one capture to add."
         }
     }
 
@@ -109,6 +113,19 @@ public extension ReviewSession {
     var pendingLookup: TicketQuery? {
         guard destination == .existingTicket, isEditable, case let .looking(query) = ticketLookup else { return nil }
         return query
+    }
+
+    /// What would be sent: the selected part of the review for an existing ticket, else all of it.
+    var selectedBundle: ReviewBundle {
+        destination == .existingTicket ? selection.apply(to: bundle) : bundle
+    }
+
+    /// Sets what goes to an existing ticket (ids no longer in the review are dropped).
+    @discardableResult
+    mutating func setSelection(_ selection: ReviewSelection) -> Bool {
+        guard isEditable else { return false }
+        self.selection = selection.pruned(to: bundle)
+        return true
     }
 
     @discardableResult
@@ -153,7 +170,9 @@ public extension ReviewSession {
         case let .notFound(query): .notFound(query.reference, store: query.storePath)
         case let .failed(query, reason): .lookupFailed(query.reference, reason: reason)
         }
-        return issue.map { [.ticket($0)] } ?? []
+        var issues = issue.map { [SessionIssue.ticket($0)] } ?? []
+        if !bundle.media.isEmpty, selection.apply(to: bundle).media.isEmpty { issues.append(.ticket(.nothingSelected)) }
+        return issues
     }
 
     /// Recomputes the lookup state from the typed text and the target's store.
@@ -174,8 +193,23 @@ public extension ReviewSession {
 }
 
 extension DraftSubmitter {
+    /// The record of a half-finished submission to this same existing ticket, if any.
+    static func ownRecord(_ pending: PendingSubmission?, for existing: HotSheetTicket) -> PendingSubmission? {
+        pending.flatMap { $0.ticket.slug == existing.slug && $0.isForExistingTicket ? $0 : nil }
+    }
+
+    /// What goes to `existing`: the part a half-finished submission to it started with, else the
+    /// requested part; ids no longer in the draft are dropped.
+    static func selection(
+        _ requested: ReviewSelection, resuming pending: PendingSubmission?, for existing: HotSheetTicket, in bundle: ReviewBundle
+    ) -> ReviewSelection {
+        let own = ownRecord(pending, for: existing)
+        return (own == nil ? requested : own?.selection ?? ReviewSelection()).pruned(to: bundle)
+    }
+
     /// Adds the draft to an existing ticket (docs/07 §7.5): one attach batch, then the note.
     /// A record for the same ticket whose batch is already attached resumes with the note alone.
+    /// `staged` holds only its `selection` (§7.2.2).
     func add(
         _ draft: ReviewDraft,
         staged: SubmissionStaging,
@@ -184,28 +218,29 @@ extension DraftSubmitter {
         progress: (SubmitStep) -> Void
     ) throws(SubmissionFailure) -> SubmittedReview {
         // Only a record of this same existing ticket is resumed (§7.5).
-        let own = pending.flatMap { $0.ticket.slug == existing.slug && $0.isForExistingTicket ? $0 : nil }
+        let own = Self.ownRecord(pending, for: existing)
         let resume = own?.attachedNames
-        let partial = resume == nil ? own?.partialAttach : nil
-        let createdAt = own?.createdAt ?? now()
+        let sent = staged.bundle
+        guard !sent.media.isEmpty else { throw SubmissionFailure(message: TicketIssue.nothingSelected.message) }
+        let record = PendingSubmission(
+            storePath: storePath.path, ticket: existing.createdTicket, createdAt: own?.createdAt ?? now(), toExistingTicket: true,
+            selection: staged.selection.isEverything ? nil : staged.selection
+        )
         let ticket: CreatedTicket
         do {
             // Crops and trims applied (HS2-71SSJG), as for a new ticket.
             ticket = try ReviewSubmitter(client: client, makeBatchID: makeBatchID).add(
-                staged.bundle,
+                sent,
                 mediaDirectory: staged.mediaDirectory,
                 to: existing.createdTicket,
                 attached: resume,
-                resume: partial,
+                resume: resume == nil ? own?.partialAttach : nil,
                 progress: progress
             )
         } catch let ReviewSubmissionError.noteFailed(ticket, attached, reason) {
-            try? store.savePendingSubmission(
-                PendingSubmission(
-                    storePath: storePath.path, ticket: ticket, createdAt: createdAt, attachedNames: attached, toExistingTicket: true
-                ),
-                in: draft.directory
-            )
+            var noted = record
+            noted.attachedNames = attached
+            try? store.savePendingSubmission(noted, in: draft.directory)
             throw SubmissionFailure(
                 message: "The media was attached to \(ticket.slug), but adding the review note failed: \(reason)",
                 attachedTo: ticket.slug
@@ -215,12 +250,9 @@ extension DraftSubmitter {
             guard let attachedPart else {
                 throw SubmissionFailure(message: reason)
             }
-            try? store.savePendingSubmission(
-                PendingSubmission(
-                    storePath: storePath.path, ticket: ticket, createdAt: createdAt, partialAttach: attachedPart, toExistingTicket: true
-                ),
-                in: draft.directory
-            )
+            var partly = record
+            partly.partialAttach = attachedPart
+            try? store.savePendingSubmission(partly, in: draft.directory)
             throw SubmissionFailure(
                 message: "Some of the media was attached to \(ticket.slug) before attaching failed: \(reason)",
                 attachedTo: ticket.slug,
@@ -229,17 +261,27 @@ extension DraftSubmitter {
         } catch {
             throw SubmissionFailure(message: ReviewSubmitter.describe(error), attachedTo: resume == nil ? nil : existing.slug)
         }
-        let removed = (try? store.removeSubmitted(draft.directory)) != nil
+        let (removed, remaining) = cleanUp(draft.directory, after: record.selection)
         return SubmittedReview(
             ticket: ticket,
             title: draft.bundle.title,
-            mediaCount: staged.bundle.media.count,
-            annotationCount: staged.bundle.annotations.count,
+            mediaCount: sent.media.count,
+            annotationCount: sent.annotations.count,
             storePath: storePath.path,
             submittedAt: now(),
             draftRemoved: removed,
             addedToExistingTicket: true,
-            ticketTitle: existing.title
+            ticketTitle: existing.title,
+            remainingCaptures: remaining
         )
+    }
+
+    /// After adding to an existing ticket: the whole review deletes the draft; part of it leaves
+    /// what wasn't sent (or deletes the draft when nothing is left). If that clean-up fails
+    /// part-way, the draft is kept as it is rather than deleted whole.
+    private func cleanUp(_ directory: URL, after selection: ReviewSelection?) -> (removed: Bool, remaining: Int?) {
+        guard let selection else { return ((try? store.removeSubmitted(directory)) != nil, nil) }
+        let left = try? store.removeSent(selection, from: directory)
+        return (left == 0, left.flatMap { $0 > 0 ? $0 : nil })
     }
 }

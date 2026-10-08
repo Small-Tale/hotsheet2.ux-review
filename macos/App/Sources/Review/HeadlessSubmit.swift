@@ -21,6 +21,8 @@ enum HeadlessSubmit {
         var draftRemoved: Bool
         var addedToExistingTicket: Bool
         var ticketTitle: String?
+        /// Part of the review was added (`--exclude`): the draft keeps this many captures.
+        var remainingCaptures: Int?
     }
 
     struct Failure: Encodable, Error {
@@ -89,6 +91,11 @@ enum HeadlessSubmit {
             if let query = session.pendingLookup, let cli = target.cliPath {
                 session.resolveLookup(query, query.run(cliPath: cli))
             }
+            do {
+                try session.setSelection(command.selection(in: session.bundle))
+            } catch {
+                return fail(Failure(error: "invalidArguments", message: String(describing: error), draftDirectory: path), code: 2)
+            }
         }
         return submit(&session, store: store, target: target)
     }
@@ -110,7 +117,8 @@ enum HeadlessSubmit {
         let existing = session.existingTicket
         do {
             let review = try submitter.submit(
-                session.directory, title: session.bundle.title, summary: session.bundle.summary, into: existing
+                session.directory, title: session.bundle.title, summary: session.bundle.summary, into: existing,
+                selection: session.selection
             ) { session.advance($0) }
             session.finish(.success(review))
             print(HeadlessCapture.json(Success(
@@ -123,7 +131,8 @@ enum HeadlessSubmit {
                 draftDirectory: path,
                 draftRemoved: review.draftRemoved,
                 addedToExistingTicket: review.addedToExistingTicket,
-                ticketTitle: review.ticketTitle
+                ticketTitle: review.ticketTitle,
+                remainingCaptures: review.remainingCaptures
             )))
             return 0
         } catch {

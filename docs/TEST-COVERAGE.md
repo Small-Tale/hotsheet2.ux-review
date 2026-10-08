@@ -965,3 +965,29 @@ capture files are no longer cropped or trimmed while drafting.
 - **Visual QA:** `session-edited` (`--render-ui-previews`, a cropped screenshot and a trimmed
   movie each leaving one annotation out), inspected by hand and checked for presence by
   `scripts/app-e2e.sh`.
+
+## HS2-00TXV6: add only part of a review to an existing ticket
+
+- **Selection transitions** (`ReviewSelectionTests`): leave out a capture (its annotations go
+  too) or one annotation; repeated toggles are harmless; re-including a capture keeps other
+  choices; including an annotation of a left-out capture brings it back with only that one;
+  everything out and back; pruning to the draft; later captures are included.
+- **Session**: "Choose at least one capture to add." only for an existing ticket; a refresh
+  prunes; no change while submitting. `--exclude` parsing and mapping (unknown ids, missing
+  `--to-ticket`, empty list).
+- **Submitter** (`PartialReviewSubmitterTests`, fake client): only the chosen files and
+  annotations are attached, the note numbers them #1, #2; the draft keeps an unsent capture and
+  a sent capture with an unsent annotation, and drops the rest; then the rest files and deletes
+  the draft. A selection of everything deletes the draft. A failed note records the selection;
+  the retry sends that part even when asked for another, and the draft's own `review.json` is
+  untouched meanwhile. Nothing selected sends nothing.
+- **Real CLI** (`HotSheetEndToEndTests.addsOnlyTheChosenPartToAnExistingTicket`): the ticket has
+  only `capture-1.png` and a `review.json` with the chosen annotation (schema-valid), the note
+  has #1 only, and the draft keeps the rest.
+- **App end to end** (`scripts/app-e2e.sh`): `--exclude m2` adds one capture, reports
+  `remainingCaptures: 1`, and the draft keeps only `capture-2`; excluding everything and an
+  unknown id are refused.
+- **Visual QA:** `session-existing-selection` (checklist open, one capture and one annotation
+  left out), inspected by hand.
+- **Not covered automatically:** clicking the checkboxes in a live window (thin bindings over
+  the tested `ReviewSelection`).

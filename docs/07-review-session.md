@@ -54,8 +54,8 @@ ticket's title, and that the review is a note on it, with the same buttons.
 ### 7.2.1 Adding to an existing ticket
 
 Sometimes a review is feedback on, or extra information for, a ticket that already exists
-(`HS2-E3001H`). **Add to existing ticket** files the whole draft into that ticket instead of a
-new intake ticket. To add only some annotations, make a draft holding just those.
+(`HS2-E3001H`). **Add to existing ticket** files the draft into that ticket instead of a new
+intake ticket: all of it, or the part chosen under **Add** (§7.2.2).
 
 - **The field** takes a slug (`HS2-ABC123`, any case) or a pasted ticket reference: a line from
   `hotsheet-cli ls`, a ticket file path, a link, or a ULID
@@ -70,6 +70,32 @@ new intake ticket. To add only some annotations, make a draft holding just those
   HS-…", then "Adding the review note to HS-…".
 - **Reopening** the window on a draft whose media is already attached to a ticket but whose note
   is missing (§7.5) starts on **Add to existing ticket** with that ticket filled in.
+
+### 7.2.2 Adding only part of a review
+
+Under the ticket field, **Add** summarizes what goes to the ticket ("Everything: 3 captures, 4
+annotations", or "2 of 3 captures · 2 of 4 annotations") and opens a checklist (`HS2-00TXV6`):
+
+- Each capture has a checkbox, with one per annotation under it. Unchecking a capture leaves its
+  annotations out too. Checking an annotation of an unchecked capture checks the capture with
+  only that annotation. **Add Everything** puts everything back.
+- Checked annotations show the number the note gives them: the sent part is numbered #1, #2, …
+  in review order, in the note and in the `review.json` attached with it. Unchecked ones read
+  "Not added".
+- The choice lists what is left out (`ReviewSelection`), so captures added later are included.
+  Ids that leave the draft are forgotten. It applies only to an existing ticket; a new ticket
+  always gets the whole review.
+- Leaving every capture out is an issue: "Choose at least one capture to add." The footer
+  counts only what will be sent.
+- Only the chosen part is staged, always in the hidden `.submission/` folder, so the draft's
+  own `review.json` is never changed by submitting (§7.5).
+- **Afterwards the draft keeps the rest.** Every annotation that was sent is removed from the
+  draft. So is every sent capture with no annotation left; a sent capture that still has an
+  unsent annotation stays, so it can be sent with it later. When nothing is left, the draft is
+  deleted as usual. The result says "The draft keeps what wasn't added (N captures) for later."
+- A half-finished submission (§7.5) records its part in `submission.json` (`selection`), and
+  Try Again sends that same part. The checklist shows it, disabled, until the submission
+  finishes.
 
 ## 7.3 What blocks submitting
 
@@ -208,25 +234,25 @@ Changing the project in one session window refreshes every open session window.
 ## 7.7 Not yet
 
 - Open the ticket in Hot Sheet (web UI or app) when it is running: `HS2-ZEF6XD`.
-- Deleting a draft outright when the Trash refuses it (§7.9): `HS2-N10RZS`.
-- Choosing which captures or annotations go to an existing ticket, instead of the whole draft
-  (§7.2.1).
 
 ## 7.8 Headless submit
 
 ```
-UXReview --submit [--drafts-dir DIR] [--draft NAME] [--project DIR] [--title T] [--summary S] [--to-ticket REF]
+UXReview --submit [--drafts-dir DIR] [--draft NAME] [--project DIR] [--title T] [--summary S] [--to-ticket REF [--exclude IDS]]
 ```
 
 Files the current draft (or the draft named by `--draft`) through the same `ReviewSession`
 rules and `DraftSubmitter` as the window, and prints one JSON object. `--title` and `--summary`
 replace the draft's own before checking. `--to-ticket` adds the review to that existing ticket
 (§7.2.1). It takes the same slugs and references as the window's field, and runs the same lookup
-before checking, so an unknown ticket is an `invalidReview` issue.
+before checking, so an unknown ticket is an `invalidReview` issue. `--exclude m2,a3` (with
+`--to-ticket` only) leaves those captures and annotations out (§7.2.2); an id that is neither is
+`invalidArguments`, and excluding every capture is an `invalidReview` issue.
 
 - On success: `status: "submitted"`, `slug`, `ticketFile`, `storePath`, `title`, `mediaCount`,
   `annotationCount`, `draftDirectory`, `draftRemoved`, `addedToExistingTicket`, and `ticketTitle`
-  (the existing ticket's title, with `--to-ticket`).
+  (the existing ticket's title, with `--to-ticket`), plus `remainingCaptures` when part of the
+  review was added and the draft keeps the rest.
 - On failure: `status: "error"`, `error`, `message`, plus `issues` (messages, for
   `invalidReview`), `createdTicket` (when the ticket exists but the attach failed), `attachedTo`
   (when the media is attached to the existing ticket but the note failed, or some of it before

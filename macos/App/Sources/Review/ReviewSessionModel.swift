@@ -27,11 +27,19 @@ final class ReviewSessionModel: ObservableObject {
     }
 
     @Published private(set) var thumbnails: [String: NSImage] = [:]
+    /// The existing ticket a half-finished submission went to: its retry sends the same part.
+    @Published private(set) var lockedTicket: String?
+
+    /// What is sent to the chosen ticket is fixed until its half-finished submission finishes.
+    var selectionLocked: Bool { lockedTicket != nil && session.existingTicket?.slug == lockedTicket }
     /// The draft's crops and trims (`edits.json`), applied only when submitting.
     @Published private(set) var edits = DraftEdits()
 
     /// Each capture as it will be filed: cropped and trimmed, hidden annotations left out (§7.2).
     var preview: SubmissionPreview { SubmissionPreview(session.bundle, edits: edits) }
+
+    /// Like `preview`, for only what will be sent (the chosen part for an existing ticket).
+    var sentPreview: SubmissionPreview { SubmissionPreview(session.selectedBundle, edits: edits) }
     @Published private(set) var recentProjects: [String] = []
     /// A problem outside the submission itself (a failed removal, an unreadable draft).
     @Published private(set) var notice: String?
@@ -75,6 +83,9 @@ final class ReviewSessionModel: ObservableObject {
             ticketInput = pending.ticket.slug
             session.setDestination(.existingTicket)
             session.editTicket(pending.ticket.slug)
+            // A retry sends the same part it started with (§7.2.2).
+            if let selection = pending.selection { session.setSelection(selection) }
+            lockedTicket = pending.ticket.slug
         }
         recentProjects = AppSettings.recentProjects
         edits = DraftEdits.load(from: draft.directory)
@@ -123,6 +134,28 @@ final class ReviewSessionModel: ObservableObject {
     func setDestination(_ destination: ReviewDestination) {
         guard session.setDestination(destination) else { return }
         scheduleLookup()
+    }
+
+    /// Includes or leaves out a capture for an existing ticket (§7.2.2).
+    func setIncluded(media id: String, _ included: Bool) {
+        guard !selectionLocked else { return }
+        var selection = session.selection
+        selection.set(media: id, included: included)
+        session.setSelection(selection)
+    }
+
+    /// Includes or leaves out one annotation for an existing ticket (§7.2.2).
+    func setIncluded(_ annotation: Annotation, _ included: Bool) {
+        guard !selectionLocked else { return }
+        var selection = session.selection
+        selection.set(annotation, included: included, in: session.bundle)
+        session.setSelection(selection)
+    }
+
+    /// Includes everything again.
+    func selectEverything() {
+        guard !selectionLocked else { return }
+        session.setSelection(ReviewSelection())
     }
 
     /// Starts the lookup the session waits for, after a short pause so typing doesn't run
@@ -253,6 +286,7 @@ final class ReviewSessionModel: ObservableObject {
         let title = title
         let summary = summary
         let existing = session.existingTicket
+        let selection = session.selection
         // Progress arrives on the submitting thread; steps after the result are ignored by the session.
         let advance: @Sendable (SubmitStep) -> Void = { [weak self] step in
             Task { @MainActor in self?.session.advance(step) }
@@ -260,7 +294,9 @@ final class ReviewSessionModel: ObservableObject {
         Task { [weak self] in
             let result = await Task.detached { () -> Result<SubmittedReview, SubmissionFailure> in
                 do throws(SubmissionFailure) {
-                    return try .success(submitter.submit(directory, title: title, summary: summary, into: existing, progress: advance))
+                    return try .success(submitter.submit(
+                        directory, title: title, summary: summary, into: existing, selection: selection, progress: advance
+                    ))
                 } catch {
                     return .failure(error)
                 }
@@ -276,6 +312,7 @@ final class ReviewSessionModel: ObservableObject {
             AppSettings.rememberProject(target: review)
             NotificationCenter.default.post(name: .reviewDraftChanged, object: directory)
         } else {
+            if case let .failure(failure) = result, let slug = failure.attachedTo { lockedTicket = slug }
             reload()
         }
     }

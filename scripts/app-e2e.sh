@@ -677,6 +677,24 @@ grep -q "Instructions for the AI" "$TMP/existing-ticket.md" && die "existing: th
 [[ "$(hs -C "$TMP/subproj.hs2" ls 2>/dev/null | grep -c 'HS-')" == "$tickets_before" ]] || die "existing: a ticket was created"
 ok "note failure keeps the draft (exit 5, attachedTo); retry adds only the note; the existing ticket has one note citing the renamed capture-1 (2).png, one batch, and no new ticket"
 
+# HS2-00TXV6: --exclude adds only part of a draft; the draft keeps the rest.
+XDRAFTS="$TMP/exclude-drafts"
+XSUB=(--drafts-dir "$XDRAFTS" --project "$TMP/subproj")
+run exclude-shot1 0 "${SYN[@]}" -- --capture screenshot --target region --rect 100,100,300,200 --drafts-dir "$XDRAFTS"
+run exclude-shot2 0 "${SYN[@]}" -- --capture screenshot --target region --rect 120,120,300,200 --drafts-dir "$XDRAFTS"
+xdraft="$(json "$TMP/exclude-shot1.json" j.draftDirectory)"
+run exclude-unknown 2 -- --submit "${XSUB[@]}" --title "Part" --to-ticket "$existing" --exclude m9
+[[ "$(json "$TMP/exclude-unknown.json" j.error)" == invalidArguments ]] || die "exclude: an unknown id should be invalidArguments"
+run exclude-all 2 -- --submit "${XSUB[@]}" --title "Part" --to-ticket "$existing" --exclude m1,m2
+json "$TMP/exclude-all.json" 'j.issues.join("|")' | grep -q "Choose at least one capture to add." || die "exclude: excluding everything should be an issue"
+run exclude 0 -- --submit "${XSUB[@]}" --title "Part" --to-ticket "$existing" --exclude m2
+[[ "$(json "$TMP/exclude.json" '`${j.mediaCount}/${j.remainingCaptures}/${j.draftRemoved}`')" == "1/1/false" ]] || die "exclude: result $(cat "$TMP/exclude.json")"
+[[ "$(json "$xdraft/review.json" 'j.media.map(m => m.id).join(",")')" == m2 && -f "$xdraft/capture-2.png" && ! -e "$xdraft/capture-1.png" ]] \
+  || die "exclude: the draft should keep only capture-2"
+hs -C "$TMP/subproj.hs2" show "$existing" >"$TMP/exclude-ticket.md"
+[[ "$(grep -c '## UX review: Part' "$TMP/exclude-ticket.md")" == 1 ]] || die "exclude: expected one note"
+ok "--exclude adds only the chosen capture to the existing ticket and keeps the rest in the draft; excluding all or an unknown id is refused"
+
 # HS2-2QP0GM: a capture removed by the review session leaves an open editor consistent.
 RDRAFTS="$TMP/remove-drafts"
 run remove-shot1 0 "${SYN[@]}" -- --capture screenshot --target region --rect 100,100,300,200 --drafts-dir "$RDRAFTS"
@@ -798,7 +816,7 @@ for name in overlay-region-hint overlay-region-selection overlay-region-selectio
   editor-empty editor-no-media editor-annotated editor-arrow-selected editor-narrow editor-crop-drag editor-cropped editor-zoomed editor-keyboard-insert editor-video-timeline editor-video-narrow editor-video-trimmed editor-video-playing editor-video-range-drag editor-video-trim-drag editor-autoscroll \
   session-ready session-narrow session-edited session-submitting session-failed session-submitted session-issues session-empty \
   session-existing-looking session-existing-found session-existing-narrow session-existing-not-found session-existing-closed \
-  session-existing-failed session-existing-submitted \
+  session-existing-failed session-existing-submitted session-existing-selection \
   drafts-list drafts-narrow drafts-empty drafts-delete-immediately; do
   [[ -s "$TMP/previews/$name.png" ]] || die "previews: $name.png missing"
 done

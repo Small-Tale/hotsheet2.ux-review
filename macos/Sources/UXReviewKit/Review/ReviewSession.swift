@@ -101,6 +101,9 @@ public struct SubmittedReview: Codable, Equatable, Sendable {
     public var addedToExistingTicket: Bool
     /// The existing ticket's own title (when `addedToExistingTicket`).
     public var ticketTitle: String?
+    /// Only part of the review went to the existing ticket: the draft is kept with this many
+    /// captures that weren't sent (§7.2.2). Nil when the whole review was filed.
+    public var remainingCaptures: Int?
 
     public init(
         ticket: CreatedTicket,
@@ -111,7 +114,8 @@ public struct SubmittedReview: Codable, Equatable, Sendable {
         submittedAt: Date,
         draftRemoved: Bool = true,
         addedToExistingTicket: Bool = false,
-        ticketTitle: String? = nil
+        ticketTitle: String? = nil,
+        remainingCaptures: Int? = nil
     ) {
         self.ticket = ticket
         self.title = title
@@ -122,6 +126,7 @@ public struct SubmittedReview: Codable, Equatable, Sendable {
         self.draftRemoved = draftRemoved
         self.addedToExistingTicket = addedToExistingTicket
         self.ticketTitle = ticketTitle
+        self.remainingCaptures = remainingCaptures
     }
 }
 
@@ -176,6 +181,8 @@ public struct ReviewSession: Equatable, Sendable {
     public internal(set) var ticketInput = ""
     /// The existing ticket's lookup, for `ticketInput` in the target's store.
     public internal(set) var ticketLookup: TicketLookup = .empty
+    /// What goes to an existing ticket (everything by default; ignored for a new ticket).
+    public internal(set) var selection = ReviewSelection()
 
     public init(directory: URL, bundle: ReviewBundle, target: HotSheetStatus, missingFiles: Set<String> = []) {
         self.directory = directory
@@ -217,6 +224,7 @@ public struct ReviewSession: Equatable, Sendable {
         next.summary = bundle.summary
         bundle = next
         self.missingFiles = missingFiles
+        selection = selection.pruned(to: next)
         return true
     }
 
@@ -292,11 +300,14 @@ public struct DraftSubmitter: Sendable {
     /// - Parameters:
     ///   - title, summary: the session's fields, saved into the draft first (title trimmed).
     ///   - existing: add the review to this ticket (attach, then a note) instead of filing a new one.
+    ///   - selection: with `existing`, only these captures and annotations (§7.2.2). What isn't
+    ///     sent stays in the draft.
     public func submit(
         _ directory: URL,
         title: String? = nil,
         summary: String? = nil,
         into existing: HotSheetTicket? = nil,
+        selection: ReviewSelection = ReviewSelection(),
         progress: (SubmitStep) -> Void = { _ in }
     ) throws(SubmissionFailure) -> SubmittedReview {
         let draft: ReviewDraft
@@ -308,16 +319,18 @@ public struct DraftSubmitter: Sendable {
         } catch {
             throw SubmissionFailure(message: ReviewSubmitter.describe(error))
         }
+        let pending = store.pendingSubmission(in: directory).flatMap { $0.storePath == storePath.path ? $0 : nil }
+        // Part of the review goes only to an existing ticket; a resumed record keeps its part (§7.2.2).
+        let part = existing.map { Self.selection(selection, resuming: pending, for: $0, in: draft.bundle) } ?? ReviewSelection()
         // Crops and trims are applied only now (HS2-71SSJG).
         let staged: SubmissionStaging
         do {
             try store.migrateLegacyEdits(directory)
-            staged = try SubmissionStaging.prepare(store.load(directory))
+            staged = try SubmissionStaging.prepare(store.load(directory), selection: part)
         } catch {
             throw SubmissionFailure(message: "Couldn't prepare the cropped or trimmed media: \(ReviewSubmitter.describe(error))")
         }
         defer { staged.cleanUp() }
-        let pending = store.pendingSubmission(in: directory).flatMap { $0.storePath == storePath.path ? $0 : nil }
         if let existing {
             return try add(draft, staged: staged, to: existing, pending: pending, progress: progress)
         }
