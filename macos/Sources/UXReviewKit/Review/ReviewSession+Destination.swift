@@ -229,7 +229,10 @@ extension DraftSubmitter {
         let ticket: CreatedTicket
         do {
             // Crops and trims applied (HS2-71SSJG), as for a new ticket.
-            ticket = try ReviewSubmitter(client: client, makeBatchID: makeBatchID).add(
+            let submitter = ReviewSubmitter(
+                client: client, makeBatchID: makeBatchID, ticketText: DraftTicketText.load(from: draft.directory)
+            )
+            ticket = try submitter.add(
                 sent,
                 mediaDirectory: staged.mediaDirectory,
                 to: existing.createdTicket,

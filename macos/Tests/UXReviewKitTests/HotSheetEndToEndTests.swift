@@ -216,6 +216,46 @@ struct HotSheetEndToEndTests {
         // Only the original ticket exists.
         #expect(try hs("ls").stdout.split(separator: "\n").count(where: { $0.contains("HS-") }) == 1)
     }
+
+    /// HS2-1DDKZ3: a draft's edited preambles reach the real ticket: the intake body of a new
+    /// ticket, then the note on an existing one, with placeholders filled in (the record by the
+    /// name Hot Sheet stored it under).
+    @Test(.enabled(if: cli != nil, "hotsheet-cli not installed"), .timeLimit(.minutes(2)))
+    func filesTheDraftsEditedTicketText() throws {
+        let cli = try #require(Self.cli)
+        let root = try TestSupport.makeTempDirectory()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let store = root.appendingPathComponent("project.hs2")
+        var env = ProcessInfo.processInfo.environment
+        env["HOTSHEET_ACTOR_ROLE"] = nil
+        env["HOTSHEET_ACTOR_ID"] = nil
+        let runner = SystemProcessRunner()
+        func hs(_ args: String...) throws -> ProcessResult {
+            try runner.run(executable: cli, arguments: ["-C", store.path] + args, environment: env, currentDirectory: nil)
+        }
+        try #require(try hs("init").exitCode == 0)
+        let client = HotSheetCLIClient(executable: cli, storePath: store, runner: runner)
+        let drafts = ReviewDraftStore(root: root.appendingPathComponent("Drafts"))
+
+        let first = try Self.imageAndVideoDraft(in: drafts, raw: root)
+        try drafts.setTicketText("## Split {{title}}\n\nOne ticket per change; see {{record}} and {{media}}.", for: .newTicket, in: first)
+        let filed = try DraftSubmitter(store: drafts, client: client, storePath: store).submit(first, title: "Checkout")
+        let intake = try hs("show", filed.ticket.slug).stdout
+        #expect(intake.contains(
+            "## Split Checkout\n\nOne ticket per change; see `attachment:review.json` and "
+                + "`attachment:capture-1.png`, `attachment:capture-2.mov`.\n\n## Capture context"
+        ))
+        #expect(!intake.contains("Instructions for the AI"))
+
+        let existing = try Self.ticketWithEarlierFiles(client, scratch: root)
+        let found = try #require(try TicketQuery(reference: existing.slug, storePath: store.path).run(cliPath: cli.path).get())
+        let second = try Self.imageAndVideoDraft(in: drafts, raw: root)
+        try drafts.setTicketText("## More on {{title}}\n\n{{counts}}; record {{record}}.", for: .existingTicket, in: second)
+        _ = try DraftSubmitter(store: drafts, client: client, storePath: store).submit(second, title: "Follow-up", into: found)
+        let ticket = try hs("show", existing.slug).stdout
+        #expect(ticket.contains("## More on Follow-up\n\n2 captures and 0 annotations; record `attachment:review (2).json`."))
+        #expect(!ticket.contains("Feedback on this ticket, added with UX Review"))
+    }
 }
 
 extension HotSheetEndToEndTests {

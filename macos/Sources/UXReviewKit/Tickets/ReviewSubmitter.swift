@@ -43,10 +43,17 @@ public struct ReviewSubmitter: Sendable {
     public var client: HotSheetClient
     /// The id of a new attach batch (tests pin it).
     public var makeBatchID: @Sendable () -> String
+    /// The reviewer's edited preambles (docs/07 §7.2.3); standard when empty.
+    public var ticketText: DraftTicketText
 
-    public init(client: HotSheetClient, makeBatchID: @escaping @Sendable () -> String = ReviewSubmitter.newBatchID) {
+    public init(
+        client: HotSheetClient,
+        makeBatchID: @escaping @Sendable () -> String = ReviewSubmitter.newBatchID,
+        ticketText: DraftTicketText = DraftTicketText()
+    ) {
         self.client = client
         self.makeBatchID = makeBatchID
+        self.ticketText = ticketText
     }
 
     /// `batch-uxreview-<uuid>`, unique per review submission.
@@ -130,7 +137,7 @@ public struct ReviewSubmitter: Sendable {
             throw ReviewSubmissionError.missingMedia(file.lastPathComponent)
         }
 
-        let composed = TicketComposer.compose(bundle)
+        let composed = TicketComposer.compose(bundle, preamble: ticketText.newTicket)
         let bundleFile = mediaDirectory.appendingPathComponent(composed.bundleFilename)
         try ReviewBundle.makeEncoder().encode(bundle).write(to: bundleFile, options: .atomic)
         return (composed, mediaFiles + [bundleFile])
@@ -164,7 +171,10 @@ public struct ReviewSubmitter: Sendable {
         }
         progress(.addingNote)
         do {
-            try client.addNote(TicketComposer.note(for: bundle, storedNames: storedNames.filter { $0.key != $0.value }), to: ticket.slug)
+            let note = TicketComposer.note(
+                for: bundle, storedNames: storedNames.filter { $0.key != $0.value }, preamble: ticketText.existingTicket
+            )
+            try client.addNote(note, to: ticket.slug)
         } catch {
             throw ReviewSubmissionError.noteFailed(ticket: ticket, attached: storedNames, reason: Self.describe(error))
         }

@@ -130,6 +130,18 @@ public extension ReviewDraftStore {
         return left
     }
 
+    /// Saves the reviewer's edited preamble for `mode` (docs/07 §7.2.3); nil, or the standard
+    /// text, goes back to the standard one.
+    @discardableResult
+    func setTicketText(_ template: String?, for mode: TicketPreamble.Mode, in directory: URL) throws -> DraftTicketText {
+        lock.lock()
+        defer { lock.unlock() }
+        var text = DraftTicketText.load(from: directory)
+        text[mode] = template
+        try text.save(to: directory)
+        return text
+    }
+
     /// The half-finished submission recorded for this draft, if any (unreadable records are ignored).
     func pendingSubmission(in directory: URL) -> PendingSubmission? {
         let url = directory.appendingPathComponent(Self.pendingSubmissionFilename)

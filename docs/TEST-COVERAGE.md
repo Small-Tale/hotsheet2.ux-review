@@ -1421,3 +1421,24 @@ text stacked one word per line at 99 pt wide. The empty Draft Reviews window was
 - **Visual QA:** `editor-arrow-heads` (`--render-ui-previews`): one arrow per style and a selected
   span with its Arrow heads menus, inspected by hand (the first render showed the menus pushing the
   inspector wider than 300 pt; fixed).
+
+## HS2-1DDKZ3: editable ticket text in Submit Review
+
+- **Unit** (`TicketPreambleTests`, `MarkdownBlockTests`): both standard templates fill in to the
+  text filed before (the intake body still starts with it); one-pass placeholder rendering (a
+  value holding `{{…}}` isn't expanded again; unknown, unclosed, and empty placeholders stay as
+  typed); each mode's variables; an edited and a cleared preamble replace only the preamble, for
+  the body and the note. `ticket-text.json`: missing, edited, standard text stored as standard (the
+  file is removed), cleared (kept as an edit), unreadable. Interleaved edits and resets across both
+  modes, then a refill. `DraftSubmitter` files a new ticket with the new-ticket text and an existing
+  ticket's note with the existing-ticket text, never the other. The Markdown block parser handles
+  headings, numbered (`1.` / `12)`) and bulleted items, continued items, joined paragraphs, and
+  non-headings.
+- **Hot Sheet end to end** (`HotSheetEndToEndTests.filesTheDraftsEditedTicketText`): through the
+  real `hotsheet-cli`, an edited intake preamble with `{{title}}`, `{{record}}`, and `{{media}}`, then
+  an edited note on an existing ticket whose `{{record}}` is the renamed `review (2).json`.
+- **Visual QA** (`--render-ui-previews`, listed in `scripts/app-e2e.sh`): `session-ticket-text-new`,
+  `-existing`, `-edited`, `-editing`, and `-narrow`, inspected by hand. The first render drew one
+  inline code span in proportional type; code spans now get an explicit monospaced font.
+- **Not covered automatically:** clicking the rendered text and typing into the live editor. The
+  model calls (`setPreamble`) are thin wrappers over the tested store method.

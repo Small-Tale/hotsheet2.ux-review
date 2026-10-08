@@ -30,7 +30,7 @@ Reviews window (§7.9) opens it on any other draft.
 | Hot Sheet project | First, so where the review goes is chosen before anything else (`HS2-8HMGTD`). The target project's name and the store it files into, or the problem (§7.6). **Change** lists recent projects and **Choose Folder…** |
 | Review | **Title** (required) and **Summary** (Markdown, optional). Typing is saved into the draft's `review.json` half a second after it stops. "Give the review a title." shows under a blank title |
 | Captures (N) | One row per capture in review order, **as it will be filed** (`SubmissionPreview`, `HS2-64P9DT`): thumbnail (the cropped part of a cropped image; a movie's frame at its trim start, cut to its crop, with a play badge), file name, pixel size as filed ("cropped" after a crop of an image or movie; "scaled for Claude" when it is downscaled for AI, as in "2576×1449 scaled for Claude", §7.5.1), duration ("trimmed" after a trim), the number of annotations filed with it, and source app. When a crop or trim leaves annotations out, a line says so, such as "2 annotations outside the crop will be left out" ("the crop or trim" for a movie with both). Nothing is cropped or trimmed until submitting (§7.5); the preview reads `edits.json`. A capture with a problem shows it in orange under its details (§7.3). **Annotate** opens the editor on that capture; **Annotate…** in the header opens it on the first. The trash button removes the capture after a confirmation |
-| Ticket | **Submit as** **New ticket** (the default) or **Add to existing ticket**, and for the latter the ticket field and its lookup (§7.2.1) |
+| Ticket | **Submit as** **New ticket** (the default) or **Add to existing ticket**, and for the latter the ticket field and its lookup (§7.2.1). Then **Ticket text**, the preamble for the chosen destination (§7.2.3) |
 | Before submitting | Only when the review has a problem that belongs to no field or capture (an unsupported format, duplicate ids); shown above every other section |
 | Footer | **Discard Review…** (§7.9; disabled while submitting), the counts as filed ("3 captures · 4 annotations", plus "(2 left out)" when a crop or trim leaves some out), the only remaining problem, or "N things to fix before submitting"; progress while submitting; the failure (§7.5); and **Submit to Hot Sheet** (default button, Return), which reads **Try Again** after a failure |
 
@@ -100,6 +100,31 @@ annotations", or "2 of 3 captures · 2 of 4 annotations") and opens a checklist 
 - A half-finished submission (§7.5) records its part in `submission.json` (`selection`), and
   Try Again sends that same part. The checklist shows it, disabled, until the submission
   finishes.
+
+### 7.2.3 Ticket text
+
+UX Review puts a fixed **preamble** before the review's own sections (`HS2-1DDKZ3`). A new ticket
+gets the instructions for the AI processing it (docs/03 §3.3 item 1). A note on an existing
+ticket gets the "UX review: <title>" intro (docs/03 §3.5 item 1). The reviewer can edit the
+preamble for one review. The reviewer summary, capture context, media, and annotations that
+follow are always generated, so the editor never shows them.
+
+- **Shown rendered.** Under the destination, **Ticket text** shows the chosen destination's
+  preamble as Markdown (headings, numbered and bulleted items, inline code), with the review's
+  values filled in. It follows the New/Existing switch: each destination has its own text.
+- **Click to edit.** Clicking the text (or **Edit**) shows the template in a monospaced editor.
+  Placeholders stay as typed until it is filed: `{{title}}`, `{{record}}` (`attachment:review.json`,
+  by the name Hot Sheet stored it under), `{{schema}}`, `{{media}}` (every capture's
+  `attachment:` reference, comma-separated), and `{{counts}}` ("2 captures and 3 annotations").
+  An unknown `{{name}}` is filed as typed. **Done** shows it rendered again. Each change is saved
+  as you type.
+- **Edited** marks a changed text, and **Reset to Standard** puts the standard text back. Text
+  that matches the standard text counts as standard. An empty text adds no preamble at all.
+- **This review only.** Edits are kept in the draft's `ticket-text.json` (`DraftTicketText`; one
+  template per destination; no file while both are standard) and go away with the draft. The
+  next review starts from the standard text. Headless `--submit` (§7.8) files with the same
+  text.
+- The text can't be edited while submitting or after the review is filed.
 
 ## 7.3 What blocks submitting
 

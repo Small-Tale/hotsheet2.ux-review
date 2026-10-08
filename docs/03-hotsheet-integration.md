@@ -79,7 +79,9 @@ The ticket is titled `UX review: <title>`, has category `task`, and carries the 
    Cite annotation numbers, intents, regions, and time ranges. Reference and re-attach the same
    media by `attachment:<filename>`. Map intents to categories: `bug` → bug; `insert` → feature;
    `comment`/`change`/`remove`/`move` → issue; `question` → investigation. Finally, note the
-   created slugs and complete the intake ticket.
+   created slugs and complete the intake ticket. This block is the **new-ticket preamble**: the
+   reviewer can edit it for one review in Submit Review ([07-review-session.md](07-review-session.md)
+   §7.2.3), or clear it. Items 2–5 are always generated.
 2. **Reviewer summary**, if the review has one.
 3. **Capture context**: app (and bundle id), window, URL, and OS, for whichever are known.
 4. **Media**: one line per file, giving kind, pixel size, and duration, plus `, from <App> “<Window>”`
@@ -143,7 +145,8 @@ earlier one was stored, in this flow and in §3.2.
 1. `## UX review: <title>` and one paragraph: this is feedback on this ticket, how many captures
    and annotations there are, that they and `attachment:review.json` (by its stored name) are
    attached in the batch “UX review capture”, that `review.json` is the canonical record, and to
-   cite annotation numbers when acting on them. There are no splitting instructions.
+   cite annotation numbers when acting on them. There are no splitting instructions. This is the
+   **existing-ticket preamble**, editable for one review like the intake one (docs/07 §7.2.3).
 2. The intake body's sections (§3.3 items 2–5) one heading level deeper: `### Reviewer summary`,
    `### Capture context`, `### Media`, `### Annotations` with `#### #N · <intents> ·
    attachment:<stored name>`. A renamed media line adds `; stored under this name, review.json

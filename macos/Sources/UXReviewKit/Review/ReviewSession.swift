@@ -352,7 +352,10 @@ public struct DraftSubmitter: Sendable {
         let resumable = pending.flatMap { $0.isForExistingTicket ? nil : $0 }
         let ticket: CreatedTicket
         do {
-            ticket = try ReviewSubmitter(client: client, makeBatchID: makeBatchID).file(
+            let submitter = ReviewSubmitter(
+                client: client, makeBatchID: makeBatchID, ticketText: DraftTicketText.load(from: directory)
+            )
+            ticket = try submitter.file(
                 staged.bundle,
                 mediaDirectory: staged.mediaDirectory,
                 existingTicket: resumable?.ticket,

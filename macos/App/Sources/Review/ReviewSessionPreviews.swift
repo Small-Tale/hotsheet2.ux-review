@@ -54,6 +54,8 @@ enum ReviewSessionPreviews {
         )))
         try shoot("session-failed", failed)
 
+        try written += renderTicketText(draft, store: store, model: { model($0) }, to: directory)
+
         try shoot("session-submitted", filed(model(draft)))
         try written += fitSubmitted(model(draft), to: directory)
         try renderExistingTicket(draft, model: { model($0) }, shoot: shoot)
@@ -81,6 +83,55 @@ enum ReviewSessionPreviews {
             bundle.title = "UX review"
         }
         try shoot("session-empty", model(emptyDraft), size: CGSize(width: 640, height: 600))
+        return written
+    }
+
+    /// The Ticket section's preamble (§7.2.3): rendered with values for each destination, an
+    /// edited one, and the template being edited (placeholders as typed).
+    private static func renderTicketText(
+        _ draft: ReviewDraft, store: ReviewDraftStore, model: (ReviewDraft) -> ReviewSessionModel, to directory: URL
+    ) throws -> [URL] {
+        let size = CGSize(width: 640, height: 1180)
+        var written: [URL] = []
+        written.append(try snapshot(
+            ReviewSessionView(model: model(draft)),
+            size: size,
+            to: directory.appendingPathComponent("session-ticket-text-new.png")
+        ))
+        let existing = model(draft)
+        existing.setDestination(.existingTicket)
+        existing.ticketInput = "HS-YCDZ2A"
+        existing.previewLookup(.success(existingTicket))
+        written.append(try snapshot(
+            ReviewSessionView(model: existing),
+            size: CGSize(width: 640, height: 1100),
+            to: directory.appendingPathComponent("session-ticket-text-existing.png")
+        ))
+
+        try store.setTicketText(
+            "## Instructions for the AI\n\nSplit this review into tickets, one per change. {{record}} has the exact shapes.\n\n"
+                + "1. Keep the captures ({{media}}).\n2. Tag every ticket `settings`.",
+            for: .newTicket, in: draft.directory
+        )
+        defer { _ = try? store.setTicketText(nil, for: .newTicket, in: draft.directory) }
+        let edited = model(draft)
+        written.append(try snapshot(
+            ReviewSessionView(model: edited),
+            size: CGSize(width: 640, height: 1040),
+            to: directory.appendingPathComponent("session-ticket-text-edited.png")
+        ))
+        let editing = Form { Section { TicketTextBox(model: edited, editing: true) } }.formStyle(.grouped)
+        written.append(try snapshot(
+            editing,
+            size: CGSize(width: 640, height: 420),
+            to: directory.appendingPathComponent("session-ticket-text-editing.png")
+        ))
+        let narrow = Form { Section { TicketTextBox(model: model(draft)) } }.formStyle(.grouped)
+        written.append(try snapshot(
+            narrow,
+            size: CGSize(width: 520, height: 460),
+            to: directory.appendingPathComponent("session-ticket-text-narrow.png")
+        ))
         return written
     }
 

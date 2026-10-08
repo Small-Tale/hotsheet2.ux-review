@@ -35,7 +35,9 @@ public enum TicketComposer {
     public static let bundleFilename = "review.json"
     public static let tag = "ux-review"
 
-    public static func compose(_ bundle: ReviewBundle) -> ComposedReview {
+    /// - Parameter preamble: the reviewer's edited instructions template (docs/07 §7.2.3); nil
+    ///   for the standard one.
+    public static func compose(_ bundle: ReviewBundle, preamble: String? = nil) -> ComposedReview {
         let numbered = Array(bundle.annotations.enumerated())
         var projection: [String: [HotSheetMediaAnnotation]] = [:]
         for (index, annotation) in numbered {
@@ -53,7 +55,7 @@ public enum TicketComposer {
         }
         let ticket = NewTicket(
             title: "UX review: \(bundle.title)",
-            details: details(for: bundle),
+            details: details(for: bundle, preamble: preamble),
             category: "task",
             tags: [tag],
             upNext: false
@@ -70,53 +72,24 @@ public enum TicketComposer {
     /// ticket (docs/03 §3.5): the review's title, what was attached, then the same sections as an
     /// intake ticket body, one heading level deeper. No splitting instructions: the review is
     /// feedback on this ticket.
-    /// - Parameter storedNames: draft file name → the name Hot Sheet stored it under, for files
-    ///   it renamed because the ticket already had one by that name.
-    public static func note(for bundle: ReviewBundle, storedNames: [String: String] = [:]) -> String {
-        let captures = bundle.media.count
-        let annotations = bundle.annotations.count
-        let counts = "\(captures) capture\(captures == 1 ? "" : "s") and \(annotations) annotation\(annotations == 1 ? "" : "s")"
-        let record = attachmentReference(storedNames[bundleFilename] ?? bundleFilename)
-        let intro = """
-        ## UX review: \(bundle.title)
-
-        Feedback on this ticket, added with UX Review: \(counts). The captures and \(record) are attached \
-        to this ticket in the batch “UX review capture”; \(record) is the canonical, machine-readable record \
-        (schema `\(bundle.schema)`, see the UX Review repo's `spec/review-bundle.schema.json`) with exact \
-        shapes, intents, and time ranges. Take every annotation into account when working this ticket, and \
-        cite its number when you act on it.
-        """
-        return ([intro] + reviewSections(bundle, heading: "###", storedNames: storedNames)).joined(separator: "\n\n") + "\n"
+    /// - Parameters:
+    ///   - storedNames: draft file name → the name Hot Sheet stored it under, for files
+    ///     it renamed because the ticket already had one by that name.
+    ///   - preamble: the reviewer's edited intro template (docs/07 §7.2.3); nil for the standard one.
+    public static func note(for bundle: ReviewBundle, storedNames: [String: String] = [:], preamble: String? = nil) -> String {
+        let intro = TicketPreamble.text(.existingTicket, for: bundle, template: preamble, storedNames: storedNames)
+        let sections = reviewSections(bundle, heading: "###", storedNames: storedNames)
+        return ((intro.isEmpty ? [] : [intro]) + sections).joined(separator: "\n\n") + "\n"
     }
 
     static func intentLabel(_ annotation: Annotation) -> String {
         annotation.effectiveIntents.map(\.rawValue).joined(separator: ", ")
     }
 
-    static func details(for bundle: ReviewBundle) -> String {
-        let filenames = bundle.media.map { "`attachment:\($0.filename)`" }.joined(separator: ", ")
-        var lines: [String] = []
-        lines.append("""
-        ## Instructions for the AI processing this ticket
-
-        This is a **UX review intake ticket** captured with UX Review. Do not implement it directly; \
-        split it into individual tickets.
-
-        1. Read every annotation below. `attachment:\(bundleFilename)` is the canonical, machine-readable \
-        record (schema `\(bundle.schema)`, see the UX Review repo's `spec/review-bundle.schema.json`); \
-        it holds exact shapes, intents, and time ranges.
-        2. Create one ticket per distinct actionable change. Group annotations only when they describe \
-        the same change; do not silently drop any annotation.
-        3. In each new ticket, state the requested change and cite the annotation numbers, intents, \
-        regions, and time ranges it covers. Reference the same captured media by name (\(filenames)) \
-        and attach those same files to it; do not recapture.
-        4. Choose the category from the intent: `bug` for bug, `feature` for insert and new behavior, \
-        `issue` for comment, change, remove, and move, and `investigation` for question.
-        5. Add a note here listing every ticket you created, then complete this ticket.
-        """)
-
-        lines += reviewSections(bundle, heading: "##", storedNames: [:])
-        return lines.joined(separator: "\n\n") + "\n"
+    static func details(for bundle: ReviewBundle, preamble: String? = nil) -> String {
+        let instructions = TicketPreamble.text(.newTicket, for: bundle, template: preamble)
+        let sections = reviewSections(bundle, heading: "##", storedNames: [:])
+        return ((instructions.isEmpty ? [] : [instructions]) + sections).joined(separator: "\n\n") + "\n"
     }
 
     /// The part of a review that reads the same in an intake ticket and in a note on an existing

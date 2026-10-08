@@ -155,6 +155,7 @@ Drafts/
     capture-2.png
     edits.json              crops and trims, applied only when submitting (docs/06 §6.6), never attached
     numbering.json          highest capture-N / mN used, once a capture is removed (docs/07 §7.2), never attached
+    ticket-text.json        the reviewer's edited ticket preambles, only when edited (docs/07 §7.2.3), never attached
 ```
 
 - **First capture**: creates a draft. Its title is "<App> review", or "UX review" when the app

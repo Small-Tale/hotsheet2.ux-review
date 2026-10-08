@@ -34,6 +34,8 @@ final class ReviewSessionModel: ObservableObject {
     var selectionLocked: Bool { lockedTicket != nil && session.existingTicket?.slug == lockedTicket }
     /// The draft's crops and trims (`edits.json`), applied only when submitting.
     @Published private(set) var edits = DraftEdits()
+    /// The reviewer's edited preambles for this review (`ticket-text.json`, §7.2.3).
+    @Published private(set) var ticketText = DraftTicketText()
 
     /// Each capture as it will be filed: cropped and trimmed, hidden annotations left out, scaled
     /// for AI (§7.2).
@@ -123,6 +125,7 @@ final class ReviewSessionModel: ObservableObject {
         }
         recentProjects = AppSettings.recentProjects
         edits = DraftEdits.load(from: draft.directory)
+        ticketText = DraftTicketText.load(from: draft.directory)
         loadThumbnails()
         NotificationCenter.default.publisher(for: .reviewDraftChanged)
             .compactMap { $0.object as? URL }
@@ -155,6 +158,7 @@ final class ReviewSessionModel: ObservableObject {
             let draft = try store.load(directory)
             session.refresh(draft.bundle, missingFiles: Self.missingFiles(in: draft))
             edits = DraftEdits.load(from: directory)
+            ticketText = DraftTicketText.load(from: directory)
             notice = nil
             loadThumbnails()
         } catch {
@@ -174,28 +178,6 @@ final class ReviewSessionModel: ObservableObject {
     func setDestination(_ destination: ReviewDestination) {
         guard session.setDestination(destination) else { return }
         scheduleLookup()
-    }
-
-    /// Includes or leaves out a capture for an existing ticket (§7.2.2).
-    func setIncluded(media id: String, _ included: Bool) {
-        guard !selectionLocked else { return }
-        var selection = session.selection
-        selection.set(media: id, included: included)
-        session.setSelection(selection)
-    }
-
-    /// Includes or leaves out one annotation for an existing ticket (§7.2.2).
-    func setIncluded(_ annotation: Annotation, _ included: Bool) {
-        guard !selectionLocked else { return }
-        var selection = session.selection
-        selection.set(annotation, included: included, in: session.bundle)
-        session.setSelection(selection)
-    }
-
-    /// Includes everything again.
-    func selectEverything() {
-        guard !selectionLocked else { return }
-        session.setSelection(ReviewSelection())
     }
 
     /// Starts the lookup the session waits for, after a short pause so typing doesn't run
@@ -436,5 +418,53 @@ extension ReviewSessionModel {
         scaleTask?.cancel()
         downscaleForAI = target != nil
         resolvedScale = target.flatMap { target in session.target.storePath.map { ($0, target) } }
+    }
+}
+
+/// What goes to an existing ticket (§7.2.2) and the Ticket section's preamble (§7.2.3).
+extension ReviewSessionModel {
+    /// Includes or leaves out a capture for an existing ticket (§7.2.2).
+    func setIncluded(media id: String, _ included: Bool) {
+        guard !selectionLocked else { return }
+        var selection = session.selection
+        selection.set(media: id, included: included)
+        session.setSelection(selection)
+    }
+
+    /// Includes or leaves out one annotation for an existing ticket (§7.2.2).
+    func setIncluded(_ annotation: Annotation, _ included: Bool) {
+        guard !selectionLocked else { return }
+        var selection = session.selection
+        selection.set(annotation, included: included, in: session.bundle)
+        session.setSelection(selection)
+    }
+
+    /// Includes everything again.
+    func selectEverything() {
+        guard !selectionLocked else { return }
+        session.setSelection(ReviewSelection())
+    }
+
+    /// The preamble the chosen destination files with.
+    var preambleMode: TicketPreamble.Mode { session.destination == .newTicket ? .newTicket : .existingTicket }
+
+    /// The chosen destination's preamble template: the reviewer's edit, else the standard one.
+    var preambleTemplate: String { ticketText.template(preambleMode) }
+
+    /// The preamble as it will be filed, values filled in (from what is sent).
+    var preambleText: String {
+        TicketPreamble.text(preambleMode, for: session.selectedBundle, template: ticketText[preambleMode])
+    }
+
+    var preambleIsStandard: Bool { ticketText[preambleMode] == nil }
+
+    /// Saves the chosen destination's preamble template; nil goes back to the standard text (§7.2.3).
+    func setPreamble(_ template: String?) {
+        guard session.isEditable else { return }
+        do {
+            ticketText = try store.setTicketText(template, for: preambleMode, in: directory)
+        } catch {
+            notice = "Couldn't save the ticket text: \(ReviewSubmitter.describe(error))"
+        }
     }
 }

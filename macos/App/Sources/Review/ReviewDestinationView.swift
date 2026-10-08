@@ -46,6 +46,7 @@ struct ReviewDestinationRows: View {
                 .accessibilityIdentifier("session-selection")
             }
         }
+        TicketTextBox(model: model)
     }
 
     /// "Everything: 3 captures, 4 annotations" or "2 of 3 captures · 3 of 4 annotations".
@@ -154,5 +155,150 @@ private struct ReviewSelectionList: View {
         let note = annotation.note.trimmingCharacters(in: .whitespacesAndNewlines)
         parts.append(note.isEmpty ? "no note" : note.replacingOccurrences(of: "\n", with: " "))
         return parts.joined(separator: " · ")
+    }
+}
+
+/// The preamble UX Review puts before the review's own sections (§7.2.3): shown rendered, values
+/// filled in; a click edits the template, where placeholders stay `{{name}}` until Done. It follows
+/// the New / Existing switch, and edits last for this review only.
+struct TicketTextBox: View {
+    @ObservedObject var model: ReviewSessionModel
+    @State private var editing: Bool
+    @State private var text = ""
+    @FocusState private var focused: Bool
+
+    init(model: ReviewSessionModel, editing: Bool = false) {
+        self.model = model
+        _editing = State(initialValue: editing)
+        _text = State(initialValue: editing ? model.preambleTemplate : "")
+    }
+
+    private var editable: Bool { model.session.isEditable }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 6) {
+                Text("Ticket text").font(.callout.weight(.medium))
+                if !model.preambleIsStandard {
+                    Text("Edited")
+                        .font(.caption2.weight(.medium))
+                        .padding(.horizontal, 5)
+                        .padding(.vertical, 1)
+                        .background(Capsule().fill(Color.accentColor.opacity(0.15)))
+                        .foregroundStyle(Color.accentColor)
+                        .accessibilityLabel("Edited for this review")
+                }
+                Spacer()
+                if !model.preambleIsStandard || editing {
+                    Button("Reset to Standard") {
+                        model.setPreamble(nil)
+                        text = model.preambleTemplate
+                    }
+                    .disabled(model.preambleIsStandard || !editable)
+                    .accessibilityIdentifier("session-ticket-text-reset")
+                }
+                Button(editing ? "Done" : "Edit") { editing ? finish() : start() }
+                    .disabled(!editable)
+                    .accessibilityIdentifier("session-ticket-text-toggle")
+            }
+            .controlSize(.small)
+
+            if editing {
+                TextEditor(text: $text)
+                    .font(.system(.callout, design: .monospaced))
+                    .scrollContentBackground(.hidden)
+                    .padding(4)
+                    .frame(minHeight: 140, idealHeight: 200, maxHeight: 260)
+                    .background(RoundedRectangle(cornerRadius: 6).fill(Color(nsColor: .textBackgroundColor)))
+                    .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(Color.accentColor.opacity(0.6)))
+                    .focused($focused)
+                    .onChange(of: text) { _, new in model.setPreamble(new) }
+                    .accessibilityLabel("Ticket text template")
+                    .accessibilityIdentifier("session-ticket-text-editor")
+                Text(Self.placeholderHelp)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            } else {
+                Button(action: start) {
+                    MarkdownPreview(markdown: model.preambleText)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(8)
+                        .background(RoundedRectangle(cornerRadius: 6).fill(Color(nsColor: .quaternarySystemFill)))
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .disabled(!editable)
+                .help("Click to edit the text added before the annotations")
+                .accessibilityLabel("Ticket text")
+                .accessibilityValue(model.preambleText)
+                .accessibilityHint("Edits the text added before the annotations")
+                .accessibilityIdentifier("session-ticket-text")
+                Text("Added before the reviewer summary and annotations, which are always included. Click to edit it for this review.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .padding(.top, 2)
+        // The other destination has its own text.
+        .onChange(of: model.preambleMode) { _, _ in if editing { text = model.preambleTemplate } }
+    }
+
+    private func start() {
+        guard editable else { return }
+        text = model.preambleTemplate
+        editing = true
+        focused = true
+    }
+
+    private func finish() {
+        model.setPreamble(text)
+        editing = false
+    }
+
+    /// "Placeholders: {{title}} the review's title · …".
+    static let placeholderHelp = "Placeholders: "
+        + TicketPreamble.variables.map { "\($0.placeholder) \($0.meaning)" }.joined(separator: " · ")
+        + ". Leave it empty to add no text."
+}
+
+/// Short Markdown shown rendered: headings, numbered and bulleted items, paragraphs, with inline
+/// code, bold, and links.
+struct MarkdownPreview: View {
+    var markdown: String
+
+    var body: some View {
+        let blocks = MarkdownBlock.parse(markdown)
+        VStack(alignment: .leading, spacing: 6) {
+            if blocks.isEmpty {
+                Text("No text is added.").foregroundStyle(.secondary).italic()
+            }
+            ForEach(Array(blocks.enumerated()), id: \.offset) { _, block in
+                switch block {
+                case let .heading(level, text):
+                    Self.inline(text).font(level <= 2 ? .headline : .subheadline.weight(.semibold))
+                case let .listItem(marker, text):
+                    HStack(alignment: .firstTextBaseline, spacing: 6) {
+                        Text(marker).monospacedDigit().foregroundStyle(.secondary)
+                        Self.inline(text)
+                    }
+                case let .paragraph(text):
+                    Self.inline(text)
+                }
+            }
+        }
+        .font(.callout)
+        .fixedSize(horizontal: false, vertical: true)
+    }
+
+    static func inline(_ text: String) -> Text {
+        let options = AttributedString.MarkdownParsingOptions(interpretedSyntax: .inlineOnlyPreservingWhitespace)
+        var attributed = (try? AttributedString(markdown: text, options: options)) ?? AttributedString(text)
+        // Text's own code styling drops some spans; set the monospaced font on each one.
+        for run in attributed.runs where run.inlinePresentationIntent?.contains(.code) == true {
+            attributed[run.range].font = .system(.callout, design: .monospaced)
+        }
+        return Text(attributed)
     }
 }
