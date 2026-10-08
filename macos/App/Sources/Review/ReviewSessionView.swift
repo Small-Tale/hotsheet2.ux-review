@@ -120,14 +120,21 @@ struct ReviewSessionView: View {
                 Text("Hot Sheet project")
             }
             .disabled(!editable)
+
+            Section {
+                ReviewDestinationRows(model: model)
+            } header: {
+                Text("Ticket")
+            }
+            .disabled(!editable)
         }
         .formStyle(.grouped)
     }
 
-    /// Issues not shown next to a field, a capture, or the project.
+    /// Issues not shown next to a field, a capture, the project, or the ticket.
     private func isGeneralIssue(_ issue: SessionIssue) -> Bool {
         switch issue {
-        case .noCaptures, .blankTitle, .hotSheet, .missingFile: false
+        case .noCaptures, .blankTitle, .hotSheet, .missingFile, .ticket: false
         case .bundle: issue.mediaId(in: model.session.bundle) == nil
         }
     }
@@ -160,7 +167,18 @@ struct ReviewSessionView: View {
 
     private var submitTitle: String {
         if case .failed = model.session.phase { return "Try Again" }
+        if model.session.destination == .existingTicket { return "Add to \(model.session.existingTicket?.slug ?? "Ticket")" }
         return "Submit to Hot Sheet"
+    }
+
+    private func progressText(_ step: SubmitStep) -> String {
+        let files = "\(model.session.bundle.media.count + 1) files"
+        let slug = model.session.existingTicket?.slug
+        return switch step {
+        case .creatingTicket: "Creating the ticket…"
+        case .attachingMedia: slug.map { "Attaching \(files) to \($0)…" } ?? "Attaching \(files)…"
+        case .addingNote: "Adding the review note to \(slug ?? "the ticket")…"
+        }
     }
 
     @ViewBuilder private var status: some View {
@@ -168,11 +186,8 @@ struct ReviewSessionView: View {
         case let .submitting(step):
             HStack(spacing: 8) {
                 ProgressView().controlSize(.small)
-                Text(
-                    step == .creatingTicket ? "Creating the ticket…" :
-                        "Attaching \(model.session.bundle.media.count + 1) files…"
-                )
-                .foregroundStyle(.secondary)
+                Text(progressText(step))
+                    .foregroundStyle(.secondary)
             }
         case let .failed(failure):
             VStack(alignment: .leading, spacing: 2) {
@@ -186,6 +201,10 @@ struct ReviewSessionView: View {
                     .textSelection(.enabled)
                 if let slug = failure.createdTicket {
                     Text("Try Again attaches the files to \(slug) without creating another ticket.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                } else if let slug = failure.attachedTo {
+                    Text("Try Again adds the review note to \(slug) without attaching the files again.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -341,10 +360,10 @@ private struct SubmittedView: View {
             Image(systemName: "checkmark.circle.fill")
                 .font(.system(size: 44))
                 .foregroundStyle(.green)
-            Text("Filed as \(review.ticket.slug)")
+            Text(review.addedToExistingTicket ? "Added to \(review.ticket.slug)" : "Filed as \(review.ticket.slug)")
                 .font(.title2.weight(.semibold))
                 .textSelection(.enabled)
-            Text("“\(review.title)”")
+            Text("“\(review.addedToExistingTicket ? review.ticketTitle ?? review.title : review.title)”")
                 .font(.headline)
                 .multilineTextAlignment(.center)
             Text(summary)
@@ -369,7 +388,9 @@ private struct SubmittedView: View {
         let media = "\(review.mediaCount) capture\(review.mediaCount == 1 ? "" : "s")"
         let annotations = "\(review.annotationCount) annotation\(review.annotationCount == 1 ? "" : "s")"
         let store = ((review.storePath as NSString).lastPathComponent)
-        var text = "\(media), \(annotations), and review.json are attached in \(store). "
+        var text = review.addedToExistingTicket
+            ? "The review “\(review.title)” is a note on this ticket. \(media), \(annotations), and review.json are attached in \(store)."
+            : "\(media), \(annotations), and review.json are attached in \(store). "
             + "An AI working the ticket splits it into one ticket per change."
         if !review.draftRemoved { text += "\nThe draft folder could not be deleted; it is no longer the current review." }
         return text

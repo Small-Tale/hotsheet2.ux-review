@@ -11,6 +11,8 @@ public enum SessionIssue: Equatable, Sendable {
     case hotSheet(String)
     /// A `ReviewBundle.validate()` rule, with the bundle it came from for readable messages.
     case bundle(BundleIssue)
+    /// Adding to an existing ticket: it isn't entered, recognized, found, or open (yet).
+    case ticket(TicketIssue)
 
     /// The capture this issue is about, when there is one (the list marks it).
     public func mediaId(in bundle: ReviewBundle) -> String? {
@@ -25,7 +27,7 @@ public enum SessionIssue: Equatable, Sendable {
                 bundle.annotations.first { $0.id == annotationId }?.mediaId
             case .unsupportedSchema, .noMedia, .duplicateAnnotationId: nil
             }
-        case .noCaptures, .blankTitle, .hotSheet: nil
+        case .noCaptures, .blankTitle, .hotSheet, .ticket: nil
         }
     }
 
@@ -38,6 +40,7 @@ public enum SessionIssue: Equatable, Sendable {
         case let .missingFile(_, filename): "\(filename) is missing from the draft folder. Remove it from the review."
         case let .hotSheet(problem): problem
         case let .bundle(issue): Self.message(for: issue, in: bundle)
+        case let .ticket(issue): issue.message
         }
     }
 
@@ -94,6 +97,10 @@ public struct SubmittedReview: Codable, Equatable, Sendable {
     /// False when the draft folder could not be deleted after filing (it is no longer current,
     /// so it never receives captures again).
     public var draftRemoved: Bool
+    /// The review went into an existing ticket as a note, rather than a new intake ticket.
+    public var addedToExistingTicket: Bool
+    /// The existing ticket's own title (when `addedToExistingTicket`).
+    public var ticketTitle: String?
 
     public init(
         ticket: CreatedTicket,
@@ -102,7 +109,9 @@ public struct SubmittedReview: Codable, Equatable, Sendable {
         annotationCount: Int,
         storePath: String,
         submittedAt: Date,
-        draftRemoved: Bool = true
+        draftRemoved: Bool = true,
+        addedToExistingTicket: Bool = false,
+        ticketTitle: String? = nil
     ) {
         self.ticket = ticket
         self.title = title
@@ -111,6 +120,8 @@ public struct SubmittedReview: Codable, Equatable, Sendable {
         self.storePath = storePath
         self.submittedAt = submittedAt
         self.draftRemoved = draftRemoved
+        self.addedToExistingTicket = addedToExistingTicket
+        self.ticketTitle = ticketTitle
     }
 }
 
@@ -119,10 +130,14 @@ public struct SubmissionFailure: Error, Equatable, Sendable {
     public var message: String
     /// Set when a ticket was created but its attachments were not: the retry attaches to it.
     public var createdTicket: String?
+    /// Set when the media was attached to an existing ticket but the note was not: the retry adds
+    /// only the note.
+    public var attachedTo: String?
 
-    public init(message: String, createdTicket: String? = nil) {
+    public init(message: String, createdTicket: String? = nil, attachedTo: String? = nil) {
         self.message = message
         self.createdTicket = createdTicket
+        self.attachedTo = attachedTo
     }
 }
 
@@ -130,13 +145,14 @@ public struct SubmissionFailure: Error, Equatable, Sendable {
 /// Hot Sheet. Pure (no files, no UI); the window and `--submit` drive it.
 ///
 /// ```
-/// editing ⇄ failed            (edits, removals, refreshes, and target changes allowed)
+/// editing ⇄ failed            (edits, removals, refreshes, target and destination changes allowed)
 /// editing|failed → submitting(creatingTicket → attachingMedia) → submitted   (terminal)
-///                                                              ↘ failed
+///                  submitting(attachingMedia → addingNote)     ↘ failed      (existing ticket)
 /// ```
 /// Events that don't apply to the current phase are ignored and return false: a second
 /// submit while submitting, edits during or after submission, a result with no submission
-/// running. Spec: docs/07-review-session.md §7.4.
+/// running. The destination (a new ticket, or an existing one being looked up) is in
+/// `ReviewSession+Destination.swift`. Spec: docs/07-review-session.md §7.4.
 public struct ReviewSession: Equatable, Sendable {
     public enum Phase: Equatable, Sendable {
         case editing
@@ -151,6 +167,12 @@ public struct ReviewSession: Equatable, Sendable {
     public private(set) var target: HotSheetStatus
     /// Filenames of captures whose files are missing on disk.
     public private(set) var missingFiles: Set<String>
+    /// Where the review goes: a new intake ticket (the default) or an existing ticket.
+    public internal(set) var destination: ReviewDestination = .newTicket
+    /// What the reviewer typed into the existing-ticket field (kept while on New ticket).
+    public internal(set) var ticketInput = ""
+    /// The existing ticket's lookup, for `ticketInput` in the target's store.
+    public internal(set) var ticketLookup: TicketLookup = .empty
 
     public init(directory: URL, bundle: ReviewBundle, target: HotSheetStatus, missingFiles: Set<String> = []) {
         self.directory = directory
@@ -172,7 +194,7 @@ public struct ReviewSession: Equatable, Sendable {
     }
 
     public var issues: [SessionIssue] {
-        SessionIssue.all(for: bundle, target: target) { !missingFiles.contains($0.filename) }
+        SessionIssue.all(for: bundle, target: target) { !missingFiles.contains($0.filename) } + destinationIssues
     }
 
     public var canSubmit: Bool { isEditable && issues.isEmpty }
@@ -207,6 +229,8 @@ public struct ReviewSession: Equatable, Sendable {
     public mutating func setTarget(_ status: HotSheetStatus) -> Bool {
         guard isEditable else { return false }
         target = status
+        // Another store (or none) means the ticket has to be looked up again.
+        updateLookup()
         return true
     }
 
@@ -214,7 +238,7 @@ public struct ReviewSession: Equatable, Sendable {
     @discardableResult
     public mutating func beginSubmit() -> Bool {
         guard canSubmit else { return false }
-        phase = .submitting(.creatingTicket)
+        phase = .submitting(destination == .newTicket ? .creatingTicket : .attachingMedia)
         return true
     }
 
@@ -255,10 +279,12 @@ public struct DraftSubmitter: Sendable {
 
     /// - Parameters:
     ///   - title, summary: the session's fields, saved into the draft first (title trimmed).
+    ///   - existing: add the review to this ticket (attach, then a note) instead of filing a new one.
     public func submit(
         _ directory: URL,
         title: String? = nil,
         summary: String? = nil,
+        into existing: HotSheetTicket? = nil,
         progress: (SubmitStep) -> Void = { _ in }
     ) throws(SubmissionFailure) -> SubmittedReview {
         let draft: ReviewDraft
@@ -280,17 +306,22 @@ public struct DraftSubmitter: Sendable {
         }
         defer { staged.cleanUp() }
         let pending = store.pendingSubmission(in: directory).flatMap { $0.storePath == storePath.path ? $0 : nil }
+        if let existing {
+            return try add(draft, staged: staged, to: existing, pending: pending, progress: progress)
+        }
+        // A record left by adding to an existing ticket is not a created ticket to reuse.
+        let resumable = pending.flatMap { $0.isAddedToExistingTicket ? nil : $0 }
         let ticket: CreatedTicket
         do {
             ticket = try ReviewSubmitter(client: client).file(
                 staged.bundle,
                 mediaDirectory: staged.mediaDirectory,
-                existingTicket: pending?.ticket,
+                existingTicket: resumable?.ticket,
                 progress: progress
             )
         } catch let ReviewSubmissionError.attachFailed(created, reason) {
             try? store.savePendingSubmission(
-                PendingSubmission(storePath: storePath.path, ticket: created, createdAt: pending?.createdAt ?? now()),
+                PendingSubmission(storePath: storePath.path, ticket: created, createdAt: resumable?.createdAt ?? now()),
                 in: directory
             )
             throw SubmissionFailure(
@@ -298,7 +329,7 @@ public struct DraftSubmitter: Sendable {
                 createdTicket: created.slug
             )
         } catch {
-            throw SubmissionFailure(message: ReviewSubmitter.describe(error), createdTicket: pending?.ticket.slug)
+            throw SubmissionFailure(message: ReviewSubmitter.describe(error), createdTicket: resumable?.ticket.slug)
         }
         let removed = (try? store.removeSubmitted(directory)) != nil
         return SubmittedReview(

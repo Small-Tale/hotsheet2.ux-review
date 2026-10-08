@@ -1,9 +1,10 @@
 import AppKit
 import UXReviewKit
 
-/// `UXReview --submit [--drafts-dir DIR] [--draft NAME] [--project DIR] [--title T] [--summary S]`:
-/// files a draft review in Hot Sheet with no UI, through the same `ReviewSession` rules and
-/// `DraftSubmitter` as the session window, and prints one JSON object. Used by scripts/app-e2e.sh.
+/// `UXReview --submit [--drafts-dir DIR] [--draft NAME] [--project DIR] [--title T] [--summary S] [--to-ticket REF]`:
+/// files a draft review in Hot Sheet with no UI (a new ticket, or the existing ticket `--to-ticket`
+/// names), through the same `ReviewSession` rules and `DraftSubmitter` as the session window, and
+/// prints one JSON object. Used by scripts/app-e2e.sh.
 /// Exit codes: 0 submitted, 2 bad arguments / no draft / the review has issues, 3 Hot Sheet not
 /// ready, 5 submitting failed (the draft is kept). Spec: docs/07-review-session.md §7.8.
 @MainActor
@@ -18,6 +19,8 @@ enum HeadlessSubmit {
         var annotationCount: Int
         var draftDirectory: String
         var draftRemoved: Bool
+        var addedToExistingTicket: Bool
+        var ticketTitle: String?
     }
 
     struct Failure: Encodable, Error {
@@ -26,6 +29,7 @@ enum HeadlessSubmit {
         var message: String
         var issues: [String]?
         var createdTicket: String?
+        var attachedTo: String?
         var draftDirectory: String?
     }
 
@@ -76,6 +80,19 @@ enum HeadlessSubmit {
         if let problem = target.problem {
             return fail(Failure(error: "hotSheetUnavailable", message: problem, draftDirectory: path), code: 3)
         }
+        if let reference = command.toTicket {
+            // The same lookup the window runs; its issues block submitting like any other.
+            session.setDestination(.existingTicket)
+            session.editTicket(reference)
+            if let query = session.pendingLookup, let cli = target.cliPath {
+                session.resolveLookup(query, query.run(cliPath: cli))
+            }
+        }
+        return submit(&session, store: store, target: target)
+    }
+
+    private static func submit(_ session: inout ReviewSession, store: ReviewDraftStore, target: HotSheetStatus) -> Int32 {
+        let path = session.directory.path
         guard session.beginSubmit(), let cli = target.cliPath, let storePath = target.storePath else {
             let issues = session.issues.map { $0.message(in: session.bundle) }
             return fail(
@@ -88,9 +105,11 @@ enum HeadlessSubmit {
             client: HotSheetCLIClient(executable: URL(fileURLWithPath: cli), storePath: URL(fileURLWithPath: storePath)),
             storePath: URL(fileURLWithPath: storePath)
         )
+        let existing = session.existingTicket
         do {
-            let review = try submitter
-                .submit(draft.directory, title: session.bundle.title, summary: session.bundle.summary) { session.advance($0) }
+            let review = try submitter.submit(
+                session.directory, title: session.bundle.title, summary: session.bundle.summary, into: existing
+            ) { session.advance($0) }
             session.finish(.success(review))
             print(HeadlessCapture.json(Success(
                 slug: review.ticket.slug,
@@ -100,13 +119,18 @@ enum HeadlessSubmit {
                 mediaCount: review.mediaCount,
                 annotationCount: review.annotationCount,
                 draftDirectory: path,
-                draftRemoved: review.draftRemoved
+                draftRemoved: review.draftRemoved,
+                addedToExistingTicket: review.addedToExistingTicket,
+                ticketTitle: review.ticketTitle
             )))
             return 0
         } catch {
             session.finish(.failure(error))
             return fail(
-                Failure(error: "submitFailed", message: error.message, createdTicket: error.createdTicket, draftDirectory: path),
+                Failure(
+                    error: "submitFailed", message: error.message, createdTicket: error.createdTicket,
+                    attachedTo: error.attachedTo, draftDirectory: path
+                ),
                 code: 5
             )
         }

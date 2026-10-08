@@ -24,6 +24,8 @@ enum ReviewSessionPreviews {
         func model(_ draft: ReviewDraft, target: HotSheetStatus = ready) -> ReviewSessionModel {
             let model = ReviewSessionModel(draft: draft, store: store, target: target)
             model.statusProvider = { target }
+            // Previews never run hotsheet-cli; they resolve lookups with previewLookup.
+            model.ticketFinder = { _, _ in .success(nil) }
             return model
         }
 
@@ -56,6 +58,7 @@ enum ReviewSessionPreviews {
             storePath: "/Users/me/Code/acme-mail.hs2", submittedAt: Date()
         )))
         try shoot("session-submitted", submitted)
+        try renderExistingTicket(draft, model: { model($0) }, shoot: shoot)
 
         // Blocked: no title, a capture whose file is gone, an annotation outside its capture,
         // and no project chosen.
@@ -83,6 +86,54 @@ enum ReviewSessionPreviews {
         }
         try shoot("session-empty", model(emptyDraft), size: CGSize(width: 640, height: 600))
         return written
+    }
+
+    static let existingTicket = HotSheetTicket(
+        id: "01M4CCW6AW9EHFYT2QTZJ70H8D", slug: "HS-YCDZ2A", title: "Accounts settings page redesign", status: "started",
+        file: "/Users/me/Code/acme-mail.hs2/tickets/8D/01M4CCW6AW9EHFYT2QTZJ70H8D.md"
+    )
+
+    /// Adding to an existing ticket (§7.2.1): looking it up, found, not found, a closed ticket,
+    /// the note failing after the attach, and the result.
+    private static func renderExistingTicket(
+        _ draft: ReviewDraft,
+        model: (ReviewDraft) -> ReviewSessionModel,
+        shoot: (String, ReviewSessionModel, CGSize) throws -> Void
+    ) throws {
+        func existing(_ input: String, _ result: Result<HotSheetTicket?, SubmissionFailure>?) -> ReviewSessionModel {
+            let session = model(draft)
+            session.setDestination(.existingTicket)
+            session.ticketInput = input
+            if let result { session.previewLookup(result) }
+            return session
+        }
+        // Tall enough to show the Ticket section under the captures and the project.
+        let size = CGSize(width: 640, height: 940)
+        try shoot("session-existing-looking", existing("hs-ycdz2a", nil), size)
+        try shoot("session-existing-found", existing("HS-YCDZ2A", .success(existingTicket)), size)
+        try shoot("session-existing-narrow", existing("HS-YCDZ2A", .success(existingTicket)), CGSize(width: 520, height: 880))
+        try shoot("session-existing-not-found", existing("HS-NOPE00", .success(nil)), size)
+        var deleted = existingTicket
+        deleted.status = "deleted"
+        try shoot("session-existing-closed", existing("HS-YCDZ2A", .success(deleted)), size)
+
+        let failed = existing("HS-YCDZ2A", .success(existingTicket))
+        failed.previewSubmitting(.addingNote)
+        failed.finish(.failure(SubmissionFailure(
+            message: "The media was attached to HS-YCDZ2A, but adding the review note failed: "
+                + "hotsheet-cli edit failed (exit 1): the store is locked by another writer",
+            attachedTo: "HS-YCDZ2A"
+        )))
+        try shoot("session-existing-failed", failed, size)
+
+        let submitted = existing("HS-YCDZ2A", .success(existingTicket))
+        submitted.previewSubmitting(.addingNote)
+        submitted.finish(.success(SubmittedReview(
+            ticket: existingTicket.createdTicket, title: draft.bundle.title, mediaCount: 3, annotationCount: 4,
+            storePath: "/Users/me/Code/acme-mail.hs2", submittedAt: Date(),
+            addedToExistingTicket: true, ticketTitle: existingTicket.title
+        )))
+        try shoot("session-existing-submitted", submitted, Self.size)
     }
 
     /// Two mock screenshots and a 2 s mock recording, titled, with an annotation or two on each.

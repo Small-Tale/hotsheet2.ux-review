@@ -592,6 +592,66 @@ fi
 ok "the ticket received the 200x120 crop and the 0.8 s clip, with the annotation outside the crop left out; review.json validates"
 ok "attach failure keeps the draft (exit 5, ticket named); retry attaches to the same ticket; the draft is deleted; ticket has both captures (the narrated one marked with audio), the summary, and review.json"
 
+echo "review session: add to an existing ticket (HS2-E3001H)"
+# An existing ticket that already holds a capture-1.png, so Hot Sheet renames the new one.
+existing="$(hs -C "$TMP/subproj.hs2" new --actor-role=human --title="Accounts page redesign" --category=task --details="Original body." \
+  | sed -n 's/^Created \([^ ]*\).*/\1/p')"
+[[ "$existing" == HS-* ]] || die "existing: could not create the ticket"
+echo "earlier" >"$TMP/capture-1.png"
+hs -C "$TMP/subproj.hs2" attach --actor-role=human "$existing" -- "$TMP/capture-1.png" >/dev/null
+EDRAFTS="$TMP/existing-drafts"
+ESUB=(--drafts-dir "$EDRAFTS" --project "$TMP/subproj")
+run existing-shot 0 "${SYN[@]}" -- --capture screenshot --target region --rect 100,100,400,250 --drafts-dir "$EDRAFTS"
+edraft="$(json "$TMP/existing-shot.json" j.draftDirectory)"
+echo '{"steps": [{"op": "tool", "tool": "rect"}, {"op": "drag", "points": [[30, 30], [150, 90]]}, {"op": "note", "text": "Still clipped"}, {"op": "intent", "intent": "bug"}]}' >"$TMP/script-existing.json"
+run existing-annotate 0 -- --annotate "$TMP/script-existing.json" --drafts-dir "$EDRAFTS"
+tickets_before="$(hs -C "$TMP/subproj.hs2" ls 2>/dev/null | grep -c 'HS-')"
+
+run existing-bad 2 -- --submit "${ESUB[@]}" --to-ticket "no ticket here"
+[[ "$(json "$TMP/existing-bad.json" j.error)" == invalidArguments ]] || die "existing: unparseable --to-ticket"
+run existing-missing 2 -- --submit "${ESUB[@]}" --title "Follow-up" --to-ticket HS-NOPE00
+[[ "$(json "$TMP/existing-missing.json" j.error)" == invalidReview ]] || die "existing: missing ticket error"
+[[ "$(json "$TMP/existing-missing.json" 'j.issues.join("|")')" == "No ticket HS-NOPE00 in subproj.hs2." ]] \
+  || die "existing: issues $(json "$TMP/existing-missing.json" 'j.issues.join("|")')"
+ok "--to-ticket with no slug: exit 2 invalidArguments; an unknown ticket: exit 2 with 'No ticket HS-NOPE00 in subproj.hs2.'"
+
+# A CLI that attaches but fails the first note: the draft is kept with the attached names, and
+# the retry adds only the note (no second batch).
+cat >"$TMP/flaky-note-cli" <<SH
+#!/usr/bin/env bash
+for arg in "\$@"; do
+  if [[ "\$arg" == edit && ! -e "$TMP/flaky-note-once" ]]; then touch "$TMP/flaky-note-once"; echo "edit: the store is locked" >&2; exit 1; fi
+done
+exec "$REAL_CLI" "\$@"
+SH
+chmod +x "$TMP/flaky-note-cli"
+lower="$(tr '[:upper:]' '[:lower:]' <<<"$existing")"
+run existing-flaky 5 HOTSHEET_CLI="$TMP/flaky-note-cli" -- --submit "${ESUB[@]}" --title "Follow-up" --summary "Still broken." --to-ticket " $lower "
+[[ "$(json "$TMP/existing-flaky.json" j.attachedTo)" == "$existing" ]] || die "existing: note failure did not name the ticket"
+[[ "$(json "$TMP/existing-flaky.json" 'j.createdTicket === undefined')" == true ]] || die "existing: a created ticket was reported"
+json "$TMP/existing-flaky.json" j.message | grep -q "the store is locked" || die "existing: failure message lacks the CLI error"
+[[ "$(json "$edraft/submission.json" 'j.attachedNames["capture-1.png"]')" == "capture-1 (2).png" ]] || die "existing: pending record lacks the stored names"
+run existing-drafts 0 -- --drafts --drafts-dir "$EDRAFTS"
+[[ "$(json "$TMP/existing-drafts.json" '`${j.drafts[0].pendingTicket}/${j.drafts[0].pendingNoteOnly}`')" == "$existing/true" ]] \
+  || die "existing: --drafts does not show the pending note"
+
+run existing 0 HOTSHEET_CLI="$TMP/flaky-note-cli" -- --submit "${ESUB[@]}" --to-ticket "$existing"
+[[ "$(json "$TMP/existing.json" '`${j.slug}/${j.addedToExistingTicket}/${j.ticketTitle}`')" == "$existing/true/Accounts page redesign" ]] \
+  || die "existing: result $(cat "$TMP/existing.json")"
+[[ "$(json "$TMP/existing.json" '`${j.mediaCount}/${j.annotationCount}/${j.draftRemoved}`')" == "1/1/true" ]] || die "existing: counts"
+[[ -f "$(json "$TMP/existing.json" j.ticketFile)" ]] || die "existing: no ticket file"
+[[ ! -e "$edraft" ]] || die "existing: the draft was not deleted"
+hs -C "$TMP/subproj.hs2" show "$existing" >"$TMP/existing-ticket.md"
+for needle in "Original body." "## UX review: Follow-up" "Still broken." "filename: capture-1 (2).png" "filename: review.json" \
+  "#### #1 · comment, bug · \`attachment:capture-1 (2).png\`" "calls it \`capture-1.png\`" "Still clipped"; do
+  grep -qF "$needle" "$TMP/existing-ticket.md" || die "existing: ticket lacks '$needle'"
+done
+[[ "$(grep -c '## UX review: Follow-up' "$TMP/existing-ticket.md")" == 1 ]] || die "existing: expected exactly one review note"
+[[ "$(grep -c 'batch_label: UX review capture' "$TMP/existing-ticket.md")" == 2 ]] || die "existing: expected one batch of two files"
+grep -q "Instructions for the AI" "$TMP/existing-ticket.md" && die "existing: the note carries intake instructions"
+[[ "$(hs -C "$TMP/subproj.hs2" ls 2>/dev/null | grep -c 'HS-')" == "$tickets_before" ]] || die "existing: a ticket was created"
+ok "note failure keeps the draft (exit 5, attachedTo); retry adds only the note; the existing ticket has one note citing the renamed capture-1 (2).png, one batch, and no new ticket"
+
 # HS2-2QP0GM: a capture removed by the review session leaves an open editor consistent.
 RDRAFTS="$TMP/remove-drafts"
 run remove-shot1 0 "${SYN[@]}" -- --capture screenshot --target region --rect 100,100,300,200 --drafts-dir "$RDRAFTS"
@@ -695,6 +755,8 @@ run previews 0 -- --render-ui-previews "$TMP/previews"
 for name in overlay-region-hint overlay-region-selection overlay-region-selection-bottom-edge overlay-window-hover recording-dim-region hud-countdown hud-saved hud-recording-countdown hud-recording hud-saved-video hud-recording-narration hud-saved-narrated settings-registered settings-in-use status-bar-icon-light status-bar-icon-dark menu-delayed-row-light menu-delayed-row-dark \
   editor-empty editor-no-media editor-annotated editor-arrow-selected editor-narrow editor-crop-drag editor-cropped editor-zoomed editor-keyboard-insert editor-video-timeline editor-video-narrow editor-video-trimmed editor-video-playing editor-video-range-drag editor-video-trim-drag editor-autoscroll \
   session-ready session-narrow session-submitting session-failed session-submitted session-issues session-empty \
+  session-existing-looking session-existing-found session-existing-narrow session-existing-not-found session-existing-closed \
+  session-existing-failed session-existing-submitted \
   drafts-list drafts-narrow drafts-empty; do
   [[ -s "$TMP/previews/$name.png" ]] || die "previews: $name.png missing"
 done

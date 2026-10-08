@@ -147,4 +147,121 @@ struct HotSheetEndToEndTests {
         #expect(!show.stdout.contains("submission.json"))
         #expect(!show.stdout.contains("filename: originals"))
     }
+
+    /// HS2-E3001H (docs/03 §3.5, docs/07 §7.5): a draft added to a ticket that already exists and
+    /// already has a `review.json` and a `capture-1.png`. The lookup reads its title, the note
+    /// cites the names Hot Sheet stored the colliding files under, and a failed note resumes
+    /// without a second batch.
+    @Test(.enabled(if: cli != nil, "hotsheet-cli not installed"), .timeLimit(.minutes(2)))
+    func addsADraftToAnExistingTicket() throws {
+        let cli = try #require(Self.cli)
+        let root = try TestSupport.makeTempDirectory()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let store = root.appendingPathComponent("project.hs2")
+        var env = ProcessInfo.processInfo.environment
+        env["HOTSHEET_ACTOR_ROLE"] = nil
+        env["HOTSHEET_ACTOR_ID"] = nil
+        let runner = SystemProcessRunner()
+        func hs(_ args: String...) throws -> ProcessResult {
+            try runner.run(executable: cli, arguments: ["-C", store.path] + args, environment: env, currentDirectory: nil)
+        }
+        try #require(try hs("init").exitCode == 0)
+        let client = HotSheetCLIClient(executable: cli, storePath: store, runner: runner)
+        let existing = try Self.ticketWithEarlierFiles(client, scratch: root)
+
+        // The lookup, as the window and --to-ticket run it.
+        let query = TicketQuery(reference: try #require(TicketReference.parse(existing.slug.lowercased())), storePath: store.path)
+        let found = try #require(try query.run(cliPath: cli.path).get())
+        #expect(found.title == "Accounts page: it's “redesign” time")
+        #expect(found.status == "not_started" && found.file == existing.file)
+        #expect(try TicketQuery(reference: "HS-NOPE00", storePath: store.path).run(cliPath: cli.path).get() == nil)
+
+        let drafts = ReviewDraftStore(root: root.appendingPathComponent("Drafts"))
+        let draft = try Self.imageAndVideoDraft(in: drafts, raw: root)
+        try drafts.update(draft) { bundle in
+            bundle.annotations = [Annotation(
+                id: "a1", mediaId: "m1", shape: .rect(NormRect(x: 100, y: 100, width: 2000, height: 900)), intents: [.bug],
+                note: "Still clipped"
+            )]
+        }
+
+        // The note fails once (a CLI wrapper that refuses the first `edit`); the retry adds only the note.
+        let failOnce = FailingFirstEdit(runner: runner)
+        let flaky = HotSheetCLIClient(executable: cli, storePath: store, runner: failOnce)
+        #expect(throws: SubmissionFailure.self) {
+            try DraftSubmitter(store: drafts, client: flaky, storePath: store).submit(draft, title: "Follow-up", into: found)
+        }
+        #expect(drafts.pendingSubmission(in: draft)?.attachedNames?["capture-1.png"] == "capture-1 (2).png")
+        let result = try DraftSubmitter(store: drafts, client: flaky, storePath: store).submit(draft, title: "Follow-up", into: found)
+        #expect(result.addedToExistingTicket && result.ticket.slug == existing.slug && result.ticketTitle == found.title)
+        #expect(!FileManager.default.fileExists(atPath: draft.path))
+
+        let show = try hs("show", existing.slug)
+        try #require(show.exitCode == 0, "show failed: \(show.stderr)")
+        let ticket = show.stdout
+        #expect(ticket.contains("Original body."))
+        #expect(ticket.components(separatedBy: "## UX review: Follow-up").count == 2, "exactly one review note")
+        for name in ["capture-1 (2).png", "capture-2.mov", "review (2).json"] {
+            #expect(ticket.contains("filename: \(name)"), "attached \(name)")
+        }
+        #expect(ticket.components(separatedBy: "batch_label: UX review capture").count == 4, "one batch of three files")
+        #expect(ticket.contains("#### #1 · bug · `attachment:capture-1 (2).png`"))
+        #expect(ticket.contains("`attachment:review (2).json` is the canonical"))
+        #expect(ticket.contains("calls it `capture-1.png`"))
+        #expect(ticket.contains("actor: human"))
+        #expect(!ticket.contains("Instructions for the AI"))
+        // Only the original ticket exists.
+        #expect(try hs("ls").stdout.split(separator: "\n").count(where: { $0.contains("HS-") }) == 1)
+    }
+}
+
+extension HotSheetEndToEndTests {
+    /// A ticket that already holds a `capture-1.png` and a `review.json`, as one filed from an
+    /// earlier review would.
+    static func ticketWithEarlierFiles(_ client: HotSheetCLIClient, scratch: URL) throws -> CreatedTicket {
+        let ticket = try client.createTicketReportingFile(NewTicket(
+            title: "Accounts page: it's “redesign” time",
+            details: "Original body."
+        ))
+        let earlier = scratch.appendingPathComponent("earlier")
+        try FileManager.default.createDirectory(at: earlier, withIntermediateDirectories: true)
+        let files = ["capture-1.png", "review.json"].map { earlier.appendingPathComponent($0) }
+        for file in files {
+            try Data("earlier \(file.lastPathComponent)".utf8).write(to: file)
+        }
+        try client.attach(files: files, to: ticket.slug, batchLabel: nil, purpose: nil)
+        return ticket
+    }
+
+    /// A draft with `capture-1.png` and `capture-2.mov` (fake bytes), as captures would leave it.
+    static func imageAndVideoDraft(in drafts: ReviewDraftStore, raw: URL) throws -> URL {
+        var directory: URL?
+        for (index, kind) in [MediaKind.image, .video].enumerated() {
+            let file = raw.appendingPathComponent("raw-\(index).\(kind == .image ? "png" : "mov")")
+            try Data("capture \(index)".utf8).write(to: file)
+            directory = try drafts.add(DraftCapture(
+                fileURL: file, kind: kind, pixelWidth: 640, pixelHeight: 400, durationMs: kind == .video ? 2000 : nil, capturedAt: Date(),
+                context: CaptureContext(appName: "Safari")
+            )).draft.directory
+        }
+        return try #require(directory)
+    }
+}
+
+/// Runs the real CLI, but fails the first `edit` like a locked store would.
+private final class FailingFirstEdit: ProcessRunning, @unchecked Sendable {
+    let runner: ProcessRunning
+    private var failed = false
+
+    init(runner: ProcessRunning) {
+        self.runner = runner
+    }
+
+    func run(executable: URL, arguments: [String], environment: [String: String], currentDirectory: URL?) throws -> ProcessResult {
+        if arguments.contains("edit"), !failed {
+            failed = true
+            return ProcessResult(exitCode: 1, stdout: "", stderr: "Error: the store is locked")
+        }
+        return try runner.run(executable: executable, arguments: arguments, environment: environment, currentDirectory: currentDirectory)
+    }
 }

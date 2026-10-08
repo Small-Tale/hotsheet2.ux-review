@@ -1,19 +1,28 @@
 import Foundation
 
-/// A ticket created for a draft whose attachments have not been written yet (the attach failed).
-/// Kept in `<draft>/submission.json` so a retry attaches to that ticket instead of creating a
-/// second one. Spec: docs/07-review-session.md §7.5.
+/// A half-finished submission, kept in `<draft>/submission.json` so a retry finishes it instead of
+/// writing anything twice. Spec: docs/07-review-session.md §7.5.
+/// - A ticket was created but its attach failed (`attachedNames` nil): the retry attaches to it
+///   instead of creating a second ticket.
+/// - The review was being added to an existing ticket, its media is attached, but the note failed
+///   (`attachedNames` set): the retry adds only the note.
 public struct PendingSubmission: Codable, Equatable, Sendable {
-    /// The store the ticket was created in. A retry into a different store starts over.
+    /// The store the ticket is in. A retry into a different store starts over.
     public var storePath: String
     public var ticket: CreatedTicket
     public var createdAt: Date
+    /// Adding to an existing ticket: the batch already attached, draft file name → stored name.
+    public var attachedNames: [String: String]?
 
-    public init(storePath: String, ticket: CreatedTicket, createdAt: Date) {
+    public init(storePath: String, ticket: CreatedTicket, createdAt: Date, attachedNames: [String: String]? = nil) {
         self.storePath = storePath
         self.ticket = ticket
         self.createdAt = createdAt
+        self.attachedNames = attachedNames
     }
+
+    /// True for an existing ticket whose media is attached and whose note is still missing.
+    public var isAddedToExistingTicket: Bool { attachedNames != nil }
 }
 
 /// What the review session (docs/07-review-session.md) does to a draft on disk: edit its title

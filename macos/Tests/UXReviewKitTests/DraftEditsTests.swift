@@ -150,4 +150,26 @@ struct DraftEditsTests {
         #expect(attached.bundle.validate().isEmpty)
         #expect(fixture.client.created.first?.details.contains("out") == false)
     }
+
+    /// Adding a cropped draft to an existing ticket (HS2-E3001H) files the crop too.
+    @Test func addingACroppedDraftToAnExistingTicketFilesTheCrop() throws {
+        let fixture = try DraftSubmitterTests.Fixture()
+        let shot = fixture.base.appendingPathComponent("shot.png")
+        try ImageFiles.writePNG(#require(ImageFiles.testCard(width: 400, height: 200)), to: shot)
+        let draft = try fixture.store.add(DraftCapture(
+            fileURL: shot, kind: .image, pixelWidth: 400, pixelHeight: 200, capturedAt: Date(), context: CaptureContext()
+        )).draft
+        try DraftEdits(crops: ["capture-1.png": Self.crop]).save(to: draft.directory)
+        var size: (Int, Int)?
+        fixture.client.inspectAttached = { files in
+            let image = try #require(files.first { $0.lastPathComponent == "capture-1.png" })
+            let pixels = try ImageFiles.pixelSize(of: image)
+            size = (pixels.width, pixels.height)
+        }
+        let existing = HotSheetTicket(id: "01TESTTICKET00000000000000", slug: "HS-OLD001", title: "Checkout", status: "started")
+        let result = try fixture.submitter().submit(draft.directory, into: existing)
+        #expect(result.addedToExistingTicket)
+        #expect(try #require(size) == (200, 100))
+        #expect(!fixture.exists(draft.directory.appendingPathComponent(SubmissionStaging.folderName)))
+    }
 }

@@ -24,9 +24,10 @@ macos/
   Sources/UXReviewKit/
     Model/ReviewBundle.swift       bundle, media, shapes, intents, time ranges, Codable
     Model/BundleValidation.swift   ReviewBundle.validate() rules (docs/02 §2.7)
-    Tickets/TicketComposer.swift   intake ticket body + Hot Sheet annotation projection (docs/03 §3.3–3.4)
-    Tickets/ReviewSubmitter.swift  validate → write review.json → create ticket → attach batch; steps, resume, attachFailed
-    HotSheet/HotSheetCLIClient.swift  HotSheetClient protocol, CreatedTicket (slug + file), CLI transport, HotSheetLocator
+    Tickets/TicketComposer.swift   intake ticket body, existing-ticket note, Hot Sheet annotation projection (docs/03 §3.3–3.5)
+    Tickets/ReviewSubmitter.swift  validate → write review.json → create ticket → attach batch; steps, resume, attachFailed; add(…) to an existing ticket: attach batch → note, noteFailed
+    HotSheet/HotSheetCLIClient.swift  HotSheetClient protocol, CreatedTicket (slug + file), CLI transport (new, attach with stored names, show, edit --note-file), HotSheetLocator
+    HotSheet/HotSheetTicket.swift     an existing ticket from `show` front matter, its file; TicketReference (slug/ULID/path in pasted text)
     HotSheet/HotSheetStatus.swift     ready/problem detection for UI and --status
     HotSheet/ProcessRunner.swift      Process seam (fakeable in tests)
     Capture/CaptureRequest.swift      kind/target/delay of a capture (docs/04 §4.1)
@@ -47,10 +48,11 @@ macos/
     Review/MediaImporter.swift        existing images/movies → draft (PNG re-encode, movie copy), `--import` parsing (docs/04 §4.12)
     Review/MediaOpenRouting.swift     Finder Open With / editor drop routing plan (dedupe, all-or-nothing), OpenBatch, `--open-media` parsing (docs/04 §4.12.1)
     Review/ReviewSession.swift        session state machine, SessionIssue rules + messages, DraftSubmitter (docs/07)
-    Review/ReviewDraftStore+Session.swift  title/summary, remove a capture, submission.json, delete after submit (docs/07 §7.5)
+    Review/ReviewSession+Destination.swift  new vs existing ticket, TicketLookup states, ticket issues, DraftSubmitter.add (docs/07 §7.2.1, §7.4)
+    Review/ReviewDraftStore+Session.swift  title/summary, remove a capture, submission.json (created ticket or attached names), delete after submit (docs/07 §7.5)
     Review/ReviewDraftStore+Drafts.swift   list every draft (DraftSummary), discard to the Trash (DraftTrash), draft-folder safety check (docs/07 §7.9)
     Review/DraftsCommand.swift        `--drafts` / `--discard-draft` parsing (docs/07 §7.10)
-    Review/SubmitCommand.swift        `--submit` parsing, MediaThumbnail (capture list previews)
+    Review/SubmitCommand.swift        `--submit` parsing (`--to-ticket`), MediaThumbnail (capture list previews)
     Settings/Hotkey.swift             global hotkey model: parse/display, Carbon codes (docs/05 §5.2)
     Settings/CaptureSettings.swift    settings + KeyValueStoring persistence, HotkeySlot (capture/record, duplicate rules), HotkeyAction
     Settings/SettingsCommand.swift    `--settings` argument parsing (docs/05 §5.5)
@@ -109,8 +111,9 @@ macos/
     Editor/HeadlessAnnotate.swift     `--annotate` mode with JSON output
     Editor/EditorPreviews.swift       editor states + mock screenshots for --render-ui-previews
     Review/ReviewSessionWindowController.swift  one Submit Review window per draft (docs/07 §7.1)
-    Review/ReviewSessionModel.swift   observable session: draft refresh, autosaved fields, remove, submit off-main
-    Review/ReviewSessionView.swift    capture list, title/summary, issues, project, progress, failure, success
+    Review/ReviewSessionModel.swift   observable session: draft refresh, autosaved fields, remove, debounced ticket lookup, submit off-main
+    Review/ReviewSessionView.swift    capture list, title/summary, issues, project, ticket, progress, failure, success
+    Review/ReviewDestinationView.swift  Ticket section: New ticket / Add to existing ticket, ticket field, lookup status (docs/07 §7.2.1)
     Review/HeadlessSubmit.swift       `--submit` mode with JSON output (docs/07 §7.8)
     Review/ReviewSessionPreviews.swift  session states for --render-ui-previews
     Review/DraftsWindowController.swift  Draft Reviews window (one) + DraftsModel: list, open, annotate, reveal, discard (docs/07 §7.9)

@@ -811,3 +811,61 @@ capture files are no longer cropped or trimmed while drafting.
   fits).
 - **Not covered automatically:** the live inspector and timeline with hidden ranges on a real
   movie (offscreen renders only).
+
+## HS2-E3001H: add a review to an existing ticket
+
+- **Reference and CLI parsing** (`TicketReferenceTests`, `HotSheetTicketParsingTests`,
+  `ExistingTicketCLITests`, a fake runner replaying output captured from the real CLI):
+  - slugs in any case, a slug with no digit, ULIDs, ticket file paths, links, `hotsheet-cli ls`
+    lines, and text around a slug; text with no ticket (including words like `ux-review`) is
+    refused
+  - `show` front matter: plain, single-quoted, and double-quoted titles; nested lists and the body
+    are not read as fields; `deleted` / `moved` refuse reviews; the ticket file path from the ULID
+  - `show` exit 1 "no ticket matching" is nil; other failures and unreadable output throw
+  - `attach` stored names from `Durable attachment id` lines (renamed `review (3).json`, a name
+    with a backtick), and a fallback to the file names
+  - `edit --note-file`: the note's exact text reaches the file, the file is removed afterwards, and
+    a failure carries stderr
+  - `--to-ticket` parsing: a value, no slug in it, a missing value
+- **Note** (`ExistingTicketNoteTests`): title, counts, and canonical `review.json` line; summary,
+  media, and annotation sections one heading level deeper; no intake instructions; renamed
+  attachments cited by their stored names (with the draft name); the intake body unchanged by the
+  shared sections; code spans fenced around backticks.
+- **State machine** (`ExistingTicketSessionTests`):
+  - the lookup matrix: 7 states (empty, unrecognized, looking, found, not found, failed, no store)
+    × 10 inputs (clear, junk, the same slug, the same slug in another case, another slug, the
+    current result, a stale result, another store, no store, the same store)
+  - the issue and message for each state; only a found, open ticket can be submitted to; a deleted
+    one is refused
+  - every phase × the destination events (frozen while submitting and after)
+  - sequences: switching back and forth keeps the typed ticket and its lookup; the first submit
+    step per destination; a result for a slug edited meanwhile, and a repeated result, are
+    ignored; emptied then refilled; a project change looks up again and drops the old store's
+    answer; after a failure the ticket can still change
+- **Staging and filing** (`ExistingTicketSubmitterTests`, a real `ReviewDraftStore` and the fake
+  client, which renames colliding names like the real CLI):
+  - attach then note: one batch with the usual label, purpose, and files; the note cites
+    `review (2).json`; no ticket created; the draft deleted; the result names the existing ticket
+  - a failed note keeps the draft and `submission.json` with the stored names (`--drafts` /
+    the Draft Reviews row show it); a second failure and the successful retry write only the note,
+    citing the first attach's names: one batch, one note
+  - a failed attach writes no record; the retry starts over
+  - records reused only for the same kind, ticket, and store; old records without names decode
+  - missing media writes nothing
+- **End to end, Kit** (`HotSheetEndToEndTests.addsADraftToAnExistingTicket`): a real ticket that
+  already has `capture-1.png` and `review.json`; the lookup reads a quoted title and the ticket
+  file; a missing slug is nil; the first note fails (a wrapper runner), the retry adds it; the
+  ticket keeps its body and has exactly one note citing `capture-1 (2).png` and
+  `review (2).json`, one batch of three files, human actor, and no new ticket.
+- **End to end, app** (`scripts/app-e2e.sh`, `--submit --to-ticket` against a throwaway store):
+  no slug (exit 2 `invalidArguments`); an unknown ticket (exit 2, "No ticket HS-NOPE00 in
+  subproj.hs2."); a wrapper CLI failing the first `edit`: exit 5 with `attachedTo`, the record
+  with stored names, `--drafts` showing `pendingNoteOnly`; the retry adds the note (a lowercase,
+  padded slug first); the ticket has one note, one batch, the renamed capture, and no new ticket.
+- **Visual QA:** `session-existing-looking`, `-found`, `-narrow`, `-not-found`, `-closed`,
+  `-failed`, and `-submitted`, inspected by hand (also checked for presence by
+  `scripts/app-e2e.sh`). `session-ready` shows the Ticket section below the fold at 720 pt; the
+  form scrolls.
+- **Not covered automatically:** typing into the live field (the 300 ms lookup debounce in
+  `ReviewSessionModel`) and the segmented control's clicks; thin view code over the tested
+  session (`HS2-HA9TW3`).

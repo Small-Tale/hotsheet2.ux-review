@@ -17,6 +17,15 @@ final class ReviewSessionModel: ObservableObject {
         didSet { if summary != oldValue { fieldsChanged() } }
     }
 
+    /// The existing-ticket field; each change re-parses it and looks the ticket up shortly after.
+    @Published var ticketInput: String {
+        didSet {
+            guard ticketInput != oldValue else { return }
+            session.editTicket(ticketInput)
+            scheduleLookup()
+        }
+    }
+
     @Published private(set) var thumbnails: [String: NSImage] = [:]
     @Published private(set) var recentProjects: [String] = []
     /// A problem outside the submission itself (a failed removal, an unreadable draft).
@@ -27,12 +36,20 @@ final class ReviewSessionModel: ObservableObject {
     var closeEditor: (URL) -> Void = { _ in }
     /// Where the Hot Sheet target comes from (the app settings; previews pass a fixed one).
     var statusProvider: () -> HotSheetStatus = AppSettings.currentStatus
+    /// Looks a ticket up (off the main thread); previews and tests replace it.
+    var ticketFinder: @Sendable (TicketQuery, String) -> Result<HotSheetTicket?, SubmissionFailure> = { query, cli in
+        query.run(cliPath: cli)
+    }
 
     private var saveTask: Task<Void, Never>?
+    private var lookupTask: Task<Void, Never>?
+    /// The lookup running now, so the same query isn't started twice.
+    private var lookupInFlight: TicketQuery?
     private var subscriptions: Set<AnyCancellable> = []
     private var thumbnailKeys: [String: String] = [:]
 
     static let saveDelay: Duration = .milliseconds(500)
+    static let lookupDelay: Duration = .milliseconds(300)
 
     var directory: URL { session.directory }
 
@@ -46,6 +63,14 @@ final class ReviewSessionModel: ObservableObject {
         )
         title = draft.bundle.title
         summary = draft.bundle.summary
+        ticketInput = ""
+        // A review whose media already went to an existing ticket goes back to that ticket (§7.5).
+        if let pending = store.pendingSubmission(in: draft.directory), pending.isAddedToExistingTicket,
+           pending.storePath == target.storePath {
+            ticketInput = pending.ticket.slug
+            session.setDestination(.existingTicket)
+            session.editTicket(pending.ticket.slug)
+        }
         recentProjects = AppSettings.recentProjects
         loadThumbnails()
         NotificationCenter.default.publisher(for: .reviewDraftChanged)
@@ -62,6 +87,7 @@ final class ReviewSessionModel: ObservableObject {
             .receive(on: DispatchQueue.main)
             .sink { [weak self] _ in MainActor.assumeIsolated { self?.refreshTarget() } }
             .store(in: &subscriptions)
+        scheduleLookup()
     }
 
     // MARK: Reading the draft
@@ -82,6 +108,43 @@ final class ReviewSessionModel: ObservableObject {
     func refreshTarget() {
         recentProjects = AppSettings.recentProjects
         session.setTarget(statusProvider())
+        scheduleLookup()
+    }
+
+    // MARK: Destination
+
+    func setDestination(_ destination: ReviewDestination) {
+        guard session.setDestination(destination) else { return }
+        scheduleLookup()
+    }
+
+    /// Starts the lookup the session waits for, after a short pause so typing doesn't run
+    /// `hotsheet-cli show` on every key. A result for a query the session no longer waits for
+    /// is ignored by the session.
+    private func scheduleLookup() {
+        guard let query = session.pendingLookup, let cli = session.target.cliPath, query != lookupInFlight else { return }
+        lookupTask?.cancel()
+        lookupInFlight = query
+        let find = ticketFinder
+        lookupTask = Task { [weak self] in
+            try? await Task.sleep(for: Self.lookupDelay)
+            guard !Task.isCancelled, let self else { return }
+            guard session.pendingLookup == query else {
+                // Typed past it meanwhile; a later edit back to it schedules it again.
+                if lookupInFlight == query { lookupInFlight = nil }
+                return
+            }
+            let result = await Task.detached { find(query, cli) }.value
+            if lookupInFlight == query { lookupInFlight = nil }
+            session.resolveLookup(query, result)
+        }
+    }
+
+    /// Previews resolve the waiting lookup without running `hotsheet-cli`.
+    func previewLookup(_ result: Result<HotSheetTicket?, SubmissionFailure>) {
+        lookupTask?.cancel()
+        lookupInFlight = nil
+        if let query = session.pendingLookup { session.resolveLookup(query, result) }
     }
 
     private static func missingFiles(in draft: ReviewDraft) -> Set<String> {
@@ -171,6 +234,7 @@ final class ReviewSessionModel: ObservableObject {
         let directory = directory
         let title = title
         let summary = summary
+        let existing = session.existingTicket
         // Progress arrives on the submitting thread; steps after the result are ignored by the session.
         let advance: @Sendable (SubmitStep) -> Void = { [weak self] step in
             Task { @MainActor in self?.session.advance(step) }
@@ -178,7 +242,7 @@ final class ReviewSessionModel: ObservableObject {
         Task { [weak self] in
             let result = await Task.detached { () -> Result<SubmittedReview, SubmissionFailure> in
                 do throws(SubmissionFailure) {
-                    return try .success(submitter.submit(directory, title: title, summary: summary, progress: advance))
+                    return try .success(submitter.submit(directory, title: title, summary: summary, into: existing, progress: advance))
                 } catch {
                     return .failure(error)
                 }

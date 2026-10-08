@@ -16,7 +16,9 @@ enum DraftDiscarding {
         } else {
             lines.append("The draft folder \(draft.name) moves to the Trash.")
         }
-        if let slug = draft.pendingTicket {
+        if let slug = draft.pendingTicket, draft.pendingNoteOnly {
+            lines.append("Its media was already attached to \(slug) in Hot Sheet. Discarding doesn't remove it.")
+        } else if let slug = draft.pendingTicket {
             lines.append("\(slug) was already created in Hot Sheet for this review. Discarding doesn't delete that ticket.")
         }
         if draft.isCurrent { lines.append("The next capture starts a new review.") }

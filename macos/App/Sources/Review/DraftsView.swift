@@ -106,7 +106,11 @@ private struct DraftRow: View {
                 if let issue = draft.issue {
                     Text("Can't be opened: \(issue)").font(.caption).foregroundStyle(.orange).lineLimit(2)
                 } else if let slug = draft.pendingTicket {
-                    Text("\(slug) was created; its media isn't attached yet").font(.caption).foregroundStyle(.orange).lineLimit(2)
+                    Text(
+                        draft.pendingNoteOnly ? "Media attached to \(slug); the review note isn't added yet" :
+                            "\(slug) was created; its media isn't attached yet"
+                    )
+                    .font(.caption).foregroundStyle(.orange).lineLimit(2)
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)

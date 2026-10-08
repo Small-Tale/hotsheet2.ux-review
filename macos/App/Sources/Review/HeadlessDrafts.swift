@@ -18,6 +18,8 @@ enum HeadlessDrafts {
         var modifiedAt: Date
         var isCurrent: Bool
         var pendingTicket: String?
+        /// Set when `pendingTicket` is an existing ticket that has the media but not the note yet.
+        var pendingNoteOnly: Bool?
         var issue: String?
 
         init(_ summary: DraftSummary) {
@@ -30,6 +32,7 @@ enum HeadlessDrafts {
             modifiedAt = summary.modifiedAt
             isCurrent = summary.isCurrent
             pendingTicket = summary.pendingTicket
+            pendingNoteOnly = summary.pendingNoteOnly ? true : nil
             issue = summary.issue
         }
     }

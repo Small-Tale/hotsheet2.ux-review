@@ -16,6 +16,9 @@ public struct DraftSummary: Equatable, Sendable, Identifiable {
     public var isCurrent: Bool
     /// The ticket already created for this draft when attaching its media failed (§7.5).
     public var pendingTicket: String?
+    /// The pending ticket is an existing one the review was being added to: its media is attached
+    /// and the review note is still missing (§7.5).
+    public var pendingNoteOnly = false
     /// Why the draft can't be opened (missing or corrupt review.json); nil when it reads fine.
     public var issue: String?
 
@@ -154,13 +157,15 @@ public extension ReviewDraftStore {
     private func summarize(_ directory: URL, folderDate: Date?, current: String?) -> DraftSummary {
         let bundleURL = directory.appendingPathComponent(Self.bundleFilename)
         let bundleDate = (try? bundleURL.resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate
+        let pending = pendingSubmission(in: directory)
         var summary = DraftSummary(
             directory: directory,
             title: directory.lastPathComponent,
             modifiedAt: bundleDate ?? folderDate ?? .distantPast,
             isCurrent: current == directory.standardizedFileURL.resolvingSymlinksInPath().path,
-            pendingTicket: pendingSubmission(in: directory)?.ticket.slug
+            pendingTicket: pending?.ticket.slug
         )
+        summary.pendingNoteOnly = pending?.isAddedToExistingTicket == true
         if !FileManager.default.fileExists(atPath: bundleURL.path) {
             summary.issue = "review.json is missing."
         } else if let draft = try? read(directory) {

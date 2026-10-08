@@ -48,11 +48,24 @@ public protocol HotSheetClient: Sendable {
     func createTicketReportingFile(_ ticket: NewTicket) throws -> CreatedTicket
     /// Attaches files to a ticket as one durable batch.
     func attach(files: [URL], to slug: String, batchLabel: String?, purpose: String?) throws
+    /// Attaches files as one batch and returns the name each one is stored under, in order.
+    /// Hot Sheet renames a file whose name the ticket already has (`review.json` → `review (2).json`).
+    func attachReportingNames(files: [URL], to slug: String, batchLabel: String?, purpose: String?) throws -> [String]
+    /// Looks up an existing ticket by slug or ULID. Nil when the store has no such ticket.
+    func findTicket(_ reference: String) throws -> HotSheetTicket?
+    /// Appends a Markdown note to a ticket.
+    func addNote(_ markdown: String, to slug: String) throws
 }
 
 public extension HotSheetClient {
     func createTicketReportingFile(_ ticket: NewTicket) throws -> CreatedTicket {
         try CreatedTicket(slug: createTicket(ticket))
+    }
+
+    /// Transports that can't report stored names: assume each file keeps its own.
+    func attachReportingNames(files: [URL], to slug: String, batchLabel: String?, purpose: String?) throws -> [String] {
+        try attach(files: files, to: slug, batchLabel: batchLabel, purpose: purpose)
+        return files.map(\.lastPathComponent)
     }
 }
 
@@ -119,17 +132,60 @@ public struct HotSheetCLIClient: HotSheetClient {
     }
 
     public func attach(files: [URL], to slug: String, batchLabel: String?, purpose: String?) throws {
-        guard !files.isEmpty else { return }
+        _ = try attachReportingNames(files: files, to: slug, batchLabel: batchLabel, purpose: purpose)
+    }
+
+    public func attachReportingNames(files: [URL], to slug: String, batchLabel: String?, purpose: String?) throws -> [String] {
+        guard !files.isEmpty else { return [] }
         var args = ["attach", slug]
         if let batchLabel { args.append("--batch-label=\(batchLabel)") }
         if let purpose { args.append("--purpose=\(purpose)") }
         args.append("--")
         args += files.map(\.path)
-        _ = try invoke(args)
+        let result = try invoke(args)
+        // One `Durable attachment id: <ULID> (<stored path>)` line per file, in order.
+        let stored = result.stdout.split(separator: "\n").compactMap { line -> String? in
+            guard line.hasPrefix("Durable attachment id: "), let open = line.firstIndex(of: "("), line.hasSuffix(")") else { return nil }
+            let path = line[line.index(after: open) ..< line.index(before: line.endIndex)]
+            return path.isEmpty ? nil : (String(path) as NSString).lastPathComponent
+        }
+        return stored.count == files.count ? stored : files.map(\.lastPathComponent)
+    }
+
+    public func findTicket(_ reference: String) throws -> HotSheetTicket? {
+        let result = try run(["show", reference])
+        guard result.exitCode == 0 else {
+            // `hotsheet-cli show` exits 1 with `Error: no ticket matching '<ref>'`.
+            if result.stderr.contains("no ticket matching") { return nil }
+            throw HotSheetError.commandFailed(command: "show", exitCode: result.exitCode, stderr: result.stderr)
+        }
+        guard var ticket = HotSheetTicket.parseShow(result.stdout) else {
+            throw HotSheetError.unexpectedOutput(command: "show", stdout: result.stdout)
+        }
+        let file = HotSheetTicket.ticketFile(id: ticket.id, store: storePath)
+        ticket.file = FileManager.default.fileExists(atPath: file.path) ? file.path : nil
+        return ticket
+    }
+
+    public func addNote(_ markdown: String, to slug: String) throws {
+        // A file, not `--note=`, so a long note never meets the argument-length limit.
+        let file = FileManager.default.temporaryDirectory.appendingPathComponent("uxreview-note-\(UUID().uuidString).md")
+        try Data(markdown.utf8).write(to: file, options: .atomic)
+        defer { try? FileManager.default.removeItem(at: file) }
+        _ = try invoke(["edit", slug, "--note-file=\(file.path)"])
+    }
+
+    /// Runs `hotsheet-cli`, throwing on a non-zero exit.
+    func invoke(_ args: [String]) throws -> ProcessResult {
+        let result = try run(args)
+        guard result.exitCode == 0 else {
+            throw HotSheetError.commandFailed(command: args.first ?? "", exitCode: result.exitCode, stderr: result.stderr)
+        }
+        return result
     }
 
     /// Runs `hotsheet-cli -C <store> <args> --actor-role … [--actor-id …]`.
-    func invoke(_ args: [String]) throws -> ProcessResult {
+    private func run(_ args: [String]) throws -> ProcessResult {
         var actorArgs = ["--actor-role=\(actor.role.rawValue)"]
         if let id = actor.id { actorArgs.append("--actor-id=\(id)") }
         // Global options go before the subcommand's positional arguments and any `--`.
@@ -138,11 +194,7 @@ public struct HotSheetCLIClient: HotSheetClient {
         var env = baseEnvironment
         env["HOTSHEET_ACTOR_ROLE"] = nil
         env["HOTSHEET_ACTOR_ID"] = nil
-        let result = try runner.run(executable: executable, arguments: full, environment: env, currentDirectory: nil)
-        guard result.exitCode == 0 else {
-            throw HotSheetError.commandFailed(command: args.first ?? "", exitCode: result.exitCode, stderr: result.stderr)
-        }
-        return result
+        return try runner.run(executable: executable, arguments: full, environment: env, currentDirectory: nil)
     }
 }
 

@@ -1,13 +1,15 @@
 # 07 — Review session and submitting
 
 Status: implemented on macOS (`HS2-CRJDJ8`), with Submit Review from the editor
-(`HS2-6HA14G`) and browsing, reopening, and discarding older drafts (§7.9–7.10, `HS2-WE30PY`).
+(`HS2-6HA14G`), browsing, reopening, and discarding older drafts (§7.9–7.10, `HS2-WE30PY`), and
+adding a review to an existing ticket (§7.2.1, `HS2-E3001H`).
 Opening the ticket in Hot Sheet itself is `HS2-ZEF6XD`.
 
 A review session is the last step of a review: the captures of the current draft
 ([04-capture.md](04-capture.md) §4.6), annotated in the editor
 ([06-annotation-editor.md](06-annotation-editor.md)), get a title and summary and are filed as
-one Hot Sheet intake ticket ([03-hotsheet-integration.md](03-hotsheet-integration.md)).
+one Hot Sheet intake ticket ([03-hotsheet-integration.md](03-hotsheet-integration.md)), or added
+to a ticket that already exists.
 
 ## 7.1 Opening
 
@@ -28,6 +30,7 @@ Reviews window (§7.9) opens it on any other draft.
 | Review | **Title** (required) and **Summary** (Markdown, optional). Typing is saved into the draft's `review.json` half a second after it stops. "Give the review a title." shows under a blank title |
 | Captures (N) | One row per capture in review order: thumbnail (a movie's first frame, with a play badge), file name, pixel size, duration (videos), annotation count, and source app. A capture with a problem shows it in orange under its details (§7.3). **Annotate** opens the editor on that capture; **Annotate…** in the header opens it on the first. The trash button removes the capture after a confirmation |
 | Hot Sheet project | The target project's name and the store it files into, or the problem (§7.6). **Change** lists recent projects and **Choose Folder…** |
+| Ticket | **Submit as** **New ticket** (the default) or **Add to existing ticket**, and for the latter the ticket field and its lookup (§7.2.1) |
 | Before submitting | Only when the review has a problem that belongs to no field or capture (an unsupported format, duplicate ids) |
 | Footer | **Discard Review…** (§7.9; disabled while submitting), the counts ("3 captures · 4 annotations"), the only remaining problem, or "N things to fix before submitting"; progress while submitting; the failure (§7.5); and **Submit to Hot Sheet** (default button, Return), which reads **Try Again** after a failure |
 
@@ -42,7 +45,28 @@ captures continues (a removed `capture-2.png` leaves a gap).
 
 After a successful submission the window shows **Filed as HS-…**, the title, what was attached,
 and **Copy Slug**, **Show Ticket File** (the ticket's Markdown file in the store, revealed in
-Finder), and **Done**.
+Finder), and **Done**. After adding to an existing ticket it shows **Added to HS-…**, that
+ticket's title, and that the review is a note on it, with the same buttons.
+
+### 7.2.1 Adding to an existing ticket
+
+Sometimes a review is feedback on, or extra information for, a ticket that already exists
+(`HS2-E3001H`). **Add to existing ticket** files the whole draft into that ticket instead of a
+new intake ticket. To add only some annotations, make a draft holding just those.
+
+- **The field** takes a slug (`HS2-ABC123`, any case) or a pasted ticket reference: a line from
+  `hotsheet-cli ls`, a ticket file path, a link, or a ULID
+  ([03-hotsheet-integration.md](03-hotsheet-integration.md) §3.5).
+- **The lookup** runs `hotsheet-cli show` in the project's store 0.3 s after typing stops, and
+  again when the project changes. Under the field it shows "Looking up HS-…", the found ticket's
+  slug, “title”, and status, or the problem (§7.3). A result for text that has since changed, or
+  for another store, is ignored.
+- **Switching** to New ticket and back keeps the typed ticket and its lookup.
+- **Submitting** reads **Add to HS-…**. It attaches the media plus `review.json` as one batch,
+  then adds one note to the ticket (§7.5, docs/03 §3.5). The progress reads "Attaching N files to
+  HS-…", then "Adding the review note to HS-…".
+- **Reopening** the window on a draft whose media is already attached to a ticket but whose note
+  is missing (§7.5) starts on **Add to existing ticket** with that ticket filled in.
 
 ## 7.3 What blocks submitting
 
@@ -58,19 +82,45 @@ are none.
    as in the editor and the ticket, for example "Annotation #2 runs past the end of its video."
 5. Hot Sheet can't take the review: no `hotsheet-cli`, no project, or no store
    (`HotSheetStatus`, [03-hotsheet-integration.md](03-hotsheet-integration.md) §3.1).
+6. Adding to an existing ticket (§7.2.1), until a found, open ticket is confirmed:
+   - "Enter the ticket to add this review to."
+   - "“…” isn't a ticket. Enter a slug such as HS-ABC123."
+   - "Looking up HS-…"
+   - "No ticket HS-… in <store>."
+   - "HS-… is deleted." (or moved) "Choose an open ticket."
+   - "Couldn't look up HS-…: <reason>"
+
+   With no store to look in, only item 5 shows.
 
 Issues about one capture (a missing file, an annotation problem) show on that capture's row;
-the title issue under the title; the Hot Sheet problem under the project.
+the title issue under the title; the Hot Sheet problem under the project; the ticket issue under
+the ticket field.
 
 ## 7.4 Session states
 
 `ReviewSession` (UXReviewKit) is a pure state machine; the window and `--submit` drive it.
 
 ```
-editing ⇄ failed                        edits, removals, refreshes, project changes
+editing ⇄ failed                        edits, removals, refreshes, project and ticket changes
 editing|failed → submitting(creatingTicket → attachingMedia) → submitted   (terminal)
-                                                             ↘ failed
+                 submitting(attachingMedia → addingNote)     ↘ failed      (existing ticket)
 ```
+
+The destination is part of the same machine (`ReviewSession+Destination.swift`): New ticket or
+existing ticket, the typed text, and its lookup:
+
+```
+empty ⇄ unrecognized ⇄ looking(ref, store) → found | notFound | failed
+                       noStore(ref)  (no store to look in)
+```
+
+- Typing recomputes the state. Text that parses to the reference already looked up (or being
+  looked up) in the same store keeps its state, so `hs-1abc` after `HS-1ABC` doesn't look up
+  again.
+- A project change looks the reference up in the new store (or `noStore`).
+- A lookup result applies only while the session is still `looking` for that reference in that
+  store.
+- Destination changes, typing, and results are ignored while submitting and after.
 
 - **Submit** starts only from `editing` or `failed`, and only with no issues.
 - While submitting, everything else is ignored: a second Submit, edits, removals, draft
@@ -106,6 +156,22 @@ rewritten while drafting), `review.json`, and `edits.json` with each crop and tr
 6. **Any other failure** (validation, a missing file, `hotsheet-cli new` failing) keeps the
    draft unchanged apart from the saved title and summary.
 
+**Adding to an existing ticket** (§7.2.1) uses the same steps with the writes of docs/03 §3.5:
+one `attach` batch of the media plus `review.json`, then one note.
+
+- **On success** the draft is deleted as in item 3.
+- **When the attach worked but the note failed**, the draft is kept and `submission.json`
+  records the ticket plus `attachedNames` (each draft file name → the name Hot Sheet stored it
+  under). The failure says the media is attached, and **Try Again** adds only the note, citing
+  those names. The batch is never attached twice and the note is never added twice.
+- **When the attach failed**, nothing is recorded and Try Again starts over.
+- A record is reused only for the same kind of submission, ticket, and store. A note-pending
+  record is never treated as a created ticket, and a created-ticket record is never reused for an
+  existing ticket. A ticket created by an earlier failed New ticket submission stays in Hot Sheet,
+  without media, if the review then goes to an existing ticket.
+- The Draft Reviews row reads "Media attached to HS-…; the review note isn't added yet", and
+  Discard says the media stays attached.
+
 Deleting a draft that isn't directly inside the drafts folder (the folder itself, `current`, a
 hidden name, a nested folder) is refused.
 
@@ -128,33 +194,44 @@ Changing the project in one session window refreshes every open session window.
 
 - Open the ticket in Hot Sheet (web UI or app) when it is running: `HS2-ZEF6XD`.
 - Deleting a draft outright when the Trash refuses it (§7.9): `HS2-N10RZS`.
+- Choosing which captures or annotations go to an existing ticket, instead of the whole draft
+  (§7.2.1).
 
 ## 7.8 Headless submit
 
 ```
-UXReview --submit [--drafts-dir DIR] [--draft NAME] [--project DIR] [--title T] [--summary S]
+UXReview --submit [--drafts-dir DIR] [--draft NAME] [--project DIR] [--title T] [--summary S] [--to-ticket REF]
 ```
 
 Files the current draft (or the draft named by `--draft`) through the same `ReviewSession`
 rules and `DraftSubmitter` as the window, and prints one JSON object. `--title` and `--summary`
-replace the draft's own before checking.
+replace the draft's own before checking. `--to-ticket` adds the review to that existing ticket
+(§7.2.1). It takes the same slugs and references as the window's field, and runs the same lookup
+before checking, so an unknown ticket is an `invalidReview` issue.
 
 - On success: `status: "submitted"`, `slug`, `ticketFile`, `storePath`, `title`, `mediaCount`,
-  `annotationCount`, `draftDirectory`, `draftRemoved`.
+  `annotationCount`, `draftDirectory`, `draftRemoved`, `addedToExistingTicket`, and `ticketTitle`
+  (the existing ticket's title, with `--to-ticket`).
 - On failure: `status: "error"`, `error`, `message`, plus `issues` (messages, for
-  `invalidReview`), `createdTicket` (when the ticket exists but the attach failed), and
-  `draftDirectory`.
+  `invalidReview`), `createdTicket` (when the ticket exists but the attach failed), `attachedTo`
+  (when the media is attached to the existing ticket but the note failed), and `draftDirectory`.
+
+`--drafts` (§7.10) adds `pendingNoteOnly: true` to a draft whose pending ticket is such an
+existing ticket.
 
 | Exit code | `error` | Meaning |
 | --- | --- | --- |
 | 0 | | Submitted; the draft is deleted |
-| 2 | `invalidArguments`, `noDraft`, `invalidReview` | Bad arguments, no such draft, or the review has issues (§7.3). Nothing is written to Hot Sheet |
+| 2 | `invalidArguments`, `noDraft`, `invalidReview` | Bad arguments (including a `--to-ticket` with no slug), no such draft, or the review has issues (§7.3, including no such ticket). Nothing is written to Hot Sheet |
 | 3 | `hotSheetUnavailable` | No CLI, project, or store |
 | 5 | `submitFailed` | Hot Sheet refused; the draft is kept (§7.5) |
 
 `scripts/app-e2e.sh` uses it to file a two-capture session into a throwaway store, including an
 attach failure (a wrapper CLI that fails the first `attach`) followed by a retry that reuses the
-created ticket.
+created ticket. It then adds a draft to an existing ticket that already has a `capture-1.png`:
+a reference with no slug and an unknown ticket exit 2; a wrapper CLI failing the first `edit`
+exits 5 with `attachedTo`; and the retry adds exactly one note citing `capture-1 (2).png`, with one
+batch and no new ticket.
 
 ## 7.9 Draft reviews
 
@@ -214,8 +291,8 @@ UXReview --discard-draft NAME|PATH [--drafts-dir DIR]
 
 `--drafts` prints `{"status": "listed", "draftsDirectory", "drafts": [...]}`. The drafts are in
 §7.9's order, and each has `name`, `directory`, `title`, `captureCount`, `annotationCount`,
-`createdAt`, `modifiedAt`, `isCurrent`, plus `pendingTicket` or `issue` when they apply. A
-missing drafts folder lists nothing.
+`createdAt`, `modifiedAt`, `isCurrent`, plus `pendingTicket` (and `pendingNoteOnly`, §7.5) or
+`issue` when they apply. A missing drafts folder lists nothing.
 
 `--discard-draft` discards one draft as in §7.9. The value is a folder name in the drafts
 folder, or a path when it contains a `/`. On success it prints `status: "discarded"`,

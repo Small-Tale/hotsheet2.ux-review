@@ -86,6 +86,45 @@ final class FakeHotSheetClient: HotSheetClient, @unchecked Sendable {
         try inspectAttached?(files)
         attached.append((files, slug, batchLabel, purpose))
     }
+
+    // MARK: Existing tickets
+
+    /// Tickets `findTicket` knows, by slug.
+    var tickets: [String: HotSheetTicket] = [:]
+    var findError: Error?
+    var notes: [(slug: String, markdown: String)] = []
+    /// Thrown by the next notes (each failure consumes one entry).
+    var noteErrors: [Error] = []
+    /// Names the ticket already has: a file attached under one of them is stored as `name (2).ext`,
+    /// like `hotsheet-cli attach`.
+    var existingNames: Set<String> = []
+
+    func attachReportingNames(files: [URL], to slug: String, batchLabel: String?, purpose: String?) throws -> [String] {
+        try attach(files: files, to: slug, batchLabel: batchLabel, purpose: purpose)
+        return files.map { file in
+            let name = file.lastPathComponent
+            var stored = name
+            var counter = 2
+            while existingNames.contains(stored) {
+                let ext = (name as NSString).pathExtension
+                let stem = (name as NSString).deletingPathExtension
+                stored = "\(stem) (\(counter))" + (ext.isEmpty ? "" : ".\(ext)")
+                counter += 1
+            }
+            existingNames.insert(stored)
+            return stored
+        }
+    }
+
+    func findTicket(_ reference: String) throws -> HotSheetTicket? {
+        if let findError { throw findError }
+        return tickets[reference] ?? tickets.values.first { $0.id == reference }
+    }
+
+    func addNote(_ markdown: String, to slug: String) throws {
+        if !noteErrors.isEmpty { throw noteErrors.removeFirst() }
+        notes.append((slug, markdown))
+    }
 }
 
 /// Suites that encode or decode movies (AVAssetWriter, export sessions, AVPlayer) run one after

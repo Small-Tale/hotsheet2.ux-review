@@ -66,6 +66,29 @@ public enum TicketComposer {
         )
     }
 
+    /// The Markdown note that adds a review to an existing ticket instead of filing an intake
+    /// ticket (docs/03 §3.5): the review's title, what was attached, then the same sections as an
+    /// intake ticket body, one heading level deeper. No splitting instructions: the review is
+    /// feedback on this ticket.
+    /// - Parameter storedNames: draft file name → the name Hot Sheet stored it under, for files
+    ///   it renamed because the ticket already had one by that name.
+    public static func note(for bundle: ReviewBundle, storedNames: [String: String] = [:]) -> String {
+        let captures = bundle.media.count
+        let annotations = bundle.annotations.count
+        let counts = "\(captures) capture\(captures == 1 ? "" : "s") and \(annotations) annotation\(annotations == 1 ? "" : "s")"
+        let record = attachmentReference(storedNames[bundleFilename] ?? bundleFilename)
+        let intro = """
+        ## UX review: \(bundle.title)
+
+        Feedback on this ticket, added with UX Review: \(counts). The captures and \(record) are attached \
+        to this ticket in the batch “UX review capture”; \(record) is the canonical, machine-readable record \
+        (schema `\(bundle.schema)`, see the UX Review repo's `spec/review-bundle.schema.json`) with exact \
+        shapes, intents, and time ranges. Take every annotation into account when working this ticket, and \
+        cite its number when you act on it.
+        """
+        return ([intro] + reviewSections(bundle, heading: "###", storedNames: storedNames)).joined(separator: "\n\n") + "\n"
+    }
+
     static func intentLabel(_ annotation: Annotation) -> String {
         annotation.effectiveIntents.map(\.rawValue).joined(separator: ", ")
     }
@@ -92,24 +115,35 @@ public enum TicketComposer {
         5. Add a note here listing every ticket you created, then complete this ticket.
         """)
 
+        lines += reviewSections(bundle, heading: "##", storedNames: [:])
+        return lines.joined(separator: "\n\n") + "\n"
+    }
+
+    /// The part of a review that reads the same in an intake ticket and in a note on an existing
+    /// ticket: reviewer summary, capture context, media, and one section per annotation.
+    /// - Parameters:
+    ///   - heading: the Markdown level of the section headings (`##`); annotations go one deeper.
+    ///   - storedNames: draft file name → the name Hot Sheet stored it under, when it differs.
+    static func reviewSections(_ bundle: ReviewBundle, heading: String, storedNames: [String: String]) -> [String] {
+        var lines: [String] = []
         if !bundle.summary.isEmpty {
-            lines.append("## Reviewer summary\n\n\(bundle.summary)")
+            lines.append("\(heading) Reviewer summary\n\n\(bundle.summary)")
         }
 
         let context = contextLines(bundle)
         if !context.isEmpty {
-            lines.append("## Capture context\n\n" + context.joined(separator: "\n"))
+            lines.append("\(heading) Capture context\n\n" + context.joined(separator: "\n"))
         }
 
-        lines.append(mediaSection(bundle))
+        lines.append(mediaSection(bundle, heading: heading, storedNames: storedNames))
 
-        var annotationSection = ["## Annotations"]
+        var annotationSection = ["\(heading) Annotations"]
         if bundle.annotations.isEmpty {
             annotationSection.append("\nNo annotations; see the reviewer summary and media.")
         }
         let filenameById = Dictionary(bundle.media.map { ($0.id, $0.filename) }, uniquingKeysWith: { first, _ in first })
         for (index, annotation) in bundle.annotations.enumerated() {
-            let filename = filenameById[annotation.mediaId] ?? annotation.mediaId
+            let filename = filenameById[annotation.mediaId].map { storedNames[$0] ?? $0 } ?? annotation.mediaId
             let bounds = annotation.shape.bounds
             var meta = "- Shape: \(annotation.shape.kind); region (0–10000): x \(bounds.x), y \(bounds.y), "
                 + "w \(bounds.width), h \(bounds.height)"
@@ -119,7 +153,7 @@ public enum TicketComposer {
             let note = annotation.note.isEmpty ? "_No note._" : annotation.note
             annotationSection.append("""
 
-            ### #\(index + 1) · \(intentLabel(annotation)) · `attachment:\(filename)`
+            \(heading)# #\(index + 1) · \(intentLabel(annotation)) · \(attachmentReference(filename))
 
             \(meta)
 
@@ -127,17 +161,36 @@ public enum TicketComposer {
             """)
         }
         lines.append(annotationSection.joined(separator: "\n"))
-        return lines.joined(separator: "\n\n") + "\n"
+        return lines
     }
 
-    static func mediaSection(_ bundle: ReviewBundle) -> String {
-        var lines = ["## Media", ""]
+    /// `` `attachment:<name>` `` as a Markdown code span, fenced with enough backticks for a name
+    /// that contains some.
+    static func attachmentReference(_ filename: String) -> String {
+        codeSpan("attachment:\(filename)")
+    }
+
+    static func codeSpan(_ text: String) -> String {
+        var longest = 0, run = 0
+        for character in text {
+            run = character == "`" ? run + 1 : 0
+            longest = max(longest, run)
+        }
+        let fence = String(repeating: "`", count: longest + 1)
+        let pad = text.hasPrefix("`") || text.hasSuffix("`") ? " " : ""
+        return fence + pad + text + pad + fence
+    }
+
+    static func mediaSection(_ bundle: ReviewBundle, heading: String = "##", storedNames: [String: String] = [:]) -> String {
+        var lines = ["\(heading) Media", ""]
         for item in bundle.media {
-            var line = "- `attachment:\(item.filename)` (\(item.kind.rawValue), \(item.pixelWidth)×\(item.pixelHeight)"
+            let stored = storedNames[item.filename] ?? item.filename
+            var line = "- \(attachmentReference(stored)) (\(item.kind.rawValue), \(item.pixelWidth)×\(item.pixelHeight)"
             if let duration = item.durationMs { line += ", \(formatTime(duration))" }
             if item.hasAudio == true { line += ", with audio" }
             line += ")"
             if let source = sourceLabel(item.context) { line += ", from \(source)" }
+            if stored != item.filename { line += "; stored under this name, `\(bundleFilename)` calls it \(codeSpan(item.filename))" }
             lines.append(line)
         }
         if bundle.media.contains(where: { $0.hasAudio == true }) {

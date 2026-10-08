@@ -1,8 +1,8 @@
 # 03 — Hot Sheet integration
 
 Status: CLI transport implemented and tested end to end against the real `hotsheet-cli`
-(`HS2-3ZSBZ9`). The service transport and native annotation projection are tracked in
-`HS2-K1XT5V`.
+(`HS2-3ZSBZ9`), including adding a review to an existing ticket (§3.5, `HS2-E3001H`). The
+service transport and native annotation projection are tracked in `HS2-K1XT5V`.
 
 ## 3.1 Discovery
 
@@ -48,6 +48,8 @@ The extra locations matter because GUI apps launched from Finder get a minimal `
   succeeded, it throws `attachFailed(ticket, reason)`, so the caller can retry without creating
   a duplicate ticket.
 
+`ReviewSubmitter.add(…)` adds a review to an existing ticket instead (§3.5).
+
 Arguments are always passed bound with `=`, and file lists follow `--`, so values that begin
 with `-` are never parsed as flags. The client removes `HOTSHEET_ACTOR_ROLE` and
 `HOTSHEET_ACTOR_ID` from the child environment, so a review never inherits an AI session's
@@ -89,3 +91,45 @@ The ticket is titled `UX review: <title>`, has category `task`, and carries the 
   `#N [intents] note`.
 - The service transport (`HS2-K1XT5V`) will `PUT` these lists so Hot Sheet's gallery shows the
   regions.
+
+## 3.5 Adding to an existing ticket
+
+A review can go into a ticket that already exists instead of a new intake ticket
+(`HS2-E3001H`; the window side is [07-review-session.md](07-review-session.md) §7.2.1).
+
+**Finding the ticket.** `TicketReference.parse` reads what the reviewer typed or pasted: a slug
+in any case (`hs2-e3001h` → `HS2-E3001H`), a ULID, a ticket file path ending in `<ULID>.md`, or
+text around a slug (a `hotsheet-cli ls` line, `HS-ABC123: title`, a link). Inside other text, a
+slug counts only when it is uppercase or has a digit, so words like `ux-review` don't. Then
+`HotSheetCLIClient.findTicket` runs `hotsheet-cli -C <store> show <ref>` and reads `id`, `slug`,
+`title`, and `status` from its YAML front matter. Exit 1 with `no ticket matching` means there is
+no such ticket. The ticket file is `<store>/tickets/<last two ULID characters>/<ULID>.md`, reported
+only when it exists. A `deleted` or `moved` ticket doesn't take reviews.
+
+**Writing.** `ReviewSubmitter.add(…)` validates and writes `review.json` exactly like §3.2, then:
+
+1. `hotsheet-cli -C <store> attach --actor-role=human --actor-id=ux-review <SLUG> --batch-label=UX review capture --purpose=problem_evidence -- <media…> review.json`:
+   the same single batch as §3.2.
+2. `hotsheet-cli -C <store> edit --actor-role=human --actor-id=ux-review <SLUG> --note-file=<tmp>.md`:
+   one note, from a temporary file that is removed afterwards.
+
+The attach goes first because Hot Sheet renames a file whose name the ticket already has
+(`review.json` → `review (2).json`, `capture-1.png` → `capture-1 (2).png`). That is common on a
+ticket that came from an earlier review. `attach` prints `Durable attachment id: <ULID> (<stored
+path>)` for each file in order, and the note cites each file by its stored name.
+
+If the note fails after the attach, the error is `noteFailed(ticket, attached, reason)`, and the
+retry passes the stored names back so that only the note is written. A failed attach leaves
+nothing to resume. Note that the CLI's `attach` is not atomic: a later file can fail after an
+earlier one was stored, in this flow and in §3.2.
+
+**The note.** `TicketComposer.note(for:storedNames:)` writes:
+
+1. `## UX review: <title>` and one paragraph: this is feedback on this ticket, how many captures
+   and annotations there are, that they and `attachment:review.json` (by its stored name) are
+   attached in the batch “UX review capture”, that `review.json` is the canonical record, and to
+   cite annotation numbers when acting on them. There are no splitting instructions.
+2. The intake body's sections (§3.3 items 2–5) one heading level deeper: `### Reviewer summary`,
+   `### Capture context`, `### Media`, `### Annotations` with `#### #N · <intents> ·
+   attachment:<stored name>`. A renamed media line adds `; stored under this name, review.json
+   calls it <draft name>`.
