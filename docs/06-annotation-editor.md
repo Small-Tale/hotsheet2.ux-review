@@ -334,7 +334,14 @@ uncropped capture with the current crop rectangle on it (the whole capture when 
 - **Pressing** within 7 screen points of an edge or corner resizes from it (where two edges are
   in reach, the nearer wins); pressing inside a crop moves it; pressing anywhere else drags a
   new rectangle. Uncropped, the capture's own edges resize, so dragging one in crops that side.
-  The pointer stays a crosshair (resize cursors are `HS2-9RRP8G`).
+- **The pointer shows what a press would grab** (`HS2-9RRP8G`, `CanvasCursor`), from the same
+  hit test and tolerance as the press: a left-right resize cursor on the left and right edges,
+  up-down on the top and bottom, a diagonal one on each corner (`NSCursor.frameResize`), an
+  open hand inside a crop, and a crosshair elsewhere (a new rectangle). While a crop is being
+  moved the hand is closed, while resizing the grabbed edge's or corner's cursor stays wherever
+  the pointer goes, and while drawing a new rectangle it is a crosshair. The cursor follows the
+  pointer, and also the crop and zoom when they change under a still pointer (undo, zoom keys).
+  Space-pan shows the hand as with every tool. (Live pointer check: `HS2-GADPT1`.)
 - **Moving** goes by whole pixels and stops at the capture's edges. **Resizing** never flips the
   rectangle or makes it narrower than 8 px.
 - **On release** the rectangle snaps outward to whole pixels and clips to the capture. It must be
@@ -523,6 +530,7 @@ and capturing again reuses its id and file name, and that is a removal plus an a
 | --- | --- |
 | State machine, gestures, intent chip clicks | `UXReviewKit/Editor/AnnotationEditor.swift`, `AnnotationEditor+Gestures.swift`, `IntentToggle.swift` |
 | Crop, the Crop tool's canvas space, crop gestures | `UXReviewKit/Editor/AnnotationEditor+Crop.swift` |
+| Canvas cursor rules (Crop tool resize / move cursors) | `UXReviewKit/Editor/CanvasCursor.swift`; AppKit wiring in `App/Sources/Editor/AnnotationCanvas+Cursor.swift` |
 | Playhead, time ranges, trim | `UXReviewKit/Editor/AnnotationEditor+Time.swift` |
 | ← / → frame steps, last-used timeline target | `UXReviewKit/Editor/AnnotationEditor+FrameStep.swift` |
 | Frame grid and expected frame rate | `UXReviewKit/Editor/FrameGrid.swift`; read by `VideoTrim.frameRate` |

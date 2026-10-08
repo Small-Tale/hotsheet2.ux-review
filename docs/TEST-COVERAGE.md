@@ -1275,8 +1275,20 @@ capture files are no longer cropped or trimmed while drafting.
   on the crop that lands at the crop's origin in file coordinates; the render is 230 × 100.
 - **Visual QA:** `editor-crop-drag`, `editor-crop-tool`, `editor-crop-adjust`, `editor-cropped`
   (`--render-ui-previews`), inspected by hand.
-- **Not covered automatically:** live mouse and trackpad crop gestures (`HS2-7MFNJP`); resize
-  cursors over the crop's edges are `HS2-9RRP8G`.
+- **Not covered automatically:** live mouse and trackpad crop gestures (`HS2-7MFNJP`).
+
+## HS2-9RRP8G: Crop tool resize and move cursors
+
+- **Unit** (`CanvasCursorTests`): arrow with Select, crosshair with drawing tools (and the Crop
+  tool without media); with the Crop tool, each edge and corner's resize cursor, an open hand
+  inside a crop, and a crosshair elsewhere, always equal to what a press there grabs
+  (`cropHandle`); the tolerance follows the zoom; an uncropped original's edges; a tiny crop's
+  nearer corner; during a move a closed hand anywhere, during a resize the grabbed handle's
+  cursor even inside, while drawing a crosshair; cancel, undo, and tool switches under a still
+  pointer.
+- **Not covered automatically:** cursors can't be captured offscreen, so the AppKit wiring
+  (tracking area, `resetCursorRects`, `NSCursor.frameResize`) needs a live pointer check
+  (`HS2-GADPT1`).
 
 ## HS2-M03YP2: crop videos (simulated in the editor, applied when submitting)
 

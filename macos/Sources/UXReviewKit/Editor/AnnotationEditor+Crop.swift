@@ -75,11 +75,12 @@ public extension AnnotationEditor {
     }
 
     /// What a Crop tool press at `point` (pixels of the original) grabs: an edge or corner within
-    /// the hit tolerance, the inside of an existing crop, or nil (a new rectangle).
-    func cropHandle(at point: CGPoint) -> CropHandle? {
+    /// the hit tolerance (`hitTolerance` unless given), the inside of an existing crop, or nil (a
+    /// new rectangle). The canvas cursor uses the same test (`canvasCursor`).
+    func cropHandle(at point: CGPoint, tolerance: Double? = nil) -> CropHandle? {
         guard let id = currentMediaId, let crop = cropRect(of: id) else { return nil }
         let rect = crop.cgRect
-        let tolerance = hitTolerance
+        let tolerance = tolerance ?? hitTolerance
         let alongX = point.x >= rect.minX - tolerance && point.x <= rect.maxX + tolerance
         let alongY = point.y >= rect.minY - tolerance && point.y <= rect.maxY + tolerance
         // On a small crop both edges can be in reach; the nearer one wins.

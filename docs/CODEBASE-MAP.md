@@ -74,6 +74,7 @@ macos/
     Editor/AnnotationEditor+ArrowHeads.swift  setArrowHeads: an arrow's start and end heads, undoable (HS2-HQV9R8)
     Editor/AnnotationEditor+Gestures.swift  draw/move/resize gestures, hit testing
     Editor/AnnotationEditor+Crop.swift  one crop per capture (relative to the original), the Crop tool's canvas space (shows the original), draw/move/resize crop gestures, reset crop (docs/06 §6.6)
+    Editor/CanvasCursor.swift         canvas cursor rules: arrow / crosshair per tool; Crop tool resize cursors on edges and corners, open / closed hand inside (docs/06 §6.6)
     Editor/AnnotationEditor+Time.swift  playhead, annotation time ranges, trim + reset trim, TimeFormat (docs/06 §6.10)
     Editor/AnnotationEditor+Timeline.swift  timeline drags (range ends, trim handles), TimelineHitTest, TimeFormat.parse
     Editor/AnnotationEditor+FrameStep.swift  ← / → frame steps: TimelineStepTarget (last-used timeline target), step rules (docs/06 §6.4, §6.10)
@@ -128,6 +129,7 @@ macos/
     Editor/EditorView.swift           toast overlay, media strip (resizable via StripDivider) (⌘/⇧-click multiple selection), layout
     Editor/CanvasAutoScroller.swift   60 Hz auto-scroll timer while a canvas gesture runs near an edge
     Editor/AnnotationCanvas.swift     NSView canvas: mouse/keyboard → editor (← / → monitor for unedited time fields), drawing via AnnotationRenderer
+    Editor/AnnotationCanvas+Cursor.swift  canvas cursor: cursor rects per tool; the Crop tool tracks the pointer (mouse moved / cursor update) → NSCursor.frameResize, hands (docs/06 §6.6)
     Editor/TimelineBar.swift          video timeline: play/pause, typed playhead, scrubber, range grips + trim handles, Trim Start/End; TimeField
     Editor/InspectorView.swift        selected annotation (intents, note) + annotation list
     Editor/HeadlessAnnotate.swift     `--annotate` mode with JSON output

@@ -17,9 +17,9 @@ final class AnnotationCanvasView: NSView {
     private var arrowMonitor: Any?
 
     /// Space is held: dragging pans instead of drawing.
-    private var spaceHeld = false
+    private(set) var spaceHeld = false
     /// The last pointer location of a pan drag (space-drag or middle-button drag).
-    private var panAnchor: CGPoint?
+    private(set) var panAnchor: CGPoint?
 
     override var isFlipped: Bool { true }
     override var acceptsFirstResponder: Bool { true }
@@ -104,17 +104,6 @@ final class AnnotationCanvasView: NSView {
         )
     }
 
-    // MARK: Cursor
-
-    override func resetCursorRects() {
-        guard let model else { return }
-        if spaceHeld {
-            addCursorRect(bounds, cursor: panAnchor == nil ? .openHand : .closedHand)
-        } else {
-            addCursorRect(bounds, cursor: model.editor.tool == .select ? .arrow : .crosshair)
-        }
-    }
-
     // MARK: Zoom and pan
 
     private func location(_ event: NSEvent) -> CGPoint { convert(event.locationInWindow, from: nil) }
@@ -186,7 +175,7 @@ final class AnnotationCanvasView: NSView {
         model.mutate { editor in
             // Sizes are in screen points, so the feel is the same at every zoom.
             editor.minimumSide = 6 / scale
-            editor.hitTolerance = 7 / scale
+            editor.hitTolerance = Self.hitTolerance / scale
             editor.beginGesture(at: point)
         }
         if event.clickCount == 2, model.editor.selection != nil {
