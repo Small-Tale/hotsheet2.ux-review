@@ -751,13 +751,30 @@ run discard-final-list 0 -- --drafts --drafts-dir "$DDRAFTS"
 [[ "$(names "$TMP/discard-final-list.json")" == "$d*,$b" ]] || die "discard: final list $(names "$TMP/discard-final-list.json")"
 ok "paths outside the drafts folder, links, current, and hidden names: exit 6, nothing moved; a broken draft can be discarded"
 
+# HS2-N10RZS: a Trash that refuses (UXREVIEW_TRASH_DIR inside a plain file) keeps the draft;
+# --delete then deletes it immediately without touching the Trash.
+: >"$TMP/no-trash"
+NOTRASH=(UXREVIEW_TRASH_DIR="$TMP/no-trash/Trash")
+run discard-refused 5 "${NOTRASH[@]}" -- --discard-draft "$b" --drafts-dir "$DDRAFTS"
+[[ "$(json "$TMP/discard-refused.json" j.error)" == discardFailed && -f "$DDRAFTS/$b/review.json" ]] || die "delete: a refused Trash should keep the draft"
+run discard-delete 0 "${NOTRASH[@]}" -- --discard-draft "$b" --delete --drafts-dir "$DDRAFTS"
+[[ "$(json "$TMP/discard-delete.json" '`${j.status}/${j.wasCurrent}/${j.trashedTo ?? "none"}`')" == deleted/false/none && ! -e "$DDRAFTS/$b" ]] \
+  || die "delete: --delete result $(cat "$TMP/discard-delete.json")"
+[[ ! -e "$TMP/trash/$b" ]] || die "delete: --delete moved the draft to the trash folder"
+run discard-delete-list 0 -- --drafts --drafts-dir "$DDRAFTS"
+[[ "$(names "$TMP/discard-delete-list.json")" == "$d*" ]] || die "delete: list after $(names "$TMP/discard-delete-list.json")"
+run discard-delete-outside 6 -- --discard-draft "$TMP/outside" --delete --drafts-dir "$DDRAFTS"
+[[ -d "$TMP/outside" ]] || die "delete: --delete removed a folder outside the drafts folder"
+run drafts-delete-noarg 2 -- --drafts --delete --drafts-dir "$DDRAFTS"
+ok "a Trash that refuses keeps the draft (exit 5); --delete deletes it immediately; --delete outside the drafts folder: exit 6"
+
 run previews 0 -- --render-ui-previews "$TMP/previews"
 for name in overlay-region-hint overlay-region-selection overlay-region-selection-bottom-edge overlay-window-hover recording-dim-region hud-countdown hud-saved hud-recording-countdown hud-recording hud-saved-video hud-recording-narration hud-saved-narrated settings-registered settings-in-use status-bar-icon-light status-bar-icon-dark menu-delayed-row-light menu-delayed-row-dark \
   editor-empty editor-no-media editor-annotated editor-arrow-selected editor-narrow editor-crop-drag editor-cropped editor-zoomed editor-keyboard-insert editor-video-timeline editor-video-narrow editor-video-trimmed editor-video-playing editor-video-range-drag editor-video-trim-drag editor-autoscroll \
   session-ready session-narrow session-submitting session-failed session-submitted session-issues session-empty \
   session-existing-looking session-existing-found session-existing-narrow session-existing-not-found session-existing-closed \
   session-existing-failed session-existing-submitted \
-  drafts-list drafts-narrow drafts-empty; do
+  drafts-list drafts-narrow drafts-empty drafts-delete-immediately; do
   [[ -s "$TMP/previews/$name.png" ]] || die "previews: $name.png missing"
 done
 ok "UI renders offscreen (picker overlays, recording dim, HUDs, Settings window, status bar icon, annotation editor, review session, draft reviews)"

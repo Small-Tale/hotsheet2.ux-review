@@ -3,7 +3,8 @@ import UXReviewKit
 
 /// Discarding a draft review from the Draft Reviews window or the session window: a
 /// confirmation, then the draft's editor and session windows close (saving into the draft),
-/// and the folder moves to the Trash. Spec: docs/07-review-session.md §7.9.
+/// and the folder moves to the Trash. When the Trash refuses, a second, destructive
+/// confirmation offers to delete it immediately. Spec: docs/07-review-session.md §7.9.
 @MainActor
 enum DraftDiscarding {
     /// The confirmation's text: what goes to the Trash, and what discarding doesn't undo.
@@ -25,8 +26,25 @@ enum DraftDiscarding {
         return ("Discard “\(draft.title)”?", lines.joined(separator: "\n\n"))
     }
 
+    /// The second confirmation's text, after the Trash refused `draft`: why (the system's
+    /// `reason`, the title already says the Trash refused), and that deleting can't be undone.
+    static func deleteMessage(for draft: DraftSummary, reason: String) -> (title: String, detail: String) {
+        var lines = [reason]
+        if draft.isReadable {
+            let captures = "\(draft.captureCount) capture\(draft.captureCount == 1 ? "" : "s")"
+            let annotations = "\(draft.annotationCount) annotation\(draft.annotationCount == 1 ? "" : "s")"
+            lines.append("Delete it immediately instead? Its \(captures) and \(annotations) are deleted for good. This can't be undone.")
+        } else {
+            lines.append("Delete the draft folder \(draft.name) immediately instead? This can't be undone.")
+        }
+        if let slug = draft.pendingTicket {
+            lines.append("\(slug) in Hot Sheet is not changed.")
+        }
+        return ("Couldn't move “\(draft.title)” to the Trash", lines.joined(separator: "\n\n"))
+    }
+
     /// Asks first (as a sheet on `window` when given), then discards. `completion` gets true
-    /// once the draft is in the Trash.
+    /// once the draft is in the Trash (or, after a second confirmation, deleted).
     static func confirm(
         _ directory: URL,
         store: ReviewDraftStore,
@@ -68,14 +86,45 @@ enum DraftDiscarding {
     static func discard(_ directory: URL, store: ReviewDraftStore) -> Bool {
         EditorWindowController.close(directory: directory)
         ReviewSessionWindowController.close(directory: directory)
+        // Read before moving: the second confirmation describes what would be deleted.
+        let summary = try? store.summary(of: directory)
         do {
             try store.discard(directory)
-            NotificationCenter.default.post(name: .reviewDraftChanged, object: directory)
-            return true
+        } catch let error as ReviewDraftError where error.canDeleteInstead {
+            guard let summary, confirmDeletion(summary, reason: error.trashRefusal ?? error.description) else { return false }
+            do {
+                try store.discard(directory, deleteImmediately: true)
+            } catch {
+                report(error, window: nil)
+                return false
+            }
         } catch {
             report(error, window: nil)
             return false
         }
+        NotificationCenter.default.post(name: .reviewDraftChanged, object: directory)
+        return true
+    }
+
+    /// The second confirmation, after the Trash refused: **Delete Immediately** is destructive
+    /// and has no key equivalent; **Keep Draft** is the default (Return). True to delete.
+    private static func confirmDeletion(_ draft: DraftSummary, reason: String) -> Bool {
+        NSApp.activate(ignoringOtherApps: true)
+        return deleteAlert(for: draft, reason: reason).runModal() == .alertFirstButtonReturn
+    }
+
+    /// The second confirmation's alert (also rendered by `--render-ui-previews`).
+    static func deleteAlert(for draft: DraftSummary, reason: String) -> NSAlert {
+        let (title, detail) = deleteMessage(for: draft, reason: reason)
+        let alert = NSAlert()
+        alert.alertStyle = .critical
+        alert.messageText = title
+        alert.informativeText = detail
+        let deleteButton = alert.addButton(withTitle: "Delete Immediately")
+        deleteButton.hasDestructiveAction = true
+        deleteButton.keyEquivalent = ""
+        alert.addButton(withTitle: "Keep Draft").keyEquivalent = "\r"
+        return alert
     }
 
     private static func report(_ error: Error, window: NSWindow?) {

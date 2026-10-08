@@ -53,6 +53,16 @@ public enum ReviewDraftError: Error, Equatable, CustomStringConvertible {
     case outsideDrafts(URL)
     case noSuchDraft(URL)
     case trashFailed(URL, String)
+    case deleteFailed(URL, String)
+
+    /// The Trash refused the draft, so it can be offered for immediate deletion instead
+    /// (docs/07 §7.9).
+    public var canDeleteInstead: Bool { trashRefusal != nil }
+
+    /// Why the Trash refused the draft (the system's message), for `trashFailed` only.
+    public var trashRefusal: String? {
+        if case let .trashFailed(_, reason) = self { reason } else { nil }
+    }
 
     public var description: String {
         switch self {
@@ -62,6 +72,7 @@ public enum ReviewDraftError: Error, Equatable, CustomStringConvertible {
         case let .outsideDrafts(url): "\(url.path) is not a draft review."
         case let .noSuchDraft(url): "There is no draft review at \(url.path)."
         case let .trashFailed(url, reason): "\(url.lastPathComponent) couldn't be moved to the Trash: \(reason)"
+        case let .deleteFailed(url, reason): "\(url.lastPathComponent) couldn't be deleted: \(reason)"
         }
     }
 }

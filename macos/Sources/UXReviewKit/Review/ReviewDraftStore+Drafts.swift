@@ -91,6 +91,8 @@ public struct DiscardedDraft: Equatable, Sendable {
     public var trashedTo: URL?
     /// It was the current draft, so the next capture starts a new review.
     public var wasCurrent: Bool
+    /// Deleted outright instead of moved to the Trash (`deleteImmediately`); can't be undone.
+    public var deleted = false
 }
 
 /// Every draft on disk, and discarding one. Spec: docs/07-review-session.md §7.9.
@@ -132,9 +134,15 @@ public extension ReviewDraftStore {
     /// the `current` pointer is removed too, so the next capture starts a new review. Refuses
     /// anything that is not a draft folder directly inside the drafts root (the root itself,
     /// `current`, hidden names, nested folders, symbolic links). When the move fails, nothing
-    /// changes: the draft is never deleted outright.
+    /// changes: the draft is never deleted outright unless `deleteImmediately` asks for it.
+    ///
+    /// With `deleteImmediately`, the folder is removed for good instead, without trying the
+    /// Trash. The Draft Reviews window offers that only after the Trash refused and the
+    /// reviewer confirmed a second time; `--discard-draft … --delete` asks for it directly
+    /// (docs/07 §7.9, §7.10). The same folders are refused. If removal fails part-way, whatever
+    /// is left stays in place and the pointer is kept.
     @discardableResult
-    func discard(_ directory: URL) throws -> DiscardedDraft {
+    func discard(_ directory: URL, deleteImmediately: Bool = false) throws -> DiscardedDraft {
         lock.lock()
         defer { lock.unlock() }
         let target = try draftDirectory(directory)
@@ -143,15 +151,23 @@ public extension ReviewDraftStore {
             throw ReviewDraftError.noSuchDraft(directory)
         }
         let wasCurrent = currentDirectoryPath() == target.path
-        let trashedTo: URL?
-        do {
-            trashedTo = try trash.move(target)
-        } catch {
-            throw ReviewDraftError.trashFailed(directory, (error as NSError).localizedDescription)
+        var trashedTo: URL?
+        if deleteImmediately {
+            do {
+                try FileManager.default.removeItem(at: target)
+            } catch {
+                throw ReviewDraftError.deleteFailed(directory, (error as NSError).localizedDescription)
+            }
+        } else {
+            do {
+                trashedTo = try trash.move(target)
+            } catch {
+                throw ReviewDraftError.trashFailed(directory, (error as NSError).localizedDescription)
+            }
         }
         // A pointer left behind would be stale and ignored (§4.6), so a failure here is harmless.
         if wasCurrent { try? FileManager.default.removeItem(at: pointerURL) }
-        return DiscardedDraft(directory: target, trashedTo: trashedTo, wasCurrent: wasCurrent)
+        return DiscardedDraft(directory: target, trashedTo: trashedTo, wasCurrent: wasCurrent, deleted: deleteImmediately)
     }
 
     private func summarize(_ directory: URL, folderDate: Date?, current: String?) -> DraftSummary {

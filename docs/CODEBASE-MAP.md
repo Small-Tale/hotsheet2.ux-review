@@ -51,8 +51,8 @@ macos/
     Review/ReviewSession+Destination.swift  new vs existing ticket, TicketLookup states, ticket issues, DraftSubmitter.add (docs/07 §7.2.1, §7.4)
     Review/DraftNumbering.swift       numbering.json: highest capture-N / mN used, so removed captures' names and ids are never reused (docs/07 §7.2)
     Review/ReviewDraftStore+Session.swift  title/summary, remove a capture, submission.json (created ticket or attached names), delete after submit (docs/07 §7.5)
-    Review/ReviewDraftStore+Drafts.swift   list every draft (DraftSummary), discard to the Trash (DraftTrash), draft-folder safety check (docs/07 §7.9)
-    Review/DraftsCommand.swift        `--drafts` / `--discard-draft` parsing (docs/07 §7.10)
+    Review/ReviewDraftStore+Drafts.swift   list every draft (DraftSummary), discard to the Trash (DraftTrash) or delete immediately, draft-folder safety check (docs/07 §7.9)
+    Review/DraftsCommand.swift        `--drafts` / `--discard-draft [--delete]` parsing (docs/07 §7.10)
     Review/SubmitCommand.swift        `--submit` parsing (`--to-ticket`), MediaThumbnail (capture list previews)
     Settings/Hotkey.swift             global hotkey model: parse/display, Carbon codes (docs/05 §5.2)
     Settings/CaptureSettings.swift    settings + KeyValueStoring persistence, HotkeySlot (capture/record, duplicate rules), HotkeyAction
@@ -119,8 +119,8 @@ macos/
     Review/ReviewSessionPreviews.swift  session states for --render-ui-previews
     Review/DraftsWindowController.swift  Draft Reviews window (one) + DraftsModel: list, open, annotate, reveal, discard (docs/07 §7.9)
     Review/DraftsView.swift           draft rows (title, Current badge, counts, date, problems) and their buttons; empty state
-    Review/DraftDiscarding.swift      discard confirmation, close the draft's editor + session windows, move to the Trash
+    Review/DraftDiscarding.swift      discard confirmation, close the draft's editor + session windows, move to the Trash; Delete Immediately confirmation when the Trash refuses
     Review/HeadlessDrafts.swift       `--drafts` / `--discard-draft` modes with JSON output (docs/07 §7.10)
-    Review/DraftsPreviews.swift       Draft Reviews window states for --render-ui-previews
+    Review/DraftsPreviews.swift       Draft Reviews window states + the Delete Immediately alert for --render-ui-previews
 linux/, windows/               future native variants (README placeholders)
 ```

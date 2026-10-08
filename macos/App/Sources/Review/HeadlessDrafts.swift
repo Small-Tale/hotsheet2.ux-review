@@ -2,8 +2,9 @@ import Foundation
 import UXReviewKit
 
 /// `UXReview --drafts [--drafts-dir DIR]` lists every draft review as JSON;
-/// `UXReview --discard-draft NAME|PATH [--drafts-dir DIR]` moves one to the Trash
-/// (`UXREVIEW_TRASH_DIR` redirects it, for scripts/app-e2e.sh). Exit codes: 0 done,
+/// `UXReview --discard-draft NAME|PATH [--delete] [--drafts-dir DIR]` moves one to the Trash
+/// (`UXREVIEW_TRASH_DIR` redirects it, for scripts/app-e2e.sh), or with `--delete` deletes it
+/// immediately. Exit codes: 0 done,
 /// 2 bad arguments or no such draft, 5 the draft couldn't be listed or moved, 6 not a draft
 /// folder inside the drafts directory. Spec: docs/07-review-session.md §7.10.
 @MainActor
@@ -44,7 +45,8 @@ enum HeadlessDrafts {
     }
 
     struct Discarded: Encodable {
-        var status = "discarded"
+        /// "discarded" (moved to the Trash) or "deleted" (`--delete`).
+        var status: String
         var draftDirectory: String
         var trashedTo: String?
         var wasCurrent: Bool
@@ -72,8 +74,9 @@ enum HeadlessDrafts {
         )
         guard let target = command.target(in: store.root) else { return list(store) }
         do {
-            let result = try store.discard(target)
+            let result = try store.discard(target, deleteImmediately: command.deletesImmediately)
             print(HeadlessCapture.json(Discarded(
+                status: result.deleted ? "deleted" : "discarded",
                 draftDirectory: result.directory.path,
                 trashedTo: result.trashedTo?.path,
                 wasCurrent: result.wasCurrent

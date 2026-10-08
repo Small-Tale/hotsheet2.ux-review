@@ -699,6 +699,30 @@ Each feature gets both unit tests and end-to-end tests. Tests live in
   Session, Annotate, Show in Finder) and the system Trash itself (`FileManager.trashItem`).
   These are thin view code over the tested store; live-window automation is `HS2-HA9TW3`.
 
+## HS2-N10RZS: Delete Immediately when the Trash refuses a draft
+
+- **Store** (`DraftListingTests`, a real `ReviewDraftStore`, a trash folder inside a plain file
+  so it refuses):
+  - the Trash refuses → the draft and pointer are kept, `canDeleteInstead` is true → Delete
+    Immediately removes the folder and pointer, keeps the older draft → the next capture starts
+    a new draft → deleting again is `noSuchDraft`
+  - deleting an older draft and a broken one keeps the current draft and never touches the
+    trash folder
+  - every `outsideDrafts` refusal also holds with `deleteImmediately`
+  - a deletion refused part-way (read-only drafts folder) is `deleteFailed`, not offered for
+    deletion again; the folder stays listed (broken, still current) and deletes once writable
+  - only `trashFailed` offers deletion; `DraftsCommand` parses `--delete` and rejects it
+    without `--discard-draft`
+- **App end to end** (`scripts/app-e2e.sh`): a refusing `UXREVIEW_TRASH_DIR` exits 5
+  `discardFailed` with the draft kept; `--delete` then prints `deleted` with no `trashedTo`,
+  the folder is gone, nothing reaches the trash folder, and the list shows only the current
+  draft; `--delete` on an outside folder exits 6 with nothing removed; `--drafts --delete`
+  exits 2.
+- **Visual QA:** `drafts-delete-immediately` (the second confirmation, for a draft with a
+  created ticket) from `--render-ui-previews`, inspected by hand.
+- **Not covered automatically:** the live alert sequence (Move to Trash → Delete Immediately)
+  in a running window; it is thin view code over the tested store (`HS2-HA9TW3`).
+
 ## HS2-80CTK8: UX Review windows, Dock icon, app menu bar, short menu bar menu
 
 - **Menus** (`AppMenusTests`):

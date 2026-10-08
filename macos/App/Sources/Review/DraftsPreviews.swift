@@ -4,7 +4,8 @@ import UXReviewKit
 
 /// Offscreen renders of the Draft Reviews window for `--render-ui-previews`: several drafts
 /// (the current one, older ones, one with a created ticket, an unreadable one), a narrow window,
-/// and no drafts. Each is the real `DraftsView` over a throwaway drafts folder. Spec: docs/07 §7.9.
+/// and no drafts. Each is the real `DraftsView` over a throwaway drafts folder. Also the Delete
+/// Immediately confirmation shown when the Trash refuses a draft. Spec: docs/07 §7.9.
 @MainActor
 enum DraftsPreviews {
     static let size = CGSize(width: 640, height: 400)
@@ -30,6 +31,7 @@ enum DraftsPreviews {
             size: CGSize(width: 640, height: 360),
             to: directory.appendingPathComponent("drafts-empty.png")
         ))
+        written.append(try renderDeleteAlert(store: store, to: directory.appendingPathComponent("drafts-delete-immediately.png")))
         return written
     }
 
@@ -71,6 +73,23 @@ enum DraftsPreviews {
         let broken = store.root.appendingPathComponent("20261005-101500-9C2B1F", isDirectory: true)
         try FileManager.default.createDirectory(at: broken, withIntermediateDirectories: true)
         try setDate(reference.addingTimeInterval(-50 * 3600), of: broken)
+    }
+
+    /// The second confirmation for the draft with a created ticket, as if the Trash refused it.
+    private static func renderDeleteAlert(store: ReviewDraftStore, to url: URL) throws -> URL {
+        guard let draft = try store.listDrafts().first(where: { $0.pendingTicket != nil }) else {
+            throw CaptureFailure.failed("no draft with a ticket")
+        }
+        let reason = ReviewDraftError.trashFailed(draft.directory, "The volume “Scratch” doesn't have a Trash.").trashRefusal ?? ""
+        let alert = DraftDiscarding.deleteAlert(for: draft, reason: reason)
+        alert.layout()
+        guard let view = alert.window.contentView,
+              let rep = view.bitmapImageRepForCachingDisplay(in: view.bounds)
+        else { throw CaptureFailure.failed("no bitmap") }
+        view.cacheDisplay(in: view.bounds, to: rep)
+        guard let image = rep.cgImage else { throw CaptureFailure.failed("render failed") }
+        try ImageFiles.writePNG(image, to: url)
+        return url
     }
 
     private static func setDate(_ date: Date, of url: URL) throws {

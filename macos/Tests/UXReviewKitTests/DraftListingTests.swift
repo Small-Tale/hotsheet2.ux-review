@@ -5,7 +5,7 @@ import Testing
 /// Listing every draft and discarding one (docs/07 §7.9): the states no drafts → one current →
 /// several (current and ended) → discarded, walked through realistic and adversarial sequences
 /// (discard current vs. not, discard twice, discard then capture, unreadable drafts, symlinks
-/// and paths outside the drafts folder, a Trash that refuses).
+/// and paths outside the drafts folder, a Trash that refuses, then Delete Immediately).
 struct DraftListingTests {
     final class Fixture {
         let base: URL
@@ -269,7 +269,9 @@ struct DraftListingTests {
             fixture.root.appendingPathComponent("x/../../outside"),
             URL(fileURLWithPath: "/"),
         ] {
-            #expect(throws: ReviewDraftError.outsideDrafts(bad)) { try fixture.store.discard(bad) }
+            for delete in [false, true] {
+                #expect(throws: ReviewDraftError.outsideDrafts(bad)) { try fixture.store.discard(bad, deleteImmediately: delete) }
+            }
         }
         #expect(fixture.exists(outside) && fixture.exists(draft.directory) && fixture.exists(link))
         #expect(fixture.store.isCurrent(draft.directory))
@@ -330,6 +332,11 @@ struct DraftListingTests {
         let discard = try #require(try DraftsCommand.parse(["--discard-draft", "draft-1", "--drafts-dir", "/d"]))
         #expect(discard == .discard(draft: "draft-1", draftsDirectory: drafts))
         #expect(discard.draftsDirectory == drafts)
+        #expect(!discard.deletesImmediately)
+        let delete = try #require(try DraftsCommand.parse(["--discard-draft", "draft-1", "--delete"]))
+        #expect(delete == .discard(draft: "draft-1", draftsDirectory: nil, deleteImmediately: true))
+        #expect(delete.deletesImmediately && delete.target(in: drafts)?.path == "/d/draft-1")
+        #expect(throws: CommandLineError.missing("--discard-draft for --delete")) { try DraftsCommand.parse(["--drafts", "--delete"]) }
         #expect(discard.target(in: drafts)?.path == "/d/draft-1")
         let path = try #require(try DraftsCommand.parse(["--discard-draft", "/elsewhere/x"]))
         #expect(path.target(in: drafts)?.path == "/elsewhere/x")

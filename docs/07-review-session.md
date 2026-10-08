@@ -274,8 +274,16 @@ Review window):
 3. `ReviewDraftStore.discard` moves the folder to the Trash, where it can be put back from
    Finder. When it was the current draft, the `current` pointer goes too, so the next capture
    starts a new draft. Other drafts and the current pointer are untouched.
-4. If the Trash refuses (for example, a volume without one), an alert says so and the draft is
-   kept as it was. UX Review never deletes a draft outright instead.
+4. If the Trash refuses (for example, a drafts folder on a volume without one, set with
+   `UXREVIEW_DRAFTS_DIR`), a second confirmation says why, names the review's captures and
+   annotations, says they would be deleted for good and that this can't be undone, and names an
+   already created ticket, which is not changed (`HS2-N10RZS`). **Keep Draft** is the default
+   button (Return) and keeps the draft as it was. **Delete Immediately** is marked destructive
+   and has no key equivalent; it deletes the folder outright (`discard(_:deleteImmediately:)`),
+   with the same pointer handling as step 3. UX Review never deletes a draft without this
+   second confirmation. If the deletion itself fails, an alert says so; whatever could not be
+   removed stays in the drafts folder and is listed (as a broken draft once its review.json is
+   gone), so it can be discarded again.
 
 Only a folder directly inside the drafts folder can be discarded. The drafts folder itself,
 `current`, hidden names, nested folders, symbolic links, and paths outside are refused
@@ -289,7 +297,7 @@ Trash. Tests and `scripts/app-e2e.sh` use it so they never fill the real Trash.
 
 ```
 UXReview --drafts [--drafts-dir DIR]
-UXReview --discard-draft NAME|PATH [--drafts-dir DIR]
+UXReview --discard-draft NAME|PATH [--delete] [--drafts-dir DIR]
 ```
 
 `--drafts` prints `{"status": "listed", "draftsDirectory", "drafts": [...]}`. The drafts are in
@@ -299,16 +307,22 @@ UXReview --discard-draft NAME|PATH [--drafts-dir DIR]
 
 `--discard-draft` discards one draft as in §7.9. The value is a folder name in the drafts
 folder, or a path when it contains a `/`. On success it prints `status: "discarded"`,
-`draftDirectory`, `trashedTo`, and `wasCurrent`.
+`draftDirectory`, `trashedTo`, and `wasCurrent`. With `--delete`, it deletes the draft
+immediately instead of trying the Trash, which can't be undone, and prints `status: "deleted"`
+without `trashedTo`; the same folders are refused. `--delete` without `--discard-draft` is
+`invalidArguments`.
 
 | Exit code | `error` | Meaning |
 | --- | --- | --- |
 | 0 | | Listed, or discarded |
 | 2 | `invalidArguments`, `noDraft` | A missing value, or no such draft folder |
-| 5 | `listFailed`, `discardFailed` | The drafts folder couldn't be read, or the Trash refused; the draft is kept |
+| 5 | `listFailed`, `discardFailed` | The drafts folder couldn't be read, or the Trash refused (or, with `--delete`, the deletion failed); the draft is kept |
 | 6 | `outsideDrafts` | Not a draft folder directly inside the drafts folder (§7.9); nothing moves |
 
 `scripts/app-e2e.sh` lists four drafts (two set aside with `--new-review`, a broken one, and
 clutter that must not be listed), discards an older draft and then the current one into
 `UXREVIEW_TRASH_DIR`, checks that the next capture starts a new draft, and checks that paths
-outside the drafts folder, links, `current`, and hidden names exit 6 with nothing moved.
+outside the drafts folder, links, `current`, and hidden names exit 6 with nothing moved. It then
+makes the Trash refuse (exit 5, the draft is kept), deletes that draft with `--delete` (nothing
+reaches the trash folder), and checks that `--delete` still refuses a folder outside the drafts
+folder.
