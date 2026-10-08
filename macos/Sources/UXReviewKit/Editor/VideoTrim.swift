@@ -255,11 +255,11 @@ final class VideoFrames {
     func frame(atMs millis: Int) -> CGImage? {
         if let image = cache[millis] { return image }
         let time = CMTime(value: CMTimeValue(max(millis, 0)), timescale: 1000)
-        var image = try? generator.copyCGImage(at: time, actualTime: nil)
+        var image = generator.blockingImage(at: time)
         if image == nil, millis > 0 {
             // The clip's end time has no frame of its own; show the frame just before it.
             generator.requestedTimeToleranceBefore = .positiveInfinity
-            image = try? generator.copyCGImage(at: time, actualTime: nil)
+            image = generator.blockingImage(at: time)
             generator.requestedTimeToleranceBefore = .zero
         }
         guard let image else { return nil }
@@ -267,5 +267,26 @@ final class VideoFrames {
         order.append(millis)
         if order.count > Self.cacheLimit { cache[order.removeFirst()] = nil }
         return image
+    }
+}
+
+extension AVAssetImageGenerator {
+    /// The image at `time` with the generator's current tolerances, blocking until it is ready
+    /// (the synchronous `copyCGImage(at:actualTime:)` is deprecated).
+    func blockingImage(at time: CMTime) -> CGImage? {
+        let box = ImageBox()
+        let done = DispatchSemaphore(value: 0)
+        generateCGImageAsynchronously(for: time) { image, _, _ in
+            box.image = image
+            done.signal()
+        }
+        done.wait()
+        return box.image
+    }
+
+    /// Carries the image out of the completion handler; written before the semaphore signals,
+    /// read after it.
+    private final class ImageBox: @unchecked Sendable {
+        var image: CGImage?
     }
 }

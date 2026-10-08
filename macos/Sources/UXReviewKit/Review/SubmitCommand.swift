@@ -112,7 +112,7 @@ public enum MediaThumbnail {
             generator.requestedTimeToleranceBefore = .zero
             generator.requestedTimeToleranceAfter = CMTime(value: 100, timescale: 1000)
             let time = CMTime(value: CMTimeValue(max(atMs, 0)), timescale: 1000)
-            guard let frame = try? generator.copyCGImage(at: time, actualTime: nil) else { return nil }
+            guard let frame = generator.blockingImage(at: time) else { return nil }
             guard let crop else { return frame }
             return ImageCrop.apply(crop, to: frame).flatMap { scaled($0, maxPixels: maxPixels) }
         }
