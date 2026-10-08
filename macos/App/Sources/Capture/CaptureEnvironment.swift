@@ -58,6 +58,26 @@ enum WindowDirectory {
     }
 }
 
+/// UX Review's windows that exist only to run a capture (picker overlays, the countdown and saved
+/// HUD, the recording dim). They are never in a capture's output, while UX Review's other windows
+/// are captured like any app's (HS2-63B0PJ, docs/04-capture.md §4.3). `sharingType = .none` is
+/// set as well, though ScreenCaptureKit no longer honors it on current macOS; the filter in
+/// `ScreenCaptureKitBackend.makeFilter` is what keeps them out.
+@MainActor
+enum CaptureChrome {
+    static let identifier = NSUserInterfaceItemIdentifier("com.smalltale.uxreview.captureChrome")
+
+    static func mark(_ window: NSWindow) {
+        window.identifier = identifier
+        window.sharingType = .none
+    }
+
+    /// Window-server ids of the chrome windows that currently have one.
+    static func windowIDs() -> Set<UInt32> {
+        Set(NSApp.windows.filter { $0.identifier == identifier && $0.windowNumber > 0 }.map { UInt32($0.windowNumber) })
+    }
+}
+
 /// Describes where a capture came from, as of the moment it is taken.
 @MainActor
 enum CaptureContextProvider {

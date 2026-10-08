@@ -78,6 +78,15 @@ public enum WindowSelection {
         return front.ownerPID == ownPID ? nil : front
     }
 
+    /// Which of UX Review's own windows a display or region capture keeps (HS2-63B0PJ): all of
+    /// them except capture chrome (`chrome`: the picker overlays, the countdown and saved HUD,
+    /// the recording dim). What the reviewer sees while picking is what the capture shows, so an
+    /// editor window over the region is in the image rather than what is behind it. Windows of
+    /// other apps are not listed; they are captured anyway.
+    public static func ownWindowsToCapture(in windows: [WindowSnapshot], ownPID: Int32, chrome: Set<UInt32>) -> Set<UInt32> {
+        Set(windows.lazy.filter { $0.ownerPID == ownPID && !chrome.contains($0.windowID) }.map(\.windowID))
+    }
+
     /// The frontmost normal-level (layer 0) window owned by `pid`, used to name the window being
     /// reviewed and as the default headless window target. Floating palettes are skipped so they
     /// never stand in for the document window.

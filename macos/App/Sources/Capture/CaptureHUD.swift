@@ -2,8 +2,8 @@ import AppKit
 import SwiftUI
 
 /// A small floating panel for countdowns and "saved" confirmations. It never takes focus or
-/// mouse events, so hover states in the reviewed app stay put, and it is excluded from captures
-/// (ScreenCaptureKit filters out all of UX Review's windows).
+/// mouse events, so hover states in the reviewed app stay put, and it is capture chrome: never in
+/// a capture's output (`CaptureChrome`).
 @MainActor
 final class CaptureHUD {
     private var panel: NSPanel?
@@ -60,6 +60,7 @@ final class CaptureHUD {
         panel.hidesOnDeactivate = false
         panel.isReleasedWhenClosed = false
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary, .ignoresCycle]
+        CaptureChrome.mark(panel)
         return panel
     }
 }

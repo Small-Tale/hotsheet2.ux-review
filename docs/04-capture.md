@@ -63,6 +63,8 @@ Settings) are not raised over the app being reviewed (HS2-AR8Q2G).
     one is on top under the pointer, nothing is highlighted and a click does nothing, rather
     than picking a window the reviewer cannot see. UX Review's windows above the app levels
     (the capture HUD, the picker overlay) do not count.
+  - This is about picking only. A region or whole-screen capture does show UX Review's own
+    windows, just as they are on screen (§4.3, `HS2-63B0PJ`).
   - The default headless window target and the capture context's window name still use the
     app's frontmost normal (layer-0) window, never a floating palette.
 - **Switching while picking** (`PickerKeys`, `HS2-8NATQR`), like macOS ⌘⇧4, so the target can
@@ -91,8 +93,21 @@ time to open a menu or hover over a control.
   takes focus or mouse events.
 - After capture, a HUD briefly shows "Saved capture-N.png" and how many captures the review now
   has.
-- All of UX Review's windows (overlays, HUDs) are excluded from display and region captures.
-  Window captures contain only the chosen window.
+- **What a capture shows** (`HS2-63B0PJ`): display and region captures, images and recordings
+  alike, show what is on screen, UX Review's own windows included. An editor or Submit Review
+  window over the dragged region is in the capture, not what is behind it. What you see while
+  dragging is what you get.
+  - Only *capture chrome* is left out: the picker overlays, the countdown and saved HUD, and
+    the recording dim (`CaptureChrome`).
+  - The ScreenCaptureKit filter excludes UX Review as a whole and lists its other on-screen
+    windows as exceptions (`WindowSelection.ownWindowsToCapture`). So chrome that appears after
+    a recording starts (the "Recording" HUD, the dim) stays out of the movie too. Chrome
+    windows also set `sharingType = .none`, which current macOS no longer honors for
+    ScreenCaptureKit, so the filter is what keeps them out.
+  - The exceptions are fixed when a recording starts, so a UX Review window that opens during
+    a recording is left out of that movie (`HS2-XT5K63`).
+  - Window captures contain only the chosen window. The window picker still never picks
+    UX Review's own windows (§4.2).
 
 ## 4.4 Pixels
 
@@ -185,8 +200,8 @@ reads "Recording in…". Once recording begins:
   - The dim sits above app windows and the Dock but below the menu bar, so the menu bar and
     the Stop control stay undimmed.
   - It ignores the mouse, so the reviewer keeps working in the region and anywhere else.
-  - It never appears in the movie. ScreenCaptureKit's filter excludes all of UX Review's
-    windows, and the dim window's `sharingType` is `.none` as well.
+  - It never appears in the movie: it is capture chrome, which the ScreenCaptureKit filter
+    leaves out (§4.3).
   - The clear area is the even-sized area that is actually recorded.
   - Window and screen recordings get no dim, and neither does headless `--capture video`.
 - **Stop** with "Stop Recording (m:ss)" at the top of the menu, or with either global hotkey.

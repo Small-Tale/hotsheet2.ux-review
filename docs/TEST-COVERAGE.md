@@ -62,6 +62,8 @@ Each feature gets both unit tests and end-to-end tests. Tests live in
   - front window per app, which stays on layer 0
   - the picker's target: UX Review's own windows on top occlude rather than being skipped,
     while its HUD and overlay levels do not (HS2-AR8Q2G regression)
+  - which of UX Review's own windows display and region captures keep: all but capture chrome
+    (HS2-63B0PJ), while the picker still never picks them
 - **Live window list** (`LiveWindowListTests`, HS2-VJ8VE8 regression): the window pick re-reads
   the window list while it runs.
   - transition matrix: no list / fresh / stale × pointer move, timer, click, mode switch; only a
@@ -799,7 +801,7 @@ Each feature gets both unit tests and end-to-end tests. Tests live in
   and the rest of the test card is slightly dimmed.
 - **Not covered automatically:**
   - the live overlay during a real recording: it is click-through, it is absent from the
-    movie (filter exclusion plus `sharingType = .none`), and it is torn down on stop, failure,
+    movie (capture chrome, left out by the filter), and it is torn down on stop, failure,
     and unexpected stop
   - window and screen recordings showing no dim
   These need Screen Recording permission and a live session (`HS2-HA9TW3`).

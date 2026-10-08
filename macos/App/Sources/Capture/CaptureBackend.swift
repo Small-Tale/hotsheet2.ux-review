@@ -110,7 +110,11 @@ struct ScreenCaptureKitBackend: CaptureBackend {
     }
 
     /// Builds the content filter and an output configuration sized to native pixels. Shared with
-    /// video recording. UX Review's own windows (picker, countdown) are always excluded.
+    /// video recording. Display and region captures show UX Review's own windows as they are on
+    /// screen (HS2-63B0PJ), except its capture chrome (`CaptureChrome`: picker overlays, HUD,
+    /// recording dim). The filter excludes the whole app and lists its other on-screen windows
+    /// as exceptions, so chrome that appears later (the "Recording" HUD, the dim) stays out of a
+    /// recording too. docs/04-capture.md §4.3.
     static func makeFilter(for source: CaptureSource) async throws -> (SCContentFilter, SCStreamConfiguration) {
         let content: SCShareableContent
         do {
@@ -125,8 +129,18 @@ struct ScreenCaptureKitBackend: CaptureBackend {
             guard let display = content.displays.first(where: { $0.displayID == id }) else {
                 throw CaptureFailure.targetUnavailable("The display")
             }
-            let ours = content.applications.filter { $0.processID == ProcessInfo.processInfo.processIdentifier }
-            let filter = SCContentFilter(display: display, excludingApplications: ours, exceptingWindows: [])
+            let ownPID = ProcessInfo.processInfo.processIdentifier
+            let ours = content.applications.filter { $0.processID == ownPID }
+            let kept = WindowSelection.ownWindowsToCapture(
+                in: content.windows.filter { $0.owningApplication?.processID == ownPID }.map(WindowSnapshot.init(window:)),
+                ownPID: ownPID,
+                chrome: CaptureChrome.windowIDs()
+            )
+            let filter = SCContentFilter(
+                display: display,
+                excludingApplications: ours,
+                exceptingWindows: content.windows.filter { kept.contains($0.windowID) }
+            )
             let scale = Double(filter.pointPixelScale)
             if let region {
                 configuration.sourceRect = region.sourceRect
@@ -242,5 +256,19 @@ struct SyntheticCaptureBackend: CaptureBackend {
             let size = RegionGeometry.pixelSize(points: window.frame.size, scale: scale)
             return (size.width, size.height, scale)
         }
+    }
+}
+
+extension WindowSnapshot {
+    /// A ScreenCaptureKit window in the same terms as the window server's list.
+    init(window: SCWindow) {
+        self.init(
+            windowID: window.windowID,
+            ownerPID: window.owningApplication?.processID ?? -1,
+            ownerName: window.owningApplication?.applicationName,
+            title: window.title,
+            layer: window.windowLayer,
+            frame: window.frame
+        )
     }
 }

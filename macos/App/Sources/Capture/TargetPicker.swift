@@ -225,6 +225,7 @@ final class OverlayWindow: NSPanel {
         isReleasedWhenClosed = false
         collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary, .ignoresCycle]
         contentView = OverlayView(display: display, session: session)
+        CaptureChrome.mark(self)
     }
 
     override var canBecomeKey: Bool { true }

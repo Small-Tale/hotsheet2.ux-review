@@ -3,9 +3,8 @@ import UXReviewKit
 
 /// While a region is being recorded, dims the rest of its display so the reviewer can see what
 /// is in the movie (docs/04 §4.9, HS2-122ZFZ). The overlay ignores the mouse, never takes focus,
-/// and is kept out of the recording: ScreenCaptureKit's filter excludes all of UX Review's
-/// windows, and the window's `sharingType` is `.none` as well. Window and screen recordings get
-/// no dim.
+/// and is kept out of the recording as capture chrome (`CaptureChrome`). Window and screen
+/// recordings get no dim.
 @MainActor
 final class RecordingDimOverlay {
     private var window: NSWindow?
@@ -26,7 +25,7 @@ final class RecordingDimOverlay {
         window.backgroundColor = .clear
         window.hasShadow = false
         window.ignoresMouseEvents = true
-        window.sharingType = .none
+        CaptureChrome.mark(window)
         window.isReleasedWhenClosed = false
         window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary, .ignoresCycle]
         window.contentView = RecordingDimView(frame: CGRect(origin: .zero, size: frame.size), layout: layout)

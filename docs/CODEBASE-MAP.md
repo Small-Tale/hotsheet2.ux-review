@@ -32,7 +32,7 @@ macos/
     HotSheet/ProcessRunner.swift      Process seam (fakeable in tests)
     Capture/CaptureRequest.swift      kind/target/delay of a capture (docs/04 §4.1)
     Capture/RegionGeometry.swift      AppKit rect → display-local, pixel-snapped capture area
-    Capture/WindowSelection.swift     window-server snapshots, pick/frontmost window rules
+    Capture/WindowSelection.swift     window-server snapshots, pick/frontmost window rules, own windows kept in captures (docs/04 §4.3)
     Capture/LiveWindowList.swift      the window pick's window list, re-read while picking (throttle, timer, click) (docs/04 §4.2)
     Capture/PickerKeys.swift          picker keys: Space region ⇄ window, Return whole display, Esc; hints (docs/04 §4.2)
     Capture/PickerFocus.swift         who gets focus back when the target picker ends
@@ -93,7 +93,7 @@ macos/
     AppSettings.swift          project folder (defaults / --project), recent projects, folder panel
     UIPreviews.swift           --render-ui-previews offscreen renders for visual QA
     Capture/CaptureBackend.swift      ScreenCaptureKit + synthetic backends, CaptureFailure
-    Capture/CaptureEnvironment.swift  displays, window list, capture context provider
+    Capture/CaptureEnvironment.swift  displays, window list, capture context provider, CaptureChrome (windows never captured)
     Capture/CapturePipeline.swift     capture → PNG / recorded movie → draft store
     Capture/VideoRecording.swift      SCStream recorder, microphone recorder (AVCaptureSession → host clock), synthetic recorder
     Capture/CaptureCoordinator.swift  UI flow: permission (+ microphone), pick, countdown, capture, alerts
