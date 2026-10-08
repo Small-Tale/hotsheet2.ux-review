@@ -99,7 +99,9 @@ extension EditorSessionTests {
         session.editor.show(mediaId: "m2")
         #expect(session.displayImage("m2")?.width == 300) // cached
         try fixture.store.removeMedia("m2", from: fixture.draft.directory)
-        // Removing the last capture frees both its id and its file name for the next one.
+        // Numbering is monotonic now (docs/07 §7.2), but a draft from before numbering.json
+        // could still reuse the last removed capture's id and file name: simulate that.
+        try FileManager.default.removeItem(at: fixture.draft.directory.appendingPathComponent(DraftNumbering.filename))
         try fixture.store.add(fixture.capture(width: 120, height: 80, capturedAt: Date(timeIntervalSince1970: 60)))
         let reused = try fixture.onDisk().media.last
         #expect(reused?.id == "m2" && reused?.filename == "capture-2.png")

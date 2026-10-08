@@ -201,7 +201,8 @@ struct DraftSubmitterTests {
         #expect(empty.bundle.validate() == [.noMedia])
         let refilled = try fixture.draft(captures: 1)
         #expect(refilled.directory == draft.directory)
-        #expect(refilled.bundle.media.map(\.id) == ["m1"])
+        #expect(refilled.bundle.media.map(\.id) == ["m4"])
+        #expect(refilled.bundle.media.map(\.filename) == ["capture-4.png"])
     }
 
     @Test func setDetailsKeepsCapturesAddedMeanwhile() throws {

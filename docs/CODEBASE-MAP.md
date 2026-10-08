@@ -49,6 +49,7 @@ macos/
     Review/MediaOpenRouting.swift     Finder Open With / editor drop routing plan (dedupe, all-or-nothing), OpenBatch, `--open-media` parsing (docs/04 §4.12.1)
     Review/ReviewSession.swift        session state machine, SessionIssue rules + messages, DraftSubmitter (docs/07)
     Review/ReviewSession+Destination.swift  new vs existing ticket, TicketLookup states, ticket issues, DraftSubmitter.add (docs/07 §7.2.1, §7.4)
+    Review/DraftNumbering.swift       numbering.json: highest capture-N / mN used, so removed captures' names and ids are never reused (docs/07 §7.2)
     Review/ReviewDraftStore+Session.swift  title/summary, remove a capture, submission.json (created ticket or attached names), delete after submit (docs/07 §7.5)
     Review/ReviewDraftStore+Drafts.swift   list every draft (DraftSummary), discard to the Trash (DraftTrash), draft-folder safety check (docs/07 §7.9)
     Review/DraftsCommand.swift        `--drafts` / `--discard-draft` parsing (docs/07 §7.10)

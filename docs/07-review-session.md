@@ -41,7 +41,10 @@ notification the capture pipeline and the editor already post.
 `edits.json`, and any kept original under `originals/` from an older draft. An open editor on the draft stays open and drops that
 capture, its annotations, and its undo history (docs/06 §6.7); its unsaved edits to other
 captures are kept. Numbering of later
-captures continues (a removed `capture-2.png` leaves a gap).
+captures continues: a removed `capture-2.png` leaves a gap, and removing the *last* capture
+does not free its file name or media id either. The draft's `numbering.json` records the highest
+`capture-N` and `mN` used once a capture is removed (`DraftNumbering`, `HS2-44ZXNE`); drafts that
+never removed one have no such file.
 
 After a successful submission the window shows **Filed as HS-…**, the title, what was attached,
 and **Copy Slug**, **Show Ticket File** (the ticket's Markdown file in the store, revealed in
@@ -145,7 +148,7 @@ rewritten while drafting), `review.json`, and `edits.json` with each crop and tr
    §6.6).
 3. Submits with `ReviewSubmitter` ([03-hotsheet-integration.md](03-hotsheet-integration.md) §3.2):
    validate, write `review.json`, `new`, then one `attach` batch of the media plus `review.json`.
-   `edits.json`, `originals/`, and `submission.json` are never attached.
+   `edits.json`, `numbering.json`, `originals/`, and `submission.json` are never attached.
 4. **On success** it deletes the draft folder. When it was the current draft, the `current`
    pointer goes too, so the next capture starts a new review. If the folder can't be deleted,
    the result says so (`draftRemoved: false`); it is no longer current either way.

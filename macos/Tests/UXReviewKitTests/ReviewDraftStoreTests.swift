@@ -205,6 +205,58 @@ struct ReviewDraftStoreTests {
         #expect(try fixture.store.add(fixture.capture("b.png")).draft.directory != second.directory)
     }
 
+    /// Removing captures never frees their file names or ids, whichever one is removed, across
+    /// remove → add → remove sequences, an emptied draft, and an unreadable record (docs/07 §7.2).
+    @Test func numberingIsMonotonicAcrossRemovals() throws {
+        let fixture = try Fixture()
+        let (draft, _) = try fixture.store.add(fixture.capture("a.png"))
+        try fixture.store.add(fixture.capture("b.png"))
+        let names = { try fixture.bundleOnDisk("draft-a").media.map { "\($0.id):\($0.filename)" } }
+
+        // Remove the last capture: the next one does not reuse capture-2 / m2.
+        try fixture.store.removeMedia("m2", from: draft.directory)
+        try fixture.store.add(fixture.capture("c.png"))
+        #expect(try names() == ["m1:capture-1.png", "m3:capture-3.png"])
+        #expect(DraftNumbering.load(from: draft.directory) == DraftNumbering(lastCapture: 2, lastMedia: 2))
+
+        // Remove every capture: numbering still continues.
+        try fixture.store.removeMedia("m3", from: draft.directory)
+        try fixture.store.removeMedia("m1", from: draft.directory)
+        #expect(try names().isEmpty)
+        try fixture.store.add(fixture.capture("d.mov", kind: .video))
+        #expect(try names() == ["m4:capture-4.mov"])
+
+        // Removing a middle capture leaves a gap; the record never goes down.
+        try fixture.store.add(fixture.capture("e.png"))
+        try fixture.store.removeMedia("m4", from: draft.directory)
+        try fixture.store.add(fixture.capture("f.png"))
+        #expect(try names() == ["m5:capture-5.png", "m6:capture-6.png"])
+        #expect(DraftNumbering.load(from: draft.directory) == DraftNumbering(lastCapture: 5, lastMedia: 5))
+
+        // A failed removal (unknown id) records nothing.
+        #expect(throws: ReviewDraftError.self) { try fixture.store.removeMedia("m99", from: draft.directory) }
+        #expect(DraftNumbering.load(from: draft.directory) == DraftNumbering(lastCapture: 5, lastMedia: 5))
+
+        // An unreadable record falls back to review.json and is replaced on the next removal.
+        try Data("{".utf8).write(to: draft.directory.appendingPathComponent(DraftNumbering.filename))
+        try fixture.store.add(fixture.capture("g.png"))
+        #expect(try names().last == "m7:capture-7.png")
+        try fixture.store.removeMedia("m7", from: draft.directory)
+        #expect(DraftNumbering.load(from: draft.directory) == DraftNumbering(lastCapture: 7, lastMedia: 7))
+    }
+
+    /// Drafts without a record (never removed a capture, or from before numbering.json) keep the
+    /// review.json-based numbering, including names that don't follow the capture-N pattern.
+    @Test func numberingWithoutARecordFollowsTheBundle() throws {
+        let fixture = try Fixture()
+        let (draft, _) = try fixture.store.add(fixture.capture("a.png"))
+        #expect(!FileManager.default.fileExists(atPath: draft.directory.appendingPathComponent(DraftNumbering.filename).path))
+        try fixture.store.update(draft.directory) { bundle in bundle.media[0].filename = "imported.png" }
+        let (_, second) = try fixture.store.add(fixture.capture("b.png"))
+        // capture-1.png is still on disk under its old name, so it is skipped.
+        #expect(second.id == "m2" && second.filename == "capture-2.png")
+    }
+
     @Test func defaultIDsAreUniqueAndSortable() {
         let first = ReviewDraftStore.makeDraftID()
         let second = ReviewDraftStore.makeDraftID()

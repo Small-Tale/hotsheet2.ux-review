@@ -158,7 +158,7 @@ public final class ReviewDraftStore: @unchecked Sendable {
         let number = nextCaptureNumber(in: draft)
         let ext = capture.fileURL.pathExtension.isEmpty ? (capture.kind == .image ? "png" : "mov") : capture.fileURL.pathExtension
         let item = MediaItem(
-            id: nextMediaID(in: draft.bundle),
+            id: nextMediaID(in: draft),
             filename: "capture-\(number).\(ext.lowercased())",
             kind: capture.kind,
             pixelWidth: capture.pixelWidth,
@@ -240,14 +240,11 @@ public final class ReviewDraftStore: @unchecked Sendable {
         try ReviewBundle.makeEncoder().encode(bundle).write(to: url, options: .atomic)
     }
 
-    /// One more than the highest `capture-N` already used, skipping files that exist on disk.
+    /// One more than the highest `capture-N` ever used in the draft (including removed
+    /// captures, `numbering.json`), skipping files that exist on disk.
     private func nextCaptureNumber(in draft: ReviewDraft) -> Int {
-        let used = draft.bundle.media.compactMap { item -> Int? in
-            let stem = (item.filename as NSString).deletingPathExtension
-            guard stem.hasPrefix("capture-") else { return nil }
-            return Int(stem.dropFirst("capture-".count))
-        }
-        var number = (used.max() ?? 0) + 1
+        let used = draft.bundle.media.compactMap { Self.captureNumber(of: $0.filename) }
+        var number = max(used.max() ?? 0, DraftNumbering.load(from: draft.directory).lastCapture) + 1
         let existing = (try? FileManager.default.contentsOfDirectory(atPath: draft.directory.path)) ?? []
         while existing.contains(where: { ($0 as NSString).deletingPathExtension == "capture-\(number)" }) {
             number += 1
@@ -255,12 +252,27 @@ public final class ReviewDraftStore: @unchecked Sendable {
         return number
     }
 
-    private func nextMediaID(in bundle: ReviewBundle) -> String {
-        let used = Set(bundle.media.map(\.id))
-        var number = bundle.media.count + 1
+    /// `m<N>` after every id the draft has used, including removed captures' (`numbering.json`).
+    private func nextMediaID(in draft: ReviewDraft) -> String {
+        let used = Set(draft.bundle.media.map(\.id))
+        let highest = draft.bundle.media.compactMap { Self.mediaNumber(of: $0.id) }.max() ?? 0
+        var number = max(draft.bundle.media.count, highest, DraftNumbering.load(from: draft.directory).lastMedia) + 1
         while used.contains("m\(number)") {
             number += 1
         }
         return "m\(number)"
+    }
+
+    /// N for a `capture-N.ext` file name, else nil.
+    static func captureNumber(of filename: String) -> Int? {
+        let stem = (filename as NSString).deletingPathExtension
+        guard stem.hasPrefix("capture-") else { return nil }
+        return Int(stem.dropFirst("capture-".count))
+    }
+
+    /// N for an `mN` media id, else nil.
+    static func mediaNumber(of id: String) -> Int? {
+        guard id.hasPrefix("m") else { return nil }
+        return Int(id.dropFirst())
     }
 }

@@ -74,6 +74,9 @@ Each feature gets both unit tests and end-to-end tests. Tests live in
     missing capture file (nothing is created)
   - filename collisions on disk
   - per-media and review-level context
+  - monotonic numbering (`HS2-44ZXNE`): removing the last, a middle, or every capture never
+    frees a file name or id; a failed removal records nothing; an unreadable `numbering.json`
+    falls back to `review.json`; drafts without a record follow `review.json`
 - **`--capture` parsing** (`CaptureCommandTests`): a full command, defaults, and 13 rejected
   argument shapes.
 - **Ticket body**: per-media source labels (`TicketComposerTests`).
@@ -573,7 +576,7 @@ Each feature gets both unit tests and end-to-end tests. Tests live in
   media). Every case checks that nothing in the document, saved state, or history refers to the
   removed media and that the bundle validates. Adversarial: repeated syncs, unknown ids,
   remove-everything-then-refill, interleaved adds and removals, and a removed id (and file
-  name) reused by a later capture.
+  name) reused by a later capture (only drafts from before `numbering.json` can do that).
 - **Session and files** (`EditorSessionTests`, real PNGs): a capture removed by
   `ReviewDraftStore.removeMedia` with unsaved edits on it and on another capture, caught up by
   `reload()` or directly by `save()`: no file, original, or annotation comes back, the other

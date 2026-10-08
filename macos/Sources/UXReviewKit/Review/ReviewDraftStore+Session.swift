@@ -52,6 +52,11 @@ public extension ReviewDraftStore {
         guard let item = draft.bundle.media.first(where: { $0.id == mediaId }) else {
             throw ReviewDraftError.unknownMedia(mediaId)
         }
+        // Remember the highest number used, so the next capture never reuses this one's file
+        // name or id (docs/07 §7.2). Written first: a stale record only skips numbers.
+        var numbering = DraftNumbering.load(from: directory)
+        numbering.record(draft.bundle.media)
+        try numbering.save(to: directory)
         draft.bundle.media.removeAll { $0.id == mediaId }
         draft.bundle.annotations.removeAll { $0.mediaId == mediaId }
         try write(draft.bundle, to: draft.bundleURL)

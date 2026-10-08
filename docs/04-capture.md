@@ -114,11 +114,13 @@ Drafts/
     capture-1.png
     capture-2.png
     edits.json              crops and trims, applied only when submitting (docs/06 §6.6), never attached
+    numbering.json          highest capture-N / mN used, once a capture is removed (docs/07 §7.2), never attached
 ```
 
 - **First capture**: creates a draft. Its title is "<App> review", or "UX review" when the app
   is unknown.
 - **Later captures**: append to the current draft as `capture-N.<ext>` (with media ids `mN`).
+  Numbers only go up: a removed capture's file name and id are never reused (docs/07 §7.2).
 - **New Review** (File menu, ⌘N, `HS2-80CTK8`): creates a new, empty draft and makes it current,
   so the next captures go into it. Old drafts stay on disk. (`ReviewDraftStore.startNew()`,
   which only ends the current draft, remains for scripts and tests.) **Draft Reviews…** lists them so they can be reopened, submitted,
