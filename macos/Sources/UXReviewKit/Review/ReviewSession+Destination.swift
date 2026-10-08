@@ -183,28 +183,48 @@ extension DraftSubmitter {
         pending: PendingSubmission?,
         progress: (SubmitStep) -> Void
     ) throws(SubmissionFailure) -> SubmittedReview {
-        let resume = pending.flatMap { $0.ticket.slug == existing.slug ? $0.attachedNames : nil }
+        // Only a record of this same existing ticket is resumed (§7.5).
+        let own = pending.flatMap { $0.ticket.slug == existing.slug && $0.isForExistingTicket ? $0 : nil }
+        let resume = own?.attachedNames
+        let partial = resume == nil ? own?.partialAttach : nil
+        let createdAt = own?.createdAt ?? now()
         let ticket: CreatedTicket
         do {
             // Crops and trims applied (HS2-71SSJG), as for a new ticket.
-            ticket = try ReviewSubmitter(client: client).add(
+            ticket = try ReviewSubmitter(client: client, makeBatchID: makeBatchID).add(
                 staged.bundle,
                 mediaDirectory: staged.mediaDirectory,
                 to: existing.createdTicket,
                 attached: resume,
+                resume: partial,
                 progress: progress
             )
         } catch let ReviewSubmissionError.noteFailed(ticket, attached, reason) {
             try? store.savePendingSubmission(
                 PendingSubmission(
-                    storePath: storePath.path, ticket: ticket,
-                    createdAt: (resume == nil ? nil : pending?.createdAt) ?? now(), attachedNames: attached
+                    storePath: storePath.path, ticket: ticket, createdAt: createdAt, attachedNames: attached, toExistingTicket: true
                 ),
                 in: draft.directory
             )
             throw SubmissionFailure(
                 message: "The media was attached to \(ticket.slug), but adding the review note failed: \(reason)",
                 attachedTo: ticket.slug
+            )
+        } catch let ReviewSubmissionError.attachFailed(ticket, reason, attachedPart) {
+            // Nothing attached: nothing to record, and Try Again starts over.
+            guard let attachedPart else {
+                throw SubmissionFailure(message: reason)
+            }
+            try? store.savePendingSubmission(
+                PendingSubmission(
+                    storePath: storePath.path, ticket: ticket, createdAt: createdAt, partialAttach: attachedPart, toExistingTicket: true
+                ),
+                in: draft.directory
+            )
+            throw SubmissionFailure(
+                message: "Some of the media was attached to \(ticket.slug) before attaching failed: \(reason)",
+                attachedTo: ticket.slug,
+                partlyAttached: true
             )
         } catch {
             throw SubmissionFailure(message: ReviewSubmitter.describe(error), attachedTo: resume == nil ? nil : existing.slug)

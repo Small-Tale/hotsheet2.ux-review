@@ -141,7 +141,8 @@ struct ExistingTicketCLITests {
             files: files,
             to: "HS-1",
             batchLabel: "UX review capture",
-            purpose: "problem_evidence"
+            purpose: "problem_evidence",
+            batchID: nil
         )
         #expect(names == ["capture-1.png", "we`ird.png", "review (3).json"])
         #expect(runner.calls.first?.arguments.suffix(4) == ["--", "/d/capture-1.png", "/d/we`ird.png", "/d/review.json"])
@@ -149,9 +150,41 @@ struct ExistingTicketCLITests {
         // Output it can't read (an older CLI): assume the files kept their names.
         let quiet = FakeRunner(results: [ProcessResult(exitCode: 0, stdout: "ok\n", stderr: "")])
         #expect(
-            try client(quiet).attachReportingNames(files: files, to: "HS-1", batchLabel: nil, purpose: nil)
+            try client(quiet).attachReportingNames(files: files, to: "HS-1", batchLabel: nil, purpose: nil, batchID: nil)
                 == ["capture-1.png", "we`ird.png", "review.json"]
         )
+    }
+
+    /// The real CLI stopping part-way (HS2-QNWMKF probe: a missing second file): the first file's
+    /// lines, then `Error: …` on stderr and exit 1. The names printed so far come back in
+    /// `attachIncomplete`; a batch id is passed through as `--batch-id`.
+    @Test func aPartialAttachReportsWhatGotIn() throws {
+        let stdout = """
+        Attached `attachment:capture-1 (2).png`
+        Durable attachment id: 01M4CHK3QMFMBFK9SEWMXSV8TY (/s/a.hs2/attachments/01M4/01M4CHK3QMFMBFK9SEWMXSV8TY/capture-1 (2).png)
+
+        """
+        let runner = FakeRunner(results: [
+            ProcessResult(exitCode: 1, stdout: stdout, stderr: "Error: No such file or directory (os error 2)\n"),
+        ])
+        let files = ["capture-1.png", "capture-2.mov", "review.json"].map { URL(fileURLWithPath: "/d/\($0)") }
+        #expect(throws: HotSheetError.attachIncomplete(
+            storedNames: ["capture-1 (2).png"], exitCode: 1, stderr: "Error: No such file or directory (os error 2)\n"
+        )) {
+            try client(runner).attachReportingNames(files: files, to: "HS-1", batchLabel: "L", purpose: nil, batchID: "batch-x")
+        }
+        #expect(runner.calls.first?.arguments.contains("--batch-id=batch-x") == true)
+        #expect(
+            ReviewSubmitter.describe(HotSheetError.attachIncomplete(storedNames: ["a"], exitCode: 1, stderr: "Error: gone\n"))
+                == "hotsheet-cli attach failed after attaching 1 file (exit 1): Error: gone"
+        )
+
+        // A failure before any file: the usual commandFailed, and no --batch-id without one.
+        let early = FakeRunner(results: [ProcessResult(exitCode: 1, stdout: "", stderr: "Error: no ticket\n")])
+        #expect(throws: HotSheetError.commandFailed(command: "attach", exitCode: 1, stderr: "Error: no ticket\n")) {
+            try client(early).attachReportingNames(files: files, to: "HS-9", batchLabel: nil, purpose: nil, batchID: nil)
+        }
+        #expect(early.calls.first?.arguments.contains { $0.hasPrefix("--batch-id") } == false)
     }
 
     @Test func addNoteWritesAFileAndRunsEditWithNoteFile() throws {

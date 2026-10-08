@@ -131,13 +131,16 @@ public struct SubmissionFailure: Error, Equatable, Sendable {
     /// Set when a ticket was created but its attachments were not: the retry attaches to it.
     public var createdTicket: String?
     /// Set when the media was attached to an existing ticket but the note was not: the retry adds
-    /// only the note.
+    /// only the note. With `partlyAttached`, only some of the media is attached there.
     public var attachedTo: String?
+    /// Some files were attached before the attach failed: the retry attaches only the rest.
+    public var partlyAttached: Bool
 
-    public init(message: String, createdTicket: String? = nil, attachedTo: String? = nil) {
+    public init(message: String, createdTicket: String? = nil, attachedTo: String? = nil, partlyAttached: Bool = false) {
         self.message = message
         self.createdTicket = createdTicket
         self.attachedTo = attachedTo
+        self.partlyAttached = partlyAttached
     }
 }
 
@@ -269,12 +272,21 @@ public struct DraftSubmitter: Sendable {
     public var client: HotSheetClient
     public var storePath: URL
     public var now: @Sendable () -> Date
+    /// The id of a new attach batch (`ReviewSubmitter.makeBatchID`).
+    public var makeBatchID: @Sendable () -> String
 
-    public init(store: ReviewDraftStore, client: HotSheetClient, storePath: URL, now: @escaping @Sendable () -> Date = Date.init) {
+    public init(
+        store: ReviewDraftStore,
+        client: HotSheetClient,
+        storePath: URL,
+        now: @escaping @Sendable () -> Date = Date.init,
+        makeBatchID: @escaping @Sendable () -> String = ReviewSubmitter.newBatchID
+    ) {
         self.store = store
         self.client = client
         self.storePath = storePath
         self.now = now
+        self.makeBatchID = makeBatchID
     }
 
     /// - Parameters:
@@ -310,23 +322,27 @@ public struct DraftSubmitter: Sendable {
             return try add(draft, staged: staged, to: existing, pending: pending, progress: progress)
         }
         // A record left by adding to an existing ticket is not a created ticket to reuse.
-        let resumable = pending.flatMap { $0.isAddedToExistingTicket ? nil : $0 }
+        let resumable = pending.flatMap { $0.isForExistingTicket ? nil : $0 }
         let ticket: CreatedTicket
         do {
-            ticket = try ReviewSubmitter(client: client).file(
+            ticket = try ReviewSubmitter(client: client, makeBatchID: makeBatchID).file(
                 staged.bundle,
                 mediaDirectory: staged.mediaDirectory,
                 existingTicket: resumable?.ticket,
+                resume: resumable?.partialAttach,
                 progress: progress
             )
-        } catch let ReviewSubmissionError.attachFailed(created, reason) {
+        } catch let ReviewSubmissionError.attachFailed(created, reason, partial) {
             try? store.savePendingSubmission(
-                PendingSubmission(storePath: storePath.path, ticket: created, createdAt: resumable?.createdAt ?? now()),
+                PendingSubmission(
+                    storePath: storePath.path, ticket: created, createdAt: resumable?.createdAt ?? now(), partialAttach: partial
+                ),
                 in: directory
             )
             throw SubmissionFailure(
                 message: "\(created.slug) was created, but attaching the media failed: \(reason)",
-                createdTicket: created.slug
+                createdTicket: created.slug,
+                partlyAttached: partial != nil
             )
         } catch {
             throw SubmissionFailure(message: ReviewSubmitter.describe(error), createdTicket: resumable?.ticket.slug)

@@ -299,7 +299,8 @@ struct ExistingTicketSubmitterTests {
         let pending = try #require(fixture.store.pendingSubmission(in: draft.directory))
         #expect(pending == PendingSubmission(
             storePath: "/stores/a.hs2", ticket: Self.existing.createdTicket, createdAt: Date(timeIntervalSince1970: 5000),
-            attachedNames: ["capture-1.png": "capture-1 (2).png", "capture-2.mov": "capture-2.mov", "review.json": "review.json"]
+            attachedNames: ["capture-1.png": "capture-1 (2).png", "capture-2.mov": "capture-2.mov", "review.json": "review.json"],
+            toExistingTicket: true
         ))
         #expect(try fixture.store.listDrafts().first?.pendingNoteOnly == true)
 
@@ -411,6 +412,11 @@ struct ExistingTicketSubmitterTests {
     @Test func pendingRecordsWithoutNamesStillDecode() throws {
         let json = #"{"storePath":"/s.hs2","ticket":{"slug":"HS-1"},"createdAt":"2026-10-07T00:00:00Z"}"#
         let record = try ReviewBundle.makeDecoder().decode(PendingSubmission.self, from: Data(json.utf8))
-        #expect(record.attachedNames == nil && !record.isAddedToExistingTicket)
+        #expect(record.attachedNames == nil && !record.isForExistingTicket && !record.isNotePending && !record.isPartlyAttached)
+        #expect(record.partialAttach == nil && record.toExistingTicket == nil)
+        // A note-pending record from before `toExistingTicket` is still one for an existing ticket.
+        let older = #"{"storePath":"/s.hs2","ticket":{"slug":"HS-1"},"createdAt":"2026-10-07T00:00:00Z","attachedNames":{}}"#
+        let note = try ReviewBundle.makeDecoder().decode(PendingSubmission.self, from: Data(older.utf8))
+        #expect(note.isForExistingTicket && note.isNotePending && !note.isPartlyAttached)
     }
 }

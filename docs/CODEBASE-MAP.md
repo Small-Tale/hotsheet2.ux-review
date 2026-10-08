@@ -25,8 +25,8 @@ macos/
     Model/ReviewBundle.swift       bundle, media, shapes, intents, time ranges, Codable
     Model/BundleValidation.swift   ReviewBundle.validate() rules (docs/02 §2.7)
     Tickets/TicketComposer.swift   intake ticket body, existing-ticket note, Hot Sheet annotation projection (docs/03 §3.3–3.5)
-    Tickets/ReviewSubmitter.swift  validate → write review.json → create ticket → attach batch; steps, resume, attachFailed; add(…) to an existing ticket: attach batch → note, noteFailed
-    HotSheet/HotSheetCLIClient.swift  HotSheetClient protocol, CreatedTicket (slug + file), CLI transport (new, attach with stored names, show, edit --note-file), HotSheetLocator
+    Tickets/ReviewSubmitter.swift  validate → write review.json → create ticket → attach batch; steps, resume, attachFailed; add(…) to an existing ticket: attach batch → note, noteFailed; PartialAttach: resume an interrupted attach into the same batch
+    HotSheet/HotSheetCLIClient.swift  HotSheetClient protocol, CreatedTicket (slug + file), CLI transport (new, attach with stored names + --batch-id, attachIncomplete, show, edit --note-file), HotSheetLocator
     HotSheet/HotSheetTicket.swift     an existing ticket from `show` front matter, its file; TicketReference (slug/ULID/path in pasted text)
     HotSheet/HotSheetStatus.swift     ready/problem detection for UI and --status
     HotSheet/ProcessRunner.swift      Process seam (fakeable in tests)
@@ -50,7 +50,7 @@ macos/
     Review/ReviewSession.swift        session state machine, SessionIssue rules + messages, DraftSubmitter (docs/07)
     Review/ReviewSession+Destination.swift  new vs existing ticket, TicketLookup states, ticket issues, DraftSubmitter.add (docs/07 §7.2.1, §7.4)
     Review/DraftNumbering.swift       numbering.json: highest capture-N / mN used, so removed captures' names and ids are never reused (docs/07 §7.2)
-    Review/ReviewDraftStore+Session.swift  title/summary, remove a capture, submission.json (created ticket or attached names), delete after submit (docs/07 §7.5)
+    Review/ReviewDraftStore+Session.swift  title/summary, remove a capture, submission.json (created ticket, attached names, or a partial attach), delete after submit (docs/07 §7.5)
     Review/ReviewDraftStore+Drafts.swift   list every draft (DraftSummary), discard to the Trash (DraftTrash) or delete immediately, draft-folder safety check (docs/07 §7.9)
     Review/DraftsCommand.swift        `--drafts` / `--discard-draft [--delete]` parsing (docs/07 §7.10)
     Review/SubmitCommand.swift        `--submit` parsing (`--to-ticket`), MediaThumbnail (capture list previews)

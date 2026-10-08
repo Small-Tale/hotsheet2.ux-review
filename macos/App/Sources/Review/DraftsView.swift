@@ -4,6 +4,14 @@ import UXReviewKit
 /// The Draft Reviews window: every draft review on disk, most recently edited first, with
 /// Open Session, Annotate, Show in Finder, and Discard. Spec: docs/07-review-session.md §7.9.
 struct DraftsView: View {
+    /// The orange line under a draft with a half-finished submission (docs/07 §7.9).
+    static func pendingText(for draft: DraftSummary, slug: String) -> String {
+        if draft.pendingNoteOnly { return "Media attached to \(slug); the review note isn't added yet" }
+        if draft.pendingToExisting { return "Some media attached to \(slug); the rest and the review note aren't added yet" }
+        if draft.pendingPartlyAttached { return "\(slug) was created; only some of its media is attached" }
+        return "\(slug) was created; its media isn't attached yet"
+    }
+
     struct Actions {
         var openSession: (DraftSummary) -> Void = { _ in }
         var annotate: (DraftSummary) -> Void = { _ in }
@@ -106,11 +114,8 @@ private struct DraftRow: View {
                 if let issue = draft.issue {
                     Text("Can't be opened: \(issue)").font(.caption).foregroundStyle(.orange).lineLimit(2)
                 } else if let slug = draft.pendingTicket {
-                    Text(
-                        draft.pendingNoteOnly ? "Media attached to \(slug); the review note isn't added yet" :
-                            "\(slug) was created; its media isn't attached yet"
-                    )
-                    .font(.caption).foregroundStyle(.orange).lineLimit(2)
+                    Text(DraftsView.pendingText(for: draft, slug: slug))
+                        .font(.caption).foregroundStyle(.orange).lineLimit(2)
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)

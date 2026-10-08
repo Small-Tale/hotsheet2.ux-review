@@ -156,6 +156,11 @@ rewritten while drafting), `review.json`, and `edits.json` with each crop and tr
    `Drafts/<id>/submission.json` records the ticket (`storePath`, `ticket {slug, file}`,
    `createdAt`). The failure names the ticket, and **Try Again** attaches to it instead of
    creating a second one. A retry into a different store ignores the record and starts over.
+   When the attach stopped part-way (`hotsheet-cli attach` is not atomic, docs/03 §3.2), the
+   record also has `partialAttach` (`batchID` and `storedNames`, draft file name → stored name),
+   and Try Again attaches only the files not yet attached, into the same batch, so none is
+   attached twice (`HS2-QNWMKF`). A retry that again stops part-way adds to the record; one that
+   attaches nothing leaves it as it was.
 6. **Any other failure** (validation, a missing file, `hotsheet-cli new` failing) keeps the
    draft unchanged apart from the saved title and summary.
 
@@ -167,13 +172,20 @@ one `attach` batch of the media plus `review.json`, then one note.
   records the ticket plus `attachedNames` (each draft file name → the name Hot Sheet stored it
   under). The failure says the media is attached, and **Try Again** adds only the note, citing
   those names. The batch is never attached twice and the note is never added twice.
-- **When the attach failed**, nothing is recorded and Try Again starts over.
+- **When the attach failed before any file**, nothing is recorded and Try Again starts over.
+- **When the attach stopped part-way**, the draft is kept and `submission.json` records the
+  ticket, `toExistingTicket: true`, and `partialAttach`. The failure says some media is attached,
+  and Try Again attaches only the rest into the same batch, then adds the note.
 - A record is reused only for the same kind of submission, ticket, and store. A note-pending
   record is never treated as a created ticket, and a created-ticket record is never reused for an
   existing ticket. A ticket created by an earlier failed New ticket submission stays in Hot Sheet,
   without media, if the review then goes to an existing ticket.
-- The Draft Reviews row reads "Media attached to HS-…; the review note isn't added yet", and
-  Discard says the media stays attached.
+- The Draft Reviews row reads "Media attached to HS-…; the review note isn't added yet" (or,
+  part-way, "Some media attached to HS-…; the rest and the review note aren't added yet"), and
+  Discard says the media stays attached. Opening the session on such a draft selects **Add to
+  existing ticket** with that ticket.
+- Re-submitting with the same media but changed crops or trims after a partial attach keeps the
+  files already attached: the retry only sends the rest.
 
 Deleting a draft that isn't directly inside the drafts folder (the folder itself, `current`, a
 hidden name, a nested folder) is refused.
@@ -217,10 +229,13 @@ before checking, so an unknown ticket is an `invalidReview` issue.
   (the existing ticket's title, with `--to-ticket`).
 - On failure: `status: "error"`, `error`, `message`, plus `issues` (messages, for
   `invalidReview`), `createdTicket` (when the ticket exists but the attach failed), `attachedTo`
-  (when the media is attached to the existing ticket but the note failed), and `draftDirectory`.
+  (when the media is attached to the existing ticket but the note failed, or some of it before
+  the attach failed), `partlyAttached: true` (some files were attached before the attach failed;
+  the retry attaches the rest), and `draftDirectory`.
 
 `--drafts` (§7.10) adds `pendingNoteOnly: true` to a draft whose pending ticket is such an
-existing ticket.
+existing ticket, `pendingToExisting: true` when the pending ticket is an existing one, and
+`pendingPartlyAttached: true` when only some files are attached.
 
 | Exit code | `error` | Meaning |
 | --- | --- | --- |
@@ -247,7 +262,8 @@ one whose folder could not be deleted after submitting (`draftRemoved: false`).
   review.json is missing). Equal dates sort by folder name in reverse (draft ids start with their date).
 - **Each row:** the title, a **Current** badge for the draft new captures go to, the capture and
   annotation counts, and when it was last edited. In orange: "HS-… was created; its media isn't
-  attached yet" for a pending submission, or "Can't be opened: review.json is missing." /
+  attached yet" (or "…; only some of its media is attached") for a pending submission, the
+  existing-ticket texts of §7.5, or "Can't be opened: review.json is missing." /
   "… can't be read." for a broken draft. A broken draft is titled by its folder name.
 - **Open Session:** the Submit Review window on that draft (one window per draft, §7.1).
   Submitting it never changes which draft is current unless it *was* current (§7.5).
@@ -302,7 +318,8 @@ UXReview --discard-draft NAME|PATH [--delete] [--drafts-dir DIR]
 
 `--drafts` prints `{"status": "listed", "draftsDirectory", "drafts": [...]}`. The drafts are in
 §7.9's order, and each has `name`, `directory`, `title`, `captureCount`, `annotationCount`,
-`createdAt`, `modifiedAt`, `isCurrent`, plus `pendingTicket` (and `pendingNoteOnly`, §7.5) or
+`createdAt`, `modifiedAt`, `isCurrent`, plus `pendingTicket` (and `pendingNoteOnly`,
+`pendingToExisting`, `pendingPartlyAttached`, §7.5, §7.8) or
 `issue` when they apply. A missing drafts folder lists nothing.
 
 `--discard-draft` discards one draft as in §7.9. The value is a folder name in the drafts

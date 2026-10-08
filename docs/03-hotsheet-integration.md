@@ -36,8 +36,17 @@ The extra locations matter because GUI apps launched from Finder get a minimal `
 2. Writes `review.json` into the media directory.
 3. Runs `hotsheet-cli -C <store> new --actor-role=human --actor-id=ux-review --title=… --category=task --details=… --tag=ux-review`,
    then parses `Created <SLUG>` from its output.
-4. Runs `hotsheet-cli -C <store> attach --actor-role=human --actor-id=ux-review <SLUG> --batch-label=UX review capture --purpose=problem_evidence -- <media…> review.json`.
-   This attaches everything as **one durable batch**.
+4. Runs `hotsheet-cli -C <store> attach --actor-role=human --actor-id=ux-review <SLUG> --batch-id=batch-uxreview-<uuid> --batch-label=UX review capture --purpose=problem_evidence -- <media…> review.json`.
+   This attaches everything as **one durable batch**. UX Review picks the batch id, so a resumed
+   attach can join the same batch (below).
+
+**`attach` is not atomic.** It writes file by file and prints `Attached …` plus `Durable attachment
+id: <ULID> (<stored path>)` for each. When a file fails part-way (missing, unreadable), the files
+before it stay attached and it exits non-zero. `HotSheetCLIClient` then reads the stored names it
+printed and throws `attachIncomplete(storedNames:…)` instead of `commandFailed`. The submitter
+records those files with the batch id (`PartialAttach`), and a retry attaches only the others,
+with the same `--batch-id`, so no file is attached twice and the review stays one batch
+(`HS2-QNWMKF`, [07-review-session.md](07-review-session.md) §7.5).
 
 `ReviewSubmitter.file(…)` is the same submission with two additions the review session uses
 ([07-review-session.md](07-review-session.md) §7.5):
@@ -45,8 +54,9 @@ The extra locations matter because GUI apps launched from Finder get a minimal `
 - It reports each step as it starts (`creatingTicket`, `attachingMedia`) and returns the
   `CreatedTicket`: the slug plus the ticket file that `new` prints as `Created <SLUG> (<path>)`.
 - Given `existingTicket`, it skips `new` and only attaches. If `attach` fails after `new`
-  succeeded, it throws `attachFailed(ticket, reason)`, so the caller can retry without creating
-  a duplicate ticket.
+  succeeded, it throws `attachFailed(ticket, reason, partial)`, so the caller can retry without
+  creating a duplicate ticket. `partial` lists what got attached; given back as `resume`, only
+  the rest is attached.
 
 `ReviewSubmitter.add(…)` adds a review to an existing ticket instead (§3.5).
 
@@ -108,8 +118,9 @@ only when it exists. A `deleted` or `moved` ticket doesn't take reviews.
 
 **Writing.** `ReviewSubmitter.add(…)` validates and writes `review.json` exactly like §3.2, then:
 
-1. `hotsheet-cli -C <store> attach --actor-role=human --actor-id=ux-review <SLUG> --batch-label=UX review capture --purpose=problem_evidence -- <media…> review.json`:
-   the same single batch as §3.2.
+1. `hotsheet-cli -C <store> attach --actor-role=human --actor-id=ux-review <SLUG> --batch-id=… --batch-label=UX review capture --purpose=problem_evidence -- <media…> review.json`:
+   the same single batch as §3.2. An attach that stops part-way throws `attachFailed` with what
+   got in, and a retry given it as `resume` attaches only the rest (§3.2).
 2. `hotsheet-cli -C <store> edit --actor-role=human --actor-id=ux-review <SLUG> --note-file=<tmp>.md`:
    one note, from a temporary file that is removed afterwards.
 

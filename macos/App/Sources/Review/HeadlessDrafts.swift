@@ -21,6 +21,10 @@ enum HeadlessDrafts {
         var pendingTicket: String?
         /// Set when `pendingTicket` is an existing ticket that has the media but not the note yet.
         var pendingNoteOnly: Bool?
+        /// Set when `pendingTicket` is an existing ticket the review was being added to.
+        var pendingToExisting: Bool?
+        /// Set when only some of the review's files are attached to `pendingTicket`.
+        var pendingPartlyAttached: Bool?
         var issue: String?
 
         init(_ summary: DraftSummary) {
@@ -34,6 +38,8 @@ enum HeadlessDrafts {
             isCurrent = summary.isCurrent
             pendingTicket = summary.pendingTicket
             pendingNoteOnly = summary.pendingNoteOnly ? true : nil
+            pendingToExisting = summary.pendingToExisting ? true : nil
+            pendingPartlyAttached = summary.pendingPartlyAttached ? true : nil
             issue = summary.issue
         }
     }

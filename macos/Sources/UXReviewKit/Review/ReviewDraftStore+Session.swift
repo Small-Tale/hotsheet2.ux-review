@@ -6,6 +6,8 @@ import Foundation
 ///   instead of creating a second ticket.
 /// - The review was being added to an existing ticket, its media is attached, but the note failed
 ///   (`attachedNames` set): the retry adds only the note.
+/// - Either way, an attach that failed part-way (`partialAttach`): the retry attaches only the
+///   files it didn't get to, into the same batch (`HS2-QNWMKF`).
 public struct PendingSubmission: Codable, Equatable, Sendable {
     /// The store the ticket is in. A retry into a different store starts over.
     public var storePath: String
@@ -13,16 +15,37 @@ public struct PendingSubmission: Codable, Equatable, Sendable {
     public var createdAt: Date
     /// Adding to an existing ticket: the batch already attached, draft file name → stored name.
     public var attachedNames: [String: String]?
+    /// The files an interrupted attach got in, and their batch id.
+    public var partialAttach: PartialAttach?
+    /// The review was being added to `ticket`, an existing ticket (not one this draft created).
+    /// Records from before this field mark it with `attachedNames` alone.
+    public var toExistingTicket: Bool?
 
-    public init(storePath: String, ticket: CreatedTicket, createdAt: Date, attachedNames: [String: String]? = nil) {
+    public init(
+        storePath: String,
+        ticket: CreatedTicket,
+        createdAt: Date,
+        attachedNames: [String: String]? = nil,
+        partialAttach: PartialAttach? = nil,
+        toExistingTicket: Bool? = nil
+    ) {
         self.storePath = storePath
         self.ticket = ticket
         self.createdAt = createdAt
         self.attachedNames = attachedNames
+        self.partialAttach = partialAttach
+        self.toExistingTicket = toExistingTicket
     }
 
-    /// True for an existing ticket whose media is attached and whose note is still missing.
-    public var isAddedToExistingTicket: Bool { attachedNames != nil }
+    /// The record belongs to adding the review to an existing ticket, so it is never a created
+    /// ticket to reuse.
+    public var isForExistingTicket: Bool { toExistingTicket == true || attachedNames != nil }
+
+    /// The existing ticket has the whole batch; only the review note is missing.
+    public var isNotePending: Bool { attachedNames != nil }
+
+    /// Some, not all, of the review's files are attached.
+    public var isPartlyAttached: Bool { attachedNames == nil && partialAttach != nil }
 }
 
 /// What the review session (docs/07-review-session.md) does to a draft on disk: edit its title

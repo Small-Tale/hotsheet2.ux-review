@@ -19,6 +19,8 @@ enum DraftDiscarding {
         }
         if let slug = draft.pendingTicket, draft.pendingNoteOnly {
             lines.append("Its media was already attached to \(slug) in Hot Sheet. Discarding doesn't remove it.")
+        } else if let slug = draft.pendingTicket, draft.pendingToExisting {
+            lines.append("Some of its media was already attached to \(slug) in Hot Sheet. Discarding doesn't remove it.")
         } else if let slug = draft.pendingTicket {
             lines.append("\(slug) was already created in Hot Sheet for this review. Discarding doesn't delete that ticket.")
         }

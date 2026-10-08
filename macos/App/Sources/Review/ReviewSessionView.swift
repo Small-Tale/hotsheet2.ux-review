@@ -199,8 +199,16 @@ struct ReviewSessionView: View {
                     .foregroundStyle(.secondary)
                     .lineLimit(3)
                     .textSelection(.enabled)
-                if let slug = failure.createdTicket {
+                if let slug = failure.createdTicket, failure.partlyAttached {
+                    Text("Try Again attaches the remaining files to \(slug) without creating another ticket or attaching any file twice.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                } else if let slug = failure.createdTicket {
                     Text("Try Again attaches the files to \(slug) without creating another ticket.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                } else if let slug = failure.attachedTo, failure.partlyAttached {
+                    Text("Try Again attaches the remaining files to \(slug), then adds the review note.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 } else if let slug = failure.attachedTo {

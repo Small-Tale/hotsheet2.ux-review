@@ -592,6 +592,31 @@ fi
 ok "the ticket received the 200x120 crop and the 0.8 s clip, with the annotation outside the crop left out; review.json validates"
 ok "attach failure keeps the draft (exit 5, ticket named); retry attaches to the same ticket; the draft is deleted; ticket has both captures (the narrated one marked with audio), the summary, and review.json"
 
+echo "review session: resume an interrupted attach (HS2-QNWMKF)"
+# hotsheet-cli attach is not atomic: an unreadable second capture stops it after the first.
+PDRAFTS="$TMP/partial-drafts"
+PSUB=(--drafts-dir "$PDRAFTS" --project "$TMP/subproj")
+run partial-shot1 0 "${SYN[@]}" -- --capture screenshot --target region --rect 100,100,300,200 --drafts-dir "$PDRAFTS"
+run partial-shot2 0 "${SYN[@]}" -- --capture screenshot --target region --rect 120,120,300,200 --drafts-dir "$PDRAFTS"
+pdraft="$(json "$TMP/partial-shot1.json" j.draftDirectory)"
+chmod 000 "$pdraft/capture-2.png"
+run partial-submit 5 -- --submit "${PSUB[@]}" --title "Partial attach"
+chmod 644 "$pdraft/capture-2.png"
+pslug="$(json "$TMP/partial-submit.json" j.createdTicket)"
+[[ "$pslug" == HS-* && "$(json "$TMP/partial-submit.json" j.partlyAttached)" == true ]] || die "partial: $(cat "$TMP/partial-submit.json")"
+[[ "$(json "$pdraft/submission.json" 'Object.keys(j.partialAttach.storedNames).join(",")')" == capture-1.png ]] || die "partial: record"
+run partial-list 0 -- --drafts --drafts-dir "$PDRAFTS"
+[[ "$(json "$TMP/partial-list.json" j.drafts[0].pendingPartlyAttached)" == true ]] || die "partial: --drafts flag"
+run partial-retry 0 -- --submit "${PSUB[@]}"
+[[ "$(json "$TMP/partial-retry.json" j.slug)" == "$pslug" && ! -e "$pdraft" ]] || die "partial: retry $(cat "$TMP/partial-retry.json")"
+hs -C "$TMP/subproj.hs2" show "$pslug" >"$TMP/partial-ticket.md"
+[[ "$(grep -c 'filename: ' "$TMP/partial-ticket.md")" == 3 ]] || die "partial: expected 3 attachments, got $(grep -c 'filename: ' "$TMP/partial-ticket.md")"
+for name in capture-1.png capture-2.png review.json; do
+  [[ "$(grep -c "filename: $name\$" "$TMP/partial-ticket.md")" == 1 ]] || die "partial: $name attached $(grep -c "filename: $name\$" "$TMP/partial-ticket.md") times"
+done
+[[ "$(grep 'batch_id: ' "$TMP/partial-ticket.md" | sort -u | wc -l | tr -d ' ')" == 1 ]] || die "partial: attachments are in more than one batch"
+ok "an attach stopped by an unreadable file: exit 5 (partlyAttached, the record lists what got in); the retry attaches only the rest, into the same batch"
+
 echo "review session: add to an existing ticket (HS2-E3001H)"
 # An existing ticket that already holds a capture-1.png, so Hot Sheet renames the new one.
 existing="$(hs -C "$TMP/subproj.hs2" new --actor-role=human --title="Accounts page redesign" --category=task --details="Original body." \

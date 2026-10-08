@@ -65,7 +65,7 @@ final class ReviewSessionModel: ObservableObject {
         summary = draft.bundle.summary
         ticketInput = ""
         // A review whose media already went to an existing ticket goes back to that ticket (§7.5).
-        if let pending = store.pendingSubmission(in: draft.directory), pending.isAddedToExistingTicket,
+        if let pending = store.pendingSubmission(in: draft.directory), pending.isForExistingTicket,
            pending.storePath == target.storePath {
             ticketInput = pending.ticket.slug
             session.setDestination(.existingTicket)

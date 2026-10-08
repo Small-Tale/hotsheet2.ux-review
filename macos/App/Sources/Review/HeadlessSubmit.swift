@@ -30,6 +30,8 @@ enum HeadlessSubmit {
         var issues: [String]?
         var createdTicket: String?
         var attachedTo: String?
+        /// Set when some files were attached before the attach failed (the retry attaches the rest).
+        var partlyAttached: Bool?
         var draftDirectory: String?
     }
 
@@ -129,7 +131,7 @@ enum HeadlessSubmit {
             return fail(
                 Failure(
                     error: "submitFailed", message: error.message, createdTicket: error.createdTicket,
-                    attachedTo: error.attachedTo, draftDirectory: path
+                    attachedTo: error.attachedTo, partlyAttached: error.partlyAttached ? true : nil, draftDirectory: path
                 ),
                 code: 5
             )

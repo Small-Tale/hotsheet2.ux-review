@@ -66,8 +66,13 @@ final class FakeRunner: ProcessRunning, @unchecked Sendable {
 final class FakeHotSheetClient: HotSheetClient, @unchecked Sendable {
     var created: [NewTicket] = []
     var attached: [(files: [URL], slug: String, label: String?, purpose: String?)] = []
+    /// The `batchID` of each successful or partial `attachReportingNames`, in order.
+    var batchIDs: [String?] = []
     var createError: Error?
-    /// Thrown by the next attaches (each failure consumes one entry), like a CLI failure.
+    /// Thrown by the next attaches (each failure consumes one entry), like a CLI failure. A
+    /// `HotSheetError.attachIncomplete` whose `storedNames` holds N placeholders attaches the first
+    /// N files first (recorded in `attached`, with their real stored names in the error), like
+    /// `hotsheet-cli attach` stopping part-way.
     var attachErrors: [Error] = []
     /// Called with the files of each successful attach while they still exist (staged media is
     /// removed after submitting), so tests can read what Hot Sheet would receive.
@@ -99,9 +104,23 @@ final class FakeHotSheetClient: HotSheetClient, @unchecked Sendable {
     /// like `hotsheet-cli attach`.
     var existingNames: Set<String> = []
 
-    func attachReportingNames(files: [URL], to slug: String, batchLabel: String?, purpose: String?) throws -> [String] {
+    func attachReportingNames(files: [URL], to slug: String, batchLabel: String?, purpose: String?, batchID: String?) throws -> [String] {
+        if case let HotSheetError.attachIncomplete(placeholders, exitCode, stderr)? = attachErrors.first {
+            attachErrors.removeFirst()
+            let done = Array(files.prefix(placeholders.count))
+            try inspectAttached?(done)
+            attached.append((done, slug, batchLabel, purpose))
+            batchIDs.append(batchID)
+            throw HotSheetError.attachIncomplete(storedNames: storedNames(for: done), exitCode: exitCode, stderr: stderr)
+        }
         try attach(files: files, to: slug, batchLabel: batchLabel, purpose: purpose)
-        return files.map { file in
+        batchIDs.append(batchID)
+        return storedNames(for: files)
+    }
+
+    /// The names Hot Sheet would store `files` under, given the names the ticket already has.
+    private func storedNames(for files: [URL]) -> [String] {
+        files.map { file in
             let name = file.lastPathComponent
             var stored = name
             var counter = 2

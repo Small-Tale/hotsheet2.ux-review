@@ -6,6 +6,10 @@ public enum HotSheetError: Error, Equatable, Sendable {
     case storeNotFound(URL)
     case commandFailed(command: String, exitCode: Int32, stderr: String)
     case unexpectedOutput(command: String, stdout: String)
+    /// `attach` failed part-way: the first `storedNames.count` files of the batch were attached
+    /// (under these stored names, in order) before it stopped. `hotsheet-cli attach` is not
+    /// atomic, so a retry must attach only the rest (HS2-QNWMKF).
+    case attachIncomplete(storedNames: [String], exitCode: Int32, stderr: String)
 }
 
 /// Who the ticket write is attributed to. A person running a UX review is a `human` actor;
@@ -50,7 +54,10 @@ public protocol HotSheetClient: Sendable {
     func attach(files: [URL], to slug: String, batchLabel: String?, purpose: String?) throws
     /// Attaches files as one batch and returns the name each one is stored under, in order.
     /// Hot Sheet renames a file whose name the ticket already has (`review.json` → `review (2).json`).
-    func attachReportingNames(files: [URL], to slug: String, batchLabel: String?, purpose: String?) throws -> [String]
+    /// `batchID`, when given, is the durable batch the files join, so a resumed attach lands in
+    /// the same batch as the files an interrupted one already attached.
+    /// - Throws: `HotSheetError.attachIncomplete` when some files were attached before a failure.
+    func attachReportingNames(files: [URL], to slug: String, batchLabel: String?, purpose: String?, batchID: String?) throws -> [String]
     /// Looks up an existing ticket by slug or ULID. Nil when the store has no such ticket.
     func findTicket(_ reference: String) throws -> HotSheetTicket?
     /// Appends a Markdown note to a ticket.
@@ -62,8 +69,8 @@ public extension HotSheetClient {
         try CreatedTicket(slug: createTicket(ticket))
     }
 
-    /// Transports that can't report stored names: assume each file keeps its own.
-    func attachReportingNames(files: [URL], to slug: String, batchLabel: String?, purpose: String?) throws -> [String] {
+    /// Transports that can't report stored names or batch ids: assume each file keeps its own name.
+    func attachReportingNames(files: [URL], to slug: String, batchLabel: String?, purpose: String?, batchID _: String?) throws -> [String] {
         try attach(files: files, to: slug, batchLabel: batchLabel, purpose: purpose)
         return files.map(\.lastPathComponent)
     }
@@ -132,24 +139,39 @@ public struct HotSheetCLIClient: HotSheetClient {
     }
 
     public func attach(files: [URL], to slug: String, batchLabel: String?, purpose: String?) throws {
-        _ = try attachReportingNames(files: files, to: slug, batchLabel: batchLabel, purpose: purpose)
+        _ = try attachReportingNames(files: files, to: slug, batchLabel: batchLabel, purpose: purpose, batchID: nil)
     }
 
-    public func attachReportingNames(files: [URL], to slug: String, batchLabel: String?, purpose: String?) throws -> [String] {
+    public func attachReportingNames(
+        files: [URL], to slug: String, batchLabel: String?, purpose: String?, batchID: String?
+    ) throws -> [String] {
         guard !files.isEmpty else { return [] }
         var args = ["attach", slug]
+        if let batchID { args.append("--batch-id=\(batchID)") }
         if let batchLabel { args.append("--batch-label=\(batchLabel)") }
         if let purpose { args.append("--purpose=\(purpose)") }
         args.append("--")
         args += files.map(\.path)
-        let result = try invoke(args)
-        // One `Durable attachment id: <ULID> (<stored path>)` line per file, in order.
-        let stored = result.stdout.split(separator: "\n").compactMap { line -> String? in
+        let result = try run(args)
+        let stored = Self.storedNames(in: result.stdout)
+        guard result.exitCode == 0 else {
+            // `attach` writes file by file: the ones it printed before failing are attached.
+            if !stored.isEmpty, stored.count < files.count {
+                throw HotSheetError.attachIncomplete(storedNames: stored, exitCode: result.exitCode, stderr: result.stderr)
+            }
+            throw HotSheetError.commandFailed(command: "attach", exitCode: result.exitCode, stderr: result.stderr)
+        }
+        return stored.count == files.count ? stored : files.map(\.lastPathComponent)
+    }
+
+    /// The stored file name from each `Durable attachment id: <ULID> (<stored path>)` line that
+    /// `hotsheet-cli attach` prints, one per attached file, in order.
+    static func storedNames(in stdout: String) -> [String] {
+        stdout.split(separator: "\n").compactMap { line -> String? in
             guard line.hasPrefix("Durable attachment id: "), let open = line.firstIndex(of: "("), line.hasSuffix(")") else { return nil }
             let path = line[line.index(after: open) ..< line.index(before: line.endIndex)]
             return path.isEmpty ? nil : (String(path) as NSString).lastPathComponent
         }
-        return stored.count == files.count ? stored : files.map(\.lastPathComponent)
     }
 
     public func findTicket(_ reference: String) throws -> HotSheetTicket? {

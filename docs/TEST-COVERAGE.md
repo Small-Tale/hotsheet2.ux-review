@@ -896,3 +896,27 @@ capture files are no longer cropped or trimmed while drafting.
 - **Not covered automatically:** typing into the live field (the 300 ms lookup debounce in
   `ReviewSessionModel`) and the segmented control's clicks; thin view code over the tested
   session (`HS2-HA9TW3`).
+
+## HS2-QNWMKF: resume an interrupted (non-atomic) attach without duplicates
+
+- **CLI transport** (`ExistingTicketTests.aPartialAttachReportsWhatGotIn`, `FakeRunner` replaying
+  the real CLI's partial output: one file's lines, `Error: …`, exit 1): `attachIncomplete` with
+  the stored names printed so far; `--batch-id` passed through; a failure before any file stays
+  `commandFailed`; the one-line description.
+- **Submitter transitions** (`PartialAttachTests`, `FakeHotSheetClient` stopping after N files
+  like the CLI):
+  - new ticket: partial → partial → nothing → success. Each retry sends only the missing files
+    with the same batch id; the record grows, is unchanged by a failure that attaches nothing,
+    and the end result is one ticket and each file once. The Draft Reviews flags are checked.
+  - existing ticket: partial (renamed stored names kept) → rest attached, note fails → note only,
+    citing the names from the interrupted attach; one batch id
+  - records don't cross: an existing-ticket partial isn't reused for a new ticket and vice
+    versa; a partial in another store starts over
+  - older `submission.json` records decode (`toExistingTicket` absent; `attachedNames` alone
+    still marks an existing ticket)
+- **End to end with the real CLI** (`HotSheetEndToEndTests.aPartialAttachResumesWithoutDuplicates`):
+  an unreadable `capture-2.mov` (mode 000) stops the real `attach` after `capture-1.png`; after
+  restoring it, Try Again files the rest. The ticket has each file once, all in one batch, then
+  the same for adding to that ticket (renamed files in a second batch, exactly one note).
+- **Not covered automatically:** the session window's Try Again text for a partial attach (thin
+  view code over `SubmissionFailure.partlyAttached`).
