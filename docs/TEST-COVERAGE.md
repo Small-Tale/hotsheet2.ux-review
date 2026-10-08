@@ -942,3 +942,13 @@ capture files are no longer cropped or trimmed while drafting.
   the same for adding to that ticket (renamed files in a second batch, exactly one note).
 - **Not covered automatically:** the session window's Try Again text for a partial attach (thin
   view code over `SubmissionFailure.partlyAttached`).
+
+## HS2-DX2D41: window picker hover on multi-display setups
+
+- **Unit** (`RegionGeometryTests.eventPointsUseTheEventsOwnWindow`): a window-relative point
+  converts through the frame of the event's own overlay (the secondary display at x 1440, y −180
+  → global (1540, −130), on display 1), the same location on the primary overlay stays on display
+  0, and an event without a window uses the global mouse location.
+- **Not covered automatically:** a live pointer on two physical displays; the remaining
+  overlay code is a one-line call into the tested function. The manual check belongs with
+  `HS2-3JD5PS`.

@@ -212,8 +212,12 @@ final class OverlayView: NSView {
         NSCursor.crosshair.set()
     }
 
+    /// Through the event's own window: a mouse-moved event can belong to another display's
+    /// overlay than this view's (HS2-DX2D41).
     private func globalPoint(_ event: NSEvent) -> CGPoint {
-        window?.convertPoint(toScreen: event.locationInWindow) ?? NSEvent.mouseLocation
+        RegionGeometry.globalPoint(
+            locationInWindow: event.locationInWindow, eventWindowFrame: event.window?.frame, mouseLocation: NSEvent.mouseLocation
+        )
     }
 
     override func mouseDown(with event: NSEvent) {

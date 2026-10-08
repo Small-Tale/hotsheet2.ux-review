@@ -57,6 +57,16 @@ public enum RegionGeometry {
         CGRect(x: min(start.x, end.x), y: min(start.y, end.y), width: abs(end.x - start.x), height: abs(end.y - start.y))
     }
 
+    /// A mouse event's point in global AppKit coordinates. `locationInWindow` is relative to the
+    /// window the *event* belongs to, which, with one picker overlay per display, can be another
+    /// display's overlay than the view receiving it (mouse-moved events go to the key overlay).
+    /// So it is offset by that window's frame, never the receiving view's; without a window it is
+    /// the global `mouseLocation` (HS2-DX2D41).
+    public static func globalPoint(locationInWindow: CGPoint, eventWindowFrame: CGRect?, mouseLocation: CGPoint) -> CGPoint {
+        guard let frame = eventWindowFrame else { return mouseLocation }
+        return CGPoint(x: frame.minX + locationInWindow.x, y: frame.minY + locationInWindow.y)
+    }
+
     /// The screen containing `point` (AppKit global coordinates), if any. Frames are half-open,
     /// so a point on the shared edge of two side-by-side displays belongs to the right one.
     public static func screenIndex(containing point: CGPoint, in screens: [ScreenGeometry]) -> Int? {

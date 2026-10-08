@@ -49,6 +49,10 @@ Settings) are not raised over the app being reviewed (HS2-AR8Q2G).
     and palettes (3), modal panels (8), and utility windows (19). The Dock, the menu bar,
     status items, menus, and system overlays never can.
   - A window must be visible and at least 40×40 pt.
+  - With several displays there is one overlay per display. Every mouse point is converted
+    through the window its event belongs to, not the overlay view receiving it, so hovering on
+    any display highlights the window a click there would pick (`RegionGeometry.globalPoint`,
+    `HS2-DX2D41`).
   - UX Review's own windows are never picked, but they still cover what is behind them. When
     one is on top under the pointer, nothing is highlighted and a click does nothing, rather
     than picking a window the reviewer cannot see. UX Review's windows above the app levels
