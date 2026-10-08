@@ -1077,6 +1077,10 @@ TITLES='m => m.map(i => i.separator ? "-" : i.title + (i.shortcut ? "[" + i.shor
 [[ "$(json "$MENUS" 'j.statusMenuIdle[3].choices.join() + "|" + j.statusMenuIdle[3].selected')" == "None,3 s,10 s|None" ]] \
   || die "menus: Delay picker $(json "$MENUS" 'JSON.stringify(j.statusMenuIdle[3])')"
 [[ "$(json "$MENUS" 'j.statusMenuIdle.filter(i => i.submenu).length')" == 0 ]] || die "menus: status menu has submenus"
+# HS2-T4RS7M: picker titles line up with AppKit's item titles: 16 pt, or 30 pt once Narrate is
+# checked and the menu shows a checkmark column.
+[[ "$(json "$MENUS" '[2, 3].map(i => j.statusMenuIdle[i].titleInset + "/" + j.statusMenuNarrating[i].titleInset).join()')" == "16/30,16/30" ]] \
+  || die "menus: picker title insets $(json "$MENUS" 'JSON.stringify([j.statusMenuIdle[2], j.statusMenuNarrating[2]])')"
 # Choosing Window and 3 s in the open menu selects them, and Capture Image/Video then use both.
 PICKED='j.statusMenuAfterPicking'
 [[ "$(json "$MENUS" "$PICKED.menu[2].selected + \"|\" + $PICKED.menu[3].selected + \"|\" + $PICKED.captures.join()")" == "Window|3 s|Screenshot of Window after 3 s,Video of Window after 3 s" ]] \

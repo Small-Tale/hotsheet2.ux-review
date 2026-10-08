@@ -47,7 +47,10 @@ The rows from Capture to Narrate are replaced while a capture runs:
 - While picking, capturing, or saving a recording, by a status line.
 
 The menu entries are described in UXReviewKit (`AppMenus`) and turned into an `NSMenu` by the
-app each time the menu opens.
+app each time the menu opens. The Capture and Delay rows are drawn by UX Review, so they line up
+with AppKit's items (`MenuMetrics`, `HS2-T4RS7M`): the row title starts where item titles do
+(16 pt from the menu's edge, or 30 pt while Narrate is checked and the menu shows a checkmark
+column), and the segmented control ends where shortcuts end (18 pt from the right edge).
 
 ### 5.1.1 UX Review windows, Dock icon, and app menu bar
 

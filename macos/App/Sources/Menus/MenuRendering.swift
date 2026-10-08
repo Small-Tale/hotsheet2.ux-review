@@ -6,10 +6,17 @@ import UXReviewKit
 @MainActor
 enum MenuRendering {
     static func items(_ entries: [MenuEntry], perform: @escaping @MainActor (MenuCommand) -> Void) -> [NSMenuItem] {
-        entries.map { item($0, perform: perform) }
+        // Rows drawn by UX Review line their titles up with AppKit's, which move right when a
+        // sibling is checked (`HS2-T4RS7M`). Menus are rebuilt each time they open.
+        let titleInset = MenuMetrics.titleInset(among: entries)
+        return entries.map { item($0, titleInset: titleInset, perform: perform) }
     }
 
-    static func item(_ entry: MenuEntry, perform: @escaping @MainActor (MenuCommand) -> Void) -> NSMenuItem {
+    static func item(
+        _ entry: MenuEntry,
+        titleInset: Double = MenuMetrics.titleInset,
+        perform: @escaping @MainActor (MenuCommand) -> Void
+    ) -> NSMenuItem {
         switch entry {
         case let .label(title):
             let item = NSMenuItem(title: title, action: nil, keyEquivalent: "")
@@ -33,7 +40,7 @@ enum MenuRendering {
             return item
         case let .picker(title, choices, selected):
             let item = NSMenuItem(title: title, action: nil, keyEquivalent: "")
-            item.view = MenuChoicesView(title: title, choices: choices, selected: selected, perform: perform)
+            item.view = MenuChoicesView(title: title, choices: choices, selected: selected, titleInset: titleInset, perform: perform)
             return item
         }
     }
@@ -83,15 +90,19 @@ final class MenuChoicesView: NSView {
     private let choices: [MenuChoice]
     private let perform: @MainActor (MenuCommand) -> Void
     let control: NSSegmentedControl
+    /// Where the title starts, lined up with ordinary items' titles (`MenuMetrics`).
+    let titleInset: CGFloat
 
     init(
         title: String,
         choices: [MenuChoice],
         selected: Int?,
+        titleInset: Double = MenuMetrics.titleInset,
         perform: @escaping @MainActor (MenuCommand) -> Void
     ) {
         self.choices = choices
         self.perform = perform
+        self.titleInset = titleInset
         control = NSSegmentedControl(labels: choices.map(\.title), trackingMode: .selectOne, target: nil, action: nil)
         super.init(frame: CGRect(x: 0, y: 0, width: Self.minimumWidth, height: 28))
         // Stretches to the menu's width, so the control stays right-aligned with the shortcuts.
@@ -115,15 +126,16 @@ final class MenuChoicesView: NSView {
             addSubview(view)
         }
         NSLayoutConstraint.activate([
-            // Lines up with the titles of ordinary items (after the checkmark column).
-            label.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 22),
+            // Lines up with the titles of ordinary items, and the control with their shortcuts.
+            label.leadingAnchor.constraint(equalTo: leadingAnchor, constant: titleInset),
             label.centerYAnchor.constraint(equalTo: centerYAnchor),
             control.leadingAnchor.constraint(greaterThanOrEqualTo: label.trailingAnchor, constant: 16),
-            control.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -14),
+            control.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -MenuMetrics.trailingInset),
             control.centerYAnchor.constraint(equalTo: centerYAnchor),
         ])
         // Wide enough for the title, the gap, and every segment (the menu grows to fit).
-        let needed = 22 + label.intrinsicContentSize.width + 16 + control.intrinsicContentSize.width + 14
+        let needed = titleInset + label.intrinsicContentSize.width + 16 + control.intrinsicContentSize.width
+            + MenuMetrics.trailingInset
         frame.size.width = max(Self.minimumWidth, ceil(needed))
     }
 
@@ -158,6 +170,7 @@ enum MenuDump {
             if let action = item.action { entry["action"] = NSStringFromSelector(action) }
             if let row = item.view as? MenuChoicesView {
                 entry["choices"] = (0 ..< row.control.segmentCount).map { row.control.label(forSegment: $0) ?? "" }
+                entry["titleInset"] = row.titleInset
                 if row.control.selectedSegment >= 0 {
                     entry["selected"] = row.control.label(forSegment: row.control.selectedSegment) ?? ""
                 }

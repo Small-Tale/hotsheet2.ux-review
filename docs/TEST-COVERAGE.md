@@ -1117,6 +1117,18 @@ capture files are no longer cropped or trimmed while drafting.
 - **Visual QA:** `menu-delay-row-light/-dark` (`--render-ui-previews`), inspected by hand.
 - **Not covered automatically:** clicking the live status menu (needs a person at a Mac).
 
+## HS2-T4RS7M: picker rows line up with ordinary menu items
+
+- **Unit** (`AppMenusTests.pickerTitlesFollowTheCheckmarkColumn`): the title inset is 16 pt,
+  or 30 pt when an item at the same level is checked. Walks narration off → on → on → off, a
+  running capture, the app Capture menu with and without narration, a checked item only in a
+  submenu, and an empty menu.
+- **App end to end** (`scripts/app-e2e.sh`): `menus.json` reports each picker row's
+  `titleInset`. It checks 16 for both rows in the idle menu and 30 in `statusMenuNarrating`.
+- **Not covered automatically:** the measured AppKit offsets themselves (16 / 30 / 18 pt, from
+  the reviewer's screenshots on the ticket). Whether macOS reserves the checkmark column for an
+  unchecked toggle is assumed (it doesn't), and the live menu needs a person at a Mac.
+
 ## HS2-0TQ6RP: select several captures; ⌘⌫ removes them without asking
 
 - **Unit, transition matrix** (`MediaSelectionTests`): a long walk over plain, ⌘-, and ⇧-clicks

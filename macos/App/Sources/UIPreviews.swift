@@ -179,6 +179,7 @@ enum UIPreviews {
     private static func renderMenus(to directory: URL) throws -> [URL] {
         let hotkeys: [HotkeySlot: Hotkey] = [.capture: .defaultCapture, .record: .defaultRecord]
         let idle = MenuState(hotkeys: hotkeys, version: AppSettings.version)
+        let narrating = MenuState(narratesNextRecording: true, hotkeys: hotkeys, version: AppSettings.version)
         let recording = MenuState(
             phase: .recording(startedAt: Date(timeIntervalSince1970: 0)),
             recordingNarration: true,
@@ -196,6 +197,8 @@ enum UIPreviews {
         let dump: [String: Any] = [
             "statusMenuIdle": statusMenuIdle,
             "statusMenuAfterPicking": pickInOpenMenu(idle),
+            // Narrate checked: AppKit adds a checkmark column, so the picker titles move with it.
+            "statusMenuNarrating": MenuDump.describe(menu(AppMenus.statusMenu(narrating))),
             "statusMenuRecording": MenuDump.describe(menu(AppMenus.statusMenu(recording))),
             "mainMenu": NSApp.mainMenu.map(MenuDump.describe) ?? [],
         ]

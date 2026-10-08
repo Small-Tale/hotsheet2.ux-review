@@ -217,6 +217,28 @@ struct AppMenusTests {
         ))
     }
 
+    /// HS2-T4RS7M: picker rows put their titles where AppKit puts item titles: 16 pt in, or 30 pt
+    /// when an item at the same level is checked. Walks narration off → on → off, a running
+    /// capture (no toggle), and the app Capture menu, whose toggle is at its top level.
+    @Test func pickerTitlesFollowTheCheckmarkColumn() {
+        var state = MenuState()
+        for (narrating, inset) in [(false, 16.0), (true, 30.0), (true, 30.0), (false, 16.0)] {
+            state.narratesNextRecording = narrating
+            let entries = AppMenus.statusMenu(state)
+            #expect(MenuMetrics.showsCheckmarkColumn(entries) == narrating)
+            #expect(MenuMetrics.titleInset(among: entries) == inset, "narrating \(narrating)")
+        }
+        state.phase = .recording(startedAt: Self.start)
+        #expect(MenuMetrics.titleInset(among: AppMenus.statusMenu(state)) == 16)
+        state.phase = .idle
+        #expect(MenuMetrics.titleInset(among: AppMenus.captureMenu(state)) == 16)
+        state.narratesNextRecording = true
+        #expect(MenuMetrics.titleInset(among: AppMenus.captureMenu(state)) == 30)
+        // A checked item in a submenu doesn't move the parent level's titles.
+        #expect(MenuMetrics.titleInset(among: [.submenu("More", [.toggle("On", isOn: true, .toggleNarration)])]) == 16)
+        #expect(MenuMetrics.titleInset(among: []) == 16)
+    }
+
     @Test func shortcutsRenderLettersDigitsAndSpaceOnly() {
         #expect(MenuShortcut(Hotkey("⌥⇧⌘U")) == MenuShortcut("u", [.option, .shift, .command]))
         #expect(MenuShortcut(Hotkey("⌃⌥⌘8")) == MenuShortcut("8", [.control, .option, .command]))
