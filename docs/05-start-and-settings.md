@@ -57,7 +57,7 @@ until closed. The app menu bar:
 
 | Menu | Items |
 | --- | --- |
-| **UX Review** | About UX Review; Settings… (⌘,); Hide (⌘H), Hide Others (⌥⌘H), Show All; Quit (⌘Q) |
+| **UX Review** | About UX Review (the standard About panel, titled with the full name Hot Sheet 2 UX Review; docs/00 §0.0); Settings… (⌘,); Hide (⌘H), Hide Others (⌥⌘H), Show All; Quit (⌘Q) |
 | **File** | **New Review** (⌘N): a new empty draft becomes current and opens in its own window; the previous draft stays as it is. **Add Media…** (⌘O): images or movies for the front window's draft ([04-capture.md](04-capture.md) §4.12). **Draft Reviews…** (⇧⌘O, [07-review-session.md](07-review-session.md) §7.9). Save (⌘S). **Submit Review…** (⌘↩, [07-review-session.md](07-review-session.md) §7.1). **Show Review in Finder**. Close Window (⌘W) |
 | **Edit** | Undo (⌘Z), Redo (⇧⌘Z), Cut, Copy, Paste, Select All, Duplicate (⌘D) |
 | **Capture** | Screenshot / Record Video of Screen, Window, or Region; the After Delay submenus with every preset (3, 5, 10 s); the narration checkbox. Replaced by Cancel / Stop / a status line while a capture runs, like the menu bar menu |

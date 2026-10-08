@@ -1,4 +1,4 @@
-# UX Review docs
+# Hot Sheet 2 UX Review docs
 
 These docs are the requirements source of truth. Update the relevant doc in the same commit as
 any behavior change.

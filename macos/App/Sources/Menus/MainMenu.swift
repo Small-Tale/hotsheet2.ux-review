@@ -26,7 +26,7 @@ enum MainMenu {
 
     private static func appMenu() -> NSMenu {
         let menu = NSMenu(title: "UX Review")
-        menu.addItem(withTitle: "About UX Review", action: #selector(NSApplication.orderFrontStandardAboutPanel(_:)), keyEquivalent: "")
+        menu.addItem(withTitle: "About UX Review", action: #selector(AppDelegate.showAbout(_:)), keyEquivalent: "")
         menu.addItem(.separator())
         menu.addItem(withTitle: "Settings…", action: #selector(AppDelegate.openSettings(_:)), keyEquivalent: ",")
         menu.addItem(.separator())

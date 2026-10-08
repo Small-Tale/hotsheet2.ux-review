@@ -1,8 +1,8 @@
-# UX Review
+# Hot Sheet 2 UX Review
 
 **A [Small Tale Inc.](https://github.com/Small-Tale) project.**
 
-UX Review is a native desktop tool for reviewing software UX. You start a review from the menu
+Hot Sheet 2 UX Review (**UX Review** for short) is a native desktop tool for reviewing software UX. You start a review from the menu
 bar or a global hotkey, capture screenshots or video (optionally after a short delay), then
 trim, crop, and annotate the media: rectangles, freehand outlines, arrows, insertion and strike
 markers, each with a note, an intent, and (for video) a time range. One click files everything in

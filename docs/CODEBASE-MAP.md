@@ -61,6 +61,7 @@ macos/
     Settings/CaptureSettings.swift    settings + KeyValueStoring persistence, HotkeySlot (capture/record, duplicate rules), HotkeyAction
     Settings/SettingsCommand.swift    `--settings` argument parsing (docs/05 §5.5)
     Settings/RecentProjects.swift     recent target projects + persistence (docs/07 §7.6)
+    Settings/ProductName.swift        full (Hot Sheet 2 UX Review) and short (UX Review) product names (docs/00 §0.0)
     Settings/AppMenus.swift           menu bar menu + app Capture menu as MenuEntry lists per phase, MenuShortcut, WindowPresence (docs/05 §5.1)
     Editor/AnnotationEditor.swift     editor state machine: document, selection, undo/redo, intent toggle (docs/06)
     Editor/AnnotationEditor+Gestures.swift  draw/move/resize/crop gestures, hit testing, crop + reset crop

@@ -1017,3 +1017,10 @@ capture files are no longer cropped or trimmed while drafting.
 - **Visual QA:** `session-existing-abandoned` (`--render-ui-previews`), inspected by hand.
 - **Not covered automatically:** clicking Move to Trash and its confirmation in a live window
   (`ReviewSessionModel.trashAbandonedTicket` runs the tested `moveToTrash` off the main thread).
+
+## HS2-0KFBZG: product name
+
+- **Unit** (`ProductNameTests`): the full name is Hot Sheet 2 UX Review and ends with the short
+  name UX Review.
+- **Not covered automatically:** the About panel's title in a running app (one AppKit call with
+  `ProductName.full`); the app menu's About item is in the `menus.json` e2e dump.

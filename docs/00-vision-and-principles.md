@@ -6,6 +6,13 @@ implemented (`HS2-E89PQR`, `HS2-W68HWK`, `HS2-DR107C`; [04-capture.md](04-captur
 [06-annotation-editor.md](06-annotation-editor.md)); other capture and editing features are tracked in
 [README.md](README.md#roadmap).
 
+## 0.0 Name
+
+The product is **Hot Sheet 2 UX Review**, **UX Review** for short (`HS2-0KFBZG`). The full name
+introduces it: the README, these docs' titles, and the About panel. Compact UI uses the short
+name: menus and menu items, window titles, the Dock, alerts, and file locations such as
+`~/Library/Application Support/UX Review`. In code, `ProductName.full` and `ProductName.short`.
+
 ## 0.1 Problem
 
 Today a UX review means stitching tools together. You use the OS screenshot tools or QuickTime

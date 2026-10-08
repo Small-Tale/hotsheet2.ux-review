@@ -104,6 +104,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         capture.openMedia(batch.flush())
     }
 
+    /// The standard About panel under the full product name (docs/05 §5.1.1).
+    @objc func showAbout(_: Any?) {
+        NSApp.orderFrontStandardAboutPanel(options: [.applicationName: ProductName.full])
+        NSApp.activate()
+    }
+
     // MARK: File menu, when no window answers (the current draft)
 
     @objc func openSettings(_: Any?) { perform(.openSettings) }
