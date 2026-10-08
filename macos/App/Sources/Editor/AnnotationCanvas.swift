@@ -25,10 +25,11 @@ final class AnnotationCanvasView: NSView {
     override var acceptsFirstResponder: Bool { true }
     override func acceptsFirstMouse(for _: NSEvent?) -> Bool { true }
 
-    /// Where the media is drawn: fitted (never upscaled past 2×) or as zoomed and panned.
+    /// Where the media is drawn: fitted (never upscaled past 2×) or as zoomed and panned. Its
+    /// frame is the media as cropped, or the original while the Crop tool shows it (docs/06 §6.6).
     func renderer() -> AnnotationRenderer? {
-        guard let model, let item = model.editor.currentMedia, let layout = model.layout(in: bounds.size) else { return nil }
-        return AnnotationRenderer(frame: MediaFrame(item), imageRect: layout.imageRect, lineWidth: Self.strokeWidth)
+        guard let model, let frame = model.editor.canvasFrame, let layout = model.layout(in: bounds.size) else { return nil }
+        return AnnotationRenderer(frame: frame, imageRect: layout.imageRect, lineWidth: Self.strokeWidth)
     }
 
     override func setFrameSize(_ newSize: NSSize) {
@@ -79,7 +80,7 @@ final class AnnotationCanvasView: NSView {
         context.setFillColor(CGColor(gray: 0.2, alpha: 1))
         context.fill(imageRect)
         context.restoreGState()
-        if let image = model.image(item.id) {
+        if let image = model.canvasImage() {
             context.saveGState()
             context.interpolationQuality = .high
             // Images draw bottom-up; flip locally inside the flipped view.
@@ -90,12 +91,15 @@ final class AnnotationCanvasView: NSView {
         } else {
             drawPlaceholder("\(item.filename) can't be read.")
         }
-        let items = model.session.renderItems(item.id)
+        // The Crop tool shows the original: annotations in its space, not selectable, under the
+        // crop rectangle with its handles. Other tools show the cropped media.
+        let showsOriginal = model.editor.showsOriginal
         renderer.draw(
-            items,
-            selection: model.editor.selection,
+            model.session.canvasItems(),
+            selection: showsOriginal ? nil : model.editor.selection,
             preview: model.editor.previewShape,
-            crop: model.editor.previewCrop,
+            crop: model.editor.cropOverlay,
+            cropHandles: showsOriginal,
             in: context
         )
     }
@@ -309,7 +313,10 @@ final class AnnotationCanvasView: NSView {
         guard let item = model?.editor.currentMedia else { return "Annotation canvas, no capture" }
         let count = model?.editor.visibleAnnotations(on: item.id).count ?? 0
         let time = model?.editor.currentDurationMs.map { _ in " showing at \(TimeFormat.clock(model?.editor.currentTimeMs ?? 0))" } ?? ""
-        return "Annotation canvas, \(item.filename), \(count) annotation\(count == 1 ? "" : "s")\(time)"
+        let crop = model?.editor.cropOverlay.map { rect in
+            ", Crop tool: the original with the crop, \(Int(rect.width.rounded())) × \(Int(rect.height.rounded())) px"
+        } ?? ""
+        return "Annotation canvas, \(item.filename), \(count) annotation\(count == 1 ? "" : "s")\(time)\(crop)"
     }
 
     override func accessibilityHelp() -> String? {
@@ -322,10 +329,10 @@ final class AnnotationCanvasView: NSView {
     }
 
     override func accessibilityChildren() -> [Any]? {
-        guard let model, let item = model.editor.currentMedia, let renderer = renderer() else { return [] }
-        let frame = MediaFrame(item)
+        guard let model, let renderer = renderer() else { return [] }
+        let frame = renderer.frame
         var live: [String: AnnotationAccessibilityElement] = [:]
-        let elements = model.editor.visibleAnnotations(on: item.id).map { annotation -> AnnotationAccessibilityElement in
+        let elements = model.session.canvasItems().map(\.annotation).map { annotation -> AnnotationAccessibilityElement in
             let element = accessibilityElements[annotation.id] ?? AnnotationAccessibilityElement(annotationID: annotation.id, canvas: self)
             element.setAccessibilityLabel(model.editor.accessibilityLabel(for: annotation.id))
             // Points and thin shapes get a minimum target so VoiceOver can outline them.

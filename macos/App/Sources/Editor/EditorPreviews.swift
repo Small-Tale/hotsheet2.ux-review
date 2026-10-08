@@ -28,18 +28,13 @@ enum EditorPreviews {
         var written: [URL] = []
         // Nothing is saved, so every state starts from the same empty draft.
         func capture(
-            _ name: String, size: CGSize, script: [EditorScript.Step], cropDrag: Bool = false, viewport: CanvasViewport? = nil
+            _ name: String, size: CGSize, script: [EditorScript.Step], pressed: [CGPoint] = [], viewport: CanvasViewport? = nil
         ) throws {
             let model = try EditorModel(session: EditorSession(store: store, directory: draft.directory))
             offerWindowButtons(model)
             script.forEach { apply($0, to: model) }
             if let viewport { model.setViewport(viewport) }
-            if cropDrag {
-                model.mutate { editor in
-                    editor.beginGesture(at: CGPoint(x: 220, y: 90))
-                    editor.updateGesture(to: CGPoint(x: 1400, y: 650))
-                }
-            }
+            hold(pressed, in: model)
             written.append(try snapshot(EditorView(model: model), size: size, to: directory.appendingPathComponent("\(name).png")))
         }
         let wide = CGSize(width: 1240, height: 800)
@@ -50,8 +45,12 @@ enum EditorPreviews {
         try capture("editor-multi-select", size: wide, script: annotations + [.clickMedia("m2", .toggle)])
         try capture("editor-arrow-selected", size: wide, script: annotations + [.select("#3")])
         try capture("editor-narrow", size: CGSize(width: 900, height: 560), script: annotations + [.select("#2")])
-        try capture("editor-crop-drag", size: wide, script: annotations + [.tool(.crop)], cropDrag: true)
-        try capture("editor-cropped", size: wide, script: annotations + [.crop(CGRect(x: 220, y: 90, width: 1180, height: 560))])
+        // The Crop tool (docs/06 §6.6): a first crop being drawn on the original; the crop made,
+        // shown on the original with its handles (the tool stays Crop); its right edge being
+        // dragged; and the cropped capture once another tool is chosen.
+        for (name, steps, pressed) in cropStates {
+            try capture(name, size: wide, script: annotations + steps, pressed: pressed)
+        }
         // Keyboard only: R, then Return inserts a rectangle at the canvas middle (real key events
         // through the canvas); the canvas's accessibility tree is written next to the render.
         let keyboardModel = try EditorModel(session: EditorSession(store: store, directory: draft.directory))
@@ -469,5 +468,29 @@ struct MockScreenshot {
         text("Cancel", 1205, 904, size: 20)
         fill(CGRect(x: 1310, y: 870, width: 120, height: 52), CGColor(srgbRed: 0.04, green: 0.52, blue: 1, alpha: 1), radius: 10)
         text("Save", 1346, 904, size: 20, gray: 1, bold: true)
+    }
+}
+
+/// The Crop tool's preview states (docs/06 §6.6).
+extension EditorPreviews {
+    /// The Crop tool states: name, script steps after the annotations, and a press still held.
+    static var cropStates: [(String, [EditorScript.Step], [CGPoint])] {
+        let crop = CGRect(x: 220, y: 90, width: 1180, height: 560)
+        return [
+            ("editor-crop-drag", [.tool(.crop)], [CGPoint(x: 220, y: 90), CGPoint(x: 1400, y: 650)]),
+            ("editor-crop-tool", [.tool(.crop), .crop(crop)], []),
+            ("editor-crop-adjust", [.tool(.crop), .crop(crop)], [CGPoint(x: 1400, y: 370), CGPoint(x: 1530, y: 400)]),
+            ("editor-cropped", [.tool(.crop), .crop(crop), .tool(.select)], []),
+        ]
+    }
+
+    /// A gesture still in progress: pressed at the first point, dragged through the rest.
+    static func hold(_ points: [CGPoint], in model: EditorModel) {
+        guard let first = points.first else { return }
+        model.mutate { editor in
+            editor.hitTolerance = 7
+            editor.beginGesture(at: first)
+            points.dropFirst().forEach { editor.updateGesture(to: $0) }
+        }
     }
 }

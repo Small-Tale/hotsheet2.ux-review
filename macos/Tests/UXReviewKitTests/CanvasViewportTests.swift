@@ -32,6 +32,28 @@ struct CanvasViewportTests {
         #expect(CanvasViewport().layout(view: view, media: .zero) == nil)
     }
 
+    /// The Crop tool shows the original and other tools the crop (docs/06 §6.6): a zoomed view
+    /// keeps its zoom and the same original pixel at the middle; a fitted one stays fitted.
+    @Test func reframingKeepsTheZoomAndTheContentAtTheMiddle() throws {
+        let crop = CGSize(width: 2000, height: 1200), origin = CGPoint(x: 1500, y: 800)
+        var viewport = CanvasViewport(zoom: 1, center: CGPoint(x: 900, y: 700))
+        let before = try layout(viewport, media: crop)
+        viewport.reframe(from: origin, of: crop, to: .zero, of: media, view: view)
+        let after = try layout(viewport)
+        #expect(viewport.zoom == 1)
+        #expect(after.center == CGPoint(x: before.center.x + origin.x, y: before.center.y + origin.y))
+        // And back: the same pixel of the crop is at the middle again.
+        viewport.reframe(from: .zero, of: media, to: origin, of: crop, view: view)
+        #expect(try layout(viewport, media: crop).center == before.center)
+        // Into a smaller frame the center clamps, so the media never scrolls away.
+        viewport.reframe(from: origin, of: crop, to: CGPoint(x: 3000, y: 2000), of: CGSize(width: 600, height: 400), view: view)
+        #expect(try layout(viewport, media: CGSize(width: 600, height: 400)).imageRect.minX >= CanvasViewport.padding - 0.001)
+
+        var fit = CanvasViewport()
+        fit.reframe(from: origin, of: crop, to: .zero, of: media, view: view)
+        #expect(fit.isFit && fit == CanvasViewport())
+    }
+
     @Test func actualPixelsAndFit() throws {
         var viewport = CanvasViewport()
         viewport.actualPixels(view: view, media: media, backingScale: backing)

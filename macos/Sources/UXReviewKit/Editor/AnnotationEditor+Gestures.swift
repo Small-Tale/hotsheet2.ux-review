@@ -1,16 +1,17 @@
 import CoreGraphics
 import Foundation
 
-// Pointer gestures and cropping. A gesture is begin → update* → end (commits one undo step)
-// or cancel (restores the state from before begin). Spec: docs/06-annotation-editor.md §6.3–6.6.
+// Pointer gestures. A gesture is begin → update* → end (commits one undo step) or cancel
+// (restores the state from before begin). The crop and its gestures are in
+// `AnnotationEditor+Crop.swift`. Spec: docs/06-annotation-editor.md §6.3–6.6.
 public extension AnnotationEditor {
     /// Pointer down at `point` (media pixels) on the current media.
+    /// While the Crop tool shows the original (`showsOriginal`), points are pixels of the original.
     mutating func beginGesture(at point: CGPoint) {
         cancelGesture()
-        guard let item = currentMedia else { return }
+        guard let item = currentMedia, let frame = canvasFrame else { return }
         // A canvas press hands ← / → back to the canvas (docs/06 §6.4).
         timelineTarget = nil
-        let frame = MediaFrame(item)
         let start = clamp(point, frame)
         message = nil
         switch tool {
@@ -27,12 +28,7 @@ public extension AnnotationEditor {
                 selection = nil
             }
         case .crop:
-            guard item.kind == .image else {
-                message = "Videos can't be cropped."
-                return
-            }
-            gestureBase = snapshot
-            gesture = .cropping(start: start, current: start)
+            beginCropGesture(item, at: start)
         case .rect, .freehand, .arrow, .insertion, .strike:
             gestureBase = snapshot
             gesture = .drawing(tool, points: [start])
@@ -41,7 +37,7 @@ public extension AnnotationEditor {
 
     /// Pointer dragged to `point`. Moves and resizes show live; drawing and cropping preview.
     mutating func updateGesture(to point: CGPoint) {
-        guard let gesture, let frame = currentFrame else { return }
+        guard let gesture, let frame = canvasFrame else { return }
         let current = clamp(point, frame)
         switch gesture {
         case let .drawing(tool, points):
@@ -60,6 +56,13 @@ public extension AnnotationEditor {
             _ = document.bundle.update(id) { $0.shape = origin.resized(handle, to: current, in: frame, minimumSide: minimumSide) }
         case let .cropping(start, _):
             self.gesture = .cropping(start: start, current: current)
+        case let .adjustingCrop(handle, start, origin, _):
+            self.gesture = .adjustingCrop(
+                handle,
+                start: start,
+                origin: origin,
+                rect: adjustedCrop(origin, handle, from: start, to: current)
+            )
         }
     }
 
@@ -80,7 +83,13 @@ public extension AnnotationEditor {
             redoStack.removeAll()
             coalesceKey = nil
         case let .cropping(start, current):
-            crop(to: CGRect(x: start.x, y: start.y, width: current.x - start.x, height: current.y - start.y).standardized)
+            let rect = CGRect(x: start.x, y: start.y, width: current.x - start.x, height: current.y - start.y).standardized
+            // A click or a tiny drag (under the screen-point minimum) draws no new crop.
+            guard max(rect.width, rect.height) >= minimumSide else { return }
+            crop(to: rect)
+        case let .adjustingCrop(_, _, origin, rect):
+            guard rect != origin.cgRect else { return }
+            crop(to: rect)
         }
     }
 
@@ -158,10 +167,16 @@ public extension AnnotationEditor {
         return drawnShape(tool, points: points)
     }
 
-    /// The crop rectangle being dragged, in media pixels.
+    /// The crop rectangle being drawn, moved, or resized, in pixels of the original.
     var previewCrop: CGRect? {
-        guard case let .cropping(start, current) = gesture else { return nil }
-        return CGRect(x: start.x, y: start.y, width: current.x - start.x, height: current.y - start.y).standardized
+        switch gesture {
+        case let .cropping(start, current):
+            CGRect(x: start.x, y: start.y, width: current.x - start.x, height: current.y - start.y).standardized
+        case let .adjustingCrop(_, _, _, rect):
+            rect
+        default:
+            nil
+        }
     }
 
     /// The topmost annotation on the current media under `point`. Among several hits, the one
@@ -180,62 +195,6 @@ public extension AnnotationEditor {
             if lhsArea != rhsArea { return lhsArea < rhsArea }
             return lhs.2 > rhs.2
         }?.0
-    }
-
-    // MARK: Crop
-
-    /// Crops the current image to `rect` (media pixels, snapped outward to whole pixels).
-    /// Annotations move with the image exactly; those left outside are hidden, not removed, and
-    /// come back when the crop is widened or restored. The file itself is cropped only when the
-    /// review is submitted (`HS2-71SSJG`). Returns false, with a message, when the crop is refused.
-    @discardableResult
-    mutating func crop(to rect: CGRect) -> Bool {
-        guard let item = currentMedia else { return false }
-        guard item.kind == .image else {
-            message = "Videos can't be cropped."
-            return false
-        }
-        guard let pixels = PixelRect.snapping(rect, width: item.pixelWidth, height: item.pixelHeight),
-              pixels.width >= ImageCrop.minimumSide, pixels.height >= ImageCrop.minimumSide
-        else {
-            message = "A crop must be at least \(ImageCrop.minimumSide) × \(ImageCrop.minimumSide) pixels."
-            return false
-        }
-        guard pixels != Self.size(of: item) else { return false }
-        let current = Self.size(of: item)
-        let changed = perform { snapshot in
-            let previous = snapshot.document.crops[item.id] ?? current
-            snapshot.document.crops[item.id] = PixelRect(
-                x: previous.x + pixels.x, y: previous.y + pixels.y, width: pixels.width, height: pixels.height
-            )
-            snapshot.document.bundle.resize(item.id, width: pixels.width, height: pixels.height)
-            for index in snapshot.document.bundle.annotations.indices where snapshot.document.bundle.annotations[index].mediaId == item.id {
-                let shape = snapshot.document.bundle.annotations[index].shape
-                snapshot.document.bundle.annotations[index].shape = EditProjection.shape(shape, into: pixels, of: current)
-            }
-            return true
-        }
-        guard changed else { return false }
-        if let selected = selection, let annotation = annotation(selected), isOutsideEdit(annotation) { selection = nil }
-        message = "Cropped to \(pixels.width) × \(pixels.height) px." + outsideNote(item.id, "crop")
-        tool = .select
-        return true
-    }
-
-    /// Restores the current image's size from when the session opened, mapping annotations back
-    /// onto it. Undoable.
-    @discardableResult
-    mutating func resetCrop() -> Bool {
-        guard let item = currentMedia, let crop = document.crops[item.id], let original = originalSizes[item.id] else { return false }
-        return perform { snapshot in
-            snapshot.document.crops[item.id] = nil
-            snapshot.document.bundle.resize(item.id, width: original.width, height: original.height)
-            for index in snapshot.document.bundle.annotations.indices where snapshot.document.bundle.annotations[index].mediaId == item.id {
-                let shape = snapshot.document.bundle.annotations[index].shape
-                snapshot.document.bundle.annotations[index].shape = EditProjection.shape(shape, outOf: crop, to: original)
-            }
-            return true
-        }
     }
 
     // MARK: Helpers

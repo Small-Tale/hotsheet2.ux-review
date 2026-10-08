@@ -202,7 +202,7 @@ public extension Shape {
         }
     }
 
-    private static func resize(
+    static func resize(
         _ rect: CGRect,
         _ handle: BoxHandle,
         to point: CGPoint,

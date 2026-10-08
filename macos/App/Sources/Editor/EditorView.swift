@@ -61,7 +61,7 @@ struct EditorToolbar: View {
                     .help(
                         item.kind == .video
                             ? "Undo every trim of this video, including earlier sessions'; hidden annotations come back"
-                            : "Undo every crop of this capture, including earlier sessions'; hidden annotations come back"
+                            : "Remove this capture's crop, including one from an earlier session; hidden annotations come back"
                     )
             }
             Spacer(minLength: 8)

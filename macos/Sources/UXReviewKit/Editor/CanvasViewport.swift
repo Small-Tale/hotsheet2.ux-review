@@ -130,6 +130,16 @@ public struct CanvasViewport: Equatable, Sendable {
         settle(view: view, media: media)
     }
 
+    /// The canvas switched to another frame of the same media (the Crop tool shows the original,
+    /// another tool the crop; or the crop changed, docs/06 §6.6): `oldOrigin` and `newOrigin` are
+    /// where each frame's pixel (0, 0) lies in the original. A zoomed view keeps its scale and the
+    /// same original pixel at the middle (clamped to the new frame); a fitted view stays fitted.
+    public mutating func reframe(from oldOrigin: CGPoint, of oldMedia: CGSize, to newOrigin: CGPoint, of newMedia: CGSize, view: CGSize) {
+        guard zoom != nil, let middle = layout(view: view, media: oldMedia)?.center else { return }
+        center = CGPoint(x: middle.x + oldOrigin.x - newOrigin.x, y: middle.y + oldOrigin.y - newOrigin.y)
+        settle(view: view, media: newMedia)
+    }
+
     /// Stores the clamped center, so panning back from an edge responds at once.
     private mutating func settle(view: CGSize, media: CGSize) {
         if let layout = layout(view: view, media: media) { center = layout.center }

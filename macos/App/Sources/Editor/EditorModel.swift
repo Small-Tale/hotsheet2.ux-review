@@ -24,7 +24,15 @@ final class EditorModel: ObservableObject {
     /// work in the same coordinates.
     private(set) var canvasSize = CGSize(width: 900, height: 700)
     private(set) var backingScale: CGFloat = 2
-    private var viewportMediaId: String?
+    /// The frame the viewport was laid out for: the media, where the canvas's pixel (0, 0) lies in
+    /// its original, and its size (docs/06 §6.6: the Crop tool shows the original).
+    private struct ViewportSpace: Equatable {
+        var mediaId: String?
+        var origin: CGPoint
+        var size: CGSize?
+    }
+
+    private var viewportSpace = ViewportSpace(mediaId: nil, origin: .zero, size: nil)
 
     /// The player while a video plays (docs/06 §6.10); nil when paused.
     @Published private(set) var playback: VideoPlayback?
@@ -42,13 +50,15 @@ final class EditorModel: ObservableObject {
 
     private var saveTask: Task<Void, Never>?
     private var imageCache: [String: (crop: PixelRect?, image: CGImage?)] = [:]
+    /// Uncropped images, for the Crop tool.
+    private var originalCache: [String: CGImage?] = [:]
     private var draftChanges: AnyCancellable?
 
     static let autosaveDelay: Duration = .milliseconds(600)
 
     init(session: EditorSession) {
         self.session = session
-        viewportMediaId = session.editor.currentMediaId
+        viewportSpace = currentViewportSpace
         draftChanges = NotificationCenter.default.publisher(for: .reviewDraftChanged)
             .compactMap { $0.object as? URL }
             .receive(on: DispatchQueue.main)
@@ -71,9 +81,10 @@ final class EditorModel: ObservableObject {
 
     // MARK: Zoom and pan
 
-    /// The current media's size in pixels (as cropped), which the viewport lays out.
+    /// The size in pixels of what the canvas shows: the current media as cropped, or its original
+    /// while the Crop tool shows it. The viewport lays this out.
     var mediaSize: CGSize? {
-        editor.currentFrame.map { CGSize(width: $0.width, height: $0.height) }
+        editor.canvasFrame.map { CGSize(width: $0.width, height: $0.height) }
     }
 
     /// Where the current media is drawn in a canvas of `size`.
@@ -126,10 +137,21 @@ final class EditorModel: ObservableObject {
         revision += 1
     }
 
+    private var currentViewportSpace: ViewportSpace {
+        ViewportSpace(mediaId: editor.currentMediaId, origin: editor.canvasOrigin, size: mediaSize)
+    }
+
+    /// Other media returns to fit. The same media in another frame (the Crop tool on or off, a
+    /// crop changed) keeps the zoom and the content at the middle.
     private func syncViewport() {
-        guard editor.currentMediaId != viewportMediaId else { return }
-        viewportMediaId = editor.currentMediaId
-        viewport = CanvasViewport()
+        let space = currentViewportSpace
+        guard space != viewportSpace else { return }
+        if space.mediaId != viewportSpace.mediaId {
+            viewport = CanvasViewport()
+        } else if let old = viewportSpace.size, let new = space.size {
+            viewport.reframe(from: viewportSpace.origin, of: old, to: space.origin, of: new, view: canvasSize)
+        }
+        viewportSpace = space
     }
 
     // MARK: Playback
@@ -168,6 +190,17 @@ final class EditorModel: ObservableObject {
         guard player.isPlaying else { return pause() }
         session.editor.setCurrentTime(player.currentMs)
         revision += 1
+    }
+
+    /// What the canvas draws for the current media: as `image`, but the whole original while the
+    /// Crop tool shows it (docs/06 §6.6).
+    func canvasImage() -> CGImage? {
+        guard let id = editor.currentMediaId else { return nil }
+        guard editor.showsOriginal, editor.media(id)?.kind == .image else { return image(id) }
+        if let cached = originalCache[id] { return cached }
+        let image = session.displayImage(id, uncropped: true)
+        originalCache[id] = image
+        return image
     }
 
     /// The current image for `mediaId` (cropped as edited), cached per crop. For a video, the
@@ -222,6 +255,7 @@ final class EditorModel: ObservableObject {
             let changes = try session.removeCaptures(mediaIds)
             for id in changes.removed {
                 imageCache[id] = nil
+                originalCache[id] = nil
             }
             saveError = nil
             NotificationCenter.default.post(name: .reviewDraftChanged, object: session.directory)
@@ -230,6 +264,7 @@ final class EditorModel: ObservableObject {
             // Some may be gone already (a failure partway): forget them, and let open session
             // windows catch up.
             imageCache = imageCache.filter { editor.media($0.key) != nil }
+            originalCache = originalCache.filter { editor.media($0.key) != nil }
             NotificationCenter.default.post(name: .reviewDraftChanged, object: session.directory)
         }
         syncViewport()
@@ -252,6 +287,7 @@ final class EditorModel: ObservableObject {
             }
             for id in changes.removed {
                 imageCache[id] = nil
+                originalCache[id] = nil
             }
             syncViewport()
             revision += 1

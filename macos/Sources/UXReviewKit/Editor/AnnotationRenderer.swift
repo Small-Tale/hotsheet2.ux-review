@@ -91,6 +91,7 @@ public struct AnnotationRenderer {
         selection: String? = nil,
         preview: Shape? = nil,
         crop: CGRect? = nil,
+        cropHandles: Bool = false,
         in context: CGContext
     ) {
         // Shapes that stick out of a crop are drawn clipped to the image, as they will be
@@ -111,7 +112,7 @@ public struct AnnotationRenderer {
             drawHandles(selected.annotation.shape, in: context)
         }
         if let crop {
-            drawCropOverlay(crop, in: context)
+            drawCropOverlay(crop, handles: cropHandles, in: context)
         }
     }
 
@@ -273,32 +274,6 @@ public struct AnnotationRenderer {
         }
     }
 
-    // MARK: Crop overlay
-
-    func drawCropOverlay(_ crop: CGRect, in context: CGContext) {
-        let box = rect(crop)
-        context.saveGState()
-        context.addRect(imageRect)
-        context.addRect(box)
-        context.setFillColor(CGColor(gray: 0, alpha: 0.55))
-        context.fillPath(using: .evenOdd)
-        context.setStrokeColor(CGColor(gray: 1, alpha: 1))
-        context.setLineWidth(1.5)
-        context.setLineDash(phase: 0, lengths: [6, 4])
-        context.stroke(box)
-        context.restoreGState()
-        let label = "\(Int(crop.width.rounded())) × \(Int(crop.height.rounded())) px"
-        let labelY = box.maxY + 16 < imageRect.maxY ? box.maxY + 12 : box.maxY - 12
-        Self.drawText(
-            label,
-            centeredAt: CGPoint(x: box.midX, y: labelY),
-            size: 12,
-            color: CGColor(gray: 1, alpha: 1),
-            background: CGColor(gray: 0, alpha: 0.7),
-            in: context
-        )
-    }
-
     // MARK: Text
 
     /// Draws `text` centered at `center` in a flipped context.
@@ -362,5 +337,86 @@ public struct AnnotationRenderer {
         )
         renderer.draw(items, selection: selection, in: context)
         return context.makeImage()
+    }
+}
+
+/// The crop overlay (docs/06 §6.6).
+extension AnnotationRenderer {
+    /// Dims everything outside `crop` (media pixels) and outlines it with its size. With
+    /// `handles` (the Crop tool showing the original, docs/06 §6.6) it also draws the rule-of-thirds
+    /// guides and the 8 resize handles on its corners and edges.
+    func drawCropOverlay(_ crop: CGRect, handles: Bool = false, in context: CGContext) {
+        let box = rect(crop)
+        context.saveGState()
+        context.addRect(imageRect)
+        context.addRect(box)
+        context.setFillColor(CGColor(gray: 0, alpha: 0.55))
+        context.fillPath(using: .evenOdd)
+        if handles {
+            context.setStrokeColor(CGColor(gray: 1, alpha: 0.35))
+            context.setLineWidth(1)
+            for third in [1.0 / 3, 2.0 / 3] {
+                context.strokeLineSegments(between: [
+                    CGPoint(x: box.minX + box.width * third, y: box.minY), CGPoint(x: box.minX + box.width * third, y: box.maxY),
+                    CGPoint(x: box.minX, y: box.minY + box.height * third), CGPoint(x: box.maxX, y: box.minY + box.height * third),
+                ])
+            }
+        }
+        context.setStrokeColor(CGColor(gray: 1, alpha: 1))
+        context.setLineWidth(1.5)
+        if !handles { context.setLineDash(phase: 0, lengths: [6, 4]) }
+        context.stroke(box)
+        context.restoreGState()
+        if handles {
+            drawCropHandles(box, in: context)
+        }
+        let label = "\(Int(crop.width.rounded())) × \(Int(crop.height.rounded())) px"
+        // Below the crop when there is room on the canvas, else just inside its bottom edge (clear
+        // of the bottom handle when handles show).
+        let gap: CGFloat = handles ? 20 : 12
+        let labelY = box.maxY + gap + 4 < imageRect.maxY ? box.maxY + gap : box.maxY - gap
+        Self.drawText(
+            label,
+            centeredAt: CGPoint(x: box.midX, y: labelY),
+            size: 12,
+            color: CGColor(gray: 1, alpha: 1),
+            background: CGColor(gray: 0, alpha: 0.7),
+            in: context
+        )
+    }
+
+    /// Corner brackets and edge bars on a crop rectangle (context coordinates), so its corners and
+    /// edges read as draggable.
+    func drawCropHandles(_ box: CGRect, in context: CGContext) {
+        let arm = min(18, box.width / 3, box.height / 3)
+        let bar = min(22, box.width / 4, box.height / 4)
+        let path = CGMutablePath()
+        for (corner, dx, dy) in [
+            (CGPoint(x: box.minX, y: box.minY), 1.0, 1.0), (CGPoint(x: box.maxX, y: box.minY), -1.0, 1.0),
+            (CGPoint(x: box.maxX, y: box.maxY), -1.0, -1.0), (CGPoint(x: box.minX, y: box.maxY), 1.0, -1.0),
+        ] {
+            path.move(to: CGPoint(x: corner.x + dx * arm, y: corner.y))
+            path.addLine(to: corner)
+            path.addLine(to: CGPoint(x: corner.x, y: corner.y + dy * arm))
+        }
+        path.move(to: CGPoint(x: box.midX - bar / 2, y: box.minY))
+        path.addLine(to: CGPoint(x: box.midX + bar / 2, y: box.minY))
+        path.move(to: CGPoint(x: box.midX - bar / 2, y: box.maxY))
+        path.addLine(to: CGPoint(x: box.midX + bar / 2, y: box.maxY))
+        path.move(to: CGPoint(x: box.minX, y: box.midY - bar / 2))
+        path.addLine(to: CGPoint(x: box.minX, y: box.midY + bar / 2))
+        path.move(to: CGPoint(x: box.maxX, y: box.midY - bar / 2))
+        path.addLine(to: CGPoint(x: box.maxX, y: box.midY + bar / 2))
+        context.saveGState()
+        context.setLineCap(.square)
+        context.addPath(path)
+        context.setStrokeColor(CGColor(gray: 0, alpha: 0.6))
+        context.setLineWidth(6)
+        context.strokePath()
+        context.addPath(path)
+        context.setStrokeColor(CGColor(gray: 1, alpha: 1))
+        context.setLineWidth(4)
+        context.strokePath()
+        context.restoreGState()
     }
 }

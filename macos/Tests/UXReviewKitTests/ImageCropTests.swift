@@ -70,7 +70,7 @@ struct ImageCropTests {
         Fixture.draw(&editor, .insertion, [Fixture.p(900, 450)]) // outside
         editor.setTool(.crop)
         Fixture.drag(&editor, [Fixture.p(100, 100), Fixture.p(600, 350)])
-        #expect(editor.tool == .select)
+        #expect(editor.tool == .crop) // the Crop tool stays chosen (HS2-4N722Z)
         #expect(editor.currentMedia?.pixelWidth == 500 && editor.currentMedia?.pixelHeight == 250)
         #expect(editor.document.crops["m1"] == crop)
         #expect(editor.bundle.annotations.map(\.shape) == [
@@ -88,8 +88,8 @@ struct ImageCropTests {
         #expect(editor.submissionBundle.annotations.map(\.id) == ["a1"])
         #expect(editor.submissionBundle.validate().isEmpty)
 
-        // A second crop composes with the first, relative to the original image.
-        let cropped = editor.crop(to: CGRect(x: 50, y: 25, width: 200, height: 100))
+        // A second crop replaces the first; both are relative to the original image.
+        let cropped = editor.crop(to: CGRect(x: 150, y: 125, width: 200, height: 100))
         #expect(cropped)
         #expect(editor.document.crops["m1"] == PixelRect(x: 150, y: 125, width: 200, height: 100))
 
@@ -103,6 +103,7 @@ struct ImageCropTests {
         editor.redo()
         #expect(editor.document.crops["m1"] == PixelRect(x: 150, y: 125, width: 200, height: 100))
         // Restore Original after two crops: every annotation is back exactly where it was drawn.
+        editor.setTool(.select)
         let restored = editor.restoreOriginal()
         #expect(restored)
         #expect(editor.bundle.annotations.map(\.shape) == [

@@ -66,7 +66,8 @@ macos/
     Settings/ProductName.swift        full (Hot Sheet 2 UX Review) and short (UX Review) product names (docs/00 §0.0)
     Settings/AppMenus.swift           menu bar menu + app Capture menu as MenuEntry lists per phase, MenuShortcut, WindowPresence (docs/05 §5.1)
     Editor/AnnotationEditor.swift     editor state machine: document, selection, undo/redo, intent toggle (docs/06)
-    Editor/AnnotationEditor+Gestures.swift  draw/move/resize/crop gestures, hit testing, crop + reset crop
+    Editor/AnnotationEditor+Gestures.swift  draw/move/resize gestures, hit testing
+    Editor/AnnotationEditor+Crop.swift  one crop per capture (relative to the original), the Crop tool's canvas space (shows the original), draw/move/resize crop gestures, reset crop (docs/06 §6.6)
     Editor/AnnotationEditor+Time.swift  playhead, annotation time ranges, trim + reset trim, TimeFormat (docs/06 §6.10)
     Editor/AnnotationEditor+Timeline.swift  timeline drags (range ends, trim handles), TimelineHitTest, TimeFormat.parse
     Editor/AnnotationEditor+FrameStep.swift  ← / → frame steps: TimelineStepTarget (last-used timeline target), step rules (docs/06 §6.4, §6.10)
@@ -75,7 +76,7 @@ macos/
     Editor/MediaSelection.swift       media strip multiple selection: click / ⌘-click / ⇧-click rules, removal targets, CaptureRemovalPrompt (docs/06 §6.7.2)
     Editor/VideoTrim.swift            trimmed / scaled movie export (AVAssetExportSession, one pass, scaling AVVideoComposition), byte-exact restore, expected frame rate (recorded metadata, sample cursor + edit list), frame cache
     Editor/VideoPlayback.swift        play/pause: AVPlayer on the trimmed clip, player frames, PlaybackRules
-    Editor/CanvasViewport.swift       canvas zoom/pan: fit, zoom stops, anchored zoom, clamped pan, AutoScroll near edges (docs/06 §6.2.1)
+    Editor/CanvasViewport.swift       canvas zoom/pan: fit, zoom stops, anchored zoom, clamped pan, reframe (Crop tool on/off), AutoScroll near edges (docs/06 §6.2.1)
     Editor/FreehandSmoothing.swift    freehand stroke cleanup: resample, corner-preserving bounded smoothing, gentle simplify
     Editor/ShapeGeometry.swift        MediaFrame pixel ↔ normalized, handles, hit distance, translate/resize
     Editor/OriginalsIndex.swift       legacy originals/crops.json and its trust rules, read only to migrate older drafts (docs/06 §6.6)

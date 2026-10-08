@@ -356,6 +356,34 @@ cmp -s "$shot" "$TMP/shot-before-crop.png" || die "restore: the PNG changed"
 validate_bundle "$adraft/review.json"
 ok "a third session restores the $original_size original: edits.json is gone and every annotation stays exactly where it was"
 
+# HS2-4N722Z: the Crop tool works on the original and stays chosen; drags draw a new crop, move it,
+# and resize it (each replacing the last, relative to the original); other tools draw on the crop.
+CDRAFTS="$TMP/crop-tool-drafts"
+run crop-shot 0 "${SYN[@]}" -- --capture screenshot --target region --rect 100,100,400,250 --drafts-dir "$CDRAFTS"
+cdraft="$(json "$TMP/crop-shot.json" j.draftDirectory)"
+crop_w="$(png_size "$cdraft/capture-1.png" | cut -dx -f1)"
+cat >"$TMP/script-crop-tool.json" <<'JSON'
+{"steps": [
+  {"op": "tool", "tool": "insertion"}, {"op": "drag", "points": [[300, 200]]},
+  {"op": "tool", "tool": "crop"},
+  {"op": "drag", "points": [[20, 20], [220, 120]]},
+  {"op": "drag", "points": [[100, 60], [130, 80]]},
+  {"op": "drag", "points": [[250, 70], [280, 70]]},
+  {"op": "tool", "tool": "rect"}, {"op": "drag", "points": [[0, 0], [23, 10]]}
+]}
+JSON
+run crop-tool 0 -- --annotate "$TMP/script-crop-tool.json" --drafts-dir "$CDRAFTS" --render-dir "$TMP/crop-tool"
+[[ "$(json "$cdraft/edits.json" '((c) => `${c.x},${c.y},${c.width}x${c.height}`)(j.crops["capture-1.png"])')" == "50,40,230x100" ]] \
+  || die "crop tool: edits.json $(cat "$cdraft/edits.json")"
+json "$TMP/crop-tool.json" 'j.messages.join("|")' | grep -q "Drag a new crop, or drag the crop's edges" || die "crop tool: no hint"
+[[ "$(json "$TMP/crop-tool.json" 'j.messages.filter(m => m.startsWith("Cropped to")).join("|")')" == "Cropped to 200 × 100 px. 1 annotation outside the crop is hidden.|Cropped to 230 × 100 px. 1 annotation outside the crop is hidden." ]] \
+  || die "crop tool: messages $(json "$TMP/crop-tool.json" 'j.messages.join("|")')"
+[[ "$(png_size "$TMP/crop-tool/capture-1-annotated.png")" == 230x100 ]] || die "crop tool: render size"
+[[ "$(json "$cdraft/review.json" 'j.annotations[0].shape.point.x + "," + j.annotations[1].shape.rect.x')" == "$(node -e "console.log(Math.round(300 * 10000 / $crop_w) + ',' + Math.round(50 * 10000 / $crop_w))")" ]] \
+  || die "crop tool: file coordinates $(json "$cdraft/review.json" 'JSON.stringify(j.annotations.map(a => a.shape))')"
+validate_bundle "$cdraft/review.json"
+ok "the Crop tool draws, moves, and resizes one crop on the original (edits.json 50,40 230x100); a rect drawn after it lands at the crop's origin in file coordinates"
+
 # HS2-GBM8JN + HS2-71SSJG: trim the recorded clip; the movie is never rewritten while drafting.
 clip="$adraft/capture-2.mov"
 clip_ms="$(json "$adraft/review.json" j.media[1].durationMs)"
@@ -1010,7 +1038,7 @@ ok "a Trash that refuses keeps the draft (exit 5); --delete deletes it immediate
 
 run previews 0 -- --render-ui-previews "$TMP/previews"
 for name in overlay-region-hint overlay-window-hint overlay-region-selection overlay-region-selection-bottom-edge overlay-window-hover recording-dim-region hud-countdown hud-saved hud-recording-countdown hud-recording hud-saved-video hud-recording-narration hud-saved-narrated settings-registered settings-in-use status-bar-icon-light status-bar-icon-dark menu-capture-target-row-light menu-capture-target-row-dark menu-delayed-row-light menu-delayed-row-dark \
-  editor-empty editor-no-media editor-annotated editor-arrow-selected editor-narrow editor-crop-drag editor-cropped editor-multi-select editor-zoomed editor-keyboard-insert editor-video-timeline editor-video-narrow editor-video-trimmed editor-video-playing editor-video-range-drag editor-video-trim-drag editor-autoscroll \
+  editor-empty editor-no-media editor-annotated editor-arrow-selected editor-narrow editor-crop-drag editor-crop-tool editor-crop-adjust editor-cropped editor-multi-select editor-zoomed editor-keyboard-insert editor-video-timeline editor-video-narrow editor-video-trimmed editor-video-playing editor-video-range-drag editor-video-trim-drag editor-autoscroll \
   session-ready session-narrow session-edited session-submitting session-failed session-submitted session-issues session-empty \
   session-existing-looking session-existing-found session-existing-narrow session-existing-not-found session-existing-closed \
   session-existing-failed session-existing-submitted session-existing-selection session-existing-abandoned \

@@ -80,7 +80,18 @@ public enum EditorGesture: Equatable, Sendable {
     case drawing(EditorTool, points: [CGPoint])
     case moving(annotationId: String, start: CGPoint, origin: Shape)
     case resizing(annotationId: String, handle: ShapeHandle, origin: Shape)
+    /// Drawing a new crop rectangle (pixels of the original, docs/06 §6.6).
     case cropping(start: CGPoint, current: CGPoint)
+    /// Moving or resizing the crop rectangle: the press point, the crop when it began, and the
+    /// rectangle so far (pixels of the original).
+    case adjustingCrop(CropHandle, start: CGPoint, origin: PixelRect, rect: CGRect)
+}
+
+/// The part of the crop rectangle a Crop tool press grabbed: its inside (move) or an edge or
+/// corner (resize). Spec: docs/06-annotation-editor.md §6.6.
+public enum CropHandle: Equatable, Sendable {
+    case move
+    case edge(BoxHandle)
 }
 
 /// The annotation editor's state machine: document, selection, current media, tool, the
@@ -242,10 +253,17 @@ public struct AnnotationEditor: Sendable {
         select(ids[next])
     }
 
+    /// Chooses a tool. The Crop tool shows the original with its crop rectangle (docs/06 §6.6)
+    /// and says how to adjust it.
     public mutating func setTool(_ tool: EditorTool) {
         cancelGesture()
+        let changed = tool != self.tool
         self.tool = tool
+        if changed, showsOriginal { message = Self.cropHint }
     }
+
+    /// The status line while the Crop tool shows the original.
+    static let cropHint = "Drag a new crop, or drag the crop's edges, corners, or inside to adjust it."
 
     // MARK: Editing
 

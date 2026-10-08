@@ -130,15 +130,33 @@ public final class EditorSession {
 
     public func fileURL(_ item: MediaItem) -> URL { directory.appendingPathComponent(item.filename) }
 
-    /// What the canvas shows for `mediaId`: the image with its current crop, or the video frame
-    /// at `atMs` into the clip as trimmed (default: the playhead for the current media, else the
-    /// first frame). Nil when the file can't be read.
-    public func displayImage(_ mediaId: String, atMs: Int? = nil) -> CGImage? {
+    /// What the canvas shows for `mediaId`: the image with its current crop (or, with
+    /// `uncropped`, its whole original, as the Crop tool shows it), or the video frame at `atMs`
+    /// into the clip as trimmed (default: the playhead for the current media, else the first
+    /// frame). Nil when the file can't be read.
+    public func displayImage(_ mediaId: String, atMs: Int? = nil, uncropped: Bool = false) -> CGImage? {
         guard let item = editor.media(mediaId) else { return nil }
         if item.kind == .video { return frame(item, atMs: atMs ?? time(of: mediaId)) }
         guard let base = baseImage(item) else { return nil }
-        guard let crop = editor.document.crops[mediaId] else { return base }
+        guard !uncropped, let crop = editor.document.crops[mediaId] else { return base }
         return ImageCrop.apply(crop, to: base)
+    }
+
+    /// The image the canvas draws for the current media: uncropped while the Crop tool shows the
+    /// original (`AnnotationEditor.showsOriginal`), else as cropped.
+    public func canvasImage() -> CGImage? {
+        editor.currentMediaId.flatMap { displayImage($0, uncropped: editor.showsOriginal) }
+    }
+
+    /// The annotations the canvas draws for the current media: those showing (`renderItems`), or,
+    /// while the Crop tool shows the original, all those showing at the playhead mapped into the
+    /// original (`AnnotationEditor.annotationsInOriginal`).
+    public func canvasItems() -> [AnnotationRenderer.Item] {
+        guard let id = editor.currentMediaId else { return [] }
+        guard editor.showsOriginal else { return renderItems(id) }
+        return editor.annotationsInOriginal(on: id).compactMap { annotation in
+            editor.number(of: annotation.id).map { AnnotationRenderer.Item(number: $0, annotation: annotation) }
+        }
     }
 
     /// Writes the bundle (in the files' own coordinates) and `edits.json`. It first catches up

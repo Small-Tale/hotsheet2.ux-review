@@ -48,8 +48,9 @@ extension EditorSessionTests {
     }
 
     /// HS2-71SSJG: annotations outside a crop survive saving and reopening, and come back
-    /// exactly when a later session restores the original; crops in later sessions compose;
-    /// reopening and saving many times never drifts.
+    /// exactly when a later session restores the original; a crop in a later session replaces the
+    /// earlier one, relative to the original (HS2-4N722Z); reopening and saving many times never
+    /// drifts.
     @Test func aLaterSessionRestoresAndRecropsWithoutLoss() throws {
         let fixture = try Fixture()
         let file = fixture.draft.directory.appendingPathComponent("capture-1.png")
@@ -83,9 +84,9 @@ extension EditorSessionTests {
         #expect(!FileManager.default.fileExists(atPath: DraftEdits.url(in: fixture.draft.directory).path))
         #expect(try Self.pixels(file) == originalPixels)
 
-        // Undo the restore, then crop again: the new crop composes relative to the original.
+        // Undo the restore, then crop again: the new crop replaces it, relative to the original.
         second.editor.undo()
-        _ = second.editor.crop(to: CGRect(x: 10, y: 10, width: 50, height: 40))
+        _ = second.editor.crop(to: CGRect(x: 110, y: 60, width: 50, height: 40))
         try second.save()
         #expect(DraftEdits.load(from: fixture.draft.directory).crops["capture-1.png"] == PixelRect(x: 110, y: 60, width: 50, height: 40))
         #expect(try fixture.onDisk().annotations.map(\.shape) == drawn)
@@ -99,6 +100,56 @@ extension EditorSessionTests {
         #expect(try Self.pixels(file) == originalPixels)
         let fourth = try fixture.session()
         #expect(fourth.editor.document.crops["m1"] == nil)
+    }
+
+    /// HS2-4N722Z: the Crop tool draws the original with every annotation in its place; crops
+    /// drawn, moved, and resized there replace each other; other tools draw the crop; saving and
+    /// reopening keep the annotations exactly where they were drawn.
+    @Test func theCropToolDrawsTheOriginalAndAdjustedCropsNeverDrift() throws {
+        let fixture = try Fixture()
+        let session = try fixture.session()
+        AnnotationEditorTests.draw(&session.editor, .rect, [CGPoint(x: 120, y: 60), CGPoint(x: 160, y: 100)])
+        AnnotationEditorTests.draw(&session.editor, .insertion, [CGPoint(x: 350, y: 180)])
+        let drawn = session.editor.bundle.annotations.map(\.shape)
+        session.editor.setTool(.crop)
+        #expect(session.canvasImage()?.width == 400)
+        AnnotationEditorTests.drag(&session.editor, [CGPoint(x: 100, y: 50), CGPoint(x: 300, y: 150)])
+        AnnotationEditorTests.drag(&session.editor, [CGPoint(x: 200, y: 100), CGPoint(x: 210, y: 105)]) // move
+        AnnotationEditorTests.drag(&session.editor, [CGPoint(x: 310, y: 100), CGPoint(x: 330, y: 100)]) // right edge
+        #expect(session.editor.document.crops["m1"] == PixelRect(x: 110, y: 55, width: 220, height: 100))
+        #expect(session.canvasImage()?.width == 400 && session.canvasImage()?.height == 200, "the original, while cropping")
+        #expect(session.canvasItems().map(\.annotation.shape) == drawn, "both, in the original's space")
+        #expect(session.displayImage("m1")?.width == 220, "the media strip and renders show the crop")
+
+        session.editor.setTool(.select)
+        #expect(session.canvasImage()?.width == 220 && session.canvasImage()?.height == 100)
+        #expect(session.canvasItems().map(\.annotation.id) == ["a1"], "the insertion is outside the crop")
+        try session.save()
+        #expect(
+            DraftEdits.load(from: fixture.draft.directory)
+                .crops == ["capture-1.png": PixelRect(x: 110, y: 55, width: 220, height: 100)]
+        )
+        #expect(try fixture.onDisk().annotations.map(\.shape) == drawn)
+
+        let next = try fixture.session()
+        #expect(!next.editor.isDirty && next.editor.tool == .select)
+        next.editor.setTool(.crop)
+        #expect(next.canvasItems().map(\.annotation.shape) == drawn)
+        #expect(next.editor.cropOverlay == CGRect(x: 110, y: 55, width: 220, height: 100))
+        let script = try EditorScript.parse(Data("""
+        {"steps": [
+          {"op": "drag", "points": [[200, 100], [150, 60]]},
+          {"op": "crop", "rect": [20, 20, 100, 80]},
+          {"op": "undo"}
+        ]}
+        """.utf8))
+        let messages = try script.run(on: next)
+        #expect(messages == [
+            "Cropped to 220 × 100 px. 1 annotation outside the crop is hidden.",
+            "Cropped to 100 × 80 px. 2 annotations outside the crop are hidden.",
+        ])
+        #expect(DraftEdits.load(from: fixture.draft.directory).crops == ["capture-1.png": PixelRect(x: 60, y: 15, width: 220, height: 100)])
+        #expect(try fixture.onDisk().annotations.map(\.shape) == drawn)
     }
 
     /// Drafts cropped before HS2-71SSJG (a cropped file, its original under originals/, and

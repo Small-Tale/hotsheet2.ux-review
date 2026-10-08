@@ -186,7 +186,8 @@ Each feature gets both unit tests and end-to-end tests. Tests live in
 - **Crop and geometry** (`ImageCropTests`, `ShapeGeometryTests`):
   - snapping
   - boxes clipped, points pulled to the edge, outsiders removed
-  - crops compose, undo, and redo; refused crops (tiny, whole, video)
+  - a second crop replaces the first (relative to the original), undo, and redo; refused crops
+    (tiny, whole, video)
   - reset crop
   - normalized ↔ pixel conversion; hit distance per shape; handles; translation clamps
 - **Session and files** (`EditorSessionTests`, real PNGs in a real draft):
@@ -330,7 +331,7 @@ Each feature gets both unit tests and end-to-end tests. Tests live in
     dirty, no rewrite on save)
   - Restore Original maps the annotation back exactly and makes the file pixel-identical to
     the original
-  - undo, then a new crop composes relative to the original (the index records 110,60)
+  - undo, then a new crop replaces it, relative to the original (the index records 110,60)
   - a third session restores two sessions of crops in one step, and the index then records
     the full image
   - untrusted originals fall back to the file as found: no index (legacy), unreadable, wrong
@@ -1174,3 +1175,31 @@ capture files are no longer cropped or trimmed while drafting.
   a settings change (UI wiring over the tested model and notification); a rotated movie's
   preferred transform in the scaling composition (recordings and imports here have none). Both are
   `HS2-ZMDH5D`.
+
+## HS2-4N722Z: the Crop tool shows the original and adjusts one crop
+
+- **Unit** (`CropToolTests`): the Crop tool shows the original (canvas frame, origin, overlay,
+  hint) and other tools the crop (fit frame, hit testing, drawing in crop pixels); videos and an
+  empty review never show it; which edge, corner, or inside a press grabs (uncropped, cropped,
+  tiny crops); moves by whole pixels clamped to the capture, resizes that never flip or go under
+  8 px, one undo step each and full undo/redo walks; a new rectangle replaces the crop, clicks
+  and moves by nothing do nothing; a crop out to the whole capture removes it; Esc, undo, redo,
+  other media, another tool, or a new press mid-drag (move, resize, new) leave nothing behind;
+  Restore Original and undo while the tool is chosen; each capture keeps its own crop across
+  switches and undo jumps back to it. A seeded random walk (12 × 400 steps of tool switches,
+  crop drags, cancelled drags, undo, redo, Restore Original, switching captures) checks the
+  canvas-space rules and that no annotation ever drifts from where it was drawn, reaches every
+  tool × crop × change combination, and undoes back to uncropped.
+- **Unit** (`CanvasViewportTests`): `reframe` keeps the zoom and the original pixel at the
+  middle there and back, clamps into a smaller frame, and leaves a fitted view fitted.
+- **Unit, real files** (`EditorSessionTests`): with the Crop tool the canvas image is the
+  original and its items every annotation in original coordinates; drawn, moved, and resized
+  crops save as one `edits.json` crop; other tools show the crop; saving and reopening (and a
+  script that moves the crop and crops by `rect`) keep every annotation exactly as drawn.
+- **App end to end** (`scripts/app-e2e.sh`): an `--annotate` script draws, moves, and resizes the
+  crop with the Crop tool (edits.json 50,40 230 × 100, the hint and messages), then draws a rect
+  on the crop that lands at the crop's origin in file coordinates; the render is 230 × 100.
+- **Visual QA:** `editor-crop-drag`, `editor-crop-tool`, `editor-crop-adjust`, `editor-cropped`
+  (`--render-ui-previews`), inspected by hand.
+- **Not covered automatically:** live mouse and trackpad crop gestures (`HS2-7MFNJP`); resize
+  cursors over the crop's edges are `HS2-9RRP8G`.

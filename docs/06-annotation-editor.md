@@ -4,7 +4,8 @@ Status: implemented on macOS (`HS2-9H7WZ8`). Freehand smoothing is `HS2-5N1GFW`.
 `HS2-9Y9DDY`. Video trim and annotation time ranges are `HS2-GBM8JN` (§6.10). Arrow-key frame steps are
 `HS2-8FTZ09` (§6.4, §6.10); since `HS2-BADS0F` every movie, variable-frame-rate ones included,
 steps on a uniform grid at its expected frame rate (§6.10). The timeline step buttons and
-`,` / `.` keep 0.1 s steps (`HS2-JP7Z4W`, §6.10).
+`,` / `.` keep 0.1 s steps (`HS2-JP7Z4W`, §6.10). The Crop tool shows the original and adjusts one
+crop rectangle (`HS2-4N722Z`, §6.6).
 
 The editor marks up the captures of a draft review ([04-capture.md](04-capture.md) §4.6). It
 writes shapes, notes, and intents into the draft's `review.json`
@@ -133,7 +134,11 @@ example in a 5K screenshot), zoom in (`HS2-9Y9DDY`):
   canvas on an axis stays centered on that axis.
 - **Resizing** the window keeps the zoom and the pixel at the canvas middle. A fitted capture
   stays fitted.
-- **Switching** to another capture returns to fit. Cropping keeps the zoom and re-clamps.
+- **Switching** to another capture returns to fit. Choosing the Crop tool (which shows the
+  original, §6.6), leaving it, or changing the crop keeps the zoom and the same part of the
+  capture at the canvas middle, then re-clamps (`CanvasViewport.reframe`); a fitted capture
+  stays fitted. Fit, the zoom range, and the pan limits always use what the canvas shows: the
+  cropped size, or the original's while the Crop tool shows it.
 - **Screen-point sizes:** strokes, handles, badges, the 7-point hit tolerance, and the
   6-point minimum shape size (§6.3) stay the same at every zoom.
 - **Zoom is a view setting.** It isn't saved in the draft.
@@ -159,7 +164,7 @@ example in a 5K screenshot), zoom in (`HS2-9Y9DDY`):
 | Arrow | A | Drag from tail to head |
 | Insertion | I | Click where something should be inserted |
 | Strike | S | Drag a box over what should be removed |
-| Crop | C | Drag the area to keep (§6.6) |
+| Crop | C | Shows the original: drag the area to keep, or drag the crop's edges, corners, or inside to adjust it (§6.6). The tool stays chosen |
 
 **Drawing:**
 
@@ -295,11 +300,41 @@ shape's default intent is shown as on, with a "default" hint.
 
 ## 6.6 Crop
 
-Crop applies to images only.
+Crop applies to images only. Each capture has **one crop, relative to its original** (the file
+as captured, `HS2-4N722Z`): a new or adjusted crop replaces the old one; crops never compose.
 
-- Drag with the Crop tool. The outside is dimmed, and a label shows the size in pixels.
-- On release, the rectangle snaps outward to whole pixels and clips to the image. It must be at
-  least 8 × 8 px. A crop covering the whole image does nothing.
+**The Crop tool shows the original.** While Crop (C) is chosen, the canvas shows the whole,
+uncropped capture with the current crop rectangle on it (the whole capture when uncropped):
+
+- The outside is dimmed, the rectangle has rule-of-thirds guides, corner brackets, and edge bars,
+  and a label shows its size in pixels. The status line says "Drag a new crop, or drag the
+  crop's edges, corners, or inside to adjust it."
+- **Pressing** within 7 screen points of an edge or corner resizes from it (where two edges are
+  in reach, the nearer wins); pressing inside a crop moves it; pressing anywhere else drags a
+  new rectangle. Uncropped, the capture's own edges resize, so dragging one in crops that side.
+  The pointer stays a crosshair (resize cursors are `HS2-9RRP8G`).
+- **Moving** goes by whole pixels and stops at the capture's edges. **Resizing** never flips the
+  rectangle or makes it narrower than 8 px.
+- **On release** the rectangle snaps outward to whole pixels and clips to the capture. It must be
+  at least 8 × 8 px ("A crop must be at least 8 × 8 pixels."). A click, a drag under 6 screen
+  points, or a move by nothing changes nothing and says nothing. A rectangle covering the whole
+  capture removes the crop ("Showing the whole capture.").
+- **The tool stays Crop** after each rectangle, so it can be tweaked. Esc returns to Select.
+- **Annotations** show in their places on the original, all of them (those outside the crop
+  under the dim), drawn unselected. They can't be selected, moved, or drawn there; the inspector
+  still edits notes and intents, and ⌫ still deletes the selection. VoiceOver lists them at their
+  places on the original, and the canvas label adds "Crop tool: the original with the crop, W × H
+  px".
+- **Videos** show as usual, and pressing says "Videos can't be cropped."
+
+**Any other tool shows the cropped capture** (simulated; the file is untouched): fit, zoom and
+pan limits, hit testing, drawing, inserting, and nudging all use the cropped size, and points
+are pixels of the crop. The media strip thumbnail always shows the crop.
+
+**History:** each committed crop change (new, moved, resized, or out to the whole capture) is
+one undo step, and undo shows that capture again. Esc, undo or redo, showing another capture,
+or choosing another tool mid-drag abandons the drag and changes nothing. Choosing a tool is
+navigation (not undoable). Each capture keeps its own crop.
 
 **Not destructive until submitting** (`HS2-71SSJG`). A crop never changes the capture file and
 never deletes annotations while the review is a draft:
@@ -313,11 +348,13 @@ never deletes annotations while the review is a draft:
 - Widening the crop again (Restore Original, then a larger crop) or undo brings hidden
   annotations back unchanged, in any later session.
 
-**Crops within a session:**
+**Restore Original** (any tool) removes the crop and maps every annotation back exactly. It is
+undoable. With the Crop tool chosen, the rectangle becomes the whole capture again.
 
-- Crops compose: a second crop is relative to the first.
-- **Restore Original** returns to the whole capture and maps every annotation back exactly. It
-  is undoable.
+**Exact mapping.** A crop change maps each annotation out of the old crop into the original and
+then into the new crop (`AnnotationEditor.reproject`), so however often the crop is redrawn,
+moved, or resized, an annotation drawn on the original comes back exactly: the original is never
+finer than a crop of it, so mapping into a crop and back loses nothing.
 
 **On disk** (`DraftEdits`, `<draft>/edits.json`):
 
@@ -355,7 +392,7 @@ records leave the file as it is (the original stays under `originals/`).
 - **selection**
 - **current media**
 - **tool**
-- **gesture**: drawing, moving, resizing, or cropping
+- **gesture**: drawing, moving, resizing, or cropping (drawing, moving, or resizing the crop)
 - **undo/redo stacks**
 
 **Rules:**
@@ -450,7 +487,8 @@ and capturing again reuses its id and file name, and that is a removal plus an a
 
 | Piece | Where |
 | --- | --- |
-| State machine, gestures, crop, intent toggle | `UXReviewKit/Editor/AnnotationEditor.swift`, `AnnotationEditor+Gestures.swift` |
+| State machine, gestures, intent toggle | `UXReviewKit/Editor/AnnotationEditor.swift`, `AnnotationEditor+Gestures.swift` |
+| Crop, the Crop tool's canvas space, crop gestures | `UXReviewKit/Editor/AnnotationEditor+Crop.swift` |
 | Playhead, time ranges, trim | `UXReviewKit/Editor/AnnotationEditor+Time.swift` |
 | ← / → frame steps, last-used timeline target | `UXReviewKit/Editor/AnnotationEditor+FrameStep.swift` |
 | Frame grid and expected frame rate | `UXReviewKit/Editor/FrameGrid.swift`; read by `VideoTrim.frameRate` |
@@ -482,7 +520,9 @@ on the current draft (or the draft directory named by `--draft`), then saves.
   strip's selection, §6.7.2), `annotations` (`number`, `id`,
   `mediaId`, `type`, effective `intents`, `note`, and `timeRange` when set), and `rendered`.
 
-**Script format.** A script is `{"steps": [...]}`. Points are media pixels, from the top left.
+**Script format.** A script is `{"steps": [...]}`. Points are media pixels, from the top left:
+pixels of the crop, except with the Crop tool on an image, where they are pixels of the original
+(so `drag` draws, moves, or resizes the crop exactly as the pointer does, §6.6).
 
 | Step | Effect |
 | --- | --- |
@@ -494,7 +534,7 @@ on the current draft (or the draft directory named by `--draft`), then saves.
 | `{"op": "note", "text": …}`, `{"op": "intent", "intent": "bug"}`, `{"op": "closed", "closed": false}` | Edit the selection (intent toggles) |
 | `{"op": "delete"}`, `{"op": "duplicate"}`, `{"op": "nudge", "dx": 1, "dy": 0}` | Act on the selection |
 | `{"op": "insert", "point": [x, y]}` (point optional; default the media center) | ⏎ with the current drawing tool (§6.4) |
-| `{"op": "crop", "rect": [x, y, w, h]}`, `{"op": "reset-crop"}` | Crop the current image, or restore it (§6.6) |
+| `{"op": "crop", "rect": [x, y, w, h]}`, `{"op": "reset-crop"}` | Set the current image's crop (pixels of the original, replacing any crop; the whole image removes it), or remove it (§6.6) |
 | `{"op": "time", "ms": 1500}` | Move the playhead on the current video, as the scrubber does (fails on an image) |
 | `{"op": "arrow-key", "key": "right", "shift": true}` | ← / → on the canvas (`shift` optional): a frame step of the last-used timeline target, or a nudge (§6.4) |
 | `{"op": "timeline-drag", "handle": "range-end", "ms": [900, 700]}`, `cancel-timeline-drag` | Press a timeline handle (`range-start`, `range-end`, `trim-start`, `trim-end`), drag through those times, then release (or press Esc). Range handles need a selection with a time range |
@@ -522,8 +562,11 @@ editor offscreen through the real views, on a draft of mock app screenshots:
 - `editor-annotated` (rect selected)
 - `editor-arrow-selected`
 - `editor-narrow` (the 900 × 560 minimum)
-- `editor-crop-drag`
-- `editor-cropped`
+- `editor-crop-drag` (a first crop being drawn with the Crop tool)
+- `editor-crop-tool` (the crop made: the original with the crop rectangle and its handles, the
+  tool still Crop, §6.6)
+- `editor-crop-adjust` (its right edge being dragged)
+- `editor-cropped` (the same crop after choosing Select: the cropped capture, fitted)
 - `editor-multi-select` (both captures selected, the second shown, §6.7.2)
 - `editor-zoomed` (300 % with a selection, §6.2.1)
 - `editor-keyboard-insert` (R then ⏎ sent as real key events), with the canvas's accessibility
