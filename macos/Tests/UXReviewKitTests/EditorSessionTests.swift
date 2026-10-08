@@ -165,7 +165,7 @@ struct EditorSessionTests {
         #expect(messages == ["Cropped to 380 × 180 px."])
         let disk = try fixture.onDisk()
         #expect(disk.annotations.map(\.shape.kind) == ["rect", "arrow", "freehand", "rect"])
-        #expect(disk.annotations[0].note == "Too tight" && disk.annotations[0].intents == [.comment, .change])
+        #expect(disk.annotations[0].note == "Too tight" && disk.annotations[0].intents == [.change]) // a plain click
         #expect(disk.annotations[3].note == "Too tight")
         #expect(disk.validate().isEmpty)
         #expect(try fixture.fileSize("capture-1.png") == (400, 200))

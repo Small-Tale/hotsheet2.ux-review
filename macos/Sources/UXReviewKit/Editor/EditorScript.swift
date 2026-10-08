@@ -27,7 +27,8 @@ public struct EditorScript: Decodable, Equatable, Sendable {
         /// Select by annotation id, or by its number in the review (`"#2"`); nil deselects.
         case select(String?)
         case note(String)
-        case intent(Intent)
+        /// A click on the selection's intent chip: plain (`single`) or ⌘ / ⇧ (`toggle`) (docs/06 §6.5).
+        case intent(Intent, IntentToggle.Click)
         case closed(Bool)
         /// An arrow's heads; a missing end keeps its current head (`HS2-HQV9R8`).
         case heads(start: ArrowHead?, end: ArrowHead?)
@@ -140,7 +141,7 @@ extension EditorScript.Step: Decodable {
             self = op == "drag" ? .drag(points) : .cancelDrag(points)
         case "select": self = try .select(container.decodeIfPresent(String.self, forKey: .id))
         case "note": self = try .note(container.decode(String.self, forKey: .text))
-        case "intent": self = try .intent(container.decode(Intent.self, forKey: .intent))
+        case "intent": self = try Self.intent(in: container)
         case "closed", "heads": self = try Self.outline(op, in: container)
         case "nudge": self = try .nudge(dx: container.decode(Double.self, forKey: .dx), dy: container.decode(Double.self, forKey: .dy))
         case "crop", "insert": self = try Self.geometry(op, in: container)
@@ -157,6 +158,21 @@ extension EditorScript.Step: Decodable {
         case nil: return .clickMedia(id, .plain)
         case "command": return .clickMedia(id, .toggle)
         case "shift": return .clickMedia(id, .extend)
+        case let other?:
+            throw DecodingError.dataCorruptedError(
+                forKey: .modifier,
+                in: container,
+                debugDescription: "Unknown modifier \(other) (command or shift)"
+            )
+        }
+    }
+
+    /// `intent`: an optional `modifier` (`command` or `shift`, both toggle) besides the `intent`.
+    private static func intent(in container: KeyedDecodingContainer<CodingKeys>) throws -> EditorScript.Step {
+        let intent = try container.decode(Intent.self, forKey: .intent)
+        switch try container.decodeIfPresent(String.self, forKey: .modifier) {
+        case nil: return .intent(intent, .single)
+        case "command", "shift": return .intent(intent, .toggle)
         case let other?:
             throw DecodingError.dataCorruptedError(
                 forKey: .modifier,
@@ -370,7 +386,7 @@ public extension EditorScript {
         guard let id = session.editor.selection else { throw StepFailure.reason("nothing selected") }
         switch step {
         case let .note(text): session.editor.setNote(text, for: id)
-        case let .intent(intent): session.editor.toggleIntent(intent, for: id)
+        case let .intent(intent, click): session.editor.clickIntent(intent, click, for: id)
         case let .closed(closed): session.editor.setClosed(closed, for: id)
         case let .heads(start, end):
             guard case let .arrow(_, current)? = session.editor.annotation(id)?.shape else {

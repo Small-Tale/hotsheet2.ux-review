@@ -44,6 +44,8 @@ enum EditorPreviews {
         try capture("editor-empty", size: wide, script: [])
         written.append(try renderNoMedia(to: directory, scratch: scratch, size: wide))
         try capture("editor-annotated", size: wide, script: annotations + [.select("#1")])
+        // A plain click on an intent chip leaves just that intent (docs/06 §6.5).
+        try capture("editor-intent-single", size: wide, script: annotations + [.select("#1"), .intent(.change, .single)])
         // Both captures selected (⌘-click), the second one shown (docs/06 §6.7.2).
         try capture("editor-multi-select", size: wide, script: annotations + [.clickMedia("m2", .toggle)])
         try capture("editor-arrow-selected", size: wide, script: annotations + [.select("#3")])
@@ -110,7 +112,7 @@ enum EditorPreviews {
         )).draft
         let steps: [EditorScript.Step] = [
             .tool(.rect), .drag([CGPoint(x: 330, y: 250), CGPoint(x: 820, y: 330)]),
-            .note("Label flickers while sending."), .intent(.bug), .range(TimeRange(startMs: 1000, endMs: 2000)),
+            .note("Label flickers while sending."), .intent(.bug, .toggle), .range(TimeRange(startMs: 1000, endMs: 2000)),
             .tool(.insertion), .drag([CGPoint(x: 560, y: 700)]),
             .note("Show a spinner here."), .range(TimeRange(startMs: 2500, endMs: 2500)),
             .tool(.arrow), .drag([CGPoint(x: 1000, y: 470), CGPoint(x: 1300, y: 600)]),
@@ -239,15 +241,15 @@ enum EditorPreviews {
     /// A realistic review of the mock settings page: one of each shape, notes, and intents.
     static let annotations: [EditorScript.Step] = [
         .tool(.rect), .drag([CGPoint(x: 330, y: 250), CGPoint(x: 820, y: 330)]),
-        .note("Field label is clipped at 200 % text size."), .intent(.bug),
+        .note("Field label is clipped at 200 % text size."), .intent(.bug, .toggle),
         .tool(.strike), .drag([CGPoint(x: 1184, y: 864), CGPoint(x: 1296, y: 928)]),
         .note("Remove the duplicate **Cancel** button."),
         .tool(.arrow), .drag([CGPoint(x: 1000, y: 470), CGPoint(x: 1300, y: 600)]),
         .note("Move the toggle next to its label."),
         .tool(.insertion), .drag([CGPoint(x: 560, y: 700)]),
-        .note("Insert helper text: \"We never share your email.\""), .intent(.question),
+        .note("Insert helper text: \"We never share your email.\""), .intent(.question, .toggle),
         .tool(.freehand), .drag(ellipse(center: CGPoint(x: 160, y: 520), radius: CGSize(width: 110, height: 70))),
-        .note("Sidebar icons are inconsistent sizes."), .intent(.change),
+        .note("Sidebar icons are inconsistent sizes."), .intent(.change, .toggle),
         .select(nil),
     ]
 

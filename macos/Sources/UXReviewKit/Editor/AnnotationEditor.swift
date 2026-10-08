@@ -275,12 +275,20 @@ public struct AnnotationEditor: Sendable {
         }
     }
 
-    /// Toggles an intent over the annotation's *effective* intents (see `IntentToggle`).
+    /// A click on an intent chip (see `IntentToggle`): a plain click selects just that intent, a
+    /// ⌘- or ⇧-click toggles it over the annotation's *effective* intents. One undo step; false
+    /// (and no history) when nothing changes.
+    @discardableResult
+    public mutating func clickIntent(_ intent: Intent, _ click: IntentToggle.Click, for id: String) -> Bool {
+        perform { snapshot in
+            snapshot.document.bundle.update(id) { $0.intents = IntentToggle.clicked($0.intents, intent, click, shape: $0.shape) }
+        }
+    }
+
+    /// Toggles an intent over the annotation's *effective* intents (a ⌘-click on its chip).
     @discardableResult
     public mutating func toggleIntent(_ intent: Intent, for id: String) -> Bool {
-        perform { snapshot in
-            snapshot.document.bundle.update(id) { $0.intents = IntentToggle.toggled($0.intents, intent, shape: $0.shape) }
-        }
+        clickIntent(intent, .toggle, for: id)
     }
 
     /// Opens or closes a freehand outline.
@@ -436,20 +444,6 @@ public struct AnnotationEditor: Sendable {
             number += 1
         }
         return "a\(number)"
-    }
-}
-
-/// Intent toggling. The editor shows an annotation's *effective* intents (an empty list means
-/// the shape's default), so toggling works on that set:
-/// - toggling adds or removes the intent from the effective set;
-/// - a result equal to just the default intent, or an empty result, is stored as `[]`;
-/// - otherwise intents are stored in canonical `Intent.allCases` order.
-public enum IntentToggle {
-    public static func toggled(_ intents: [Intent], _ intent: Intent, shape: Shape) -> [Intent] {
-        var effective = Set(intents.isEmpty ? [shape.defaultIntent] : intents)
-        if effective.contains(intent) { effective.remove(intent) } else { effective.insert(intent) }
-        if effective.isEmpty || effective == [shape.defaultIntent] { return [] }
-        return Intent.allCases.filter(effective.contains)
     }
 }
 

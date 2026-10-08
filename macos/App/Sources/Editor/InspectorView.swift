@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 import UXReviewKit
 
@@ -39,8 +40,8 @@ struct AnnotationDetail: View {
             .buttonStyle(.borderless)
 
             Text("Intent").font(.caption).foregroundStyle(.secondary)
-            IntentChips(annotation: annotation) { intent in
-                model.mutate { _ = $0.toggleIntent(intent, for: annotation.id) }
+            IntentChips(annotation: annotation) { intent, click in
+                model.mutate { _ = $0.clickIntent(intent, click, for: annotation.id) }
             }
 
             if case let .freehand(_, closed) = annotation.shape {
@@ -183,18 +184,20 @@ struct TimeRangeEditor: View {
     }
 }
 
-/// One toggle per intent. Effective intents are on; when the list is empty the shape's default
-/// shows as on with a "default" hint.
+/// One chip per intent. Effective intents are on; when the list is empty the shape's default
+/// shows as on with a "default" hint. A click selects just that intent; ⌘- or ⇧-click toggles it
+/// into a multiple selection (`IntentToggle.Click`, docs/06 §6.5). VoiceOver gets the toggle as a
+/// named action, since it can't hold a modifier.
 struct IntentChips: View {
     let annotation: Annotation
-    let toggle: (Intent) -> Void
+    let click: (Intent, IntentToggle.Click) -> Void
 
     var body: some View {
         let effective = Set(annotation.effectiveIntents)
         FlowLayout(spacing: 6) {
             ForEach(Intent.allCases, id: \.self) { intent in
                 let isOn = effective.contains(intent)
-                Button { toggle(intent) } label: {
+                Button { click(intent, Self.click(NSEvent.modifierFlags)) } label: {
                     HStack(spacing: 4) {
                         Circle().fill(Color(cgColor: IntentPalette.color(intent))).frame(width: 8, height: 8)
                         Text(intent.rawValue)
@@ -212,10 +215,16 @@ struct IntentChips: View {
                     .overlay(Capsule().stroke(isOn ? Color(cgColor: IntentPalette.color(intent)) : Color.primary.opacity(0.15)))
                 }
                 .buttonStyle(.plain)
-                .help(intent.help)
+                .help("\(intent.help). ⌘-click to add or remove it alongside other intents.")
                 .accessibilityAddTraits(isOn ? .isSelected : [])
+                .accessibilityAction(named: isOn ? "Remove from intents" : "Add to intents") { click(intent, .toggle) }
             }
         }
+    }
+
+    /// ⌘ or ⇧ held: toggle into a multiple selection; otherwise select just this intent.
+    static func click(_ flags: NSEvent.ModifierFlags) -> IntentToggle.Click {
+        IntentToggle.Click(command: flags.contains(.command), shift: flags.contains(.shift))
     }
 }
 

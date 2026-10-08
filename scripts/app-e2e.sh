@@ -296,7 +296,8 @@ original_size="$(png_size "$shot")"
 cat >"$TMP/script-annotate.json" <<'JSON'
 {"steps": [
   {"op": "tool", "tool": "rect"}, {"op": "drag", "points": [[30, 30], [150, 90]]},
-  {"op": "note", "text": "Label is **clipped**"}, {"op": "intent", "intent": "bug"},
+  {"op": "note", "text": "Label is **clipped**"}, {"op": "intent", "intent": "question"},
+  {"op": "intent", "intent": "comment"}, {"op": "intent", "intent": "bug", "modifier": "command"},
   {"op": "tool", "tool": "arrow"}, {"op": "drag", "points": [[160, 100], [260, 180]]},
   {"op": "tool", "tool": "insertion"}, {"op": "drag", "points": [[200, 60]]},
   {"op": "tool", "tool": "strike"}, {"op": "drag", "points": [[240, 30], [300, 70]]},
@@ -313,11 +314,11 @@ run annotate 0 -- --annotate "$TMP/script-annotate.json" --drafts-dir "$ADRAFTS"
 [[ "$(json "$TMP/annotate.json" 'j.annotations.map(a => a.type).join(",")')" == "rect,arrow,insertion,strike,freehand,rect" ]] \
   || die "annotate: shapes $(json "$TMP/annotate.json" 'j.annotations.map(a => a.type).join(",")')"
 [[ "$(json "$TMP/annotate.json" 'j.annotations[0].intents.join(",") + "|" + j.annotations[0].note')" == "comment,bug|Label is **clipped**" ]] \
-  || die "annotate: note/intents"
+  || die "annotate: note/intents (a plain intent click selects one, ⌘ adds)"
 [[ "$(json "$TMP/annotate.json" 'j.annotations.map(a => a.intents[0]).join(",")')" == "comment,move,insert,remove,comment,comment" ]] \
   || die "annotate: default intents"
 [[ "$(json "$adraft/review.json" 'j.annotations[4].shape.closed')" == false ]] || die "annotate: redo of open outline lost"
-ok "every shape drawn through the real editor, with notes, intents, undo/redo, and delete+undo"
+ok "every shape drawn through the real editor, with notes, intents (plain click selects one, ⌘-click adds), undo/redo, and delete+undo"
 
 # HS2-71SSJG: a crop is recorded in edits.json; the PNG and review.json keep the whole capture.
 cp "$shot" "$TMP/shot-before-crop.png"
@@ -748,7 +749,7 @@ EDRAFTS="$TMP/existing-drafts"
 ESUB=(--drafts-dir "$EDRAFTS" --project "$TMP/subproj")
 run existing-shot 0 "${SYN[@]}" -- --capture screenshot --target region --rect 100,100,400,250 --drafts-dir "$EDRAFTS"
 edraft="$(json "$TMP/existing-shot.json" j.draftDirectory)"
-echo '{"steps": [{"op": "tool", "tool": "rect"}, {"op": "drag", "points": [[30, 30], [150, 90]]}, {"op": "note", "text": "Still clipped"}, {"op": "intent", "intent": "bug"}]}' >"$TMP/script-existing.json"
+echo '{"steps": [{"op": "tool", "tool": "rect"}, {"op": "drag", "points": [[30, 30], [150, 90]]}, {"op": "note", "text": "Still clipped"}, {"op": "intent", "intent": "bug", "modifier": "shift"}]}' >"$TMP/script-existing.json"
 run existing-annotate 0 -- --annotate "$TMP/script-existing.json" --drafts-dir "$EDRAFTS"
 tickets_before="$(hs -C "$TMP/subproj.hs2" ls 2>/dev/null | grep -c 'HS-')"
 
@@ -1100,7 +1101,7 @@ ok "a Trash that refuses keeps the draft (exit 5); --delete deletes it immediate
 
 run previews 0 -- --render-ui-previews "$TMP/previews"
 for name in overlay-region-hint overlay-window-hint overlay-region-selection overlay-region-selection-bottom-edge overlay-window-hover recording-dim-region hud-countdown hud-saved hud-recording-countdown hud-recording hud-saved-video hud-recording-narration hud-saved-narrated settings-registered settings-in-use status-bar-icon-light status-bar-icon-dark menu-capture-target-row-light menu-capture-target-row-dark menu-delay-row-light menu-delay-row-dark menu-narrate-row-off-light menu-narrate-row-off-dark menu-narrate-row-on-light menu-narrate-row-on-dark \
-  editor-empty editor-no-media editor-annotated editor-window editor-wide-sidebar editor-arrow-selected editor-arrow-heads editor-narrow editor-crop-drag editor-crop-tool editor-crop-adjust editor-cropped editor-multi-select editor-zoomed editor-keyboard-insert editor-video-timeline editor-video-narrow editor-video-trimmed editor-video-crop-tool editor-video-cropped editor-video-playing editor-video-range-drag editor-video-trim-drag editor-autoscroll \
+  editor-empty editor-no-media editor-annotated editor-intent-single editor-window editor-wide-sidebar editor-arrow-selected editor-arrow-heads editor-narrow editor-crop-drag editor-crop-tool editor-crop-adjust editor-cropped editor-multi-select editor-zoomed editor-keyboard-insert editor-video-timeline editor-video-narrow editor-video-trimmed editor-video-crop-tool editor-video-cropped editor-video-playing editor-video-range-drag editor-video-trim-drag editor-autoscroll \
   session-ready session-narrow session-edited session-ticket-text-new session-ticket-text-existing session-ticket-text-edited session-ticket-text-editing session-ticket-text-narrow session-submitting session-failed session-submitted session-submitted-fitted session-issues session-empty \
   session-existing-looking session-existing-found session-existing-narrow session-existing-not-found session-existing-closed \
   session-existing-failed session-existing-submitted session-existing-selection session-existing-abandoned \

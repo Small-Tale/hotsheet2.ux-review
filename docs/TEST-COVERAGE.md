@@ -195,6 +195,8 @@ Each feature gets both unit tests and end-to-end tests. Tests live in
   - captures merged mid-session (and mid-gesture) survive undo
   - an empty review
   - `IntentToggle` over every intent × shape; `primaryIntent`
+  - intent chip clicks (`IntentClickTests`): plain click selects one, ⌘ / ⇧ toggles, over every
+    shape × intent × prior set; no-op clicks leave no history; undo/redo; script `modifier`
 - **Crop and geometry** (`ImageCropTests`, `ShapeGeometryTests`):
   - snapping
   - boxes clipped, points pulled to the edge, outsiders removed
@@ -211,8 +213,8 @@ Each feature gets both unit tests and end-to-end tests. Tests live in
   - scripts drive the editor; script errors name the step
   - `--annotate` parsing
 - **App end to end** (`scripts/app-e2e.sh`):
-  - `--annotate` on synthetic screenshot + video drafts draws every shape with notes, intents,
-    undo/redo, and delete+undo
+  - `--annotate` on synthetic screenshot + video drafts draws every shape with notes, intents
+    (a plain intent click selects one, ⌘ adds), undo/redo, and delete+undo
   - crops the PNG (exact size, `originals/` kept, media size updated)
   - refuses to crop the video
   - validates `review.json` with ajv

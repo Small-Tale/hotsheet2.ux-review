@@ -69,7 +69,8 @@ macos/
     Settings/ProductName.swift        full (Hot Sheet 2 UX Review) and short (UX Review) product names (docs/00 §0.0)
     Settings/AppMenus.swift           menu bar menu as MenuEntry lists per phase, MenuShortcut, WindowPresence (docs/05 §5.1)
     Settings/WindowFrameFit.swift     a restored window frame shrunk and moved onto the screen's visible area (docs/05 §5.1.1)
-    Editor/AnnotationEditor.swift     editor state machine: document, selection, undo/redo, intent toggle (docs/06)
+    Editor/AnnotationEditor.swift     editor state machine: document, selection, undo/redo, intent chip clicks (docs/06)
+    Editor/IntentToggle.swift         intent chip click rules: a plain click selects one intent, ⌘/⇧-click toggles (docs/06 §6.5)
     Editor/AnnotationEditor+ArrowHeads.swift  setArrowHeads: an arrow's start and end heads, undoable (HS2-HQV9R8)
     Editor/AnnotationEditor+Gestures.swift  draw/move/resize gestures, hit testing
     Editor/AnnotationEditor+Crop.swift  one crop per capture (relative to the original), the Crop tool's canvas space (shows the original), draw/move/resize crop gestures, reset crop (docs/06 §6.6)

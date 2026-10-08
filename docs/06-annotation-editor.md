@@ -285,18 +285,27 @@ keystroke updates the note (`HS2-XCJPTX`).
 §2.5). Chips show the annotation's *effective* intents. When the stored list is empty, the
 shape's default intent is shown as on, with a "default" hint.
 
-`IntentToggle` toggles a chip over the effective set:
+Clicking a chip (`IntentToggle.clicked`, `HS2-JMPDDW`) depends on the modifier keys:
 
-- A chip that is on turns off, and one that is off turns on.
+- **A plain click selects just that intent.** Every other intent turns off. Clicking the only
+  selected intent again changes nothing.
+- **⌘-click or ⇧-click toggles** the chip over the effective set: a chip that is on turns off,
+  and one that is off turns on. This is how an annotation gets several intents.
+- Space on a focused chip, and VoiceOver's press, are plain clicks. VoiceOver also offers the
+  toggle as a named action on each chip ("Add to intents" / "Remove from intents"), since it
+  can't hold a modifier. The chip's tooltip mentions ⌘-click.
 - If the result is just the default intent, or empty, it is stored as `[]`. So the last
   intent can't be removed, and the default is never written out explicitly.
 - Any other result is stored in canonical order (`comment, bug, change, insert, remove, move,
   question`).
+- Each click that changes the intents is one undo step; a click that changes nothing adds no
+  history.
 
 **Examples:**
 
-- On a strike, turning **bug** on stores `[bug, remove]`.
-- Turning **bug** off again stores `[]`.
+- On a strike, clicking **bug** stores `[bug]`; ⌘-clicking **bug** instead stores
+  `[bug, remove]`.
+- ⌘-clicking **bug** off again stores `[]`; so does a plain click on **remove**.
 - Any intent can be added to any shape. For example, a rect with `remove` means "delete this
   region".
 
@@ -512,7 +521,7 @@ and capturing again reuses its id and file name, and that is a removal plus an a
 
 | Piece | Where |
 | --- | --- |
-| State machine, gestures, intent toggle | `UXReviewKit/Editor/AnnotationEditor.swift`, `AnnotationEditor+Gestures.swift` |
+| State machine, gestures, intent chip clicks | `UXReviewKit/Editor/AnnotationEditor.swift`, `AnnotationEditor+Gestures.swift`, `IntentToggle.swift` |
 | Crop, the Crop tool's canvas space, crop gestures | `UXReviewKit/Editor/AnnotationEditor+Crop.swift` |
 | Playhead, time ranges, trim | `UXReviewKit/Editor/AnnotationEditor+Time.swift` |
 | ← / → frame steps, last-used timeline target | `UXReviewKit/Editor/AnnotationEditor+FrameStep.swift` |
@@ -556,7 +565,7 @@ pixels of the crop, except with the Crop tool on an image, where they are pixels
 | `{"op": "drag", "points": [[x, y], …]}` | Press at the first point, move through the rest, release. One point is a click |
 | `{"op": "cancel-drag", "points": …}` | The same, but Esc instead of release |
 | `{"op": "select", "id": "a2"}` / `"#2"` / no id | Select by id or review number, or deselect |
-| `{"op": "note", "text": …}`, `{"op": "intent", "intent": "bug"}`, `{"op": "closed", "closed": false}` | Edit the selection (intent toggles) |
+| `{"op": "note", "text": …}`, `{"op": "intent", "intent": "bug"}`, `{"op": "closed", "closed": false}` | Edit the selection. `intent` is a chip click: just that intent, or with `"modifier": "command"` / `"shift"` a toggle (§6.5) |
 | `{"op": "heads", "start": "flat", "end": "closed"}` | Set the selected arrow's heads (either one may be left out to keep it; fails on other shapes) |
 | `{"op": "delete"}`, `{"op": "duplicate"}`, `{"op": "nudge", "dx": 1, "dy": 0}` | Act on the selection |
 | `{"op": "insert", "point": [x, y]}` (point optional; default the media center) | ⏎ with the current drawing tool (§6.4) |
@@ -587,6 +596,7 @@ editor offscreen through the real views, on a draft of mock app screenshots:
 - `editor-empty`
 - `editor-annotated` (rect selected)
 - `editor-arrow-selected`
+- `editor-intent-single` (#1 after a plain click on **change**: just that intent, §6.5)
 - `editor-arrow-heads`: one arrow per head style, and a selected span with its Arrow heads menus
 - `editor-narrow` (the 900 × 560 minimum)
 - `editor-crop-drag` (a first crop being drawn with the Crop tool)

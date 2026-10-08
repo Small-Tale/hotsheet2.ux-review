@@ -16,12 +16,12 @@ extension EditorPreviews {
         .heads(start: .flat, end: .flat), .note("Match this gap to the one above."),
     ]
 
-    /// A note, an intent toggle, or an arrow's heads, on the selected annotation.
+    /// A note, an intent click, or an arrow's heads, on the selected annotation.
     static func editSelection(_ step: EditorScript.Step, in editor: inout AnnotationEditor) {
         guard let id = editor.selection else { return }
         switch step {
         case let .note(text): editor.setNote(text, for: id)
-        case let .intent(intent): editor.toggleIntent(intent, for: id)
+        case let .intent(intent, click): editor.clickIntent(intent, click, for: id)
         case let .heads(start, end):
             if case let .arrow(_, current)? = editor.annotation(id)?.shape {
                 editor.setArrowHeads(ArrowHeads(start: start ?? current.start, end: end ?? current.end), for: id)
