@@ -41,10 +41,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
             state: { [weak self] in self?.menuState() ?? MenuState() },
             perform: { [weak self] in self?.perform($0) }
         )
-        MainMenu.install(
-            captureEntries: { [weak self] in AppMenus.captureMenu(self?.menuState() ?? MenuState()) },
-            perform: { [weak self] in self?.perform($0) }
-        )
+        MainMenu.install()
         flushIfReady()
     }
 

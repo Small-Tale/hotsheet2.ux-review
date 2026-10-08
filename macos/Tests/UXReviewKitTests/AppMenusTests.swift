@@ -2,17 +2,9 @@ import Foundation
 import Testing
 @testable import UXReviewKit
 
-/// The menu bar menu and the app's Capture menu across every capture phase, plus the Dock
-/// presence rule. Spec: docs/05-start-and-settings.md §5.1.
+/// The menu bar menu across every capture phase, plus the Dock presence rule. Spec: docs/05-start-and-settings.md §5.1.
 struct AppMenusTests {
     static let start = Date(timeIntervalSince1970: 1000)
-
-    func submenu(_ title: String, in entries: [MenuEntry]) -> [MenuEntry]? {
-        for entry in entries {
-            if case let .submenu(name, children) = entry, name == title { return children }
-        }
-        return nil
-    }
 
     @Test func idleStatusMenuMatchesTheRequestedLayout() {
         let entries = AppMenus.statusMenu(MenuState(version: "1.2"))
@@ -192,29 +184,7 @@ struct AppMenusTests {
             #expect(Array(entries[2 ..< 2 + middle.count]) == middle, "\(phase)")
             #expect(entries.count == 2 + middle.count + 5, "\(phase)")
             #expect(entries.suffix(5).map(\.title) == [nil, "Settings…", "Open UX Review", nil, "Quit UX Review"])
-            #expect(AppMenus.captureMenu(state) == middle)
         }
-    }
-
-    @Test func appCaptureMenuOffersEveryTargetAndDelay() throws {
-        let hotkeys: [HotkeySlot: Hotkey] = [.capture: .defaultCapture, .record: .defaultRecord]
-        let entries = AppMenus.captureMenu(MenuState(hotkeys: hotkeys))
-        #expect(entries.map(\.title) == [
-            "Screenshot of Screen", "Screenshot of Window", "Screenshot of Region", "Screenshot After Delay", nil,
-            "Record Video of Screen", "Record Video of Window", "Record Video of Region", "Record Video After Delay",
-            nil, "Narrate Next Recording with Microphone",
-        ])
-        #expect(entries[2] == .action(
-            "Screenshot of Region",
-            .capture(CaptureRequest(target: .region)),
-            shortcut: MenuShortcut("u", [.option, .shift, .command])
-        ))
-        let delayed = try #require(submenu("Record Video After Delay", in: entries))
-        #expect(delayed.count == (CaptureRequest.delayPresets.count - 1) * CaptureTarget.allCases.count)
-        #expect(delayed.first == .action(
-            "Screen after 3 s",
-            .capture(CaptureRequest(kind: .video, target: .display, delaySeconds: 3))
-        ))
     }
 
     @Test func shortcutsRenderLettersDigitsAndSpaceOnly() {

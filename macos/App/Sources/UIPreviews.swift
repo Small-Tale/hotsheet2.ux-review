@@ -192,7 +192,7 @@ enum UIPreviews {
             MenuRendering.items(entries, perform: { _ in }).forEach(menu.addItem)
             return menu
         }
-        MainMenu.install(captureEntries: { AppMenus.captureMenu(idle) }, perform: { _ in })
+        MainMenu.install()
         let statusMenuIdle = MenuDump.describe(menu(AppMenus.statusMenu(idle)))
         let dump: [String: Any] = [
             "statusMenuIdle": statusMenuIdle,

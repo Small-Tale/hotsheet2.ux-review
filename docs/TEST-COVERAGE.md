@@ -815,7 +815,6 @@ with a uniform grid at the movie's expected rate.
     unrenderable key)
   - every capture phase replaces the capture rows (picking, countdown, capturing,
     recording with and without narration, finishing) while the rest stays put
-  - the app Capture menu: every target, every delay preset, shortcuts
   - `MenuShortcut` rendering and `AppMenus.clock`
 - **Dock presence** (`AppMenusTests.dockIconShowsWhileAnyWindowIsOpen`): a transition walk:
   open, open more, reopen, close one of two, close unknown and already-closed windows, close the
@@ -1129,11 +1128,10 @@ capture files are no longer cropped or trimmed while drafting.
 
 ## HS2-JBWPP5: flipping Narrate keeps the menu open
 
-- **Unit** (`AppMenusTests`): the status menu and the app Capture menu both carry Narrate as a
+- **Unit** (`AppMenusTests`): the status menu carries Narrate as a
   `.toggle` entry that follows the next-recording choice.
 - **App end to end** (`scripts/app-e2e.sh`): in `menus.json`, the status menu's Narrate row is a
-  switch row (`toggle`), off when idle and on in `statusMenuNarrating`, its title at 16 pt; the
-  app Capture menu has the same row. `statusMenuAfterPicking` flips it in an open menu built like
+  switch row (`toggle`), off when idle and on in `statusMenuNarrating`, its title at 16 pt. `statusMenuAfterPicking` flips it in an open menu built like
   the status item's: the row shows on, the menu keeps all 12 rows, and the command runs between
   the picker choices and the captures.
 - **Visual QA:** `menu-narrate-row-off/-on-light/-dark` (`--render-ui-previews`), inspected by hand.
@@ -1360,3 +1358,10 @@ capture files are no longer cropped or trimmed while drafting.
 - **Not covered automatically:** dragging the live divider, its resize cursor, and the
   double-click reset; see the live-check follow-up.
 
+
+## HS2-3239JD: no Capture menu in the app menu bar
+
+- **App end to end** (`scripts/app-e2e.sh`): `menus.json`'s `mainMenu` is exactly UX Review,
+  File, Edit, View, Window.
+- **Unit:** the Capture menu's builder and its test are gone; `AppMenusTests` still covers the
+  menu bar menu in every capture phase.

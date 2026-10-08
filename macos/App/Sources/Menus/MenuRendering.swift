@@ -2,7 +2,7 @@ import AppKit
 import UXReviewKit
 
 /// Turns `MenuEntry` descriptions (UXReviewKit `AppMenus`) into NSMenu items for the menu bar
-/// menu and the app's Capture menu. Spec: docs/05-start-and-settings.md §5.1.
+/// menu. Spec: docs/05-start-and-settings.md §5.1.
 @MainActor
 enum MenuRendering {
     static func items(_ entries: [MenuEntry], perform: @escaping @MainActor (MenuCommand) -> Void) -> [NSMenuItem] {

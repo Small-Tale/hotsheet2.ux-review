@@ -7,15 +7,12 @@ import UXReviewKit
 /// Spec: docs/05-start-and-settings.md §5.1.1.
 @MainActor
 enum MainMenu {
-    /// Keeps the Capture menu's delegate alive (NSMenu holds its delegate weakly).
-    private static var captureMenu: DynamicMenu?
-
-    static func install(captureEntries: @escaping @MainActor () -> [MenuEntry], perform: @escaping @MainActor (MenuCommand) -> Void) {
-        let capture = DynamicMenu(title: "Capture", entries: captureEntries, perform: perform)
-        captureMenu = capture
+    /// There is no Capture menu: capturing starts from the menu bar menu and the global
+    /// shortcuts (`HS2-3239JD`).
+    static func install() {
         let window = windowMenu()
         let main = NSMenu(title: "Main Menu")
-        for menu in [appMenu(), fileMenu(), editMenu(), viewMenu(), capture.menu, window] {
+        for menu in [appMenu(), fileMenu(), editMenu(), viewMenu(), window] {
             let item = NSMenuItem(title: menu.title, action: nil, keyEquivalent: "")
             item.submenu = menu
             main.addItem(item)
@@ -107,31 +104,5 @@ enum MainMenu {
         menu.addItem(.separator())
         menu.addItem(withTitle: "Bring All to Front", action: #selector(NSApplication.arrangeInFront(_:)), keyEquivalent: "")
         return menu
-    }
-}
-
-/// A menu rebuilt from `MenuEntry` descriptions every time it opens.
-@MainActor
-final class DynamicMenu: NSObject, NSMenuDelegate {
-    let menu: NSMenu
-    private let entries: @MainActor () -> [MenuEntry]
-    private let perform: @MainActor (MenuCommand) -> Void
-
-    init(title: String, entries: @escaping @MainActor () -> [MenuEntry], perform: @escaping @MainActor (MenuCommand) -> Void) {
-        menu = NSMenu(title: title)
-        self.entries = entries
-        self.perform = perform
-        super.init()
-        menu.delegate = self
-        rebuild()
-    }
-
-    func rebuild() {
-        menu.removeAllItems()
-        MenuRendering.items(entries(), perform: perform).forEach(menu.addItem)
-    }
-
-    func menuNeedsUpdate(_: NSMenu) {
-        rebuild()
     }
 }

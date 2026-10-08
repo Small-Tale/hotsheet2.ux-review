@@ -64,7 +64,7 @@ macos/
     Settings/SettingsCommand.swift    `--settings` argument parsing (docs/05 §5.5)
     Settings/RecentProjects.swift     recent target projects + persistence (docs/07 §7.6)
     Settings/ProductName.swift        full (Hot Sheet 2 UX Review) and short (UX Review) product names (docs/00 §0.0)
-    Settings/AppMenus.swift           menu bar menu + app Capture menu as MenuEntry lists per phase, MenuShortcut, WindowPresence (docs/05 §5.1)
+    Settings/AppMenus.swift           menu bar menu as MenuEntry lists per phase, MenuShortcut, WindowPresence (docs/05 §5.1)
     Editor/AnnotationEditor.swift     editor state machine: document, selection, undo/redo, intent toggle (docs/06)
     Editor/AnnotationEditor+Gestures.swift  draw/move/resize gestures, hit testing
     Editor/AnnotationEditor+Crop.swift  one crop per capture (relative to the original), the Crop tool's canvas space (shows the original), draw/move/resize crop gestures, reset crop (docs/06 §6.6)
@@ -93,7 +93,7 @@ macos/
     AppDelegate.swift          owns capture + settings, status item, app menu bar; open-files batching; File-menu fallbacks for the current draft (docs/05 §5.1)
     Menus/MenuRendering.swift  MenuEntry → NSMenuItem (CommandMenuItem, MenuChoicesView: the "Capture [Screen | Window | Region]" and "Delay [None | 3 s | 10 s]" pickers), MenuDump for menus.json
     Menus/StatusItemController.swift  menu bar icon (StatusBarIcon) + menu rebuilt from AppMenus.statusMenu on open
-    Menus/MainMenu.swift       app menu bar (UX Review, File, Edit, Capture, Window) shown while a window is open (docs/05 §5.1.1)
+    Menus/MainMenu.swift       app menu bar (UX Review, File, Edit, View, Window) shown while a window is open (docs/05 §5.1.1)
     Menus/DockPresence.swift   Dock icon + app menu bar while a UX Review window is open (WindowPresence)
     AppSettings.swift          project folder (defaults / --project), recent projects, folder panel, Downscale for AI + the store's AI size
     UIPreviews.swift           --render-ui-previews offscreen renders for visual QA

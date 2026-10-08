@@ -1,8 +1,7 @@
 import Foundation
 
-// Platform-neutral descriptions of UX Review's menus: the menu bar (status item) menu and the
-// app menu bar's Capture menu. The app turns entries into NSMenu items; tests check the
-// structure for every capture phase. Spec: docs/05-start-and-settings.md §5.1.
+// Platform-neutral descriptions of UX Review's menu bar (status item) menu. The app turns
+// entries into NSMenu items; tests check the structure for every capture phase. Spec: docs/05-start-and-settings.md §5.1.
 
 /// What choosing a menu entry does.
 public enum MenuCommand: Hashable, Sendable {
@@ -184,32 +183,6 @@ public enum AppMenus {
             .separator,
             .action("Quit UX Review", .quit, shortcut: MenuShortcut("q")),
         ]
-        return entries
-    }
-
-    /// The app menu bar's Capture menu (shown while a UX Review window is open): every target,
-    /// with every delay preset, so the full choice the menu bar menu leaves out is one click away.
-    public static func captureMenu(_ state: MenuState) -> [MenuEntry] {
-        if let running = runningCapture(state) { return running }
-        var entries: [MenuEntry] = []
-        for (kind, title) in [(CaptureKind.screenshot, "Screenshot"), (.video, "Record Video")] {
-            if !entries.isEmpty { entries.append(.separator) }
-            for target in CaptureTarget.allCases {
-                let request = CaptureRequest(kind: kind, target: target)
-                entries.append(.action("\(title) of \(target.label)", .capture(request), shortcut: state.shortcut(for: request)))
-            }
-            let delayed: [MenuEntry] = CaptureRequest.delayPresets.filter { $0 > 0 }.flatMap { delay in
-                CaptureTarget.allCases.map { target in
-                    MenuEntry.action(
-                        "\(target.label) after \(delay) s",
-                        .capture(CaptureRequest(kind: kind, target: target, delaySeconds: delay)),
-                        shortcut: state.shortcut(for: CaptureRequest(kind: kind, target: target, delaySeconds: delay))
-                    )
-                }
-            }
-            entries.append(.submenu("\(title) After Delay", delayed))
-        }
-        entries += [.separator, narrationToggle(state)]
         return entries
     }
 

@@ -30,10 +30,10 @@ work happens in UX Review's own windows (§5.1.1). When idle, it lists:
 5. **Narrate Next Recording with Microphone**: a switch row that turns narration on or off for
    the next recording only ([04-capture.md](04-capture.md) §4.9). Like the picker rows, flipping
    it (the switch or anywhere on the row) keeps the menu open (`HS2-JBWPP5`), so the reviewer sees
-   the new state and can go on to Capture Video. The app's Capture menu shows the same row.
+   the new state and can go on to Capture Video.
 
-   Every target with every delay preset (including 5 s) is in the app menu bar's **Capture** menu
-   (§5.1.1). With Region or Window as the target, the picker itself switches: **Space** toggles
+   A 5 s delay is set in Settings (§5.3); the Delay row then shows it as its own segment.
+   With Region or Window as the target, the picker itself switches: **Space** toggles
    region ⇄ window and **Return** takes the whole screen ([04-capture.md](04-capture.md) §4.2).
 6. **Settings…** (⌘,) opens the Settings window.
 7. **Open UX Review** opens the UX Review window (the annotation editor) on the current draft
@@ -80,8 +80,10 @@ until closed. The app menu bar:
 | **File** | **New Review** (⌘N): a new empty draft becomes current and opens in its own window; the previous draft stays as it is. **Add Media…** (⌘O): images or movies for the front window's draft ([04-capture.md](04-capture.md) §4.12). **Draft Reviews…** (⇧⌘O, [07-review-session.md](07-review-session.md) §7.9). Save (⌘S). **Submit Review…** (⌘↩, [07-review-session.md](07-review-session.md) §7.1). **Show Review in Finder**. Close Window (⌘W) |
 | **Edit** | Undo (⌘Z), Redo (⇧⌘Z), Cut, Copy, Paste, Select All, Duplicate (⌘D), Remove Capture from Review… (asks first), Remove Capture Now (⌘⌫, no confirmation; both act on the media strip selection, [06-annotation-editor.md](06-annotation-editor.md) §6.7.1–§6.7.2) |
 | **View** | Actual Size (⌘0), Zoom to Fit (⌘9), Zoom In (⌘+ or ⌘=), Zoom Out (⌘-) for the editor window's canvas; disabled when no editor window with a capture is key (`HS2-8QBS4V`, [06-annotation-editor.md](06-annotation-editor.md) §6.2.1) |
-| **Capture** | Screenshot / Record Video of Screen, Window, or Region; the After Delay submenus with every preset (3, 5, 10 s); the Narrate switch row. Replaced by Cancel / Stop / a status line while a capture runs, like the menu bar menu |
 | **Window** | Minimize (⌘M), Zoom, Draft Reviews…, Bring All to Front, and the open windows |
+
+There is no Capture menu (`HS2-3239JD`): capturing starts from the menu bar menu (§5.1) and the
+global shortcuts (§5.2), which work whether or not a UX Review window is open.
 
 File menu items act on the front window's draft: an editor or Submit Review window answers for
 its own draft. With another window in front (Draft Reviews, Settings), they act on the current
