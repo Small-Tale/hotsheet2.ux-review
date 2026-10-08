@@ -44,7 +44,7 @@ UX Review** (or a click on the Dock icon) opens it on the current draft
 | Area | Contents |
 | --- | --- |
 | Tool bar | Tools (§6.3), Undo, Redo, **Restore Original** (only while the image is cropped or the video trimmed, §6.6, §6.10), a status line ("Editing…" / "Saved to draft", the last editor message, or a save error), zoom, **Add Media…** (⌘O, see Opening), and **Submit Review…** (⌘↩): saves, then opens the Submit Review window on this editor's draft ([07-review-session.md](07-review-session.md) §7.1) |
-| Media strip (left, whenever the review has a capture) | Thumbnails (with the current crop) plus a count badge of annotations on each. Click one to show it. Videos are marked. The selected thumbnail has a ✕ button, and every thumbnail a **Remove from Review…** context menu item (§6.7.1) |
+| Media strip (left, whenever the review has a capture) | Thumbnails (with the current crop) plus a count badge of annotations on each. Click one to show it; ⌘-click and ⇧-click select several (§6.7.2). Videos are marked. The shown thumbnail has a ✕ button, and every thumbnail a **Remove from Review…** context menu item (§6.7.1) |
 | Canvas | The current capture fitted to the view (at most 2×) or zoomed (§6.2.1), on a dark backdrop, with annotations drawn on top. A video shows the frame at the playhead |
 | Timeline (under the canvas, videos only) | Play/pause, frame step, playhead time, **Trim Start** / **Trim End**, and the scrubber with each annotation's time range (§6.10) |
 | Inspector (right) | The selected annotation's number, shape, intents, time (videos, §6.10), and Markdown note, with Duplicate and Delete buttons. Below that, every annotation on this capture in review order: number, shape, intents, time range (videos), and note preview. Click a row to select it |
@@ -203,6 +203,7 @@ So a small box drawn inside a big one stays selectable.
 | --- | --- |
 | V R F A I S C | Choose a tool |
 | ⌫ / ⌦ | Delete the selection |
+| ⌘⌫ | Remove the selected captures from the review without asking (§6.7.2; not while editing text) |
 | ↑ ↓ | Nudge the selection 1 px (⇧: 10 px) |
 | ← → | Videos: step one frame (⇧: 10 frames) of the last-used timeline target (see **Arrow keys** below). Otherwise nudge the selection 1 px (⇧: 10 px). Unlike `,` / `.`, these step frames, not 0.1 s |
 | Tab / ⇧Tab | Select the next / previous annotation on this capture (wraps) |
@@ -388,18 +389,46 @@ editor also saves on ⌘S and when the window closes. `EditorSession.save()` run
 ### 6.7.1 Removing a capture in the editor
 
 `HS2-SSM1E7`. A capture can be removed from the review in the UX Review window: the ✕ on the
-selected thumbnail, a thumbnail's **Remove from Review…** context menu item, or **Edit › Remove
-Capture from Review…** (the capture on screen; no shortcut, so ⌘⌫ keeps deleting text in the
-note field). A sheet asks first ("Remove capture-2.png from this review?", naming how many
-annotations go with it), because it can't be undone. Then `EditorSession.removeCapture`:
+shown thumbnail, a thumbnail's **Remove from Review…** context menu item, or **Edit › Remove
+Capture from Review…** (no shortcut). With several captures selected (§6.7.2) they act on the
+whole selection and say so: "Remove 3 Captures from Review…". The ✕ and the context menu of a
+selected thumbnail remove the selection; the context menu of a thumbnail outside it removes just
+that one. A sheet asks first ("Remove capture-2.png from this review?", or "Remove 3 captures
+from this review?", naming how many annotations go with them), because it can't be undone. Then
+`EditorSession.removeCaptures`:
 
-1. saves the editor, so unsaved work on the other captures is kept;
-2. removes the capture as the review session does (`ReviewDraftStore.removeMedia`: its media
+1. checks every capture is still in the editor (an unknown one removes nothing), then saves the
+   editor once, so unsaved work on the other captures is kept;
+2. removes each capture as the review session does (`ReviewDraftStore.removeMedia`: its media
    item, its annotations, its file, and its kept original);
 3. catches up, so the editor shows a neighboring capture, or the empty state after the last one.
+   If a removal fails partway, the editor still catches up with what was removed.
 
 Open Submit Review and Draft Reviews windows refresh. The Submit Review window's trash button
 does the same from there ([07-review-session.md](07-review-session.md) §7.2).
+
+### 6.7.2 Selecting several captures
+
+`HS2-0TQ6RP`. The media strip selects captures like a Finder list (`MediaSelection`):
+
+- **Click** selects one capture and shows it.
+- **⌘-click** adds a capture to the selection, or takes one out. The last selected capture
+  can't be taken out.
+- **⇧-click** selects the range from the anchor (the last plain- or ⌘-clicked capture) to the
+  clicked one, replacing the selection.
+- The canvas always shows the **primary** capture: the last one clicked. ⌘-clicking the shown
+  capture out shows the next selected capture after it, else the one before.
+- Selected thumbnails have an accent outline (the shown one thicker) and, with more than one, a
+  tinted background. VoiceOver reports them as selected.
+- Anything else that shows another capture (selecting an annotation, undo, a removal) shows it
+  alone: the selection is only kept while its primary is shown. Captures removed from the draft
+  leave the selection, and an id a later capture reuses is never selected by accident.
+
+**⌘⌫ (Edit › Remove Capture Now)** removes every selected capture **without asking**, through
+the same `EditorSession.removeCaptures` (unsaved work on the rest is kept). The item names the
+count ("Remove 3 Captures Now"). It is disabled while a text field or text view is being
+edited, so ⌘⌫ keeps deleting to the start of the line in the note field. Removing every capture
+leaves the empty review, as removing the last capture does.
 
 **Captures added or removed while the editor is open.** The editor follows the draft on disk
 (`.reviewDraftChanged` notification, `AnnotationEditor.syncMedia(with:)`). A media item counts
@@ -426,6 +455,7 @@ and capturing again reuses its id and file name, and that is a removal plus an a
 | ← / → frame steps, last-used timeline target | `UXReviewKit/Editor/AnnotationEditor+FrameStep.swift` |
 | Frame grid and expected frame rate | `UXReviewKit/Editor/FrameGrid.swift`; read by `VideoTrim.frameRate` |
 | Following captures added or removed while open | `UXReviewKit/Editor/AnnotationEditor+Media.swift` |
+| Media strip multiple selection, removal prompt words | `UXReviewKit/Editor/MediaSelection.swift` |
 | Movie frames, frame times, and trimmed export | `UXReviewKit/Editor/VideoTrim.swift` |
 | Pixel ↔ normalized space, handles, hit testing, move/resize | `UXReviewKit/Editor/ShapeGeometry.swift` |
 | Crop math | `UXReviewKit/Editor/ImageCrop.swift` |
@@ -448,7 +478,8 @@ on the current draft (or the draft directory named by `--draft`), then saves.
   script ends, otherwise at its first frame. Only annotations showing at that time are drawn.
 - It prints one JSON object: `status: "annotated"`, `draftDirectory`, `messages` (editor
   status messages, for example crop and trim results), `media`, `currentMediaId` and
-  `currentTimeMs` (the capture showing at the end and its playhead), `annotations` (`number`, `id`,
+  `currentTimeMs` (the capture showing at the end and its playhead), `selectedMediaIds` (the media
+  strip's selection, §6.7.2), `annotations` (`number`, `id`,
   `mediaId`, `type`, effective `intents`, `note`, and `timeRange` when set), and `rendered`.
 
 **Script format.** A script is `{"steps": [...]}`. Points are media pixels, from the top left.
@@ -473,6 +504,8 @@ on the current draft (or the draft directory named by `--draft`), then saves.
 | `{"op": "restore-original"}` | Restore Original: the current image's crop or the current video's trim |
 | `{"op": "remove-media", "media": "m1"}` | Remove a capture from the draft as the review session does, then let the editor catch up (§6.7) |
 | `{"op": "remove-capture", "media": "m1"}` | Remove from Review in the editor: save first, then remove (§6.7.1) |
+| `{"op": "click-media", "media": "m2", "modifier": "command"}` | Click a media strip thumbnail; `modifier` (optional) is `command` (⌘-click) or `shift` (⇧-click) (§6.7.2) |
+| `{"op": "remove-selected-captures"}` | ⌘⌫: remove every selected capture without asking (§6.7.2); fails with no capture |
 | `{"op": "undo"}`, `{"op": "redo"}`, `{"op": "save"}` | History and saving |
 
 | Exit code | `error` | Meaning |
@@ -491,6 +524,7 @@ editor offscreen through the real views, on a draft of mock app screenshots:
 - `editor-narrow` (the 900 × 560 minimum)
 - `editor-crop-drag`
 - `editor-cropped`
+- `editor-multi-select` (both captures selected, the second shown, §6.7.2)
 - `editor-zoomed` (300 % with a selection, §6.2.1)
 - `editor-keyboard-insert` (R then ⏎ sent as real key events), with the canvas's accessibility
   tree written to `editor-accessibility.json`

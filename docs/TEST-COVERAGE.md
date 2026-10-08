@@ -1095,3 +1095,27 @@ capture files are no longer cropped or trimmed while drafting.
   hand.
 - **Not covered automatically:** clicking a segment in the live status menu and the Settings
   window following it (`AppDelegate.perform` → `SettingsModel.update`); needs a person at a Mac.
+
+## HS2-0TQ6RP: select several captures; ⌘⌫ removes them without asking
+
+- **Unit, transition matrix** (`MediaSelectionTests`): a long walk over plain, ⌘-, and ⇧-clicks
+  (repeats, ranges both ways, ⌘-clicking the shown capture out with and without a selected
+  capture after it, the last selected capture, unknown ids); the editor moving away by other
+  means collapses the selection and the next click starts from what is shown; removals of a
+  selected, an unselected, the shown, and every capture, then a refill reusing ids; removal
+  targets (in the selection, outside it, none, unknown); an empty strip; the sheet's words for
+  one and several captures.
+- **Unit, real files** (`EditorSessionTests`): removing a ⇧/⌘-built selection saves unsaved work
+  on the captures that stay, deletes exactly the selected files, shows the nearest remaining
+  capture alone, and undo can't bring them back; removing every capture leaves the empty draft;
+  an unknown id removes nothing and repeats count once; the `click-media` and
+  `remove-selected-captures` script ops parse (a bad modifier fails) and run; selecting an
+  annotation or showing another capture collapses the selection.
+- **App end to end** (`scripts/app-e2e.sh`): `--annotate` on four captures builds a selection with
+  click, ⇧-click, ⌘-click, removes it with `remove-selected-captures`, and checks review.json,
+  the files, the shown capture and `selectedMediaIds`; a second script removes every capture.
+  `menus.json` checks Edit's **Remove Capture from Review…** and **Remove Capture Now ⌘⌫**.
+- **Visual QA:** `editor-multi-select` (`--render-ui-previews`), inspected by hand.
+- **Not covered automatically:** real ⌘/⇧ mouse clicks in the SwiftUI strip
+  (`NSEvent.modifierFlags`), the confirmation sheet, menu titles naming the count, and ⌘⌫ being
+  passed to the note field while it edits text; needs a person at a Mac.

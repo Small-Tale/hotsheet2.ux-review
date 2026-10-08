@@ -74,9 +74,32 @@ public extension AnnotationEditor {
             selection = nil
             currentTimeMs = 0
         }
+        mediaSelection.prune(to: bundle.media.map(\.id))
         coalesceKey = nil
         message = nil
         return removed
+    }
+
+    // MARK: Selecting several captures (docs/06 §6.7.2)
+
+    /// The captures selected in the media strip, in strip order. It always holds the current
+    /// capture (when there is one), which the canvas shows.
+    var selectedMediaIds: [String] {
+        mediaSelection.selected(order: bundle.media.map(\.id), current: currentMediaId)
+    }
+
+    /// A click on a thumbnail (`.toggle` for ⌘-click, `.extend` for ⇧-click). The canvas then
+    /// shows the selection's primary capture, as a plain `show(mediaId:)` would.
+    mutating func clickMedia(_ id: String, _ click: MediaSelection.Click) {
+        guard media(id) != nil else { return }
+        mediaSelection.click(id, click, order: bundle.media.map(\.id), current: currentMediaId)
+        if let primary = mediaSelection.primary { show(mediaId: primary) }
+    }
+
+    /// What removing from thumbnail `id` acts on: the selection when `id` is in it, else `id`
+    /// alone. nil (Edit menu, ⌘⌫) means the selection.
+    func mediaToRemove(from id: String? = nil) -> [String] {
+        mediaSelection.removalTargets(for: id, order: bundle.media.map(\.id), current: currentMediaId)
     }
 
     /// Drops history entries that no longer change anything (their document equals the next

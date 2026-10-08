@@ -798,6 +798,37 @@ run eremove-annotate 0 -- --annotate "$TMP/script-editor-remove.json" --drafts-d
 validate_bundle "$edraft/review.json"
 ok "Remove from Review in the editor keeps unsaved work on the other capture and deletes the removed capture's file"
 
+# HS2-0TQ6RP: select several captures (click, ⇧-click a range, ⌘-click one out), then ⌘⌫ removes
+# them all without asking; unsaved work on the capture that stays is kept. Then removing the last.
+MDRAFTS="$TMP/multi-remove-drafts"
+for n in 1 2 3 4; do
+  run mremove-shot$n 0 "${SYN[@]}" -- --capture screenshot --target region --rect 100,100,300,200 --drafts-dir "$MDRAFTS"
+done
+mdraft="$(json "$TMP/mremove-shot1.json" j.draftDirectory)"
+cat >"$TMP/script-multi-remove.json" <<'JSON'
+{"steps": [
+  {"op": "media", "media": "m1"}, {"op": "tool", "tool": "rect"}, {"op": "drag", "points": [[10, 10], [80, 60]]},
+  {"op": "click-media", "media": "m2"}, {"op": "click-media", "media": "m4", "modifier": "shift"},
+  {"op": "click-media", "media": "m3", "modifier": "command"},
+  {"op": "remove-selected-captures"}
+]}
+JSON
+run mremove-annotate 0 -- --annotate "$TMP/script-multi-remove.json" --drafts-dir "$MDRAFTS"
+[[ "$(json "$mdraft/review.json" 'j.media.map(m => m.id).join(",")')" == m1,m3 ]] || die "multi remove: media $(json "$mdraft/review.json" 'j.media.map(m => m.id).join(",")')"
+[[ "$(json "$mdraft/review.json" 'j.annotations.map(a => a.mediaId + ":" + a.shape.type).join(",")')" == "m1:rect" ]] || die "multi remove: annotations"
+[[ -e "$mdraft/capture-1.png" && ! -e "$mdraft/capture-2.png" && -e "$mdraft/capture-3.png" && ! -e "$mdraft/capture-4.png" ]] || die "multi remove: files"
+# m4 was shown; the editor moves to its nearest remaining neighbor, selected alone.
+[[ "$(json "$TMP/mremove-annotate.json" 'j.currentMediaId + "|" + j.selectedMediaIds.join(",")')" == "m3|m3" ]] \
+  || die "multi remove: shown $(json "$TMP/mremove-annotate.json" 'j.currentMediaId + "|" + j.selectedMediaIds.join(",")')"
+validate_bundle "$mdraft/review.json"
+cat >"$TMP/script-multi-remove-all.json" <<'JSON'
+{"steps": [{"op": "click-media", "media": "m1"}, {"op": "click-media", "media": "m3", "modifier": "shift"}, {"op": "remove-selected-captures"}]}
+JSON
+run mremove-all 0 -- --annotate "$TMP/script-multi-remove-all.json" --drafts-dir "$MDRAFTS"
+[[ "$(json "$mdraft/review.json" '`${j.media.length}/${j.annotations.length}`')" == 0/0 ]] || die "multi remove: all"
+[[ "$(json "$TMP/mremove-all.json" '`${j.currentMediaId}|${j.selectedMediaIds.length}`')" == "undefined|0" ]] || die "multi remove: all, editor"
+ok "⌘⌫ removes every selected capture (⇧-click range, ⌘-click out) at once, keeps unsaved work on the rest; removing all leaves the empty draft"
+
 echo "draft reviews: list and discard (HS2-WE30PY)"
 DDRAFTS="$TMP/list-drafts"
 TRASH=(UXREVIEW_TRASH_DIR="$TMP/trash")
@@ -873,7 +904,7 @@ ok "a Trash that refuses keeps the draft (exit 5); --delete deletes it immediate
 
 run previews 0 -- --render-ui-previews "$TMP/previews"
 for name in overlay-region-hint overlay-window-hint overlay-region-selection overlay-region-selection-bottom-edge overlay-window-hover recording-dim-region hud-countdown hud-saved hud-recording-countdown hud-recording hud-saved-video hud-recording-narration hud-saved-narrated settings-registered settings-in-use status-bar-icon-light status-bar-icon-dark menu-capture-target-row-light menu-capture-target-row-dark menu-delayed-row-light menu-delayed-row-dark \
-  editor-empty editor-no-media editor-annotated editor-arrow-selected editor-narrow editor-crop-drag editor-cropped editor-zoomed editor-keyboard-insert editor-video-timeline editor-video-narrow editor-video-trimmed editor-video-playing editor-video-range-drag editor-video-trim-drag editor-autoscroll \
+  editor-empty editor-no-media editor-annotated editor-arrow-selected editor-narrow editor-crop-drag editor-cropped editor-multi-select editor-zoomed editor-keyboard-insert editor-video-timeline editor-video-narrow editor-video-trimmed editor-video-playing editor-video-range-drag editor-video-trim-drag editor-autoscroll \
   session-ready session-narrow session-edited session-submitting session-failed session-submitted session-issues session-empty \
   session-existing-looking session-existing-found session-existing-narrow session-existing-not-found session-existing-closed \
   session-existing-failed session-existing-submitted session-existing-selection session-existing-abandoned \
@@ -905,6 +936,9 @@ PICKED='j.statusMenuAfterPickingWindow'
 [[ "$(json "$MENUS" "($TITLES)(j.mainMenu[1].submenu)")" == "New Review[⌘N]|Add Media…[⌘O]|Draft Reviews…[⇧⌘O]|-|Save[⌘S]|Submit Review…[⌘↩]|Show Review in Finder|-|Close Window[⌘W]" ]] \
   || die "menus: File $(json "$MENUS" "($TITLES)(j.mainMenu[1].submenu)")"
 [[ "$(json "$MENUS" 'j.mainMenu[3].submenu.length')" == 11 ]] || die "menus: Capture menu"
+# HS2-0TQ6RP: Edit ends with the confirmed remove (no shortcut) and the immediate one on ⌘⌫.
+[[ "$(json "$MENUS" "($TITLES)(j.mainMenu[2].submenu.slice(-2))")" == "Remove Capture from Review…|Remove Capture Now[⌘⌫]" ]] \
+  || die "menus: Edit remove items $(json "$MENUS" "($TITLES)(j.mainMenu[2].submenu)")"
 ok "menu bar menu: version, Capture [Screen | Window | Region] picker (sets the target in the open menu), Capture Image/Video (Immediate + Delayed [3 s | 10 s]), Settings, Open UX Review, Quit; app menu bar with File › New Review ⌘N"
 
 # HS2-M8ZFS0: real R + Return key events through the canvas insert a shape; VoiceOver sees every annotation.

@@ -46,6 +46,8 @@ enum EditorPreviews {
         try capture("editor-empty", size: wide, script: [])
         written.append(try renderNoMedia(to: directory, scratch: scratch, size: wide))
         try capture("editor-annotated", size: wide, script: annotations + [.select("#1")])
+        // Both captures selected (⌘-click), the second one shown (docs/06 §6.7.2).
+        try capture("editor-multi-select", size: wide, script: annotations + [.clickMedia("m2", .toggle)])
         try capture("editor-arrow-selected", size: wide, script: annotations + [.select("#3")])
         try capture("editor-narrow", size: CGSize(width: 900, height: 560), script: annotations + [.select("#2")])
         try capture("editor-crop-drag", size: wide, script: annotations + [.tool(.crop)], cropDrag: true)
@@ -72,8 +74,7 @@ enum EditorPreviews {
             "editor-zoomed", size: wide, script: annotations + [.select("#1")],
             viewport: CanvasViewport(zoom: 1.5, center: CGPoint(x: 560, y: 300))
         )
-        written += try renderVideo(to: directory, scratch: scratch)
-        written += try renderAutoScroll(to: directory, scratch: scratch)
+        written += try renderVideo(to: directory, scratch: scratch) + renderAutoScroll(to: directory, scratch: scratch)
         return written
     }
 
@@ -270,6 +271,7 @@ enum EditorPreviews {
             case let .range(range): if let id = editor.selection { editor.setTimeRange(range, for: id) }
             case let .time(millis): editor.setCurrentTime(millis)
             case let .trim(range): editor.trim(to: range)
+            case let .clickMedia(id, click): editor.clickMedia(id, click)
             default: break
             }
         }

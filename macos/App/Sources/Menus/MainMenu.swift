@@ -67,11 +67,18 @@ enum MainMenu {
         menu.addItem(withTitle: "Select All", action: #selector(NSText.selectAll(_:)), keyEquivalent: "a")
         menu.addItem(withTitle: "Duplicate", action: #selector(AnnotationCanvasView.duplicate(_:)), keyEquivalent: "d")
         menu.addItem(.separator())
-        // No shortcut: ⌘⌫ must keep deleting text in the note field.
+        // Both act on the media strip's selection and name its size ("Remove 3 Captures…").
         menu.addItem(
             withTitle: "Remove Capture from Review…",
             action: #selector(EditorWindowController.removeCapture(_:)),
             keyEquivalent: ""
+        )
+        // ⌘⌫ removes without asking. The item is disabled while text is being edited, so the key
+        // then reaches the text and keeps deleting to the start of the line (docs/06 §6.7.2).
+        menu.addItem(
+            withTitle: "Remove Capture Now",
+            action: #selector(EditorWindowController.removeSelectedCaptures(_:)),
+            keyEquivalent: "\u{8}"
         )
         return menu
     }

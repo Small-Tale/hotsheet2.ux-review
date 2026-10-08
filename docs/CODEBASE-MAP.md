@@ -70,7 +70,8 @@ macos/
     Editor/AnnotationEditor+Timeline.swift  timeline drags (range ends, trim handles), TimelineHitTest, TimeFormat.parse
     Editor/AnnotationEditor+FrameStep.swift  ← / → frame steps: TimelineStepTarget (last-used timeline target), step rules (docs/06 §6.4, §6.10)
     Editor/FrameGrid.swift            uniform frame grid for frame steps at a movie's expected rate (recorded, constant nominal, or a variable-rate movie's snapped interval) (docs/06 §6.10)
-    Editor/AnnotationEditor+Media.swift  syncMedia/dropMedia: follow captures added to or removed from the draft (docs/06 §6.7)
+    Editor/AnnotationEditor+Media.swift  syncMedia/dropMedia: follow captures added to or removed from the draft (docs/06 §6.7); media strip selection (clickMedia, mediaToRemove)
+    Editor/MediaSelection.swift       media strip multiple selection: click / ⌘-click / ⇧-click rules, removal targets, CaptureRemovalPrompt (docs/06 §6.7.2)
     Editor/VideoTrim.swift            trimmed movie export (AVAssetExportSession), byte-exact restore, expected frame rate (recorded metadata, sample cursor + edit list), frame cache
     Editor/VideoPlayback.swift        play/pause: AVPlayer on the trimmed clip, player frames, PlaybackRules
     Editor/CanvasViewport.swift       canvas zoom/pan: fit, zoom stops, anchored zoom, clamped pan, AutoScroll near edges (docs/06 §6.2.1)
@@ -110,7 +111,7 @@ macos/
     Settings/HeadlessSettings.swift   `--settings` mode with JSON output
     Editor/EditorWindowController.swift  the UX Review window: one per draft, save on close, Add Media / Submit / Show in Finder for its draft, file drop target (docs/04 §4.12.2), MediaChooser
     Editor/EditorModel.swift          observable wrapper: mutate → redraw + autosave, reload on capture
-    Editor/EditorView.swift           tool bar, media strip, layout
+    Editor/EditorView.swift           tool bar, media strip (⌘/⇧-click multiple selection), layout
     Editor/CanvasAutoScroller.swift   60 Hz auto-scroll timer while a canvas gesture runs near an edge
     Editor/AnnotationCanvas.swift     NSView canvas: mouse/keyboard → editor (← / → monitor for unedited time fields), drawing via AnnotationRenderer
     Editor/TimelineBar.swift          video timeline: play/pause, typed playhead, scrubber, range grips + trim handles, Trim Start/End; TimeField

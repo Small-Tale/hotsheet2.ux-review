@@ -36,9 +36,9 @@ final class EditorModel: ObservableObject {
     /// Chooses images or movies to add to this draft (docs/04 §4.12.2). Set by the editor
     /// window; the tool bar shows **Add Media…** only when it is.
     var addMedia: (() -> Void)?
-    /// Asks before removing a capture from the review (docs/06 §6.7). Set by the editor window;
-    /// the media strip offers **Remove from Review…** only when it is.
-    var confirmRemoval: ((MediaItem) -> Void)?
+    /// Asks before removing captures from the review (docs/06 §6.7.1, §6.7.2). Set by the editor
+    /// window; the media strip offers ✕ and **Remove from Review…** only when it is.
+    var confirmRemoval: (([MediaItem]) -> Void)?
 
     private var saveTask: Task<Void, Never>?
     private var imageCache: [String: (crop: PixelRect?, image: CGImage?)] = [:]
@@ -212,19 +212,25 @@ final class EditorModel: ObservableObject {
         revision += 1
     }
 
-    /// Removes a capture from the review after the reviewer confirmed: saves first, deletes its
-    /// file and annotations, shows a neighbor, and tells open session windows (`HS2-SSM1E7`).
-    func removeCapture(_ mediaId: String) {
+    /// Removes captures from the review (after the reviewer confirmed, or at once for ⌘⌫): saves
+    /// first, deletes their files and annotations, shows a neighbor, and tells open session
+    /// windows (`HS2-SSM1E7`, `HS2-0TQ6RP`).
+    func removeCaptures(_ mediaIds: [String]) {
+        guard !mediaIds.isEmpty else { return }
         pause()
         do {
-            let changes = try session.removeCapture(mediaId)
+            let changes = try session.removeCaptures(mediaIds)
             for id in changes.removed {
                 imageCache[id] = nil
             }
             saveError = nil
             NotificationCenter.default.post(name: .reviewDraftChanged, object: session.directory)
         } catch {
-            saveError = "Couldn't remove the capture: \(error)"
+            saveError = "Couldn't remove \(mediaIds.count == 1 ? "the capture" : "the captures"): \(error)"
+            // Some may be gone already (a failure partway): forget them, and let open session
+            // windows catch up.
+            imageCache = imageCache.filter { editor.media($0.key) != nil }
+            NotificationCenter.default.post(name: .reviewDraftChanged, object: session.directory)
         }
         syncViewport()
         revision += 1

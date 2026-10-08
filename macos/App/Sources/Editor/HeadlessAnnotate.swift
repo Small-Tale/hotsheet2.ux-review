@@ -29,6 +29,8 @@ enum HeadlessAnnotate {
         /// The capture showing when the script ended, and its playhead (0 for an image).
         var currentMediaId: String?
         var currentTimeMs: Int
+        /// The media strip's selection when the script ended, in strip order (docs/06 §6.7.2).
+        var selectedMediaIds: [String]
         var annotations: [Row]
         var rendered: [String]
     }
@@ -77,6 +79,7 @@ enum HeadlessAnnotate {
                 media: bundle.media,
                 currentMediaId: session.editor.currentMediaId,
                 currentTimeMs: session.editor.currentTimeMs,
+                selectedMediaIds: session.editor.selectedMediaIds,
                 annotations: bundle.annotations.enumerated().map { index, annotation in
                     Row(
                         number: index + 1, id: annotation.id, mediaId: annotation.mediaId, type: annotation.shape.kind,

@@ -223,6 +223,7 @@ enum MenuDump {
         if flags.contains(.command) { text += "⌘" }
         switch item.keyEquivalent {
         case "\r": return text + "↩"
+        case "\u{8}": return text + "⌫"
         case " ": return text + "Space"
         default: return text + item.keyEquivalent.uppercased()
         }

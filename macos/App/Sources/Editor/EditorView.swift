@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 import UXReviewKit
 
@@ -155,53 +156,81 @@ struct StatusLine: View {
     }
 }
 
-/// Thumbnails of every capture in the review, with the number of annotations on each.
+/// Thumbnails of every capture in the review, with the number of annotations on each. Click
+/// shows one; ⌘-click and ⇧-click select several (docs/06 §6.7.2), and the canvas shows the
+/// last one clicked.
 struct MediaStrip: View {
     @ObservedObject var model: EditorModel
 
     var body: some View {
+        let selection = Set(model.editor.selectedMediaIds)
         ScrollView {
-            VStack(spacing: 10) {
+            VStack(spacing: 4) {
                 ForEach(model.editor.bundle.media, id: \.id) { item in
-                    let selected = item.id == model.editor.currentMediaId
-                    Button { model.mutate { $0.show(mediaId: item.id) } } label: {
+                    let shown = item.id == model.editor.currentMediaId
+                    let selected = selection.contains(item.id)
+                    Button { model.mutate { $0.clickMedia(item.id, Self.click(NSEvent.modifierFlags)) } } label: {
                         VStack(spacing: 4) {
                             thumbnail(item)
                                 .frame(width: 88, height: 60)
                                 .clipShape(RoundedRectangle(cornerRadius: 4))
                                 .overlay(
                                     RoundedRectangle(cornerRadius: 4)
-                                        .stroke(selected ? Color.accentColor : Color.primary.opacity(0.15), lineWidth: selected ? 2.5 : 1)
+                                        .stroke(
+                                            selected ? Color.accentColor : Color.primary.opacity(0.15),
+                                            lineWidth: shown ? 2.5 : selected ? 1.5 : 1
+                                        )
                                 )
                                 .overlay(alignment: .topTrailing) { countBadge(item) }
                             Text(item.filename).font(.caption2).lineLimit(1).truncationMode(.middle)
                                 .foregroundStyle(selected ? Color.primary : Color.secondary)
                         }
+                        .padding(3)
+                        .background(
+                            RoundedRectangle(cornerRadius: 6).fill(Color.accentColor.opacity(selected && selection.count > 1 ? 0.16 : 0))
+                        )
                     }
                     .buttonStyle(.plain)
+                    .accessibilityAddTraits(selected ? .isSelected : [])
                     .overlay(alignment: .topLeading) {
-                        if selected, let confirm = model.confirmRemoval {
-                            Button { confirm(item) } label: {
+                        if shown, let confirm = model.confirmRemoval {
+                            let targets = removalTargets(item)
+                            Button { confirm(targets) } label: {
                                 Image(systemName: "xmark.circle.fill")
                                     .symbolRenderingMode(.palette)
                                     .foregroundStyle(.white, Color.black.opacity(0.6))
                                     .font(.system(size: 15))
                             }
                             .buttonStyle(.plain)
-                            .offset(x: -5, y: -5)
-                            .help("Remove \(item.filename) from the review")
-                            .accessibilityLabel("Remove \(item.filename) from the review")
+                            .offset(x: -2, y: -2)
+                            .help(removalHelp(targets))
+                            .accessibilityLabel(removalHelp(targets))
                         }
                     }
                     .contextMenu {
                         if let confirm = model.confirmRemoval {
-                            Button("Remove from Review…") { confirm(item) }
+                            let targets = removalTargets(item)
+                            Button("\(CaptureRemovalPrompt.title(count: targets.count)) from Review…") { confirm(targets) }
                         }
                     }
                 }
             }
-            .padding(10)
+            .padding(7)
         }
+    }
+
+    /// ⌘-click toggles, ⇧-click extends; ⌘ wins when both are held.
+    static func click(_ flags: NSEvent.ModifierFlags) -> MediaSelection.Click {
+        flags.contains(.command) ? .toggle : flags.contains(.shift) ? .extend : .plain
+    }
+
+    /// The selection when `item` is in it, else `item` alone.
+    private func removalTargets(_ item: MediaItem) -> [MediaItem] {
+        model.editor.mediaToRemove(from: item.id).compactMap(model.editor.media)
+    }
+
+    private func removalHelp(_ targets: [MediaItem]) -> String {
+        targets.count == 1 ? "Remove \(targets[0].filename) from the review" : "Remove \(targets.count) selected captures from the review"
     }
 
     @ViewBuilder private func thumbnail(_ item: MediaItem) -> some View {

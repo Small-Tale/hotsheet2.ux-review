@@ -62,7 +62,7 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
         content.onDropFiles = { [weak self] urls in self?.addDroppedFiles(urls) }
         model.submitReview = { [weak self] in self?.submitReview(nil) }
         model.addMedia = { [weak self] in self?.addMedia(nil) }
-        model.confirmRemoval = { [weak self] item in self?.confirmRemoval(item) }
+        model.confirmRemoval = { [weak self] items in self?.confirmRemoval(items) }
     }
 
     @available(*, unavailable)
@@ -127,25 +127,37 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
         }
     }
 
-    /// Edit › Remove Capture from Review…: the capture on screen.
+    /// Edit › Remove Capture from Review…: the selected captures, after asking (docs/06 §6.7.1).
     @objc func removeCapture(_: Any?) {
-        if let item = model.editor.currentMedia { confirmRemoval(item) }
+        confirmRemoval(selectedItems)
     }
 
-    /// Asks, as a sheet, before deleting a capture's file and annotations; it can't be undone.
-    func confirmRemoval(_ item: MediaItem) {
-        guard let window else { return }
-        let count = model.editor.annotations(on: item.id).count
+    /// Edit › Remove Captures Now (⌘⌫): the selected captures, without asking (docs/06 §6.7.2).
+    @objc func removeSelectedCaptures(_: Any?) {
+        model.removeCaptures(model.editor.mediaToRemove())
+    }
+
+    private var selectedItems: [MediaItem] {
+        model.editor.mediaToRemove().compactMap(model.editor.media)
+    }
+
+    /// Asks, as a sheet, before deleting captures' files and annotations; it can't be undone.
+    func confirmRemoval(_ items: [MediaItem]) {
+        guard let window, !items.isEmpty else { return }
+        let prompt = CaptureRemovalPrompt(
+            filenames: items.map(\.filename),
+            annotations: items.map { model.editor.annotations(on: $0.id).count }.reduce(0, +)
+        )
         let alert = NSAlert()
         alert.alertStyle = .warning
-        alert.messageText = "Remove \(item.filename) from this review?"
-        let annotations = count == 0 ? "" : count == 1 ? " and its annotation" : " and its \(count) annotations"
-        alert.informativeText = "The capture\(annotations) will be deleted from the draft. You can't undo this."
-        alert.addButton(withTitle: "Remove Capture").hasDestructiveAction = true
+        alert.messageText = prompt.message
+        alert.informativeText = prompt.detail
+        alert.addButton(withTitle: prompt.button).hasDestructiveAction = true
         alert.addButton(withTitle: "Cancel")
+        let ids = items.map(\.id)
         alert.beginSheetModal(for: window) { [weak self] response in
             guard response == .alertFirstButtonReturn else { return }
-            MainActor.assumeIsolated { self?.model.removeCapture(item.id) }
+            MainActor.assumeIsolated { self?.model.removeCaptures(ids) }
         }
     }
 
@@ -176,9 +188,19 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
         case #selector(undo(_:)): model.editor.canUndo
         case #selector(redo(_:)): model.editor.canRedo
         case #selector(duplicate(_:)): model.editor.selection != nil
-        case #selector(removeCapture(_:)): model.editor.currentMedia != nil
+        case #selector(removeCapture(_:)):
+            retitle(item, "\(CaptureRemovalPrompt.title(count: max(selectedItems.count, 1))) from Review…")
+        case #selector(removeSelectedCaptures(_:)):
+            // Off while text is being edited, so ⌘⌫ deletes text in the note field instead.
+            retitle(item, "\(CaptureRemovalPrompt.title(count: max(selectedItems.count, 1))) Now") && !(window?.firstResponder is NSText)
         default: true
         }
+    }
+
+    /// Names the selection's size in a remove item's title; true when there is something to remove.
+    private func retitle(_ item: NSMenuItem, _ title: String) -> Bool {
+        item.title = title
+        return !selectedItems.isEmpty
     }
 }
 

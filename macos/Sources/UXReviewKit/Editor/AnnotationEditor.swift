@@ -113,6 +113,9 @@ public struct AnnotationEditor: Sendable {
     public internal(set) var document: EditorDocument
     public internal(set) var selection: String?
     public internal(set) var currentMediaId: String?
+    /// The media strip's selection (docs/06 §6.7.2); read it through `selectedMediaIds`.
+    /// Navigation state, never undone.
+    public internal(set) var mediaSelection = MediaSelection()
     public internal(set) var tool: EditorTool = .select
     public internal(set) var gesture: EditorGesture?
     /// A drag of a time-range end or trim handle on the video timeline (docs/06 §6.10).

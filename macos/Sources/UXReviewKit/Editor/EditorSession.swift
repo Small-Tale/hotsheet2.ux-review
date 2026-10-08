@@ -210,9 +210,31 @@ public final class EditorSession {
     /// The editor then shows a neighboring capture. It can't be undone.
     @discardableResult
     public func removeCapture(_ mediaId: String) throws -> MediaChanges {
-        guard editor.media(mediaId) != nil else { throw ReviewDraftError.unknownMedia(mediaId) }
+        try removeCaptures([mediaId])
+    }
+
+    /// Removes several captures at once (the media strip's selection, docs/06 §6.7.2): checks
+    /// every id first (an unknown one removes nothing), saves once, removes each in turn, and
+    /// catches up. If a removal fails partway, the editor still catches up with what was removed
+    /// before the error is thrown. Removing every capture leaves the empty draft, as removing the
+    /// last one does.
+    @discardableResult
+    public func removeCaptures(_ mediaIds: [String]) throws -> MediaChanges {
+        var unique: [String] = []
+        for id in mediaIds where !unique.contains(id) {
+            guard editor.media(id) != nil else { throw ReviewDraftError.unknownMedia(id) }
+            unique.append(id)
+        }
+        guard !unique.isEmpty else { return MediaChanges() }
         try save()
-        try store.removeMedia(mediaId, from: directory)
+        do {
+            for id in unique {
+                try store.removeMedia(id, from: directory)
+            }
+        } catch {
+            _ = try? reload()
+            throw error
+        }
         return try reload()
     }
 

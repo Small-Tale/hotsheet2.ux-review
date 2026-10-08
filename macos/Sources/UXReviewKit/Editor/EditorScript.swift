@@ -57,6 +57,10 @@ public struct EditorScript: Decodable, Equatable, Sendable {
         /// Remove from Review in the editor: saves the editor first, then removes the capture
         /// (`EditorSession.removeCapture`, docs/06 §6.7).
         case removeCapture(String)
+        /// A click on a media strip thumbnail: plain, ⌘ (`toggle`), or ⇧ (`extend`) (docs/06 §6.7.2).
+        case clickMedia(String, MediaSelection.Click)
+        /// ⌘⌫: removes every selected capture without asking (`EditorSession.removeCaptures`).
+        case removeSelectedCaptures
         case undo
         case redo
         case save
@@ -85,23 +89,27 @@ public enum EditorScriptError: Error, Equatable, CustomStringConvertible {
 
 extension EditorScript.Step: Decodable {
     private enum CodingKeys: String,
-        CodingKey { case op, media, tool, points, point, id, text, intent, closed, dx, dy, rect, start, end, handle, key, shift
+        CodingKey { case op, media, tool, points, point, id, text, intent, closed, dx, dy, rect, start, end, handle, key, shift,
+                     modifier
         case millis = "ms"
     }
 
     /// Ops that take no arguments.
     private static let bare: [String: EditorScript.Step] = [
         "delete": .delete, "duplicate": .duplicate, "reset-crop": .resetCrop, "restore-original": .restoreOriginal,
-        "reset-trim": .resetTrim,
+        "reset-trim": .resetTrim, "remove-selected-captures": .removeSelectedCaptures,
         "undo": .undo, "redo": .redo,
         "save": .save,
     ]
 
-    private static func mediaStep(_ op: String, id: String) -> EditorScript.Step {
+    /// The ops that name a `media` id.
+    private static func mediaStep(_ op: String, in container: KeyedDecodingContainer<CodingKeys>) throws -> EditorScript.Step {
+        let id = try container.decode(String.self, forKey: .media)
         switch op {
-        case "media": .media(id)
-        case "remove-media": .removeMedia(id)
-        default: .removeCapture(id)
+        case "media": return .media(id)
+        case "remove-media": return .removeMedia(id)
+        case "click-media": return try click(id, in: container)
+        default: return .removeCapture(id)
         }
     }
 
@@ -116,8 +124,8 @@ extension EditorScript.Step: Decodable {
             DecodingError.dataCorruptedError(forKey: key, in: container, debugDescription: reason)
         }
         switch op {
-        case "media", "remove-media", "remove-capture":
-            self = try Self.mediaStep(op, id: container.decode(String.self, forKey: .media))
+        case "media", "remove-media", "remove-capture", "click-media":
+            self = try Self.mediaStep(op, in: container)
         case "tool":
             let name = try container.decode(String.self, forKey: .tool)
             guard let tool = EditorTool(rawValue: name) else { throw invalid(.tool, "Unknown tool \(name)") }
@@ -137,6 +145,21 @@ extension EditorScript.Step: Decodable {
         case "range", "trim": self = try Self.timing(op, in: container)
         default:
             throw invalid(.op, "Unknown op \(op)")
+        }
+    }
+
+    /// `click-media`: an optional `modifier` (`command` or `shift`) besides the `media` id.
+    private static func click(_ id: String, in container: KeyedDecodingContainer<CodingKeys>) throws -> EditorScript.Step {
+        switch try container.decodeIfPresent(String.self, forKey: .modifier) {
+        case nil: return .clickMedia(id, .plain)
+        case "command": return .clickMedia(id, .toggle)
+        case "shift": return .clickMedia(id, .extend)
+        case let other?:
+            throw DecodingError.dataCorruptedError(
+                forKey: .modifier,
+                in: container,
+                debugDescription: "Unknown modifier \(other) (command or shift)"
+            )
         }
     }
 
@@ -223,7 +246,7 @@ public extension EditorScript {
 
     private static func apply(_ step: Step, to session: EditorSession) throws {
         switch step {
-        case .media, .removeMedia, .removeCapture:
+        case .media, .removeMedia, .removeCapture, .clickMedia, .removeSelectedCaptures:
             try applyMediaStep(step, in: session)
         case let .tool(tool):
             session.editor.setTool(tool)
@@ -256,6 +279,13 @@ public extension EditorScript {
             case .removeCapture: try session.removeCapture(id)
             default: session.editor.show(mediaId: id)
             }
+        case let .clickMedia(id, click):
+            guard session.editor.media(id) != nil else { throw StepFailure.reason("unknown media \(id)") }
+            session.editor.clickMedia(id, click)
+        case .removeSelectedCaptures:
+            let ids = session.editor.mediaToRemove()
+            guard !ids.isEmpty else { throw StepFailure.reason("no capture to remove") }
+            try session.removeCaptures(ids)
         default: return
         }
     }
