@@ -62,6 +62,15 @@ Each feature gets both unit tests and end-to-end tests. Tests live in
   - front window per app, which stays on layer 0
   - the picker's target: UX Review's own windows on top occlude rather than being skipped,
     while its HUD and overlay levels do not (HS2-AR8Q2G regression)
+- **Live window list** (`LiveWindowListTests`, HS2-VJ8VE8 regression): the window pick re-reads
+  the window list while it runs.
+  - transition matrix: no list / fresh / stale × pointer move, timer, click, mode switch; only a
+    pointer move over a fresh list reuses it
+  - pointer bursts are throttled; re-reading an unchanged layout reports no change; a clock that
+    steps backwards counts as stale
+  - the pick follows windows that move, resize, reorder, open, and close (empty → refill),
+    including a click inside the pointer throttle window
+  - floating windows still win and UX Review's own windows still occlude on a refreshed list
 - **Picker focus** (`PickerFocusTests`): focus is handed back only when UX Review took it
   during picking; never after a switch to a third app, or when UX Review was frontmost.
   - coordinate flips

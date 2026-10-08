@@ -45,6 +45,12 @@ Settings) are not raised over the app being reviewed (HS2-AR8Q2G).
   "App · Title". Clicking captures it.
   - Windows are hit-tested in the window server's front-to-back order, so a small window on
     top always wins over a large window behind it.
+  - The window list is live (`LiveWindowList`, `HS2-VJ8VE8`). Windows that move, resize, open,
+    close, or change order during the pick are followed:
+    - Pointer moves re-read the list at most every 50 ms.
+    - A 0.2 s timer re-reads it while the pointer is still, and moves the highlight if the
+      window under the pointer changed.
+    - A click always re-reads it first, so it picks what is under the pointer at that moment.
   - App window levels below the Dock can be picked: normal windows (layer 0), floating panels
     and palettes (3), modal panels (8), and utility windows (19). The Dock, the menu bar,
     status items, menus, and system overlays never can.

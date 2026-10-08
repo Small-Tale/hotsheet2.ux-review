@@ -33,14 +33,17 @@ protocol OverlayState: AnyObject {
 
 /// One overlay window per display, all sharing a session's state. The overlays are
 /// non-activating panels: picking never activates UX Review, so its own windows (the editor,
-/// Submit Review, Settings) are not raised over the app being reviewed, and the window order the
-/// picker snapshotted stays the order on screen (HS2-AR8Q2G).
+/// Submit Review, Settings) are not raised over the app being reviewed (HS2-AR8Q2G). In window
+/// mode the window list is read again while picking (`LiveWindowList`, HS2-VJ8VE8): on pointer
+/// moves (throttled), on a timer while the pointer is still, and always right before a click
+/// picks, so the highlight and the pick follow windows that move, resize, or reorder.
 @MainActor
 final class PickerSession: OverlayState {
     private(set) var mode: CaptureTarget
     private var overlays: [OverlayWindow] = []
     private var continuation: CheckedContinuation<CaptureSource, Error>?
-    private let windows: [WindowSnapshot]
+    private var windowList = LiveWindowList()
+    private var refreshTimer: Timer?
     private let primaryHeight = DisplayDirectory.primaryHeight
     private var previousApp: NSRunningApplication?
     private weak var previousKeyWindow: NSWindow?
@@ -51,8 +54,6 @@ final class PickerSession: OverlayState {
 
     init(mode: CaptureTarget) {
         self.mode = mode
-        // Always, before the overlays cover everything: Space can switch to window mode.
-        windows = WindowDirectory.snapshot()
     }
 
     func run() async throws -> CaptureSource {
@@ -67,7 +68,8 @@ final class PickerSession: OverlayState {
             }
             let mouse = NSEvent.mouseLocation
             (overlays.first { $0.frame.contains(mouse) } ?? overlays.first)?.makeKey()
-            if mode == .window { updateHover(at: mouse) }
+            startRefreshTimer()
+            if mode == .window { updateHover(at: mouse, reason: .modeSwitch) }
         }
     }
 
@@ -89,7 +91,8 @@ final class PickerSession: OverlayState {
             dragCurrent = point
             redraw()
         case .window:
-            updateHover(at: point)
+            // Whatever is under the pointer right now, not as of the last refresh.
+            updateHover(at: point, reason: .click)
             guard let hovered else { return }
             finish(.success(.window(id: hovered.windowID)))
         case .display:
@@ -117,10 +120,11 @@ final class PickerSession: OverlayState {
         }
     }
 
-    func updateHover(at point: CGPoint) {
+    func updateHover(at point: CGPoint, reason: LiveWindowList.Reason = .pointerMoved) {
         guard mode == .window else { return }
+        windowList.refresh(for: reason, now: ProcessInfo.processInfo.systemUptime, read: WindowDirectory.snapshot)
         let serverPoint = WindowSelection.windowServerPoint(fromAppKit: point, primaryHeight: primaryHeight)
-        let next = WindowSelection.pickTarget(at: serverPoint, in: windows, ownPID: CaptureContextProvider.ownPID)
+        let next = WindowSelection.pickTarget(at: serverPoint, in: windowList.windows, ownPID: CaptureContextProvider.ownPID)
         if next != hovered {
             hovered = next
             redraw()
@@ -143,13 +147,26 @@ final class PickerSession: OverlayState {
             dragStart = nil
             dragCurrent = nil
             hovered = nil
-            if next == .window { updateHover(at: NSEvent.mouseLocation) }
+            if next == .window { updateHover(at: NSEvent.mouseLocation, reason: .modeSwitch) }
             redraw()
         case .pickDisplay:
             guard let display = DisplayDirectory.displayUnderMouse() else { return true }
             finish(.success(.display(id: display.id, region: nil)))
         }
         return true
+    }
+
+    /// While the pointer is still, windows can still move, resize, or reorder under it. The timer
+    /// does nothing in region mode, which needs no window list.
+    private func startRefreshTimer() {
+        let timer = Timer(timeInterval: LiveWindowList.timerInterval, repeats: true) { [weak self] _ in
+            MainActor.assumeIsolated {
+                guard let self, self.mode == .window else { return }
+                self.updateHover(at: NSEvent.mouseLocation, reason: .timer)
+            }
+        }
+        RunLoop.main.add(timer, forMode: .common)
+        refreshTimer = timer
     }
 
     private func redraw() {
@@ -161,6 +178,8 @@ final class PickerSession: OverlayState {
     private func finish(_ result: Result<CaptureSource, Error>) {
         guard let continuation else { return }
         self.continuation = nil
+        refreshTimer?.invalidate()
+        refreshTimer = nil
         for overlay in overlays {
             overlay.orderOut(nil)
         }
