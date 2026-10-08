@@ -514,11 +514,18 @@ with a uniform grid at the movie's expected rate.
   30; a plain constant 25 fps movie reads 25; a missing file reads nil. In an `EditorSession`,
   scripted arrow keys step one 30 fps frame inside a still stretch (showing the right color),
   ⇧→ ten frames, and trim-end steps trim on the uniform grid.
+- **Background loading** (`VariableFrameRateMovieTests`, `HS2-F999CM`, real movies on the main
+  actor): with `.inBackground` a session steps at 30 fps until the movie's recorded 10 fps
+  arrives, then steps on the new grid from where it was; a capture picked up later loads in the
+  background too, without touching the first one's rate; a read for a capture removed before it
+  arrives is abandoned and never applied; the default `.immediately` has the rate on open.
 - **Visual QA:** `editor-video-frame-step`: a range end grip pressed in place, then ⇧→ and ← sent
   as real key events through the canvas (range to 0:02.90, playhead following).
 - **Not covered automatically:** focus in a live window: the canvas taking focus from a time
   field SwiftUI focused on its own, the key monitor redirecting ← / → from an unedited time
-  field, and a scrubber press focusing the canvas. Live-window automation is `HS2-HA9TW3`.
+  field, and a scrubber press focusing the canvas; and the editor window opening its session
+  with `.inBackground` (the session side is tested above). Live-window automation is
+  `HS2-HA9TW3`.
 
 ## HS2-T0EY2W: microphone narration
 

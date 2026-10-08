@@ -20,7 +20,7 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
             existing.present()
             return
         }
-        let session = try EditorSession(store: store, directory: directory, mediaId: mediaId)
+        let session = try EditorSession(store: store, directory: directory, mediaId: mediaId, frameRateLoading: .inBackground)
         let controller = EditorWindowController(model: EditorModel(session: session))
         open[key] = controller
         controller.present()

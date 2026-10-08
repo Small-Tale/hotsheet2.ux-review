@@ -16,6 +16,18 @@ public final class EditorSession {
     /// Where drafts made before `HS2-71SSJG` kept untouched originals (`DraftEdits.migrateLegacy`).
     public static let originalsDirectory = "originals"
 
+    /// When each video's expected frame rate (for ← / → frame steps, docs/06 §6.10) is read from
+    /// its movie.
+    public enum FrameRateLoading: Sendable {
+        /// While the session opens or picks up a capture, blocking (headless runs, previews, tests).
+        case immediately
+        /// In the background (`HS2-F999CM`): a movie without a recorded rate has its whole sample
+        /// table read, which takes a while for a long one. Frame steps use 30 fps until the rate
+        /// arrives, then the movie's. The session must then be used on the main actor, where the
+        /// rate is applied.
+        case inBackground
+    }
+
     public var editor: AnnotationEditor
     public let directory: URL
     public let store: ReviewDraftStore
@@ -26,10 +38,20 @@ public final class EditorSession {
     /// keeps these exactly for annotations the reviewer didn't change, so mapping into a crop and
     /// back never drifts by rounding.
     private var stored: [String: Annotation] = [:]
+    public let frameRateLoading: FrameRateLoading
+    /// Background frame-rate reads in flight, by media id, with a token so a result never lands
+    /// on a capture removed (or re-added under the same id) meanwhile.
+    private var frameRateLoads: [String: (token: UUID, task: Task<Void, Never>)] = [:]
 
-    public init(store: ReviewDraftStore, directory: URL, mediaId: String? = nil) throws {
+    public init(
+        store: ReviewDraftStore,
+        directory: URL,
+        mediaId: String? = nil,
+        frameRateLoading: FrameRateLoading = .immediately
+    ) throws {
         self.store = store
         self.directory = directory
+        self.frameRateLoading = frameRateLoading
         try store.migrateLegacyEdits(directory)
         let bundle = try store.load(directory).bundle
         let (crops, trims) = DraftEdits.load(from: directory).byMediaId(in: bundle)
@@ -51,12 +73,59 @@ public final class EditorSession {
         loadFrameGrids(bundle.media.map(\.id))
     }
 
-    /// Reads each video's expected frame rate from its movie, for ← / → frame steps (docs/06 §6.10).
+    deinit {
+        for load in frameRateLoads.values {
+            load.task.cancel()
+        }
+    }
+
+    /// Reads each video's expected frame rate from its movie, for ← / → frame steps (docs/06
+    /// §6.10): now, or in the background per `frameRateLoading`.
     private func loadFrameGrids(_ ids: [String]) {
         for id in ids {
             guard let item = editor.media(id), item.kind == .video else { continue }
-            editor.setFrameRate(VideoTrim.frameRate(of: fileURL(item)), for: id)
+            let url = fileURL(item)
+            switch frameRateLoading {
+            case .immediately:
+                editor.setFrameRate(VideoTrim.frameRate(of: url), for: id)
+            case .inBackground:
+                let token = UUID()
+                let reference = Reference(self)
+                let task = Task.detached(priority: .userInitiated) {
+                    let rate = await VideoTrim.loadFrameRate(of: url)
+                    await MainActor.run { reference.session?.finishFrameRate(rate, for: id, token: token) }
+                }
+                frameRateLoads[id]?.task.cancel()
+                frameRateLoads[id] = (token, task)
+            }
         }
+    }
+
+    /// Applies a background read, unless the capture was removed or reloaded meanwhile.
+    private func finishFrameRate(_ rate: Double?, for id: String, token: UUID) {
+        guard frameRateLoads[id]?.token == token else { return }
+        frameRateLoads[id] = nil
+        editor.setFrameRate(rate, for: id)
+    }
+
+    /// Waits until every background frame-rate read started so far has been applied.
+    @MainActor
+    public func frameRatesLoaded() async {
+        while let (id, load) = frameRateLoads.first {
+            await load.task.value
+            // Normally applied (and cleared) by now; never wait on the same read twice.
+            if frameRateLoads[id]?.token == load.token { frameRateLoads[id] = nil }
+        }
+    }
+
+    /// Whether a background frame-rate read is still in flight for `mediaId`.
+    public func isLoadingFrameRate(_ mediaId: String) -> Bool { frameRateLoads[mediaId] != nil }
+
+    /// A weak reference to the session for a background task; the session is only touched on the
+    /// main actor (`FrameRateLoading.inBackground`).
+    private final class Reference: @unchecked Sendable {
+        weak var session: EditorSession?
+        init(_ session: EditorSession) { self.session = session }
     }
 
     public func fileURL(_ item: MediaItem) -> URL { directory.appendingPathComponent(item.filename) }
@@ -160,6 +229,7 @@ public final class EditorSession {
         for id in changes.removed {
             baseImages[id] = nil
             frames[id] = nil
+            frameRateLoads.removeValue(forKey: id)?.task.cancel()
             editor.setFrameRate(nil, for: id)
         }
         loadFrameGrids(changes.added)

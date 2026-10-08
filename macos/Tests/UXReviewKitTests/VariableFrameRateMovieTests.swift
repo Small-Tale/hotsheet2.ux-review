@@ -120,5 +120,82 @@ extension EncodingTests {
             #expect(messages.last == "Trimmed to 1.6 s.", "eleven 30 fps frames back from 2000: 1634")
             #expect(DraftEdits.load(from: draft.directory).trims["capture-1.mov"] == TimeRange(startMs: 0, endMs: 1634))
         }
+
+        // MARK: Loading in the background (HS2-F999CM)
+
+        /// A draft holding one `VideoFileWriter` movie recorded for `framesPerSecond`.
+        static func draft(in base: URL, framesPerSecond: Int) async throws -> (store: ReviewDraftStore, draft: ReviewDraft) {
+            let movie = base.appendingPathComponent("source-\(UUID().uuidString).mov")
+            let duration = try await writeMovie(to: movie, framesPerSecond: framesPerSecond)
+            let store = ReviewDraftStore(root: base.appendingPathComponent("Drafts"))
+            let draft = try store.add(capture(movie, duration)).draft
+            return (store, draft)
+        }
+
+        static func capture(_ movie: URL, _ duration: Int) -> DraftCapture {
+            DraftCapture(
+                fileURL: movie, kind: .video, pixelWidth: 160, pixelHeight: 90, durationMs: duration,
+                capturedAt: Date(timeIntervalSince1970: 0), context: CaptureContext()
+            )
+        }
+
+        @MainActor
+        @Test func aBackgroundRateReplacesThe30FpsDefaultAndStepsStayConsistent() async throws {
+            let base = try TestSupport.makeTempDirectory()
+            defer { try? FileManager.default.removeItem(at: base) }
+            let (store, draft) = try await Self.draft(in: base, framesPerSecond: 10)
+            let session = try EditorSession(store: store, directory: draft.directory, frameRateLoading: .inBackground)
+            let id = try #require(session.editor.currentMediaId)
+            // Nothing has run on the main actor yet, so the rate can't have arrived.
+            #expect(session.isLoadingFrameRate(id))
+            #expect(session.editor.frameRate(of: id) == 30, "30 fps until the movie's rate arrives")
+            session.editor.arrowKey(forward: true)
+            #expect(session.editor.currentTimeMs == 34)
+
+            await session.frameRatesLoaded()
+            #expect(!session.isLoadingFrameRate(id))
+            #expect(session.editor.frameRate(of: id) == 10, "the recorded rate")
+            session.editor.arrowKey(forward: true)
+            #expect(session.editor.currentTimeMs == 100, "from 34 ms: the next 10 fps frame")
+            session.editor.arrowKey(forward: false)
+            #expect(session.editor.currentTimeMs == 0)
+
+            // A capture picked up later loads in the background too.
+            let second = base.appendingPathComponent("second.mov")
+            let duration = try await Self.writeMovie(to: second, framesPerSecond: 25)
+            let added = try store.add(Self.capture(second, duration), to: draft.directory).media
+            #expect(try session.reload().added == [added.id])
+            #expect(session.isLoadingFrameRate(added.id) && session.editor.frameRate(of: added.id) == 30)
+            await session.frameRatesLoaded()
+            #expect(session.editor.frameRate(of: added.id) == 25)
+            #expect(session.editor.frameRate(of: id) == 10, "the first capture keeps its rate")
+            await session.frameRatesLoaded() // nothing pending: returns at once
+        }
+
+        @MainActor
+        @Test func aRateArrivingForARemovedCaptureIsDropped() async throws {
+            let base = try TestSupport.makeTempDirectory()
+            defer { try? FileManager.default.removeItem(at: base) }
+            let (store, draft) = try await Self.draft(in: base, framesPerSecond: 10)
+            let session = try EditorSession(store: store, directory: draft.directory, frameRateLoading: .inBackground)
+            let id = try #require(session.editor.currentMediaId)
+            #expect(session.isLoadingFrameRate(id))
+            try session.removeCapture(id)
+            #expect(!session.isLoadingFrameRate(id), "the read is abandoned")
+            await session.frameRatesLoaded()
+            try await Task.sleep(for: .milliseconds(200)) // let a stray result reach the main actor
+            #expect(session.editor.frameGrids[id] == nil, "no rate for a capture that is gone")
+            #expect(session.editor.media(id) == nil)
+        }
+
+        @Test func theDefaultReadsTheRateWhileOpening() async throws {
+            let base = try TestSupport.makeTempDirectory()
+            defer { try? FileManager.default.removeItem(at: base) }
+            let (store, draft) = try await Self.draft(in: base, framesPerSecond: 10)
+            let session = try EditorSession(store: store, directory: draft.directory)
+            let id = try #require(session.editor.currentMediaId)
+            #expect(session.frameRateLoading == .immediately && !session.isLoadingFrameRate(id))
+            #expect(session.editor.frameRate(of: id) == 10)
+        }
     }
 }

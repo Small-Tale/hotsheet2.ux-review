@@ -60,17 +60,23 @@ public enum VideoTrim {
     /// (`VideoFileWriter.frameRateMetadataKey`), else the nominal rate when the samples sit on it,
     /// else a variable-rate movie's interval snapped to a standard rate. Only metadata and the
     /// sample table (`AVSampleCursor`) are read, not the frames, and the sample table only when
-    /// no rate was stored. Nil without a readable video track or a usable rate. Blocks until
-    /// AVFoundation has loaded it.
+    /// no rate was stored. Nil without a readable video track or a usable rate. A long movie
+    /// without a stored rate takes a while (every sample is visited), so the editor window loads
+    /// it in the background (`EditorSession.FrameRateLoading`, `HS2-F999CM`).
+    public static func loadFrameRate(of url: URL) async -> Double? {
+        let asset = AVURLAsset(url: url)
+        guard let track = try? await asset.loadTracks(withMediaType: .video).first else { return nil }
+        if let recorded = await recordedFrameRate(asset), recorded >= 1 { return recorded }
+        let rate = try? await track.load(.nominalFrameRate)
+        let nominal = rate.flatMap { $0.isFinite && $0 > 0 ? Double($0) : nil }
+        let duration = try? await asset.load(.duration)
+        let durationMs = duration.flatMap { $0.isNumeric ? Int((CMTimeGetSeconds($0) * 1000).rounded()) : nil }
+        return await FrameGrid.expectedRate(sampleTimesMs: sampleTimesMs(track), durationMs: durationMs, nominalRate: nominal)
+    }
+
+    /// `loadFrameRate(of:)`, blocking until AVFoundation has loaded it.
     public static func frameRate(of url: URL) -> Double? {
-        load(url) { asset, track in
-            if let recorded = await recordedFrameRate(asset), recorded >= 1 { return recorded }
-            let rate = try? await track.load(.nominalFrameRate)
-            let nominal = rate.flatMap { $0.isFinite && $0 > 0 ? Double($0) : nil }
-            let duration = try? await asset.load(.duration)
-            let durationMs = duration.flatMap { $0.isNumeric ? Int((CMTimeGetSeconds($0) * 1000).rounded()) : nil }
-            return await FrameGrid.expectedRate(sampleTimesMs: sampleTimesMs(track), durationMs: durationMs, nominalRate: nominal)
-        }
+        blocking { await loadFrameRate(of: url) }
     }
 
     /// The frame rate `VideoFileWriter` stored in the movie, if any.
@@ -119,18 +125,12 @@ public enum VideoTrim {
         return times
     }
 
-    /// Loads `url`'s first video track and runs `read` on it, blocking until it finishes.
-    private static func load<Value: Sendable>(
-        _ url: URL,
-        _ read: @escaping @Sendable (AVURLAsset, AVAssetTrack) async -> Value?
-    ) -> Value? {
+    /// Runs `read` in a detached task, blocking until it finishes.
+    private static func blocking<Value: Sendable>(_ read: @escaping @Sendable () async -> Value?) -> Value? {
         let box = ResultBox<Value>()
         let done = DispatchSemaphore(value: 0)
         Task.detached {
-            let asset = AVURLAsset(url: url)
-            if let track = try? await asset.loadTracks(withMediaType: .video).first {
-                box.value = await read(asset, track)
-            }
+            box.value = await read()
             done.signal()
         }
         done.wait()

@@ -532,7 +532,7 @@ the clip, and the clip itself can be trimmed.
   time. A still stretch is many steps, never one jump of seconds; the canvas shows whatever
   frame is showing at that time. Which samples were written is an encoding detail the reviewer
   doesn't need to know.
-- **The expected rate** (`FrameGrid.expectedRate`, read by `VideoTrim.frameRate` when
+- **The expected rate** (`FrameGrid.expectedRate`, read by `VideoTrim.loadFrameRate` when
   `EditorSession` opens or picks up a capture), the first that applies:
   1. **Recorded:** UX Review's own recordings store the rate they were made for (30 fps, the
      `SCStream` `minimumFrameInterval`; the synthetic recorder's 10 fps) as QuickTime metadata
@@ -551,6 +551,13 @@ the clip, and the clip itself can be trimmed.
      table (`AVSampleCursor`, no decoding), mapped through the track's edit list.
   4. **Unknown:** with no readable samples (fewer than two, no sample cursor, or more than
      500,000), the nominal rate; without that, 30 fps.
+- **Loading** (`HS2-F999CM`): the editor window reads each rate in the background
+  (`EditorSession.FrameRateLoading.inBackground`), since a movie without a recorded rate has its
+  whole sample table read. Until it arrives, steps use 30 fps; then the movie's rate. Steps
+  already taken stay where they landed, and the next step goes to a frame of the new grid. A
+  rate arriving for a capture removed meanwhile is dropped. Headless `--annotate`, previews,
+  and tests read it while the session opens (`.immediately`), so scripts always step the
+  movie's rate.
 - **Playhead:** clamps to the clip. Navigation, so not undoable.
 - **Trim start / end:** trims through the same rules and message as the trim handles. Stepping
   outward brings back trimmed-away time, up to the original's ends; reaching the whole original

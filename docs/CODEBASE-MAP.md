@@ -79,7 +79,7 @@ macos/
     Editor/OriginalsIndex.swift       legacy originals/crops.json and its trust rules, read only to migrate older drafts (docs/06 §6.6)
     Editor/ImageCrop.swift            PixelRect snapping, annotation transform into a crop
     Editor/AnnotationRenderer.swift   CoreGraphics drawing of shapes, badges, handles, crop overlay; IntentPalette
-    Editor/EditorSession.swift        editor + files: display images, video frames, save + reload (follow added/removed media), edits.json, exact no-drift save
+    Editor/EditorSession.swift        editor + files: display images, video frames, frame rates (now or in the background), save + reload (follow added/removed media), edits.json, exact no-drift save
     Editor/EditorScript.swift         JSON editing scripts + `--annotate` parsing (docs/06 §6.9)
   Tests/UXReviewKitTests/      Swift Testing unit + end-to-end tests (docs/TEST-COVERAGE.md)
   App/Resources/Assets.xcassets  StatusBarIcon template vector (menu bar icon, docs/05 §5.1)
