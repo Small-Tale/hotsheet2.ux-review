@@ -1450,3 +1450,12 @@ text stacked one word per line at 99 pt wide. The empty Draft Reviews window was
   inline code span in proportional type; code spans now get an explicit monospaced font.
 - **Not covered automatically:** clicking the rendered text and typing into the live editor. The
   model calls (`setPreamble`) are thin wrappers over the tested store method.
+
+## HS2-D1T46P: Change lists recent projects first
+
+- **Unit** (`ReviewSessionTests.changeMenuListsRecentProjectsWithTheCurrentOneChecked`): order,
+  the current project checked (with a trailing slash), a current project that isn't recent
+  listed first, a gone folder left out unless it is the current one, clashing folder names
+  shown as paths, empty and root cases. `recentProjectsAreDedupedCappedAndPersisted` now caps at 10.
+- **Not covered automatically:** the open menu itself. SwiftUI doesn't render a closed `Menu`'s
+  items offscreen; the view only maps `ProjectMenuItem`s to toggles plus Choose Folder….

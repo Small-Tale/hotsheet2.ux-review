@@ -390,6 +390,11 @@ extension AppSettings {
 // MARK: Downscaling for AI (docs/07 §7.5.1)
 
 extension ReviewSessionModel {
+    /// The Change menu's projects (§7.6): recent ones first, the current one checked.
+    var projectMenu: [ProjectMenuItem] {
+        RecentProjects(paths: recentProjects).menu(current: session.target.projectDirectory)
+    }
+
     /// The AI size captures are filed at (§7.5.1): nil while Downscale for AI is off, or until
     /// the project's AI tool is known.
     var scaleTarget: MediaScaleTarget? {

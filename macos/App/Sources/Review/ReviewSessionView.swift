@@ -367,11 +367,18 @@ private struct ProjectRow: View {
             }
             Spacer(minLength: 8)
             Menu("Change") {
-                let others = model.recentProjects.filter { $0 != target.projectDirectory }
-                ForEach(others, id: \.self) { path in
-                    Button(Self.abbreviated(path)) { model.useProject(URL(fileURLWithPath: path, isDirectory: true)) }
+                // Recent projects first, the current one checked; Choose Folder… last (HS2-D1T46P).
+                let projects = model.projectMenu
+                ForEach(projects, id: \.path) { project in
+                    Toggle(isOn: Binding(
+                        get: { project.isCurrent },
+                        set: { _ in if !project.isCurrent { model.useProject(URL(fileURLWithPath: project.path, isDirectory: true)) } }
+                    )) {
+                        Text(project.title)
+                    }
+                    .help(Self.abbreviated(project.path))
                 }
-                if !others.isEmpty { Divider() }
+                if !projects.isEmpty { Divider() }
                 Button("Choose Folder…") { model.chooseProject() }
             }
             .fixedSize()

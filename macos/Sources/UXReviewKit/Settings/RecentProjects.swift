@@ -4,7 +4,7 @@ import Foundation
 /// switch the target project without an open panel. The current project itself is stored
 /// separately (defaults key `projectDirectory`, docs/05 §5.3). Spec: docs/07-review-session.md §7.6.
 public struct RecentProjects: Codable, Equatable, Sendable {
-    public static let limit = 5
+    public static let limit = 10
 
     public private(set) var paths: [String]
 
@@ -38,6 +38,39 @@ public struct RecentProjects: Codable, Equatable, Sendable {
     public static func directoryExists(_ path: String) -> Bool {
         var isDirectory: ObjCBool = false
         return FileManager.default.fileExists(atPath: path, isDirectory: &isDirectory) && isDirectory.boolValue
+    }
+}
+
+/// One project row of Submit Review's **Change** menu (docs/07 §7.6).
+public struct ProjectMenuItem: Equatable, Sendable {
+    public var path: String
+    /// The folder name, or the abbreviated path when another listed project has the same name.
+    public var title: String
+    /// The project the review files into now (shown checked).
+    public var isCurrent: Bool
+}
+
+public extension RecentProjects {
+    /// The **Change** menu's projects: every recent project whose folder still exists, most
+    /// recent first, with the current project included (first when it isn't recent yet).
+    /// **Choose Folder…** follows them.
+    /// - Parameter abbreviate: shortens a path for display (`~/Code/app`).
+    func menu(
+        current: String?,
+        isDirectory: (String) -> Bool = RecentProjects.directoryExists,
+        abbreviate: (String) -> String = { ($0 as NSString).abbreviatingWithTildeInPath }
+    ) -> [ProjectMenuItem] {
+        var list = self
+        let current = current.map { URL(fileURLWithPath: $0).standardizedFileURL.path }
+        if let current, !list.paths.contains(current) {
+            list.paths.insert(current, at: 0)
+        }
+        let paths = list.paths.filter { $0 == current || isDirectory($0) }
+        let names = paths.map { URL(fileURLWithPath: $0).lastPathComponent }
+        return zip(paths, names).map { path, name in
+            let clash = names.count(where: { $0 == name }) > 1 || name.isEmpty
+            return ProjectMenuItem(path: path, title: clash ? abbreviate(path) : name, isCurrent: path == current)
+        }
     }
 }
 

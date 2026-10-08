@@ -27,7 +27,7 @@ Reviews window (§7.9) opens it on any other draft.
 
 | Area | Contents |
 | --- | --- |
-| Hot Sheet project | First, so where the review goes is chosen before anything else (`HS2-8HMGTD`). The target project's name and the store it files into, or the problem (§7.6). **Change** lists recent projects and **Choose Folder…** |
+| Hot Sheet project | First, so where the review goes is chosen before anything else (`HS2-8HMGTD`). The target project's name and the store it files into, or the problem (§7.6). **Change** lists recent projects (the current one checked), then **Choose Folder…** |
 | Review | **Title** (required) and **Summary** (Markdown, optional). Typing is saved into the draft's `review.json` half a second after it stops. "Give the review a title." shows under a blank title |
 | Captures (N) | One row per capture in review order, **as it will be filed** (`SubmissionPreview`, `HS2-64P9DT`): thumbnail (the cropped part of a cropped image; a movie's frame at its trim start, cut to its crop, with a play badge), file name, pixel size as filed ("cropped" after a crop of an image or movie; "scaled for Claude" when it is downscaled for AI, as in "2576×1449 scaled for Claude", §7.5.1), duration ("trimmed" after a trim), the number of annotations filed with it, and source app. When a crop or trim leaves annotations out, a line says so, such as "2 annotations outside the crop will be left out" ("the crop or trim" for a movie with both). Nothing is cropped or trimmed until submitting (§7.5); the preview reads `edits.json`. A capture with a problem shows it in orange under its details (§7.3). **Annotate** opens the editor on that capture; **Annotate…** in the header opens it on the first. The trash button removes the capture after a confirmation |
 | Ticket | **Submit as** **New ticket** (the default) or **Add to existing ticket**, and for the latter the ticket field and its lookup (§7.2.1). Then **Ticket text**, the preamble for the chosen destination (§7.2.3) |
@@ -321,9 +321,14 @@ project used: project selection happens when submitting (`HS2-80CTK8`; the menu 
 longer has a project chooser). `UXReview --project <dir>` overrides it for one run. **Change** saves it as `projectDirectory` in the app's defaults
 ([05-start-and-settings.md](05-start-and-settings.md) §5.3) and add it to `recentProjects`:
 
-- JSON `{"paths": [...]}`, most recent first, at most 5, deduplicated after standardizing
+- JSON `{"paths": [...]}`, most recent first, at most 10, deduplicated after standardizing
   (`/a/b/` and `/a/b` are one entry).
-- **Change** lists the recent projects that still exist, except the current one.
+- **Change** lists the recent projects first, most recent first, then a divider and **Choose
+  Folder…** last (`HS2-D1T46P`, `RecentProjects.menu`). The current project is among them,
+  checked. It is listed first when it isn't recent yet, for example when it was set before
+  recents were kept. Projects whose folders are gone are left out. Each shows its folder name,
+  or its abbreviated path when two listed folders share a name; the full path is the item's
+  tooltip.
 - A successful submission also records its project.
 - An unreadable value counts as an empty list.
 

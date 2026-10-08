@@ -64,7 +64,7 @@ macos/
     Settings/Hotkey.swift             global hotkey model: parse/display, Carbon codes (docs/05 §5.2)
     Settings/CaptureSettings.swift    settings (incl. downscaleForAI) + KeyValueStoring persistence, RecordingPointer (pointer/clicks in recordings), HotkeySlot (capture/record, duplicate rules), HotkeyAction
     Settings/SettingsCommand.swift    `--settings` argument parsing (docs/05 §5.5)
-    Settings/RecentProjects.swift     recent target projects + persistence (docs/07 §7.6)
+    Settings/RecentProjects.swift     recent target projects (at most 10) + persistence, the Change menu's project list (ProjectMenuItem) (docs/07 §7.6)
     Settings/ProductName.swift        full (Hot Sheet 2 UX Review) and short (UX Review) product names (docs/00 §0.0)
     Settings/AppMenus.swift           menu bar menu as MenuEntry lists per phase, MenuShortcut, WindowPresence (docs/05 §5.1)
     Settings/WindowFrameFit.swift     a restored window frame shrunk and moved onto the screen's visible area (docs/05 §5.1.1)

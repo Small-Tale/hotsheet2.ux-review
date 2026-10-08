@@ -250,13 +250,40 @@ struct ReviewSessionTests {
 
     // MARK: Recent projects and the headless command
 
+    /// HS2-D1T46P: Change lists recent projects first, the current one checked among them.
+    @Test func changeMenuListsRecentProjectsWithTheCurrentOneChecked() {
+        let recent = RecentProjects(paths: ["/code/app", "/code/site", "/gone/old", "/work/app"])
+        let exists: (String) -> Bool = { !$0.hasPrefix("/gone") }
+        let abbreviate: (String) -> String = { $0.replacingOccurrences(of: "/code", with: "~") }
+
+        let menu = recent.menu(current: "/code/site/", isDirectory: exists, abbreviate: abbreviate)
+        #expect(menu.map(\.path) == ["/code/app", "/code/site", "/work/app"])
+        #expect(menu.map(\.isCurrent) == [false, true, false])
+        // Two folders named "app": both show their path; the unique one shows its name.
+        #expect(menu.map(\.title) == ["~/app", "site", "/work/app"])
+
+        // A current project set elsewhere (Settings, --project) is listed first even if not recent.
+        let other = recent.menu(current: "/elsewhere/tool", isDirectory: exists)
+        #expect(other.first == ProjectMenuItem(path: "/elsewhere/tool", title: "tool", isCurrent: true))
+        #expect(other.count == 4)
+        // The current project stays listed even when its folder is gone, so the check mark shows it.
+        #expect(recent.menu(current: "/gone/old", isDirectory: exists).map(\.path) == ["/code/app", "/code/site", "/gone/old", "/work/app"])
+
+        #expect(RecentProjects().menu(current: nil).isEmpty)
+        #expect(RecentProjects().menu(current: "/") == [ProjectMenuItem(path: "/", title: "/", isCurrent: true)])
+    }
+
     @Test func recentProjectsAreDedupedCappedAndPersisted() throws {
         var recent = RecentProjects()
-        for name in ["a", "b", "c", "d", "e", "f"] {
+        for name in ["a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k"] {
             recent.use("/p/\(name)")
         }
         recent.use("/p/c/")
         recent.use("  ")
+        #expect(recent.paths == ["/p/c", "/p/k", "/p/j", "/p/i", "/p/h", "/p/g", "/p/f", "/p/e", "/p/d", "/p/b"])
+        for name in ["k", "j", "i", "h", "g"] {
+            recent.remove("/p/\(name)")
+        }
         #expect(recent.paths == ["/p/c", "/p/f", "/p/e", "/p/d", "/p/b"])
         recent.remove("/p/e")
         #expect(recent.existing { $0 != "/p/f" } == ["/p/c", "/p/d", "/p/b"])
@@ -268,8 +295,9 @@ struct ReviewSessionTests {
         store.set(Data("nope".utf8), forKey: RecentProjectsStore.key)
         #expect(RecentProjectsStore.load(from: store) == RecentProjects())
         // A hand-edited list is normalized and capped on load.
-        store.set(Data(#"{"paths":["/x/","/x","/1","/2","/3","/4","/5"]}"#.utf8), forKey: RecentProjectsStore.key)
-        #expect(RecentProjectsStore.load(from: store).paths == ["/x", "/1", "/2", "/3", "/4"])
+        let many = (1 ... 10).map { "\"/\($0)\"" }.joined(separator: ",")
+        store.set(Data((#"{"paths":["/x/","/x","# + many + "]}").utf8), forKey: RecentProjectsStore.key)
+        #expect(RecentProjectsStore.load(from: store).paths == ["/x"] + (1 ... 9).map { "/\($0)" })
     }
 
     @Test func submitCommandParsing() throws {
