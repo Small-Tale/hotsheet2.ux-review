@@ -773,7 +773,7 @@ the field reverts. After Return, focus goes back to the canvas, so its keys work
   come from the movie itself, offset by the trim.
 - **Submitting** exports the kept part to the staging folder
   ([07-review-session.md](07-review-session.md) §7.5): `AVAssetExportSession` at the
-  highest-quality preset, re-encoded so the cut is frame-accurate instead of snapping to key
+  highest-quality preset (its async `export(to:as:)`, `HS2-XA294W`), re-encoded so the cut is frame-accurate instead of snapping to key
   frames. A crop (§6.6) is applied in the same pass, before any AI downscaling
   (`VideoTrim.export(_:range:crop:size:to:)`, docs/07 §7.5.1): one video composition whose render
   size is the crop (even sides) or its scaled size, and whose transform is the track's preferred
