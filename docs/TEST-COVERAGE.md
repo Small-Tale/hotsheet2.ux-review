@@ -952,3 +952,16 @@ capture files are no longer cropped or trimmed while drafting.
 - **Not covered automatically:** a live pointer on two physical displays; the remaining
   overlay code is a one-line call into the tested function. The manual check belongs with
   `HS2-3JD5PS`.
+
+## HS2-64P9DT: Submit Review shows captures as they will be filed
+
+- **Unit** (`SubmissionPreviewTests`): no edits shows the draft as is; a crop and a trim give
+  the cropped size, trimmed length, filed and left-out counts, and the "outside the crop / trim"
+  notes; edits that don't apply (unknown file, full-size crop, too-long trim) are ignored like
+  submitting; plural and empty reviews. Image thumbnails show only the crop (colour checked),
+  scaled down but never up; a crop outside the image gives none.
+- **Encoding** (`EncodingTests.SubmissionThumbnailTests`): a real H.264 movie's thumbnail is red
+  at 0 and blue at 1.5 s (the trim start).
+- **Visual QA:** `session-edited` (`--render-ui-previews`, a cropped screenshot and a trimmed
+  movie each leaving one annotation out), inspected by hand and checked for presence by
+  `scripts/app-e2e.sh`.

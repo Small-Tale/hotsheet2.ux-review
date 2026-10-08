@@ -96,7 +96,7 @@ struct ReviewSessionView: View {
                     CaptureRow(
                         item: item,
                         number: (model.session.bundle.media.firstIndex(of: item) ?? 0) + 1,
-                        annotations: model.session.annotationCount(item.id),
+                        filed: model.preview.media[item.id],
                         thumbnail: model.thumbnails[item.id],
                         problem: problem(for: item),
                         editable: editable,
@@ -223,8 +223,10 @@ struct ReviewSessionView: View {
                 IssueLabel(text: notice)
             } else if model.session.canSubmit {
                 let media = model.session.bundle.media.count
-                let annotations = model.session.bundle.annotations.count
-                Text("\(media) capture\(media == 1 ? "" : "s") · \(annotations) annotation\(annotations == 1 ? "" : "s")")
+                let preview = model.preview
+                let annotations = preview.annotationCount
+                let leftOut = preview.leftOutCount == 0 ? "" : " (\(preview.leftOutCount) left out)"
+                Text("\(media) capture\(media == 1 ? "" : "s") · \(annotations) annotation\(annotations == 1 ? "" : "s")\(leftOut)")
                     .foregroundStyle(.secondary)
             } else if model.session.issues.count == 1, let issue = model.session.issues.first {
                 Text(issue.message(in: model.session.bundle))
@@ -252,7 +254,8 @@ private struct IssueLabel: View {
 private struct CaptureRow: View {
     let item: MediaItem
     let number: Int
-    let annotations: Int
+    /// The capture as it will be filed (nil before the preview knows it: shown as the draft file).
+    let filed: SubmissionPreview.Filed?
     let thumbnail: NSImage?
     let problem: String?
     let editable: Bool
@@ -284,6 +287,12 @@ private struct CaptureRow: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(item.filename).font(.body.weight(.medium))
                 Text(details).font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                if let note = filed?.leftOutNote {
+                    Label(note, systemImage: "eye.slash")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(2)
+                }
                 if let problem {
                     Label(problem, systemImage: "exclamationmark.triangle.fill")
                         .font(.caption)
@@ -308,9 +317,15 @@ private struct CaptureRow: View {
         .accessibilityLabel("Capture \(number), \(item.filename)")
     }
 
+    /// Size, length, and annotation count as filed: "cropped" / "trimmed" when an edit applies.
     private var details: String {
-        var parts = ["\(item.pixelWidth)×\(item.pixelHeight)"]
-        if let duration = item.durationMs { parts.append(TimeFormat.clock(duration)) }
+        let width = filed?.pixelWidth ?? item.pixelWidth
+        let height = filed?.pixelHeight ?? item.pixelHeight
+        var parts = ["\(width)×\(height)" + (filed?.crop == nil ? "" : " cropped")]
+        if let duration = filed?.durationMs ?? item.durationMs {
+            parts.append(TimeFormat.clock(duration) + (filed?.trim == nil ? "" : " trimmed"))
+        }
+        let annotations = filed?.annotationCount ?? 0
         parts.append(annotations == 0 ? "no annotations" : "\(annotations) annotation\(annotations == 1 ? "" : "s")")
         if let app = item.context?.appName { parts.append(app) }
         return parts.joined(separator: " · ")

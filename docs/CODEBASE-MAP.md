@@ -44,6 +44,7 @@ macos/
     Review/ReviewDraftStore.swift     draft reviews on disk, createEmptyDraft for New Review (docs/04 §4.6)
     Review/DraftEdits.swift           edits.json (crops + trims until submitting), EditProjection: exact maps, outside rules, clipping (docs/06 §6.6, §6.10)
     Review/DraftEdits+Legacy.swift    migrateLegacyEdits: originals/ + crops.json drafts → edits.json
+    Review/SubmissionPreview.swift    each capture as it will be filed (cropped size, trimmed length, annotations left out) for the Submit Review window (docs/07 §7.2)
     Review/SubmissionStaging.swift    applies crops + trims into .submission/ when filing (docs/07 §7.5)
     Review/MediaImporter.swift        existing images/movies → draft (PNG re-encode, movie copy), `--import` parsing (docs/04 §4.12)
     Review/MediaOpenRouting.swift     Finder Open With / editor drop routing plan (dedupe, all-or-nothing), OpenBatch, `--open-media` parsing (docs/04 §4.12.1)
@@ -53,7 +54,7 @@ macos/
     Review/ReviewDraftStore+Session.swift  title/summary, remove a capture, submission.json (created ticket, attached names, or a partial attach), delete after submit (docs/07 §7.5)
     Review/ReviewDraftStore+Drafts.swift   list every draft (DraftSummary), discard to the Trash (DraftTrash) or delete immediately, draft-folder safety check (docs/07 §7.9)
     Review/DraftsCommand.swift        `--drafts` / `--discard-draft [--delete]` parsing (docs/07 §7.10)
-    Review/SubmitCommand.swift        `--submit` parsing (`--to-ticket`), MediaThumbnail (capture list previews)
+    Review/SubmitCommand.swift        `--submit` parsing (`--to-ticket`), MediaThumbnail (capture list previews: the crop, or the frame at the trim start)
     Settings/Hotkey.swift             global hotkey model: parse/display, Carbon codes (docs/05 §5.2)
     Settings/CaptureSettings.swift    settings + KeyValueStoring persistence, HotkeySlot (capture/record, duplicate rules), HotkeyAction
     Settings/SettingsCommand.swift    `--settings` argument parsing (docs/05 §5.5)

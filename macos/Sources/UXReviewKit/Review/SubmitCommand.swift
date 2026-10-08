@@ -54,10 +54,18 @@ public struct SubmitCommand: Equatable, Sendable {
 /// Small previews of captures for the session window's capture list.
 public enum MediaThumbnail {
     /// A thumbnail at most `maxPixels` on its longer side: the image, or a movie's first frame.
-    public static func make(_ url: URL, kind: MediaKind, maxPixels: Int = 240) -> CGImage? {
+    /// With `crop`, only that part of the image; with `atMs`, the movie's frame at that time
+    /// (the start of its trim), so the thumbnail shows the capture as it will be filed.
+    public static func make(_ url: URL, kind: MediaKind, crop: PixelRect? = nil, atMs: Int = 0, maxPixels: Int = 240) -> CGImage? {
         switch kind {
         case .image:
             guard let source = CGImageSourceCreateWithURL(url as CFURL, nil) else { return nil }
+            if let crop {
+                guard let full = CGImageSourceCreateImageAtIndex(source, 0, nil),
+                      let part = ImageCrop.apply(crop, to: full)
+                else { return nil }
+                return scaled(part, maxPixels: maxPixels)
+            }
             let options: [CFString: Any] = [
                 kCGImageSourceCreateThumbnailFromImageAlways: true,
                 kCGImageSourceCreateThumbnailWithTransform: true,
@@ -68,7 +76,23 @@ public enum MediaThumbnail {
             let generator = AVAssetImageGenerator(asset: AVURLAsset(url: url))
             generator.appliesPreferredTrackTransform = true
             generator.maximumSize = CGSize(width: maxPixels, height: maxPixels)
-            return try? generator.copyCGImage(at: .zero, actualTime: nil)
+            generator.requestedTimeToleranceBefore = .zero
+            generator.requestedTimeToleranceAfter = CMTime(value: 100, timescale: 1000)
+            return try? generator.copyCGImage(at: CMTime(value: CMTimeValue(max(atMs, 0)), timescale: 1000), actualTime: nil)
         }
+    }
+
+    /// `image` scaled down to at most `maxPixels` on its longer side (never up).
+    static func scaled(_ image: CGImage, maxPixels: Int) -> CGImage? {
+        let scale = min(1, Double(maxPixels) / Double(max(image.width, image.height)))
+        let width = max(1, Int((Double(image.width) * scale).rounded()))
+        let height = max(1, Int((Double(image.height) * scale).rounded()))
+        guard let context = CGContext(
+            data: nil, width: width, height: height, bitsPerComponent: 8, bytesPerRow: 0,
+            space: CGColorSpace(name: CGColorSpace.sRGB)!, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+        ) else { return nil }
+        context.interpolationQuality = .high
+        context.draw(image, in: CGRect(x: 0, y: 0, width: width, height: height))
+        return context.makeImage()
     }
 }

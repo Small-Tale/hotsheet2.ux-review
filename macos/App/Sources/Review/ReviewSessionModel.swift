@@ -27,6 +27,11 @@ final class ReviewSessionModel: ObservableObject {
     }
 
     @Published private(set) var thumbnails: [String: NSImage] = [:]
+    /// The draft's crops and trims (`edits.json`), applied only when submitting.
+    @Published private(set) var edits = DraftEdits()
+
+    /// Each capture as it will be filed: cropped and trimmed, hidden annotations left out (§7.2).
+    var preview: SubmissionPreview { SubmissionPreview(session.bundle, edits: edits) }
     @Published private(set) var recentProjects: [String] = []
     /// A problem outside the submission itself (a failed removal, an unreadable draft).
     @Published private(set) var notice: String?
@@ -72,6 +77,7 @@ final class ReviewSessionModel: ObservableObject {
             session.editTicket(pending.ticket.slug)
         }
         recentProjects = AppSettings.recentProjects
+        edits = DraftEdits.load(from: draft.directory)
         loadThumbnails()
         NotificationCenter.default.publisher(for: .reviewDraftChanged)
             .compactMap { $0.object as? URL }
@@ -98,6 +104,7 @@ final class ReviewSessionModel: ObservableObject {
         do {
             let draft = try store.load(directory)
             session.refresh(draft.bundle, missingFiles: Self.missingFiles(in: draft))
+            edits = DraftEdits.load(from: directory)
             notice = nil
             loadThumbnails()
         } catch {
@@ -152,15 +159,26 @@ final class ReviewSessionModel: ObservableObject {
     }
 
     private func loadThumbnails() {
+        let filed = preview.media
         for item in session.bundle.media {
-            // Re-render when the file changes size (a crop or trim in the editor).
-            let key = "\(item.filename)|\(item.pixelWidth)x\(item.pixelHeight)|\(item.durationMs ?? 0)"
+            // As filed: the crop's part of an image, a movie's frame at its trim start. Re-render
+            // when the file, its crop, or its trim changes.
+            let crop = filed[item.id]?.crop
+            let startMs = filed[item.id]?.trim?.startMs ?? 0
+            let key =
+                "\(item.filename)|\(item.pixelWidth)x\(item.pixelHeight)|\(item.durationMs ?? 0)|\(String(describing: crop))|\(startMs)"
             guard thumbnailKeys[item.id] != key else { continue }
             thumbnailKeys[item.id] = key
             let url = directory.appendingPathComponent(item.filename)
-            thumbnails[item.id] = MediaThumbnail.make(url, kind: item.kind)
+            thumbnails[item.id] = MediaThumbnail.make(url, kind: item.kind, crop: crop, atMs: startMs)
                 .map { NSImage(cgImage: $0, size: NSSize(width: $0.width, height: $0.height)) }
         }
+    }
+
+    /// Previews set crops and trims without the editor.
+    func previewEdits(_ edits: DraftEdits) {
+        self.edits = edits
+        loadThumbnails()
     }
 
     /// Previews show thumbnails without files on disk.

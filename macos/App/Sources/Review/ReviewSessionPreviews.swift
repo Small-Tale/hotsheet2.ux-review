@@ -3,7 +3,8 @@ import SwiftUI
 import UXReviewKit
 
 /// Offscreen renders of the review session window for `--render-ui-previews`: ready, blocked
-/// by issues, submitting, failed (ticket created, attach failed), submitted, and empty. Each one
+/// by issues, submitting, failed (ticket created, attach failed), submitted, empty, and with a
+/// crop and a trim that leave annotations out (shown as filed, HS2-64P9DT). Each one
 /// is the real `ReviewSessionView` on a throwaway draft of mock captures. Spec: docs/07 §7.2.
 @MainActor
 enum ReviewSessionPreviews {
@@ -36,6 +37,7 @@ enum ReviewSessionPreviews {
 
         try shoot("session-ready", model(draft))
         try shoot("session-narrow", model(draft), size: CGSize(width: 520, height: 560))
+        try shoot("session-edited", edited(model(draft)))
 
         let submitting = model(draft)
         submitting.previewSubmitting(.attachingMedia)
@@ -74,9 +76,7 @@ enum ReviewSessionPreviews {
             blockedDraft,
             target: HotSheetStatus(cliPath: "/opt/homebrew/bin/hotsheet-cli", problem: "No project selected.")
         )
-        if let image = NSImage(contentsOf: scratch.appendingPathComponent("moved.png")) {
-            blocked.setThumbnail(image, for: "m2")
-        }
+        NSImage(contentsOf: scratch.appendingPathComponent("moved.png")).map { blocked.setThumbnail($0, for: "m2") }
         try shoot("session-issues", blocked)
 
         let emptyDraft = try store.update(draft.directory) { bundle in
@@ -95,6 +95,16 @@ enum ReviewSessionPreviews {
 
     /// Adding to an existing ticket (§7.2.1): looking it up, found, not found, a closed ticket,
     /// the note failing after the attach, and the result.
+    /// As filed (HS2-64P9DT): capture-1 cropped to its lower right (a1 falls outside), the movie
+    /// trimmed to its first second (a4, from 1.2 s, falls outside).
+    private static func edited(_ model: ReviewSessionModel) -> ReviewSessionModel {
+        model.previewEdits(DraftEdits(
+            crops: ["capture-1.png": PixelRect(x: 640, y: 400, width: 960, height: 600)],
+            trims: ["capture-3.mov": TimeRange(startMs: 0, endMs: 1000)]
+        ))
+        return model
+    }
+
     private static func renderExistingTicket(
         _ draft: ReviewDraft,
         model: (ReviewDraft) -> ReviewSessionModel,
