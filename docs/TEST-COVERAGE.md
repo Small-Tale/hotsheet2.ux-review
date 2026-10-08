@@ -1295,3 +1295,13 @@ capture files are no longer cropped or trimmed while drafting.
 - **Not covered automatically:** window ordering against other apps needs a live window server
   and a person at a Mac (activation and window ordering are blocked headlessly); see the
   follow-up live check.
+
+## HS2-XCJPTX: typing in the middle of a note keeps the insertion point
+
+- **App end to end** (`scripts/app-e2e.sh`): `--render-ui-previews` hosts the editor with
+  annotation #1 selected, puts the insertion point after "Field label" in the real note text
+  view, and types X, Y, Z one at a time with the run loop turning in between
+  (`editor-note-typing.json`). The insertion point must be 12, 13, 14, and the text view and the
+  model must both read "Field labelXYZ is clipped…". Before the fix it jumped to the end (43)
+  after the first character.
+

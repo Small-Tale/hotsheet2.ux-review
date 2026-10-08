@@ -68,6 +68,7 @@ enum EditorPreviews {
         }
         let keyboardURL = directory.appendingPathComponent("editor-keyboard-insert.png")
         written.append(try snapshot(EditorView(model: keyboardModel), size: wide, to: keyboardURL, interact: typeRThenReturn))
+        written.append(try typeInTheMiddleOfANote(to: directory, store: store, draft: draft))
         // 300 % (1.5 points per pixel) on the clipped-label box, panned so its corner is near the middle.
         try capture(
             "editor-zoomed", size: wide, script: annotations + [.select("#1")],
@@ -253,7 +254,7 @@ enum EditorPreviews {
         }
     }
 
-    private static func apply(_ step: EditorScript.Step, to model: EditorModel) {
+    static func apply(_ step: EditorScript.Step, to model: EditorModel) {
         model.mutate { editor in
             switch step {
             case let .tool(tool): editor.setTool(tool)

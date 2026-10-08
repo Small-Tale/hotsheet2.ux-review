@@ -276,7 +276,9 @@ capture-1.png, 6 annotations". Its help text explains the keys above.
 
 ## 6.5 Notes and intents
 
-**Notes.** Each annotation has one Markdown note, edited in the inspector.
+**Notes.** Each annotation has one Markdown note, edited in the inspector. Text can be typed or
+changed anywhere in the note: the insertion point stays where the reviewer is typing, and every
+keystroke updates the note (`HS2-XCJPTX`).
 
 **Intent chips.** The inspector shows one chip per intent ([02-review-bundle.md](02-review-bundle.md)
 §2.5). Chips show the annotation's *effective* intents. When the stored list is empty, the

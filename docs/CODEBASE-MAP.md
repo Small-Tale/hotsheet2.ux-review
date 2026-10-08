@@ -121,6 +121,7 @@ macos/
     Editor/HeadlessAnnotate.swift     `--annotate` mode with JSON output
     Editor/EditorPreviews.swift       editor states + mock screenshots for --render-ui-previews
     Editor/EditorPreviews+Crop.swift  the Crop tool's preview states (image and video crops)
+    Editor/EditorPreviews+Typing.swift  types into the middle of a note through the real text view (editor-note-typing.json)
     Review/ReviewSessionWindowController.swift  one Submit Review window per draft (docs/07 §7.1)
     Review/ReviewSessionModel.swift   observable session: draft refresh, autosaved fields, remove, debounced ticket lookup, submit off-main
     Review/ReviewSessionView.swift    capture list, title/summary, issues, project, ticket, progress, failure, success

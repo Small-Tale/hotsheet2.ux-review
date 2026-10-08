@@ -1115,4 +1115,12 @@ AX="$TMP/previews/editor-accessibility.json"
 [[ "$(json "$AX" 'j.children.every(c => c.frame[2] >= 16 && c.frame[3] >= 16)')" == true ]] || die "a11y: element frames too small"
 ok "keyboard Return inserts a selected rectangle; the canvas exposes every annotation to VoiceOver with number, shape, intents, and note"
 
+# HS2-XCJPTX: typing in the middle of a note keeps the insertion point after each character.
+TYPING="$TMP/previews/editor-note-typing.json"
+[[ "$(json "$TYPING" 'j.map(s => s.insertionPoint).join()')" == "12,13,14" ]] \
+  || die "note typing: insertion point jumped $(json "$TYPING" 'JSON.stringify(j)')"
+[[ "$(json "$TYPING" 'j[2].text + "|" + j[2].note')" == "Field labelXYZ is clipped at 200 % text size.|Field labelXYZ is clipped at 200 % text size." ]] \
+  || die "note typing: text $(json "$TYPING" 'JSON.stringify(j[2])')"
+ok "typing in the middle of a note keeps the insertion point there; the note follows every keystroke"
+
 echo "app e2e: $pass checks passed"

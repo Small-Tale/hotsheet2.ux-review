@@ -57,8 +57,11 @@ struct AnnotationDetail: View {
 
             Text("Note (Markdown)").font(.caption).foregroundStyle(.secondary)
             ZStack(alignment: .topLeading) {
+                // Reads the model, not the captured `annotation`: right after a keystroke that copy
+                // is one character behind, and handing it back makes the text view replace its
+                // text and put the insertion point at the end (`HS2-XCJPTX`).
                 TextEditor(text: Binding(
-                    get: { annotation.note },
+                    get: { [id = annotation.id] in model.editor.annotation(id)?.note ?? "" },
                     set: { text in model.mutate { _ = $0.setNote(text, for: annotation.id) } }
                 ))
                 .font(.body)
