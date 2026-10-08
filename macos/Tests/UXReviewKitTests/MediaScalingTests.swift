@@ -65,7 +65,7 @@ struct MediaScalingTests {
         }
     }
 
-    // MARK: Longest-edge rule (Codex, fallback)
+    // MARK: Longest-edge rule (fallback)
 
     @Test(arguments: [
         (size(4096, 2560), size(2048, 1280)),
@@ -75,8 +75,49 @@ struct MediaScalingTests {
         (size(640, 480), size(640, 480)),
     ])
     func longestEdgeFitsWithin2048(original: PixelSize, filed: PixelSize) {
-        #expect(MediaScaleTarget.codex.imageSize(for: original) == filed)
         #expect(MediaScaleTarget.fallback.imageSize(for: original) == filed)
+    }
+
+    // MARK: OpenAI's patch rule (Codex, HS2-Q0R78W)
+
+    /// Expected sizes from OpenAI's reference algorithm (the guide's worked example 2048×2048 →
+    /// 1600×1600) and Codex's `prompt_image_output_dimensions_for_limits`.
+    @Test(arguments: [
+        (size(2048, 2048), size(1600, 1600)),
+        (size(2049, 2049), size(1600, 1600)),
+        (size(3024, 1964), size(1971, 1280)),
+        (size(3000, 2000), size(1920, 1280)),
+        (size(2400, 1600), size(1920, 1280)),
+        (size(3840, 2160), size(2048, 1152)), // the edge limit alone is enough: 64 × 36 patches
+        (size(4096, 2560), size(1996, 1248)),
+        (size(2880, 1800), size(1996, 1248)),
+        (size(1601, 1600), size(1568, 1568)),
+        (size(1000, 3000), size(683, 2048)),
+        (size(4096, 512), size(2048, 256)),
+        (size(1920, 1200), size(1920, 1200)), // 60 × 38 = 2280 patches: fits
+        (size(1600, 1600), size(1600, 1600)),
+        (size(2048, 100), size(2048, 100)),
+        (size(640, 480), size(640, 480)),
+        (size(3000, 3), size(2048, 2)),
+    ])
+    func codexFitsTheHighDetailPatchBudget(original: PixelSize, filed: PixelSize) {
+        #expect(MediaScaleTarget.codex.imageSize(for: original) == filed)
+    }
+
+    @Test func everyPatchResultFitsBothLimitsAndIsAFixedPoint() {
+        let codex = MediaScaleTarget.codex
+        for width in stride(from: 1, through: 9000, by: 173) {
+            for height in stride(from: 1, through: 9000, by: 211) {
+                let original = Self.size(width, height)
+                let filed = codex.imageSize(for: original)
+                #expect(filed.width <= 2048 && filed.height <= 2048, "\(original) → \(filed)")
+                #expect(MediaScaleTarget.openAIPatches(filed) <= 2500, "\(original) → \(filed)")
+                #expect(filed.width <= width && filed.height <= height, "never grows: \(original) → \(filed)")
+                #expect(codex.imageSize(for: filed) == filed, "the API leaves the filed size alone: \(original) → \(filed)")
+            }
+        }
+        #expect(MediaScaleTarget.openAIPatches(Self.size(1600, 1600)) == 2500)
+        #expect(MediaScaleTarget.openAIPatches(Self.size(1601, 1600)) == 2550)
     }
 
     @Test func neverScalesUpAndLeavesEmptySizesAlone() {
@@ -95,7 +136,7 @@ struct MediaScalingTests {
         #expect(MediaScaleTarget.claudeStandard.videoSize(for: Self.size(1920, 1080)) == Self.size(1456, 818))
         #expect(MediaScaleTarget.claudeStandard.videoSize(for: Self.size(1075, 1520)) == Self.size(924, 1306))
         #expect(MediaScaleTarget.fallback.videoSize(for: Self.size(4097, 2049)) == Self.size(2048, 1024))
-        #expect(MediaScaleTarget.codex.videoSize(for: Self.size(3024, 1964)) == Self.size(2048, 1330))
+        #expect(MediaScaleTarget.codex.videoSize(for: Self.size(3024, 1964)) == Self.size(1970, 1280))
         #expect(MediaScaleTarget.fallback.size(for: Self.size(3000, 3), kind: .video) == Self.size(2048, 2))
         #expect(MediaScaleTarget.fallback.size(for: Self.size(3000, 1501), kind: .image) == Self.size(2048, 1025))
         #expect(MediaScaleTarget.fallback.size(for: Self.size(3000, 1501), kind: .video) == Self.size(2048, 1024))
@@ -297,7 +338,7 @@ struct MediaScalingTests {
         #expect(off.media["m1"]?.sizeText == "3200×2000" && off.media["m1"]?.scaledFrom == nil)
 
         let codex = SubmissionPreview(bundle, edits: DraftEdits(), scale: .codex)
-        #expect(codex.media["m1"]?.sizeText == "2048×1280 scaled for Codex")
+        #expect(codex.media["m1"]?.sizeText == "1996×1248 scaled for Codex")
         #expect(codex.media["m1"]?.scaledFrom == Self.size(3200, 2000) && codex.media["m1"]?.scaledFor == "Codex")
         #expect(codex.media["m2"]?.sizeText == "800×600" && codex.media["m2"]?.scaledFor == nil)
 

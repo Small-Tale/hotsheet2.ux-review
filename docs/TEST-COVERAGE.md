@@ -1182,7 +1182,10 @@ capture files are no longer cropped or trimmed while drafting.
     high-resolution tier. For 2000×1500, the docs' table says 1269×952, but their reference
     implementation (which this follows) gives 1270×952, also 1564 tokens.
   - A sweep: every result fits both limits, keeps the aspect ratio within rounding, and never grows.
-  - The 2048 px longest-edge rule (Codex, fallback).
+  - The 2048 px longest-edge rule (fallback).
+  - OpenAI's patch rule for Codex (`HS2-Q0R78W`): the guide's 2048×2048 → 1600×1600, Mac
+    display sizes, edge-only and fitting cases, and a sweep: every result fits 2048 px and 2,500
+    patches, never grows, and is left alone when sized again (the API won't resize it).
   - Never scaling up, and empty sizes.
   - Movie sizes rounded down to even sides, with a fitting movie left alone.
 - **Choosing the target** (`MediaScalingTests`):
@@ -1200,7 +1203,7 @@ capture files are no longer cropped or trimmed while drafting.
   - Fake clients that can't tell, or that throw, fall back too.
 - **Bundle and preview** (`MediaScalingTests`):
   - Scaling changes only media sizes, not annotations, and the bundle stays valid.
-  - The Submit Review list text: "2048×1280 scaled for Codex", "… cropped, scaled for Claude",
+  - The Submit Review list text: "1996×1248 scaled for Codex", "… cropped, scaled for Claude",
     and unscaled captures unchanged.
 - **Settings** (`SettingsTests`):
   - On by default.
@@ -1209,7 +1212,7 @@ capture files are no longer cropped or trimmed while drafting.
   - `--submit --downscale on|off` and bad values.
   - The stored JSON includes the field.
 - **Real files** (`EncodingTests.SubmissionScalingTests`):
-  - A 3000×2000 PNG is filed at 2048×1365 for Codex, with the draft byte-identical and still full size.
+  - A 3000×2000 PNG is filed at 1920×1280 for Codex, with the draft byte-identical and still full size.
   - A crop, then Claude's standard tier, gives annotations identical to the unscaled crop.
   - A capture that fits files the draft itself.
   - A real H.264 movie is trimmed and scaled in one export to 100×56 (even), trimmed within a
@@ -1223,7 +1226,8 @@ capture files are no longer cropped or trimmed while drafting.
     throwaway store through a wrapper CLI reporting Claude Haiku. The PNG, the movie (with
     `ffprobe`), and the filed `review.json` match the docs' standard-tier sizes (computed by the
     reference rule in node), with even movie sides, and the annotations are the draft's.
-  - Codex and a CLI without `ai-settings` give 2048×1280.
+  - Codex gives 1996×1248 (the 2,500-patch budget, `HS2-Q0R78W`); a CLI without `ai-settings`
+    gives 2048×1280.
   - opencode running `anthropic/claude-opus-4-7` gets Claude's high-resolution tier (`HS2-8G9F3R`).
   - `--downscale off` and the setting off file 3840×2400.
 - **Visual QA:** the `session-*` renders (`--render-ui-previews`) show the mock captures scaled

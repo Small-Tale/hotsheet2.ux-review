@@ -248,7 +248,7 @@ capture at the size the target project's default AI tool reads well (`HS2-PT8PM6
 | --- | --- |
 | `claude`, or any tool running a Claude model id (below), high-resolution tier: Claude 4.7 and later. The aliases `opus`, `sonnet`, `fable`, and `mythos` name current models, as do ids like `claude-opus-4-7` and `claude-sonnet-5-5` | The largest aspect-preserving size whose sides, rounded up to a multiple of 28, are at most **2576 px**, and whose visual tokens ⌈w/28⌉ × ⌈h/28⌉ are at most **4784** (3840×2160 → 2576×1449) |
 | `claude`, standard tier: `haiku` (Haiku 4.5), older ids such as `claude-opus-4-6` and `claude-3-5-sonnet-…`, and no or an unknown model | The same rule with **1568 px** and **1568** tokens (1920×1080 → 1456×819; a 1075×1520 portrait page → 924×1307) |
-| `codex` | Fits within **2048 × 2048** |
+| `codex` (every model Hot Sheet offers for it: `gpt-6-astra`, `gpt-5.6-sol` / `-terra` / `-luna`, `gpt-5.5`, `gpt-5.3-codex-spark`) | OpenAI's `high`-detail patch rule: fits within **2048 × 2048**, then shrinks until its 32 px patches ⌈w/32⌉ × ⌈h/32⌉ are at most **2,500** (2048×2048 → 1600×1600; 3840×2400 → 1996×1248; 1920×1200 fits) |
 | Any other tool, an old CLI without `ai-settings`, or any failure | **2048 px** on the longest side |
 
 - **A Claude model under another tool** gets Claude's rule too (`HS2-8G9F3R`): the model, not
@@ -260,6 +260,17 @@ capture at the size the target project's default AI tool reads well (`HS2-PT8PM6
   Claude family (`opus`, `sonnet`, `haiku`, `fable`, `mythos`). Versions may use `-`, `.`, or a
   Vertex `@date`. Bare aliases such as `opus` mean Claude only under the `claude` tool; any other
   id keeps the tool's own size.
+- **The Codex rule** is OpenAI's patch resize for `high` detail (`HS2-Q0R78W`), from the
+  "Images and vision" guide (developers.openai.com/api/docs/guides/images-vision, model sizing
+  table and patch-based resize steps), as Codex implements it (`HIGH_DETAIL` and
+  `prompt_image_output_dimensions_for_limits` in `codex-rs/utils/image`): fit 2048 px with sides
+  rounded to nearest, then scale by √(32² × 2500 / (w × h)), reduced so the patch grid is whole,
+  and floor the sides. Codex attaches images at `high` detail by default
+  (`DEFAULT_IMAGE_DETAIL` in `codex-rs/protocol`), and at `high` the guide gives every model
+  above 2,500 patches; all but `gpt-6-astra` also cap the sides at 2048 px (astra's 65,535 px
+  cap only matters for extreme panoramas, which this files a little smaller than needed). At
+  `original` detail the API keeps the dimensions, so a file fitting `high` reaches the model
+  unresized either way. `gpt-5.3-codex-spark` is not in the guide's table and gets the same rule.
 - **The Claude rule** is Claude's own resize, from the Vision docs ("Resolution and token
   cost" for the tiers, "How Claude resizes and pads images" for the reference implementation):
   a binary search along the long edge, with the short edge rounded half to even. A file of
@@ -268,7 +279,7 @@ capture at the size the target project's default AI tool reads well (`HS2-PT8PM6
 - **A movie's frames** follow the same rule as an image (for Claude, the token budget applies to
   each frame an AI extracts). The sides are then rounded down to even numbers for H.264, so a
   3840×2160 recording becomes 2576×1448 on the high-resolution tier.
-- **Where it shows.** The Submit Review list shows the filed size ("2048×1280 scaled for Codex",
+- **Where it shows.** The Submit Review list shows the filed size ("1996×1248 scaled for Codex",
   or "… cropped, scaled for Claude"). `--submit` reports `scaledCaptures` (draft file names) and
   `scaledFor` (`Claude`, `Codex`, or `AI`), and `--downscale on|off` overrides the setting for
   one run (§7.8).
@@ -323,7 +334,7 @@ Changing the project in one session window refreshes every open session window.
 - Open the ticket in Hot Sheet (web UI or app) when it is running: `HS2-ZEF6XD`.
 - Downscaling for AI (§7.5.1):
   - Tell the AI a capture was scaled (its original size in the ticket and `review.json`): `HS2-KMB528`.
-  - Codex's patch budget beyond 2048 × 2048: `HS2-Q0R78W`.
+  - OpenAI's patch rule for GPT models run by other tools: `HS2-G4YZR4`.
 
 ## 7.8 Headless submit
 
@@ -372,7 +383,7 @@ exits 5 with `attachedTo`; and the retry adds exactly one note citing `capture-1
 batch and no new ticket. For AI downscaling (§7.5.1), it imports a 3840×2400 image (and, for
 Claude, a large recording) into fresh drafts. These are filed through a wrapper CLI that reports
 the project's AI tool: Claude Haiku (standard tier: the image and the recording at the docs'
-sizes, with even sides for the movie), Codex (2048×1280), opencode running
+sizes, with even sides for the movie), Codex (1996×1248, the patch budget), opencode running
 `anthropic/claude-opus-4-7` (Claude's high-resolution tier), and a CLI without `ai-settings`
 (2048×1280). Each check confirms that the filed PNG, the movie (with `ffprobe`), and the filed
 `review.json` sizes match, and that the annotations are the draft's. With `--downscale off`, or

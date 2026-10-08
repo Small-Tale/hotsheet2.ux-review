@@ -48,6 +48,9 @@ public struct MediaScaleTarget: Codable, Equatable, Hashable, Sendable {
         /// multiple of 28, are at most `maxEdge`, and whose visual tokens
         /// ⌈w/28⌉ × ⌈h/28⌉ are at most `maxTokens`.
         case claude(maxEdge: Int, maxTokens: Int)
+        /// OpenAI's patch rule for `high` detail (`HS2-Q0R78W`): fits within `maxEdge` × `maxEdge`,
+        /// then shrinks until the 32 × 32 patches ⌈w/32⌉ × ⌈h/32⌉ are at most `maxPatches`.
+        case patches(maxEdge: Int, maxPatches: Int)
         /// Fits within `maxEdge` × `maxEdge` (the longest side at most `maxEdge`).
         case longestEdge(Int)
     }
@@ -65,8 +68,10 @@ public struct MediaScaleTarget: Codable, Equatable, Hashable, Sendable {
     public static let claudeStandard = MediaScaleTarget(rule: .claude(maxEdge: 1568, maxTokens: 1568), audience: "Claude")
     /// Claude's high-resolution tier (Claude 4.7 and later models).
     public static let claudeHighResolution = MediaScaleTarget(rule: .claude(maxEdge: 2576, maxTokens: 4784), audience: "Claude")
-    /// Codex / GPT at high detail: fits within 2048 × 2048.
-    public static let codex = MediaScaleTarget(rule: .longestEdge(2048), audience: "Codex")
+    /// Codex / GPT at high detail, Codex's default for attached images: fits within 2048 × 2048
+    /// and 2,500 patches of 32 × 32 px (2048×2048 → 1600×1600), the same for every GPT model Hot
+    /// Sheet offers for codex.
+    public static let codex = MediaScaleTarget(rule: .patches(maxEdge: 2048, maxPatches: 2500), audience: "Codex")
     /// Any other tool, or when the tool can't be determined: 2048 px on the longest side.
     public static let fallback = MediaScaleTarget(rule: .longestEdge(2048), audience: "AI")
 
@@ -94,6 +99,8 @@ public struct MediaScaleTarget: Codable, Equatable, Hashable, Sendable {
         switch rule {
         case let .claude(maxEdge, maxTokens):
             return Self.claudeResized(size, maxEdge: maxEdge, maxTokens: maxTokens)
+        case let .patches(maxEdge, maxPatches):
+            return Self.patchResized(size, maxEdge: maxEdge, maxPatches: maxPatches)
         case let .longestEdge(limit):
             let long = max(size.width, size.height)
             guard long > limit else { return size }
@@ -122,6 +129,36 @@ public struct MediaScaleTarget: Codable, Equatable, Hashable, Sendable {
     /// Visual tokens Claude spends on an image: one per 28 × 28 patch.
     public static func claudeTokens(_ size: PixelSize) -> Int {
         ((size.width + 27) / 28) * ((size.height + 27) / 28)
+    }
+
+    /// Patches an OpenAI model spends on an image: one per 32 × 32 patch.
+    public static func openAIPatches(_ size: PixelSize) -> Int {
+        ((size.width + 31) / 32) * ((size.height + 31) / 32)
+    }
+
+    /// OpenAI's patch resize (developers.openai.com, "Images and vision", patch-based sizing), as
+    /// Codex implements it (`prompt_image_output_dimensions_for_limits` in `codex-utils-image`):
+    /// fit the edge limit with sides rounded to nearest, then scale by
+    /// √(32² × maxPatches / (w × h)), reduced so the patch grid is whole, flooring the sides.
+    static func patchResized(_ size: PixelSize, maxEdge: Int, maxPatches: Int) -> PixelSize {
+        func fits(_ size: PixelSize) -> Bool {
+            size.width <= maxEdge && size.height <= maxEdge && openAIPatches(size) <= maxPatches
+        }
+        if fits(size) { return size }
+        let edgeScale = min(Double(maxEdge) / Double(max(size.width, size.height)), 1)
+        let edged = PixelSize(
+            width: max(Int((Double(size.width) * edgeScale).rounded()), 1),
+            height: max(Int((Double(size.height) * edgeScale).rounded()), 1)
+        )
+        if fits(edged) { return edged }
+        let width = Double(edged.width), height = Double(edged.height)
+        var scale = (32 * 32 * Double(maxPatches) / width / height).squareRoot()
+        let wide = width * scale / 32, high = height * scale / 32
+        scale *= min(wide.rounded(.down) / wide, high.rounded(.down) / high)
+        return PixelSize(
+            width: max(Int((width * scale).rounded(.down)), 1),
+            height: max(Int((height * scale).rounded(.down)), 1)
+        )
     }
 
     /// Claude's reference resize (platform.claude.com, "How Claude resizes and pads images"):

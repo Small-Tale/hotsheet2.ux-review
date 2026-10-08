@@ -184,7 +184,7 @@ The Settings window (menu bar menu or app menu › Settings…, ⌘,) has four s
     Screenshots never include the pointer ([04-capture.md](04-capture.md) §4.4, §4.9).
 - **Submitting**: **Downscale images and videos for AI** (on, `HS2-PT8PM6`). Captures are filed
   at a size the target project's default AI tool reads well: Claude's own limits, 2048 × 2048
-  for Codex, else 2048 px on the longest side. The draft keeps its full-size files. See
+  and 2,500 patches of 32 px for Codex, else 2048 px on the longest side. The draft keeps its full-size files. See
   [07-review-session.md](07-review-session.md) §7.5.1. An open Submit Review window follows the
   change.
 - **Global shortcuts**: one recorder each for **Start default capture**, **Record video**, and

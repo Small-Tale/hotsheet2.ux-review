@@ -994,9 +994,9 @@ if command -v ffprobe >/dev/null; then
 fi
 ok "Claude (Haiku, standard tier): the 3840x2400 image is filed at $std_png and the $(tr ' ' x <<<"$clip_size") recording at $std_clip (even sides), with review.json sizes to match and the same normalized annotations"
 
-downscale_case codex 2048x1280 HOTSHEET_CLI="$TMP/ai-cli" AI_JSON='{"tool":"codex","model":"gpt-6.1-sol","effort":"low"}' -- --downscale on
+downscale_case codex 1996x1248 HOTSHEET_CLI="$TMP/ai-cli" AI_JSON='{"tool":"codex","model":"gpt-6.1-sol","effort":"low"}' -- --downscale on
 [[ "$(json "$TMP/codex.json" j.scaledFor)" == Codex ]] || die "codex: scaledFor"
-ok "Codex: filed within 2048x2048 (2048x1280)"
+ok "Codex: filed within 2048x2048 and 2,500 patches (1996x1248, HS2-Q0R78W)"
 # A Claude model under another tool picks Claude's rule (HS2-8G9F3R).
 hi_png="$(claude_size 3840 2400 2576 4784)"
 downscale_case opencode-claude "$hi_png" HOTSHEET_CLI="$TMP/ai-cli" AI_JSON='{"tool":"opencode","model":"anthropic/claude-opus-4-7"}' -- --downscale on
