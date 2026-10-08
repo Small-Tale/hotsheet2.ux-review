@@ -60,12 +60,13 @@ Settings) are not raised over the app being reviewed (HS2-AR8Q2G).
     through the window its event belongs to, not the overlay view receiving it, so hovering on
     any display highlights the window a click there would pick (`RegionGeometry.globalPoint`,
     `HS2-DX2D41`).
-  - UX Review's own windows are never picked, but they still cover what is behind them. When
-    one is on top under the pointer, nothing is highlighted and a click does nothing, rather
-    than picking a window the reviewer cannot see. UX Review's windows above the app levels
-    (the capture HUD, the picker overlay) do not count.
-  - This is about picking only. A region or whole-screen capture does show UX Review's own
-    windows, just as they are on screen (§4.3, `HS2-63B0PJ`).
+  - UX Review's own windows (editor, Submit Review, Draft Reviews, Settings) can be picked like
+    any other app's, so a review can be about UX Review itself (`HS2-E14X2P`). Its label reads
+    "UX Review · <title>". Only *capture chrome* is skipped (the picker overlays, the countdown
+    and saved HUD, the recording dim, `CaptureChrome`): it is never highlighted and never hides
+    the window under it.
+  - Region and whole-screen captures show UX Review's own windows too, just as they are on
+    screen (§4.3, `HS2-63B0PJ`).
   - The default headless window target and the capture context's window name still use the
     app's frontmost normal (layer-0) window, never a floating palette.
 - **Switching while picking** (`PickerKeys`, `HS2-8NATQR`), like macOS ⌘⇧4, so the target can
@@ -107,8 +108,8 @@ time to open a menu or hover over a control.
     ScreenCaptureKit, so the filter is what keeps them out.
   - The exceptions are fixed when a recording starts, so a UX Review window that opens during
     a recording is left out of that movie (`HS2-XT5K63`).
-  - Window captures contain only the chosen window. The window picker still never picks
-    UX Review's own windows (§4.2).
+  - Window captures contain only the chosen window, which may be one of UX Review's own
+    (§4.2).
 
 ## 4.4 Pixels
 

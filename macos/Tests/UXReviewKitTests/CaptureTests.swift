@@ -190,17 +190,19 @@ struct WindowSelectionTests {
         #expect(WindowSelection.topmostWindow(at: CGPoint(x: 110, y: 110), in: windows, excludingPID: nil)?.windowID == 1)
     }
 
-    /// HS2-AR8Q2G regression: a UX Review window on top occludes, so the picker never targets a
-    /// window the reviewer cannot see behind it.
-    @Test func ownWindowsOnTopOccludeInsteadOfBeingSkipped() {
-        // Our window 1 covers everything: nothing is picked under it, anywhere.
-        #expect(WindowSelection.pickTarget(at: CGPoint(x: 110, y: 110), in: windows, ownPID: Self.ourPID) == nil)
-        #expect(WindowSelection.pickTarget(at: CGPoint(x: 1000, y: 800), in: windows, ownPID: Self.ourPID) == nil)
-        // The older rule would have picked Safari behind it.
-        #expect(WindowSelection.topmostWindow(at: CGPoint(x: 110, y: 110), in: windows, excludingPID: Self.ourPID)?.windowID == 4)
+    /// HS2-E14X2P: a UX Review window on top is picked like any other app's, so a review can be
+    /// about UX Review itself. (Before, it was skipped as a non-target, HS2-AR8Q2G.)
+    @Test func ownWindowsOnTopArePicked() {
+        // Our window 1 covers everything: it is the pick everywhere.
+        #expect(WindowSelection.pickTarget(at: CGPoint(x: 110, y: 110), in: windows, chrome: [])?.windowID == 1)
+        #expect(WindowSelection.pickTarget(at: CGPoint(x: 1000, y: 800), in: windows, chrome: [])?.windowID == 1)
+        // As capture chrome, it is skipped and what is under it is picked.
+        #expect(WindowSelection.pickTarget(at: CGPoint(x: 110, y: 110), in: windows, chrome: [1])?.windowID == 4)
+        #expect(WindowSelection.pickTarget(at: CGPoint(x: 1000, y: 800), in: windows, chrome: [1])?.windowID == 5)
+        #expect(WindowSelection.pickTarget(at: CGPoint(x: 1900, y: 1900), in: windows, chrome: [1]) == nil)
     }
 
-    @Test func pickTargetMatchesTopmostWindowWhenOurWindowsAreBehindOrAway() {
+    @Test func pickTargetIsTheFrontmostVisibleWindowAmongOursAndOthers() {
         let editor = WindowSnapshot(
             windowID: 7, ownerPID: Self.ourPID, ownerName: "UX Review", title: "Editor", layer: 0,
             frame: CGRect(x: 600, y: 0, width: 600, height: 600)
@@ -221,19 +223,20 @@ struct WindowSelectionTests {
             windowID: 10, ownerPID: 13, ownerName: "Preview", title: "Inspector", layer: 3,
             frame: CGRect(x: 700, y: 100, width: 200, height: 200)
         )
+        let chrome: Set<UInt32> = [8, 9]
         // Front to back: overlay and HUD above everything, the reviewed app's palette, Safari,
         // then our editor behind Safari (the reviewed app was frontmost).
         let list = [overlay, hud, palette, safari, editor]
-        let pick = { (point: CGPoint) in WindowSelection.pickTarget(at: point, in: list, ownPID: Self.ourPID)?.windowID }
+        let pick = { (point: CGPoint) in WindowSelection.pickTarget(at: point, in: list, chrome: chrome)?.windowID }
         #expect(pick(CGPoint(x: 60, y: 60)) == 4) // under the HUD and overlay: they do not occlude
         #expect(pick(CGPoint(x: 750, y: 150)) == 10) // the palette over Safari over our editor
         #expect(pick(CGPoint(x: 820, y: 300)) == 4) // Safari overlaps our editor and is in front
-        #expect(pick(CGPoint(x: 1000, y: 300)) == nil) // only our editor is there
+        #expect(pick(CGPoint(x: 1000, y: 300)) == 7) // only our editor is there
         #expect(pick(CGPoint(x: 1500, y: 1500)) == nil) // nothing pickable at all
-        // Once our editor is raised above Safari, it occludes the overlap.
+        // Once our editor is raised above Safari, it wins the overlap.
         let raised = [overlay, hud, editor, palette, safari]
-        #expect(WindowSelection.pickTarget(at: CGPoint(x: 820, y: 300), in: raised, ownPID: Self.ourPID) == nil)
-        #expect(WindowSelection.pickTarget(at: CGPoint(x: 100, y: 300), in: raised, ownPID: Self.ourPID)?.windowID == 4)
+        #expect(WindowSelection.pickTarget(at: CGPoint(x: 820, y: 300), in: raised, chrome: chrome)?.windowID == 7)
+        #expect(WindowSelection.pickTarget(at: CGPoint(x: 100, y: 300), in: raised, chrome: chrome)?.windowID == 4)
     }
 
     /// HS2-1JWVYC regression. Shaped like a real macOS 27 `CGWindowListCopyWindowInfo` list, front

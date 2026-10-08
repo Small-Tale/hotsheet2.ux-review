@@ -124,7 +124,7 @@ final class PickerSession: OverlayState {
         guard mode == .window else { return }
         windowList.refresh(for: reason, now: ProcessInfo.processInfo.systemUptime, read: WindowDirectory.snapshot)
         let serverPoint = WindowSelection.windowServerPoint(fromAppKit: point, primaryHeight: primaryHeight)
-        let next = WindowSelection.pickTarget(at: serverPoint, in: windowList.windows, ownPID: CaptureContextProvider.ownPID)
+        let next = WindowSelection.pickTarget(at: serverPoint, in: windowList.windows, chrome: CaptureChrome.windowIDs())
         if next != hovered {
             hovered = next
             redraw()

@@ -7,6 +7,8 @@ import Testing
 /// server again, and that the pick follows windows that move, resize, reorder, open, and close.
 struct LiveWindowListTests {
     static let ownPID: Int32 = 99
+    /// Capture chrome window ids (picker overlays, HUDs, the recording dim).
+    static let chrome: Set<UInt32> = [4, 5]
 
     static func window(_ id: UInt32, pid: Int32 = 10, layer: Int = 0, _ frame: CGRect) -> WindowSnapshot {
         WindowSnapshot(windowID: id, ownerPID: pid, ownerName: "App \(pid)", title: "W\(id)", layer: layer, frame: frame)
@@ -99,7 +101,7 @@ struct LiveWindowListTests {
         now: TimeInterval
     ) -> UInt32? {
         list.refresh(for: reason, now: now, read: screen.read)
-        return WindowSelection.pickTarget(at: point, in: list.windows, ownPID: ownPID)?.windowID
+        return WindowSelection.pickTarget(at: point, in: list.windows, chrome: chrome)?.windowID
     }
 
     /// The reviewer's case: windows move and change order during the pick, and the highlight
@@ -142,7 +144,8 @@ struct LiveWindowListTests {
     }
 
     /// The existing rules still hold on a refreshed list: a floating panel wins over the document
-    /// behind it, and one of UX Review's own windows raised on top occludes instead of being skipped.
+    /// behind it, one of UX Review's own windows raised on top is picked (HS2-E14X2P), and
+    /// capture chrome is never picked and never hides what is under it.
     @Test func keepsTheFloatingAndOwnWindowRules() {
         let document = Self.window(1, CGRect(x: 0, y: 0, width: 1000, height: 800))
         let screen = Screen([document])
@@ -152,9 +155,17 @@ struct LiveWindowListTests {
         screen.windows = [Self.window(2, layer: 3, CGRect(x: 50, y: 50, width: 200, height: 200)), document]
         #expect(Self.pick(&list, screen, at: point, reason: .timer, now: 0.2) == 2)
         screen.windows = [Self.window(3, pid: Self.ownPID, CGRect(x: 0, y: 0, width: 300, height: 300))] + screen.windows
-        #expect(Self.pick(&list, screen, at: point, reason: .timer, now: 0.4) == nil)
-        // The picker overlay itself (UX Review, screen-saver level) never occludes.
+        #expect(Self.pick(&list, screen, at: point, reason: .timer, now: 0.4) == 3)
+        // The picker overlay itself (UX Review chrome, screen-saver level) never occludes.
         screen.windows = [Self.window(4, pid: Self.ownPID, layer: 1000, CGRect(x: 0, y: 0, width: 3000, height: 2000)), document]
         #expect(Self.pick(&list, screen, at: point, reason: .click, now: 0.41) == 1)
+        // Neither does chrome at an app level (the recording dim), while our editor still counts.
+        screen.windows = [Self.window(5, pid: Self.ownPID, CGRect(x: 0, y: 0, width: 3000, height: 2000))] + screen.windows
+        #expect(Self.pick(&list, screen, at: point, reason: .click, now: 0.42) == 1)
+        screen.windows.insert(Self.window(3, pid: Self.ownPID, CGRect(x: 0, y: 0, width: 300, height: 300)), at: 1)
+        #expect(Self.pick(&list, screen, at: point, reason: .click, now: 0.43) == 3)
+        // Closed again: the document is back.
+        screen.windows.remove(at: 1)
+        #expect(Self.pick(&list, screen, at: point, reason: .timer, now: 0.63) == 1)
     }
 }

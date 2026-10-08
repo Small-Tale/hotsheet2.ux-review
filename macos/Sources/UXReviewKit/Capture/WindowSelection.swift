@@ -67,15 +67,12 @@ public enum WindowSelection {
     }
 
     /// The window the interactive picker targets under `point`: the frontmost window that is
-    /// actually visible there. UX Review's own windows (owned by `ownPID`) are never picked, but
-    /// they still occlude: when one of them is on top under the pointer, nothing is picked rather
-    /// than a window the reviewer cannot see behind it (HS2-AR8Q2G). Own windows above the
-    /// pickable layers (the capture HUD, the picker overlay itself) are not occluders.
-    public static func pickTarget(at point: CGPoint, in windows: [WindowSnapshot], ownPID: Int32) -> WindowSnapshot? {
-        guard let front = windows.first(where: { isPickable($0, excludingPID: nil) && $0.frame.contains(point) }) else {
-            return nil
-        }
-        return front.ownerPID == ownPID ? nil : front
+    /// actually visible there, whoever owns it. UX Review's own windows (editor, Submit Review,
+    /// Draft Reviews, Settings) can be picked too, so a review can be about UX Review itself
+    /// (`HS2-E14X2P`). Only capture chrome (`chrome`: the picker overlays, HUDs, the recording
+    /// dim) is skipped, so it neither gets picked nor hides what is under it.
+    public static func pickTarget(at point: CGPoint, in windows: [WindowSnapshot], chrome: Set<UInt32>) -> WindowSnapshot? {
+        windows.first { !chrome.contains($0.windowID) && isPickable($0, excludingPID: nil) && $0.frame.contains(point) }
     }
 
     /// Which of UX Review's own windows a display or region capture keeps (HS2-63B0PJ): all of

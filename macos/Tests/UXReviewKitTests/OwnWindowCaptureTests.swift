@@ -48,9 +48,10 @@ struct OwnWindowCaptureTests {
         #expect(WindowSelection.ownWindowsToCapture(in: [overlay, hud, dim], ownPID: Self.ourPID, chrome: chrome).isEmpty)
     }
 
-    /// Captured, but still never picked: the editor on top under the pointer occludes.
-    @Test func thePickerStillNeverPicksOwnWindows() {
-        #expect(WindowSelection.pickTarget(at: CGPoint(x: 100, y: 100), in: [editor] + others, ownPID: Self.ourPID) == nil)
-        #expect(WindowSelection.pickTarget(at: CGPoint(x: 100, y: 100), in: [overlay] + others, ownPID: Self.ourPID)?.windowID == 1)
+    /// HS2-E14X2P: the picker uses the same split as the capture. The editor on top under the
+    /// pointer is picked; chrome (the overlay) is skipped.
+    @Test func thePickerPicksOwnWindowsButNotChrome() {
+        #expect(WindowSelection.pickTarget(at: CGPoint(x: 100, y: 100), in: [editor] + others, chrome: chrome)?.windowID == 40)
+        #expect(WindowSelection.pickTarget(at: CGPoint(x: 100, y: 100), in: [overlay] + others, chrome: chrome)?.windowID == 1)
     }
 }

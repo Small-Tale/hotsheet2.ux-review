@@ -60,11 +60,12 @@ Each feature gets both unit tests and end-to-end tests. Tests live in
   - a realistic front-to-back snapshot: small and floating windows on top win over large
     windows behind them (HS2-1JWVYC regression)
   - front window per app, which stays on layer 0
-  - the picker's target: UX Review's own windows on top occlude rather than being skipped,
-    while its HUD and overlay levels do not (HS2-AR8Q2G regression)
+  - the picker's target (`HS2-E14X2P`): the frontmost visible window whoever owns it, so UX
+    Review's own windows on top are picked; capture chrome (by window id) is skipped at any
+    layer and never hides what is under it
   - which of UX Review's own windows display and region captures keep: all but capture chrome
-    (HS2-63B0PJ), while the picker still never picks them; the real ScreenCaptureKit output is
-    manual QA (`HS2-JG04GX`)
+    (HS2-63B0PJ), the same split the picker uses; the real ScreenCaptureKit output is manual QA
+    (`HS2-JG04GX`)
 - **Live window list** (`LiveWindowListTests`, HS2-VJ8VE8 regression): the window pick re-reads
   the window list while it runs.
   - transition matrix: no list / fresh / stale × pointer move, timer, click, mode switch; only a
@@ -73,7 +74,8 @@ Each feature gets both unit tests and end-to-end tests. Tests live in
     steps backwards counts as stale
   - the pick follows windows that move, resize, reorder, open, and close (empty → refill),
     including a click inside the pointer throttle window
-  - floating windows still win and UX Review's own windows still occlude on a refreshed list
+  - floating windows still win, UX Review's own windows are picked, and chrome (overlay, an
+    app-level dim) is skipped on a refreshed list, through open → close → refill
   - not covered automatically: the live timer and pointer refresh against real windows
     (`HS2-JG04GX`)
 - **Picker focus** (`PickerFocusTests`): focus is handed back only when UX Review took it
