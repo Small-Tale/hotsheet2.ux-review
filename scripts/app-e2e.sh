@@ -966,6 +966,17 @@ downscale_case() {
   # Annotation coordinates are normalized to the media, so they are the draft's, on any size.
   [[ "$(json "$filed_json" 'JSON.stringify(j.annotations.map(a => a.shape))')" == "$(json "$TMP/$name-draft.json" 'JSON.stringify(j.annotations.map(a => a.shape))')" ]] \
     || die "$name: annotation coordinates changed"
+  # HS2-KMB528: a scaled capture records its size before scaling, in review.json and the ticket.
+  local ticket_file
+  ticket_file="$(json "$TMP/$name.json" j.ticketFile)"
+  if [[ "$expected" == 3840x2400 ]]; then
+    [[ "$(json "$filed_json" '"scaledFrom" in j.media[0]')" == false ]] || die "$name: unscaled capture has scaledFrom"
+    ! grep -q "scaled from" "$ticket_file" || die "$name: ticket says scaled"
+  else
+    [[ "$(json "$filed_json" '`${j.media[0].scaledFrom.pixelWidth}x${j.media[0].scaledFrom.pixelHeight}`')" == 3840x2400 ]] \
+      || die "$name: review.json scaledFrom"
+    grep -q "(image, ${expected/x/×}, scaled from 3840×2400)" "$ticket_file" || die "$name: ticket media line lacks the size before scaling"
+  fi
   validate_bundle "$filed_json"
 }
 

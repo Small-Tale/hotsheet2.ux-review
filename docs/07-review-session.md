@@ -280,7 +280,9 @@ capture at the size the target project's default AI tool reads well (`HS2-PT8PM6
   each frame an AI extracts). The sides are then rounded down to even numbers for H.264, so a
   3840×2160 recording becomes 2576×1448 on the high-resolution tier.
 - **Where it shows.** The Submit Review list shows the filed size ("1996×1248 scaled for Codex",
-  or "… cropped, scaled for Claude"). `--submit` reports `scaledCaptures` (draft file names) and
+  or "… cropped, scaled for Claude"). The filed `review.json` records each scaled capture's size
+  before scaling as `scaledFrom` (docs/02 §2.2), and the ticket's media line reads "scaled from
+  W×H" (docs/03 §3.3, `HS2-KMB528`). `--submit` reports `scaledCaptures` (draft file names) and
   `scaledFor` (`Claude`, `Codex`, or `AI`), and `--downscale on|off` overrides the setting for
   one run (§7.8).
 

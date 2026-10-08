@@ -200,6 +200,8 @@ public extension MediaScaleTarget {
             scaledFrom[item.id] = original
             bundle.media[index].pixelWidth = filed.width
             bundle.media[index].pixelHeight = filed.height
+            // Recorded in review.json and the ticket, so a reader knows detail was lost (HS2-KMB528).
+            bundle.media[index].scaledFrom = MediaPixelSize(pixelWidth: original.width, pixelHeight: original.height)
         }
         return (bundle, scaledFrom)
     }

@@ -41,6 +41,16 @@ reader knows there is sound to listen to or transcribe:
   audio, or unknown", which is how bundles written before the field read.
 - The intake ticket marks such media "with audio" ([03-hotsheet-integration.md](03-hotsheet-integration.md) §3.3).
 
+Optional `scaledFrom {pixelWidth, pixelHeight}` (`HS2-KMB528`) is the capture's size before it
+was downscaled for an AI reader when filing ([07-review-session.md](07-review-session.md) §7.5.1),
+after any crop. `pixelWidth`/`pixelHeight` are then the filed size.
+
+- Writers set it only on a capture that was scaled; a draft's own `review.json` never has it.
+- It tells a reader the attachment shows less detail than the reviewer saw, so it can ask for a
+  crop. Annotation coordinates are normalized (§2.3), so they fit either size.
+- Both sizes must be positive (`invalidMediaSize`, §2.7).
+- The ticket's media line reads "scaled from W×H" (docs/03 §3.3).
+
 ## 2.3 Coordinates
 
 Every coordinate is an integer from 0 to 10000, normalized to the media itself (not to the

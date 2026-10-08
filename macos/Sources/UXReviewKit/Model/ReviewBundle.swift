@@ -253,6 +253,17 @@ public enum MediaKind: String, Codable, Sendable {
 }
 
 /// One captured file in the bundle.
+/// A media size in pixels, as `review.json` writes it (`pixelWidth`, `pixelHeight`).
+public struct MediaPixelSize: Codable, Equatable, Sendable {
+    public var pixelWidth: Int
+    public var pixelHeight: Int
+
+    public init(pixelWidth: Int, pixelHeight: Int) {
+        self.pixelWidth = pixelWidth
+        self.pixelHeight = pixelHeight
+    }
+}
+
 public struct MediaItem: Codable, Equatable, Sendable {
     public var id: String
     /// File name as attached to the ticket; tickets reference it as `attachment:<filename>`.
@@ -271,6 +282,9 @@ public struct MediaItem: Codable, Equatable, Sendable {
     /// (bundles written before the field existed); writers never store `false`, so it is
     /// omitted from `review.json`. Spec: docs/02-review-bundle.md §2.2.
     public var hasAudio: Bool?
+    /// The capture's size before it was downscaled for AI (after any crop), only when it was
+    /// (docs/07 §7.5.1). Tells a reader the attachment lost detail. Spec: docs/02 §2.2.
+    public var scaledFrom: MediaPixelSize?
 
     public init(
         id: String,

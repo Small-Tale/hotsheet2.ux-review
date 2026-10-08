@@ -89,7 +89,11 @@ The ticket is titled `UX review: <title>`, has category `task`, and carries the 
    `hasAudio` ([02-review-bundle.md](02-review-bundle.md) §2.2) adds `, with audio` inside the
    parentheses, and the list is then followed by a note that such videos have a sound track,
    usually the reviewer's spoken narration, to listen to or transcribe, since it can explain the
-   annotations or ask for changes they don't show (`HS2-EZN3NG`).
+   annotations or ask for changes they don't show (`HS2-EZN3NG`). A capture downscaled for AI
+   (`scaledFrom`, docs/02 §2.2) adds `, scaled from W×H` after its filed size, for example
+   `(image, 2576×1449, scaled from 3840×2160)`. The list is then followed by a note that such
+   captures show less detail than the reviewer saw, that annotation regions still line up, and
+   to ask the reviewer for a crop when finer detail is needed (`HS2-KMB528`).
 5. **Annotations**: one section per annotation, `### #N · <intents> · attachment:<file>`. Each
    gives the shape, the projected region in 0–10000 units, the time range as `m:ss.mmm`, and the
    note (or `_No note._`).

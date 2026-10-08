@@ -22,7 +22,7 @@ macos/
   Signing.xcconfig             code signing: ad hoc unless the gitignored Signing.local.xcconfig sets an identity (docs/01 §1.3)
   Signing.local.xcconfig.example  template for the machine-local signing identity
   Sources/UXReviewKit/
-    Model/ReviewBundle.swift       bundle, media, shapes, intents, time ranges, Codable
+    Model/ReviewBundle.swift       bundle, media (incl. scaledFrom: MediaPixelSize), shapes, intents, time ranges, Codable
     Model/BundleValidation.swift   ReviewBundle.validate() rules (docs/02 §2.7)
     Tickets/TicketComposer.swift   intake ticket body, existing-ticket note, Hot Sheet annotation projection (docs/03 §3.3–3.5)
     Tickets/TicketPreamble.swift   the editable preamble (AI instructions / existing-ticket intro): standard templates, {{placeholders}}, DraftTicketText (`ticket-text.json`) (docs/07 §7.2.3)

@@ -29,7 +29,8 @@ public extension ReviewBundle {
             if mediaById[item.id] != nil { issues.append(.duplicateMediaId(item.id)) }
             mediaById[item.id] = item
             if !filenames.insert(item.filename).inserted { issues.append(.duplicateFilename(item.filename)) }
-            if item.pixelWidth <= 0 || item.pixelHeight <= 0 { issues.append(.invalidMediaSize(mediaId: item.id)) }
+            let badScaledFrom = item.scaledFrom.map { $0.pixelWidth <= 0 || $0.pixelHeight <= 0 } ?? false
+            if item.pixelWidth <= 0 || item.pixelHeight <= 0 || badScaledFrom { issues.append(.invalidMediaSize(mediaId: item.id)) }
         }
 
         var annotationIds: Set<String> = []

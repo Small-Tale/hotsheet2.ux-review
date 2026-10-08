@@ -64,6 +64,7 @@ extension EncodingTests {
             #expect(size.width == 1920 && size.height == 1280, "2,500 patches of 32 px")
             #expect(staged.bundle.media[0].pixelWidth == 1920 && staged.bundle.media[0].pixelHeight == 1280)
             #expect(staged.scaledFrom == ["m1": PixelSize(width: 3000, height: 2000)])
+            #expect(staged.bundle.media[0].scaledFrom == MediaPixelSize(pixelWidth: 3000, pixelHeight: 2000))
             #expect(staged.bundle.annotations == fixture.draft.bundle.annotations, "normalized coordinates match the scaled file")
             #expect(staged.bundle.validate().isEmpty)
             // The draft is untouched.
@@ -81,12 +82,14 @@ extension EncodingTests {
             #expect(size.width == expected.width && size.height == expected.height)
             #expect(MediaScaleTarget.claudeTokens(expected) <= 1568)
             #expect(staged.scaledFrom["m1"] == PixelSize(width: 2800, height: 1400))
+            #expect(staged.bundle.media[0].scaledFrom == MediaPixelSize(pixelWidth: 2800, pixelHeight: 1400), "the size after the crop")
             #expect(staged.bundle.media[0].pixelWidth == expected.width)
             // The annotation is projected into the crop exactly as without scaling.
             let unscaled = try fixture.prepare(nil)
             defer { unscaled.cleanUp() }
             #expect(staged.bundle.annotations == unscaled.bundle.annotations)
             #expect(unscaled.bundle.media[0].pixelWidth == 2800 && unscaled.scaledFrom.isEmpty)
+            #expect(unscaled.bundle.media[0].scaledFrom == nil)
         }
 
         @Test func aCaptureThatFitsIsFiledAsIs() throws {
@@ -140,6 +143,11 @@ extension EncodingTests {
             #expect(attachedSize?.width == expected.width && attachedSize?.height == expected.height)
             #expect(attachedBundle?.media.first?.pixelWidth == expected.width)
             #expect(attachedBundle?.media.first?.pixelHeight == expected.height)
+            #expect(attachedBundle?.media.first?.scaledFrom == MediaPixelSize(pixelWidth: 3000, pixelHeight: 2000))
+            // HS2-KMB528: the ticket says it was scaled, and from what.
+            let details = try #require(client.created.first).details
+            #expect(details.contains("(image, \(expected.width)×\(expected.height), scaled from 3000×2000)"))
+            #expect(details.contains(TicketComposer.scaledHint))
             #expect(attachedBundle?.annotations.first?.shape == .rect(NormRect(x: 6000, y: 2500, width: 3000, height: 5000)))
             #expect(result.scaledCaptures == ["capture-1.png"] && result.scaledFor == "Claude")
         }

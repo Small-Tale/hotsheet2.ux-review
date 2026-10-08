@@ -90,3 +90,43 @@ struct TicketComposerTests {
         #expect(TicketComposer.formatTime(milliseconds) == expected)
     }
 }
+
+/// HS2-KMB528: a capture downscaled for AI carries its size before scaling in review.json and
+/// in the ticket's media line, so a reader knows detail was lost.
+struct ScaledFromTests {
+    @Test func scaledFromRoundTripsAndIsOmittedWhenUnscaled() throws {
+        var item = TestSupport.image()
+        let plain = try #require(String(bytes: ReviewBundle.makeEncoder().encode(item), encoding: .utf8))
+        #expect(!plain.contains("scaledFrom"))
+        item.scaledFrom = MediaPixelSize(pixelWidth: 3840, pixelHeight: 2160)
+        let data = try ReviewBundle.makeEncoder().encode(item)
+        let object = try JSONSerialization.jsonObject(with: data) as? [String: Any]
+        let written = object?["scaledFrom"] as? [String: Int]
+        #expect(written == ["pixelWidth": 3840, "pixelHeight": 2160])
+        #expect(try ReviewBundle.makeDecoder().decode(MediaItem.self, from: data) == item)
+    }
+
+    @Test func theMediaLineAndHintNameTheSizeBeforeScaling() {
+        var image = TestSupport.image("m1", filename: "capture-1.png")
+        image.pixelWidth = 2576
+        image.pixelHeight = 1449
+        image.scaledFrom = MediaPixelSize(pixelWidth: 3840, pixelHeight: 2160)
+        var video = TestSupport.video("m2", filename: "capture-2.mov", durationMs: 2000)
+        video.scaledFrom = MediaPixelSize(pixelWidth: 2880, pixelHeight: 1800)
+        let scaled = TicketComposer.mediaSection(TestSupport.bundle(media: [image, video]))
+        #expect(scaled.contains("- `attachment:capture-1.png` (image, 2576×1449, scaled from 3840×2160)\n"))
+        #expect(scaled.contains(", scaled from 2880×1800, 0:02.000)"))
+        #expect(scaled.hasSuffix("\n\n" + TicketComposer.scaledHint))
+
+        let plain = TicketComposer.mediaSection(TestSupport.bundle())
+        #expect(!plain.contains("scaled from") && !plain.contains(TicketComposer.scaledHint))
+    }
+
+    @Test func aNonPositiveScaledFromSizeIsInvalid() {
+        var item = TestSupport.image()
+        item.scaledFrom = MediaPixelSize(pixelWidth: 0, pixelHeight: 10)
+        #expect(TestSupport.bundle(media: [item]).validate() == [.invalidMediaSize(mediaId: item.id)])
+        item.scaledFrom = MediaPixelSize(pixelWidth: 10, pixelHeight: 10)
+        #expect(TestSupport.bundle(media: [item]).validate().isEmpty)
+    }
+}

@@ -1470,3 +1470,14 @@ text stacked one word per line at 99 pt wide. The empty Draft Reviews window was
   shown as paths, empty and root cases. `recentProjectsAreDedupedCappedAndPersisted` now caps at 10.
 - **Not covered automatically:** the open menu itself. SwiftUI doesn't render a closed `Menu`'s
   items offscreen; the view only maps `ProjectMenuItem`s to toggles plus Choose Folder….
+
+## HS2-KMB528: the size before AI downscaling in review.json and the ticket
+
+- **Unit** (`ScaledFromTests`, `SubmissionScalingTests`): `scaledFrom` round-trips and is
+  omitted when unscaled; the media line ("scaled from 3840×2160", also before a movie's
+  duration) and the hint show only when something was scaled; a non-positive `scaledFrom` is
+  `invalidMediaSize`. Staging records the size before scaling (after the crop) and none without a
+  scale. `DraftSubmitter` attaches a `review.json` carrying it and files a ticket that names it.
+- **App end to end** (`scripts/app-e2e.sh`, every `downscale_case`): the attached `review.json`
+  has `scaledFrom` 3840x2400 when scaled and none at full size, it validates against the schema
+  (ajv), and the ticket file's media line reads `(image, W×H, scaled from 3840×2400)`.
