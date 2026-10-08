@@ -35,7 +35,7 @@ Settings) are not raised over the app being reviewed (HS2-AR8Q2G).
 
 - **Display**: no UI. The display under the pointer is captured.
 - **Region**: every display is dimmed and shows a crosshair and the hint "Drag to select a
-  region · Esc to cancel".
+  region · Space: window · Return: whole screen · Esc to cancel".
   - The drag stays on the display where it started.
   - A label next to the selection shows its size in pixels. The label goes below the
     selection, or above it near the bottom edge, and is drawn inside only when neither fits.
@@ -59,6 +59,16 @@ Settings) are not raised over the app being reviewed (HS2-AR8Q2G).
     (the capture HUD, the picker overlay) do not count.
   - The default headless window target and the capture context's window name still use the
     app's frontmost normal (layer-0) window, never a floating palette.
+- **Switching while picking** (`PickerKeys`, `HS2-8NATQR`), like macOS ⌘⇧4, so the target can
+  change without opening a window (for example from the menu bar menu's quick capture):
+  - **Space** switches region ⇄ window. The drag or highlight starts over; in window mode the
+    window under the pointer is highlighted at once. Space is ignored mid-drag, and a held
+    Space switches only once.
+  - **Return** (or keypad Enter) captures the whole display under the pointer.
+  - The window hint reads "Click a window to capture it · Space: region · Return: whole screen ·
+    Esc to cancel".
+  - The capture is then what was picked: a window or a whole display, even from Capture Region
+    (a recording too).
 - **Esc** cancels silently.
 - When picking ends, focus stays where it was, so the reviewed app's hover and focus states
   survive the delay.

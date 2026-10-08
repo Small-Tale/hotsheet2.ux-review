@@ -36,6 +36,7 @@ enum UIPreviews {
         )
         let overlays: [(String, FixedOverlayState)] = [
             ("overlay-region-hint", FixedOverlayState(mode: .region)),
+            ("overlay-window-hint", FixedOverlayState(mode: .window)),
             ("overlay-region-selection", FixedOverlayState(mode: .region, selection: CGRect(x: 320, y: 260, width: 420, height: 230))),
             (
                 "overlay-region-selection-bottom-edge",

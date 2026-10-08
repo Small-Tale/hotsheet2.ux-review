@@ -23,7 +23,9 @@ work happens in UX Review's own windows (§5.1.1). When idle, it lists:
      narration on or off for the next recording only ([04-capture.md](04-capture.md) §4.9).
 
    Other targets (Screen, Window, Region) and the 5 s delay are in the app menu bar's
-   **Capture** menu (§5.1.1), or set them as the default in Settings.
+   **Capture** menu (§5.1.1), or set them as the default in Settings. With Region or Window as
+   the default, the picker itself switches: **Space** toggles region ⇄ window and **Return**
+   takes the whole screen ([04-capture.md](04-capture.md) §4.2).
 3. **Settings…** (⌘,) opens the Settings window.
 4. **Open UX Review** opens the UX Review window (the annotation editor) on the current draft
    review. With no current draft it brings open UX Review windows forward, or, with none open,

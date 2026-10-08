@@ -33,6 +33,7 @@ macos/
     Capture/CaptureRequest.swift      kind/target/delay of a capture (docs/04 §4.1)
     Capture/RegionGeometry.swift      AppKit rect → display-local, pixel-snapped capture area
     Capture/WindowSelection.swift     window-server snapshots, pick/frontmost window rules
+    Capture/PickerKeys.swift          picker keys: Space region ⇄ window, Return whole display, Esc; hints (docs/04 §4.2)
     Capture/PickerFocus.swift         who gets focus back when the target picker ends
     Capture/RecordingDim.swift        dim bands + outline around a region being recorded (docs/04 §4.9)
     Capture/CaptureContextBuilder.swift  CaptureContext mapping, OS version string

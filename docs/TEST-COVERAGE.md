@@ -991,3 +991,14 @@ capture files are no longer cropped or trimmed while drafting.
   left out), inspected by hand.
 - **Not covered automatically:** clicking the checkboxes in a live window (thin bindings over
   the tested `ReviewSelection`).
+
+## HS2-8NATQR: switch Screen / Window / Region from inside the picker
+
+- **Unit** (`PickerKeysTests`): key codes; the key × mode × dragging matrix (Esc cancels and
+  Return picks the display everywhere; Space toggles region ⇄ window, ignored mid-drag and in
+  display mode); a press sequence; the hints name the keys.
+- **Visual QA:** `overlay-region-hint` and the new `overlay-window-hint` (`--render-ui-previews`,
+  presence checked by `scripts/app-e2e.sh`).
+- **Not covered automatically:** pressing keys in the live overlays (they can't be driven
+  headless). The session code is a thin switch over `PickerKeys.action`; the manual check is
+  in `HS2-3JD5PS`.

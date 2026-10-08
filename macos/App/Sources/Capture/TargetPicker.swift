@@ -3,7 +3,9 @@ import UXReviewKit
 
 /// Lets the reviewer choose what to capture. Display needs no UI (the display under the
 /// pointer); region shows a crosshair overlay to drag a rectangle; window highlights the window
-/// under the pointer and takes it on click. Esc cancels. Spec: docs/04-capture.md §4.2.
+/// under the pointer and takes it on click. In either overlay, Space switches region ⇄ window and
+/// Return takes the whole display under the pointer (`PickerKeys`); Esc cancels.
+/// Spec: docs/04-capture.md §4.2.
 @MainActor
 enum TargetPicker {
     static func pick(_ target: CaptureTarget) async throws -> CaptureSource {
@@ -35,7 +37,7 @@ protocol OverlayState: AnyObject {
 /// picker snapshotted stays the order on screen (HS2-AR8Q2G).
 @MainActor
 final class PickerSession: OverlayState {
-    let mode: CaptureTarget
+    private(set) var mode: CaptureTarget
     private var overlays: [OverlayWindow] = []
     private var continuation: CheckedContinuation<CaptureSource, Error>?
     private let windows: [WindowSnapshot]
@@ -49,7 +51,8 @@ final class PickerSession: OverlayState {
 
     init(mode: CaptureTarget) {
         self.mode = mode
-        windows = mode == .window ? WindowDirectory.snapshot() : []
+        // Always, before the overlays cover everything: Space can switch to window mode.
+        windows = WindowDirectory.snapshot()
     }
 
     func run() async throws -> CaptureSource {
@@ -126,6 +129,27 @@ final class PickerSession: OverlayState {
 
     func cancel() {
         finish(.failure(CaptureFailure.cancelled))
+    }
+
+    /// A key in an overlay. False when it isn't a picker key.
+    func key(_ key: PickerKeys.Key) -> Bool {
+        switch PickerKeys.action(for: key, mode: mode, dragging: dragStart != nil) {
+        case .none:
+            return false
+        case .cancel:
+            cancel()
+        case let .switchMode(next):
+            mode = next
+            dragStart = nil
+            dragCurrent = nil
+            hovered = nil
+            if next == .window { updateHover(at: NSEvent.mouseLocation) }
+            redraw()
+        case .pickDisplay:
+            guard let display = DisplayDirectory.displayUnderMouse() else { return true }
+            finish(.success(.display(id: display.id, region: nil)))
+        }
+        return true
     }
 
     private func redraw() {
@@ -238,7 +262,9 @@ final class OverlayView: NSView {
     }
 
     override func keyDown(with event: NSEvent) {
-        if event.keyCode == 53 { session?.cancel() } else { super.keyDown(with: event) }
+        // A held key repeats; the mode switches once per press.
+        if event.isARepeat, PickerKeys.Key(keyCode: event.keyCode) != .other { return }
+        if session?.key(PickerKeys.Key(keyCode: event.keyCode)) != true { super.keyDown(with: event) }
     }
 
     override func cancelOperation(_: Any?) {
@@ -261,7 +287,7 @@ final class OverlayView: NSView {
         dim.fill()
 
         guard let highlight else {
-            drawHint(session.mode == .region ? "Drag to select a region · Esc to cancel" : "Click a window to capture it · Esc to cancel")
+            drawHint(PickerKeys.hint(for: session.mode))
             return
         }
         NSColor.controlAccentColor.withAlphaComponent(session.mode == .window ? 0.18 : 0).setFill()
