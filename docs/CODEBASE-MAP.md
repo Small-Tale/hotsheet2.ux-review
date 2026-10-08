@@ -65,6 +65,7 @@ macos/
     Settings/RecentProjects.swift     recent target projects + persistence (docs/07 §7.6)
     Settings/ProductName.swift        full (Hot Sheet 2 UX Review) and short (UX Review) product names (docs/00 §0.0)
     Settings/AppMenus.swift           menu bar menu as MenuEntry lists per phase, MenuShortcut, WindowPresence (docs/05 §5.1)
+    Settings/WindowFrameFit.swift     a restored window frame shrunk and moved onto the screen's visible area (docs/05 §5.1.1)
     Editor/AnnotationEditor.swift     editor state machine: document, selection, undo/redo, intent toggle (docs/06)
     Editor/AnnotationEditor+Gestures.swift  draw/move/resize gestures, hit testing
     Editor/AnnotationEditor+Crop.swift  one crop per capture (relative to the original), the Crop tool's canvas space (shows the original), draw/move/resize crop gestures, reset crop (docs/06 §6.6)
@@ -97,6 +98,7 @@ macos/
     Menus/DockPresence.swift   Dock icon + app menu bar while a UX Review window is open (WindowPresence)
     AppSettings.swift          project folder (defaults / --project), recent projects, folder panel, Downscale for AI + the store's AI size
     UIPreviews.swift           --render-ui-previews offscreen renders for visual QA
+    WindowSizing.swift         saved window frames kept on screen; why root views state a minimum size (docs/05 §5.1.1)
     Capture/CaptureBackend.swift      ScreenCaptureKit + synthetic backends, CaptureFailure
     Capture/CaptureEnvironment.swift  displays, window list, capture context provider, CaptureChrome (windows never captured)
     Capture/CapturePipeline.swift     capture → PNG / recorded movie → draft store

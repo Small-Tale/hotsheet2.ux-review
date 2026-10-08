@@ -1060,7 +1060,7 @@ for name in overlay-region-hint overlay-window-hint overlay-region-selection ove
   session-ready session-narrow session-edited session-submitting session-failed session-submitted session-submitted-fitted session-issues session-empty \
   session-existing-looking session-existing-found session-existing-narrow session-existing-not-found session-existing-closed \
   session-existing-failed session-existing-submitted session-existing-selection session-existing-abandoned \
-  drafts-list drafts-narrow drafts-empty drafts-delete-immediately; do
+  drafts-list drafts-narrow drafts-empty drafts-delete-immediately drafts-window-empty drafts-window-list; do
   [[ -s "$TMP/previews/$name.png" ]] || die "previews: $name.png missing"
 done
 ok "UI renders offscreen (picker overlays, recording dim, HUDs, Settings window, status bar icon, annotation editor, review session, draft reviews)"
@@ -1124,11 +1124,23 @@ TYPING="$TMP/previews/editor-note-typing.json"
   || die "note typing: text $(json "$TYPING" 'JSON.stringify(j[2])')"
 ok "typing in the middle of a note keeps the insertion point there; the note follows every keystroke"
 
-# HS2-J2BE94: once filed, a 640 x 2000 Submit Review window shrinks around the success message.
+# HS2-J2BE94: once filed, the real 640 x 680 Submit Review window shrinks around the success message
+# and stays that size through further SwiftUI layout (HS2-VX8T5A).
 FIT="$TMP/previews/session-submitted-fit.json"
 [[ "$(json "$FIT" 'j.width + "|" + (j.height >= 150 && j.height <= 400) + "|" + j.topKept + "|" + j.resizable')" == "520|true|true|false" ]] \
   || die "submitted window fit $(json "$FIT" 'JSON.stringify(j)')"
 ok "a filed review's Submit Review window shrinks around the success message, top edge kept, no longer resizable"
+
+# HS2-VX8T5A: real windows keep their size once SwiftUI lays them out; the minimum is the root
+# view's, measured at its minimum width (before the fix: 1663 pt for empty Draft Reviews, 2026 pt
+# for a filed Submit Review).
+SIZE='w => w.width + "x" + w.height + " min " + w.minWidth + "x" + w.minHeight'
+[[ "$(json "$TMP/previews/drafts-window.json" "[j.empty, j.list].map($SIZE).join()")" == "640x460 min 560x320,640x460 min 560x320" ]] \
+  || die "drafts window size $(json "$TMP/previews/drafts-window.json" 'JSON.stringify(j)')"
+[[ "$(json "$FIT" "($SIZE)(j.form)")" == "640x680 min 520x480" ]] || die "session form window size $(json "$FIT" 'JSON.stringify(j.form)')"
+[[ "$(json "$TMP/previews/editor-window.json" "j.width + \"|\" + (j.height >= 800 && j.height <= 860) + \"|\" + j.minWidth + \"x\" + j.minHeight")" == "1240|true|900x560" ]] \
+  || die "editor window size $(json "$TMP/previews/editor-window.json" 'JSON.stringify(j)')"
+ok "Draft Reviews (empty and listing), Submit Review, and the editor keep their window size and minimum after SwiftUI layout"
 
 # HS2-WHP4V1: the editor window's native toolbar: unified, title shown, tools on the right as one
 # group that follows keyboard tool changes, Restore Original only after a crop, Submit Review… works.

@@ -32,7 +32,27 @@ enum DraftsPreviews {
             to: directory.appendingPathComponent("drafts-empty.png")
         ))
         written.append(try renderDeleteAlert(store: store, to: directory.appendingPathComponent("drafts-delete-immediately.png")))
+        written += try windowSizes(list: model, empty: empty, to: directory)
         return written
+    }
+
+    /// HS2-VX8T5A: the real Draft Reviews window, empty and with drafts, keeps its 640 × 460
+    /// size and its 560 × 320 minimum once SwiftUI has laid it out (`drafts-window.json`, and the
+    /// windows drawn as `drafts-window-empty.png` and `drafts-window-list.png`).
+    private static func windowSizes(list: DraftsModel, empty: DraftsModel, to directory: URL) throws -> [URL] {
+        var sizes: [String: Any] = [:]
+        var written: [URL] = []
+        for (name, model) in [("empty", empty), ("list", list)] {
+            let controller = DraftsWindowController(model: model)
+            guard let window = controller.window else { continue }
+            UIPreviews.settle(window)
+            sizes[name] = UIPreviews.describeSize(window)
+            written.append(try UIPreviews.drawContent(of: window, to: directory.appendingPathComponent("drafts-window-\(name).png")))
+            window.close()
+        }
+        let json = directory.appendingPathComponent("drafts-window.json")
+        try JSONSerialization.data(withJSONObject: sizes, options: [.prettyPrinted, .sortedKeys]).write(to: json)
+        return written + [json]
     }
 
     /// Four drafts, each with review.json dated so the order is stable.

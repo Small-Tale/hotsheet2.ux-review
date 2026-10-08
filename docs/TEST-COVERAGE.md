@@ -1365,3 +1365,25 @@ capture files are no longer cropped or trimmed while drafting.
   File, Edit, View, Window.
 - **Unit:** the Capture menu's builder and its test are gone; `AppMenusTests` still covers the
   menu bar menu in every capture phase.
+
+## HS2-VX8T5A: windows no taller than their content needs
+
+Root cause: an `NSHostingView` sets the window's minimum size to its SwiftUI root view's, and
+SwiftUI measures the minimum height at the minimum width. With no minimum width, the wrapping
+text stacked one word per line at 99 pt wide. The empty Draft Reviews window was forced to
+1663 pt and a filed Submit Review window to 2026 pt, and those frames were then saved.
+
+- **Unit** (`WindowFrameFitTests`): a frame that fits is untouched; the saved 640 × 2042 frame
+  from the bug shrinks to the screen, or back to the window's opening size when given (never
+  below the minimum, never above the screen); frames sticking out of each edge move in; a frame on a
+  missing display comes back whole; wider than the screen; never below the minimum size (title bar
+  kept reachable); an offset second screen; no visible area; fitting twice equals fitting once.
+- **App end to end** (`scripts/app-e2e.sh`): `--render-ui-previews` builds the real window
+  controllers (saved frames off), lets SwiftUI lay them out over several run loop turns, and
+  checks `drafts-window.json` (empty and listing: 640 × 460, minimum 560 × 320),
+  `session-submitted-fit.json` (form 640 × 680, minimum 520 × 480; filed 520 wide, 150–400 tall)
+  and `editor-window.json` (1240 wide, minimum 900 × 560). Without the fix the same checks read
+  1663 and 2026 pt. `drafts-window-empty.png`, `drafts-window-list.png`, and
+  `session-submitted-fitted.png` draw the result.
+- **Not covered automatically:** restoring the user's real saved frames on a live screen
+  (`WindowSizing.keepOnScreen` calls the unit-tested `WindowFrameFit`).

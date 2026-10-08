@@ -58,7 +58,7 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
         window.contentView = content
         window.contentMinSize = CGSize(width: 900, height: 560)
         window.isReleasedWhenClosed = false
-        window.setFrameAutosaveName("UXReviewEditor")
+        WindowSizing.restoreFrame(window, name: "UXReviewEditor")
         super.init(window: window)
         window.delegate = self
         content.onDropFiles = { [weak self] urls in self?.addDroppedFiles(urls) }

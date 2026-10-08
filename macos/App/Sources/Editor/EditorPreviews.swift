@@ -64,7 +64,22 @@ enum EditorPreviews {
             viewport: CanvasViewport(zoom: 1.5, center: CGPoint(x: 560, y: 300))
         )
         written += try renderVideo(to: directory, scratch: scratch) + renderAutoScroll(to: directory, scratch: scratch)
+        written.append(try windowSize(store: store, draft: draft, to: directory))
         return written
+    }
+
+    /// HS2-VX8T5A: the real editor window keeps its 1240 × 800 size and 900 × 560 minimum once
+    /// SwiftUI has laid it out (`editor-window.json`).
+    private static func windowSize(store: ReviewDraftStore, draft: ReviewDraft, to directory: URL) throws -> URL {
+        let model = try EditorModel(session: EditorSession(store: store, directory: draft.directory))
+        let controller = EditorWindowController(model: model)
+        guard let window = controller.window else { throw CaptureFailure.failed("no editor window") }
+        UIPreviews.settle(window)
+        let json = directory.appendingPathComponent("editor-window.json")
+        try JSONSerialization.data(withJSONObject: UIPreviews.describeSize(window), options: [.prettyPrinted, .sortedKeys]).write(to: json)
+        model.cancelAutosave()
+        window.close()
+        return json
     }
 
     /// The timeline (docs/06 §6.10) on a draft holding one mock screen recording: annotations with

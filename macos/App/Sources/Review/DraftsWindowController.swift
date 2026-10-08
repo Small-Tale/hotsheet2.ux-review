@@ -60,7 +60,7 @@ final class DraftsWindowController: NSWindowController, NSWindowDelegate {
         window.title = "Draft Reviews"
         window.contentMinSize = DraftsView.minimumSize
         window.isReleasedWhenClosed = false
-        window.setFrameAutosaveName("UXReviewDrafts")
+        WindowSizing.restoreFrame(window, name: "UXReviewDrafts")
         super.init(window: window)
         let store = model.store
         window.contentView = NSHostingView(rootView: DraftsView(model: model, actions: DraftsView.Actions(

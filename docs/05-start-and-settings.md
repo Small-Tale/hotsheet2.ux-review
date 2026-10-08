@@ -71,6 +71,17 @@ makes UX Review the active app (`HS2-SZ6T9T`, `DockPresence.present`). macOS act
 cooperative, so a request from the menu bar menu can be refused or land late; the window is
 therefore ordered front regardless, and activation is asked again once the run loop turns.
 
+**Window sizes** (`HS2-VX8T5A`). The editor, Submit Review, and Draft Reviews windows remember
+their size and position. They open at 1240 × 800, 640 × 680, and 640 × 460 pt, and can't be made
+smaller than 900 × 560, 520 × 480 (a filed review: 520 wide, see
+[07-review-session.md](07-review-session.md) §7.2), and 560 × 320. Each window's minimum comes
+from its SwiftUI root view, which states that minimum width and height, so a window is never
+forced taller than its content needs at that width (`WindowSizing`). A remembered frame that no
+longer fits the screen is repaired when the window opens (`WindowFrameFit`): a side longer than
+the screen goes back to the window's opening size (the reviewer can't have chosen it), and a
+frame partly or wholly off screen (a display that's gone) moves into the visible area, keeping
+its top edge where it can.
+
 Each draft review has its own UX Review window; other drafts open as separate windows and stay
 until closed. The app menu bar:
 

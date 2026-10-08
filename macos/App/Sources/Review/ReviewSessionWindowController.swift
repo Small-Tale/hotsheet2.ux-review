@@ -63,9 +63,9 @@ final class ReviewSessionWindowController: NSWindowController, NSWindowDelegate 
             defer: false
         )
         window.title = "Submit Review"
-        window.contentMinSize = CGSize(width: 520, height: 480)
+        window.contentMinSize = ReviewSessionView.minimumSize
         window.isReleasedWhenClosed = false
-        window.setFrameAutosaveName("UXReviewSession")
+        WindowSizing.restoreFrame(window, name: "UXReviewSession")
         super.init(window: window)
         let store = model.store
         window.contentView = NSHostingView(rootView: ReviewSessionView(
@@ -122,7 +122,7 @@ final class ReviewSessionWindowController: NSWindowController, NSWindowDelegate 
         window.setFrameAutosaveName("")
         content.layoutSubtreeIfNeeded()
         let fitting = content.fittingSize
-        let size = CGSize(width: max(ceil(fitting.width), submittedMinWidth), height: ceil(fitting.height))
+        let size = CGSize(width: max(ceil(fitting.width), ReviewSessionView.minimumSize.width), height: ceil(fitting.height))
         window.contentMinSize = size
         window.contentMaxSize = size
         window.styleMask.remove(.resizable)
@@ -130,8 +130,6 @@ final class ReviewSessionWindowController: NSWindowController, NSWindowDelegate 
         frame.origin = CGPoint(x: window.frame.minX, y: window.frame.maxY - frame.height)
         window.setFrame(frame, display: true, animate: window.isVisible)
     }
-
-    static let submittedMinWidth: CGFloat = 520
 
     @available(*, unavailable)
     required init?(coder _: NSCoder) { fatalError("not used") }

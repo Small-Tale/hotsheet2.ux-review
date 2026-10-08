@@ -40,6 +40,9 @@ struct DraftsView: View {
             Divider()
             footer
         }
+        // The window's minimum size; without a minimum width SwiftUI measured the empty state's
+        // wrapping text at 99 pt wide and made the window over 1700 pt tall (`WindowSizing`).
+        .frame(minWidth: Self.minimumSize.width, minHeight: Self.minimumSize.height)
     }
 
     /// Drawn by hand: `ContentUnavailableView` renders blank offscreen (--render-ui-previews).

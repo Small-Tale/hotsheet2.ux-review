@@ -54,9 +54,8 @@ enum ReviewSessionPreviews {
         )))
         try shoot("session-failed", failed)
 
-        let submitted = filed(model(draft))
-        try shoot("session-submitted", submitted)
-        try written += fitSubmitted(submitted, to: directory)
+        try shoot("session-submitted", filed(model(draft)))
+        try written += fitSubmitted(model(draft), to: directory)
         try renderExistingTicket(draft, model: { model($0) }, shoot: shoot)
 
         // Blocked: no title, a capture whose file is gone, an annotation outside its capture,
@@ -203,30 +202,31 @@ enum ReviewSessionPreviews {
         return model
     }
 
-    /// HS2-J2BE94: a 640 × 2000 Submit Review window holding a filed review, shrunk around the
-    /// success message the way the real window is (`session-submitted-fit.json`, and the result
-    /// drawn as `session-submitted-fitted.png`).
+    /// HS2-J2BE94, HS2-VX8T5A: the real Submit Review window, laid out by SwiftUI, keeps its
+    /// 640 × 680 form size; once `model` is filed it shrinks around the success message and stays
+    /// that size after more layout passes (`session-submitted-fit.json`, and the result drawn as
+    /// `session-submitted-fitted.png`).
     private static func fitSubmitted(_ model: ReviewSessionModel, to directory: URL) throws -> [URL] {
-        let window = NSWindow(
-            contentRect: CGRect(x: 100, y: 100, width: 640, height: 2000),
-            styleMask: [.titled, .closable, .resizable], backing: .buffered, defer: false
-        )
-        let host = NSHostingView(rootView: ReviewSessionView(model: model))
-        window.contentView = host
+        let controller = ReviewSessionWindowController(model: model)
+        guard let window = controller.window else { throw CaptureFailure.failed("no window") }
+        UIPreviews.settle(window)
+        let form = UIPreviews.describeSize(window)
         let top = window.frame.maxY
-        ReviewSessionWindowController.fitToSubmitted(window)
+        _ = filed(model)
+        UIPreviews.settle(window)
         let content = window.contentRect(forFrameRect: window.frame).size
         let json = directory.appendingPathComponent("session-submitted-fit.json")
         try JSONSerialization.data(withJSONObject: [
+            "form": form,
             "width": content.width, "height": content.height,
             "topKept": window.frame.maxY == top, "resizable": window.styleMask.contains(.resizable),
         ], options: [.prettyPrinted, .sortedKeys]).write(to: json)
-        host.layoutSubtreeIfNeeded()
-        let png = directory.appendingPathComponent("session-submitted-fitted.png")
-        guard let rep = host.bitmapImageRepForCachingDisplay(in: host.bounds) else { throw CaptureFailure.failed("no bitmap") }
-        host.cacheDisplay(in: host.bounds, to: rep)
-        guard let image = rep.cgImage else { throw CaptureFailure.failed("render failed") }
-        try ImageFiles.writePNG(image, to: png)
+        window.close()
+        // Drawn at the window's fitted size over the window background (the window draws that itself).
+        let png = try snapshot(
+            ReviewSessionView(model: model).background(Color(nsColor: .windowBackgroundColor)),
+            size: content, to: directory.appendingPathComponent("session-submitted-fitted.png")
+        )
         return [json, png]
     }
 

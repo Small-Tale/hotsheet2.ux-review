@@ -23,6 +23,8 @@ enum UIPreviews {
 
     static func render(to directory: URL) throws -> [URL] {
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        // Real window controllers are built below; they must not touch the user's saved frames.
+        WindowSizing.restoresFrames = false
         let size = CGSize(width: 1280, height: 800)
         guard let screen = NSScreen.main else { throw CaptureFailure.targetUnavailable("A display") }
         let display = DisplayDirectory.Display(
@@ -63,6 +65,35 @@ enum UIPreviews {
         written += try ReviewSessionPreviews.render(to: directory)
         written += try DraftsPreviews.render(to: directory)
         return written
+    }
+
+    /// Lets a real (never shown) window lay out the way it does on screen: SwiftUI's sizing
+    /// reaches the window only after a few run loop turns (`HS2-VX8T5A`).
+    static func settle(_ window: NSWindow) {
+        for _ in 0 ..< 4 {
+            RunLoop.main.run(until: Date().addingTimeInterval(0.05))
+            window.layoutIfNeeded()
+        }
+    }
+
+    /// Draws a real window's content (no title bar) to `url`.
+    static func drawContent(of window: NSWindow, to url: URL) throws -> URL {
+        guard let content = window.contentView else { throw CaptureFailure.failed("no content view") }
+        content.layoutSubtreeIfNeeded()
+        guard let rep = content.bitmapImageRepForCachingDisplay(in: content.bounds) else { throw CaptureFailure.failed("no bitmap") }
+        content.cacheDisplay(in: content.bounds, to: rep)
+        guard let image = rep.cgImage else { throw CaptureFailure.failed("render failed") }
+        try ImageFiles.writePNG(image, to: url)
+        return url
+    }
+
+    /// A window's content size and minimum, for the window sizing checks in `scripts/app-e2e.sh`.
+    static func describeSize(_ window: NSWindow) -> [String: Any] {
+        let content = window.contentRect(forFrameRect: window.frame).size
+        return [
+            "width": content.width, "height": content.height,
+            "minWidth": window.contentMinSize.width, "minHeight": window.contentMinSize.height,
+        ]
     }
 
     private static func renderHUDs(to directory: URL) throws -> [URL] {

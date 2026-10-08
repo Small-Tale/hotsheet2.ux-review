@@ -12,18 +12,25 @@ struct ReviewSessionView: View {
 
     @State private var pendingRemoval: MediaItem?
 
+    /// The form's minimum window size. A filed review keeps the width only, so its window can
+    /// shrink around the success message (`HS2-J2BE94`). Without a minimum width, SwiftUI
+    /// measured the wrapping text at 99 pt wide and made the window over 2000 pt tall (`WindowSizing`).
+    static let minimumSize = CGSize(width: 520, height: 480)
+
     var body: some View {
         if case let .submitted(review) = model.session.phase {
             SubmittedView(
                 review: review, abandoned: model.abandonedTicket, trashAbandoned: model.trashAbandonedTicket,
                 copySlug: model.copySlug, showTicketFile: model.showTicketFile, done: done
             )
+            .frame(minWidth: Self.minimumSize.width)
         } else {
             VStack(spacing: 0) {
                 form
                 Divider()
                 footer
             }
+            .frame(minWidth: Self.minimumSize.width, minHeight: Self.minimumSize.height)
             .confirmationDialog(
                 "Remove \(pendingRemoval?.filename ?? "") from this review?",
                 isPresented: Binding(get: { pendingRemoval != nil }, set: { if !$0 { pendingRemoval = nil } }),
