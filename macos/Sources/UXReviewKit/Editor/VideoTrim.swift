@@ -27,12 +27,16 @@ public enum VideoTrim {
         }
     }
 
-    /// Writes `source` to `destination` (replacing it), cut to `range` (ms of the source) and
-    /// scaled to `size` (display pixels, aspect ratio the caller's), in one export. Either may be
-    /// nil: no cut, or the source's size. Re-encodes at the highest quality so the cut is
-    /// frame-accurate rather than snapped to key frames. Blocks until the export finishes.
-    /// Submitting uses it for trims and AI downscaling (docs/07 §7.5, `HS2-PT8PM6`).
-    public static func export(_ source: URL, range: TimeRange?, size: PixelSize? = nil, to destination: URL) throws {
+    /// Writes `source` to `destination` (replacing it) as filed, in one export: cut to `range` (ms
+    /// of the source), cropped to `crop` (pixels of the movie as displayed, `HS2-M03YP2`), then
+    /// scaled to `size` (pixels, aspect ratio the caller's). Any may be nil: no cut, no crop, or
+    /// the (cropped) size; a crop alone renders at its size with sides rounded down to even
+    /// (`renderSize`). Re-encodes at the highest quality so the cut is frame-accurate rather than
+    /// snapped to key frames. Audio is kept. Blocks until the export finishes. Submitting uses it
+    /// for trims, crops, and AI downscaling (docs/07 §7.5, `HS2-PT8PM6`).
+    public static func export(
+        _ source: URL, range: TimeRange?, crop: PixelRect? = nil, size: PixelSize? = nil, to destination: URL
+    ) throws {
         guard let fileType = fileType(for: destination) else { throw VideoTrimError.unsupportedFile(destination.lastPathComponent) }
         let asset = AVURLAsset(url: source)
         guard let session = AVAssetExportSession(asset: asset, presetName: AVAssetExportPresetHighestQuality) else {
@@ -49,12 +53,12 @@ public enum VideoTrim {
                 end: CMTime(value: CMTimeValue(range.endMs), timescale: 1000)
             )
         }
-        if let size {
+        if crop != nil || size != nil {
             let box = CompositionBox()
             let done = DispatchSemaphore(value: 0)
             Task.detached {
                 do {
-                    box.result = try await .success(scalingComposition(asset, to: size))
+                    box.result = try await .success(composition(asset, crop: crop, size: size))
                 } catch {
                     box.result = .failure(error)
                 }
@@ -63,8 +67,8 @@ public enum VideoTrim {
             done.wait()
             switch box.result {
             case let .success(composition): session.videoComposition = composition
-            case let .failure(error): throw VideoTrimError.failed("can't scale \(source.lastPathComponent): \(error)")
-            case nil: throw VideoTrimError.failed("can't scale \(source.lastPathComponent)")
+            case let .failure(error): throw VideoTrimError.failed("can't crop or scale \(source.lastPathComponent): \(error)")
+            case nil: throw VideoTrimError.failed("can't crop or scale \(source.lastPathComponent)")
             }
         }
         let done = DispatchSemaphore(value: 0)
@@ -77,10 +81,17 @@ public enum VideoTrim {
         _ = try FileManager.default.replaceItemAt(destination, withItemAt: temporary)
     }
 
+    /// The size a crop alone renders at: its sides rounded down to even, at least 2 (H.264). The
+    /// editor already makes video crops even (`PixelRect.evened`); this covers other records.
+    public static func renderSize(_ crop: PixelRect) -> CGSize {
+        CGSize(width: max(crop.width - crop.width % 2, 2), height: max(crop.height - crop.height % 2, 2))
+    }
+
     /// A composition drawing the movie's video track (as displayed: its preferred transform
-    /// applied) scaled to fill `size`, at the movie's frame rate (the recorded rate, else the
-    /// nominal one, else 30 fps).
-    static func scalingComposition(_ asset: AVURLAsset, to size: PixelSize) async throws -> AVVideoComposition {
+    /// applied), cut to `crop` (default the whole frame) and scaled to fill `size` (default the
+    /// crop's `renderSize`), at the movie's frame rate (the recorded rate, else the nominal one,
+    /// else 30 fps).
+    static func composition(_ asset: AVURLAsset, crop: PixelRect?, size: PixelSize?) async throws -> AVVideoComposition {
         guard let track = try await asset.loadTracks(withMediaType: .video).first else {
             throw VideoTrimError.failed("no video track")
         }
@@ -89,8 +100,11 @@ public enum VideoTrim {
         let display = CGRect(origin: .zero, size: natural).applying(preferred)
         guard display.width > 0, display.height > 0 else { throw VideoTrimError.failed("empty video track") }
         let rate = await recordedFrameRate(asset) ?? (nominal.isFinite && nominal >= 1 ? Double(nominal) : 30)
+        let source = crop?.cgRect ?? CGRect(origin: .zero, size: display.size)
+        let size = size ?? crop.map(renderSize).map { PixelSize(width: Int($0.width), height: Int($0.height)) }
+            ?? PixelSize(width: Int(display.width.rounded()), height: Int(display.height.rounded()))
         var layer = AVVideoCompositionLayerInstruction.Configuration(assetTrack: track)
-        layer.setTransform(renderTransform(preferred: preferred, display: display, to: size), at: .zero)
+        layer.setTransform(renderTransform(preferred: preferred, display: display, crop: source, to: size), at: .zero)
         let instruction = AVVideoCompositionInstruction(configuration: .init(
             layerInstructions: [AVVideoCompositionLayerInstruction(configuration: layer)],
             timeRange: CMTimeRange(start: .zero, duration: duration)
@@ -103,11 +117,15 @@ public enum VideoTrim {
     }
 
     /// Natural track pixels → the output frame: the preferred transform (moved so the displayed
-    /// frame starts at 0, 0), then a scale from the displayed size to `size`.
-    static func renderTransform(preferred: CGAffineTransform, display: CGRect, to size: PixelSize) -> CGAffineTransform {
-        preferred
-            .concatenating(CGAffineTransform(translationX: -display.minX, y: -display.minY))
-            .concatenating(CGAffineTransform(scaleX: CGFloat(size.width) / display.width, y: CGFloat(size.height) / display.height))
+    /// frame starts at 0, 0), then a move of `crop`'s origin (displayed pixels; default the whole
+    /// frame) to 0, 0, then a scale from the crop's size to `size`. The render size cuts off the rest.
+    static func renderTransform(
+        preferred: CGAffineTransform, display: CGRect, crop: CGRect? = nil, to size: PixelSize
+    ) -> CGAffineTransform {
+        let source = crop ?? CGRect(origin: .zero, size: display.size)
+        return preferred
+            .concatenating(CGAffineTransform(translationX: -display.minX - source.minX, y: -display.minY - source.minY))
+            .concatenating(CGAffineTransform(scaleX: CGFloat(size.width) / source.width, y: CGFloat(size.height) / source.height))
     }
 
     /// Carries the composition out of the detached task that loads it.

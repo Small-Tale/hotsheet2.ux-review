@@ -112,17 +112,9 @@ public extension AnnotationEditor {
     /// original), mapping annotation ranges back. Undoable.
     @discardableResult
     mutating func resetTrim() -> Bool {
-        guard let item = currentMedia, let trim = document.trims[item.id], let original = originalDurations[item.id] else { return false }
+        guard let item = currentMedia, document.trims[item.id] != nil, let original = originalDurations[item.id] else { return false }
         return perform { snapshot in
-            snapshot.document.trims[item.id] = nil
-            snapshot.document.bundle.setDuration(item.id, original)
-            for index in snapshot.document.bundle.annotations.indices where snapshot.document.bundle.annotations[index].mediaId == item.id {
-                guard let range = snapshot.document.bundle.annotations[index].timeRange else { continue }
-                snapshot.document.bundle.annotations[index].timeRange = TimeRange(
-                    startMs: range.startMs + trim.startMs, endMs: range.endMs + trim.startMs
-                )
-            }
-            snapshot.timeMs += trim.startMs
+            Self.removeTrim(of: item.id, originalMs: original, in: &snapshot)
             return true
         }
     }
@@ -133,14 +125,36 @@ public extension AnnotationEditor {
         return document.crops[id] != nil || document.trims[id] != nil
     }
 
-    /// Restore Original: resets the current image's crop or the current video's trim.
+    /// Restore Original: removes the current capture's crop and, on a video, its trim too, as
+    /// one undo step (docs/06 §6.6, §6.10).
     @discardableResult
     mutating func restoreOriginal() -> Bool {
-        currentMedia?.kind == .video ? resetTrim() : resetCrop()
+        guard let item = currentMedia, canRestoreOriginal, let size = originalSize(of: item.id) else { return false }
+        let duration = originalDurations[item.id]
+        return perform { snapshot in
+            Self.removeCrop(of: item.id, original: size, in: &snapshot)
+            if let duration { Self.removeTrim(of: item.id, originalMs: duration, in: &snapshot) }
+            return true
+        }
     }
 }
 
 extension AnnotationEditor {
+    /// Takes `mediaId`'s trim out of `snapshot`: the full length (`original` ms) back, ranges
+    /// mapped back, and the playhead on the same frame.
+    static func removeTrim(of mediaId: String, originalMs original: Int, in snapshot: inout Snapshot) {
+        guard let trim = snapshot.document.trims[mediaId] else { return }
+        snapshot.document.trims[mediaId] = nil
+        snapshot.document.bundle.setDuration(mediaId, original)
+        for index in snapshot.document.bundle.annotations.indices where snapshot.document.bundle.annotations[index].mediaId == mediaId {
+            guard let range = snapshot.document.bundle.annotations[index].timeRange else { continue }
+            snapshot.document.bundle.annotations[index].timeRange = TimeRange(
+                startMs: range.startMs + trim.startMs, endMs: range.endMs + trim.startMs
+            )
+        }
+        if snapshot.mediaId == mediaId { snapshot.timeMs += trim.startMs }
+    }
+
     mutating func setTimeRange(_ range: TimeRange?, for id: String, coalescing key: CoalesceKey?) -> Bool {
         guard let target = annotation(id), let item = media(target.mediaId), item.kind == .video else { return false }
         let clamped = range.map { range -> TimeRange in

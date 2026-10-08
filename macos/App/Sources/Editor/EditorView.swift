@@ -60,7 +60,7 @@ struct EditorToolbar: View {
                 Button("Restore Original") { model.mutate { _ = $0.restoreOriginal() } }
                     .help(
                         item.kind == .video
-                            ? "Undo every trim of this video, including earlier sessions'; hidden annotations come back"
+                            ? "Remove this video's crop and trim, including ones from an earlier session; hidden annotations come back"
                             : "Remove this capture's crop, including one from an earlier session; hidden annotations come back"
                     )
             }

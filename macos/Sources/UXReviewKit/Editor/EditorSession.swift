@@ -136,10 +136,23 @@ public final class EditorSession {
     /// frame). Nil when the file can't be read.
     public func displayImage(_ mediaId: String, atMs: Int? = nil, uncropped: Bool = false) -> CGImage? {
         guard let item = editor.media(mediaId) else { return nil }
-        if item.kind == .video { return frame(item, atMs: atMs ?? time(of: mediaId)) }
-        guard let base = baseImage(item) else { return nil }
-        guard !uncropped, let crop = editor.document.crops[mediaId] else { return base }
-        return ImageCrop.apply(crop, to: base)
+        let base = item.kind == .video ? frame(item, atMs: atMs ?? time(of: mediaId)) : baseImage(item)
+        guard let base else { return nil }
+        return uncropped ? base : cropped(base, for: mediaId)
+    }
+
+    /// `image` (a whole frame or image of `mediaId`) cut to its crop, as the canvas simulates it
+    /// (`HS2-M03YP2`: video frames, playing or not). A frame of another size than the original
+    /// is cut proportionally.
+    public func cropped(_ image: CGImage, for mediaId: String) -> CGImage {
+        guard let crop = editor.document.crops[mediaId], let size = editor.originalSize(of: mediaId) else { return image }
+        let scaleX = Double(image.width) / Double(max(size.width, 1))
+        let scaleY = Double(image.height) / Double(max(size.height, 1))
+        let rect = CGRect(
+            x: Double(crop.x) * scaleX, y: Double(crop.y) * scaleY,
+            width: Double(crop.width) * scaleX, height: Double(crop.height) * scaleY
+        ).integral
+        return image.cropping(to: rect) ?? image
     }
 
     /// The image the canvas draws for the current media: uncropped while the Crop tool shows the

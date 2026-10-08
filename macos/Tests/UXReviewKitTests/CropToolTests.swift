@@ -68,13 +68,32 @@ struct CropToolTests {
         )
     }
 
-    @Test func videosAndEmptyReviewsNeverShowTheOriginal() {
+    /// HS2-M03YP2: videos crop with the same tool and rules, with even sides (H.264).
+    @Test func videosCropLikeImagesWithEvenSidesAndEmptyReviewsNeverShowTheOriginal() {
         var editor = Self.editor()
         editor.show(mediaId: "v1")
         editor.setTool(.crop)
-        #expect(!editor.showsOriginal && editor.cropOverlay == nil && editor.message == nil)
-        editor.beginGesture(at: Self.p(10, 10))
-        #expect(editor.gesture == nil && editor.message == "Videos can't be cropped.")
+        #expect(editor.showsOriginal && editor.message == AnnotationEditor.cropHint)
+        #expect(editor.cropOverlay == CGRect(x: 0, y: 0, width: 1000, height: 500))
+        Fixture.drag(&editor, [Self.p(101, 51), Self.p(400.5, 250)]) // 101…401 × 51…250: odd sides
+        #expect(editor.document.crops["v1"] == PixelRect(x: 101, y: 51, width: 300, height: 200))
+        Fixture.drag(&editor, [Self.p(401, 150), Self.p(500.2, 150)]) // the right edge to 501: 400 wide
+        #expect(editor.document.crops["v1"] == PixelRect(x: 101, y: 51, width: 400, height: 200))
+        Fixture.drag(&editor, [Self.p(101, 51), Self.p(0, 0)]) // top-left out to the corner: 501 × 251
+        #expect(editor.document.crops["v1"] == PixelRect(x: 0, y: 0, width: 502, height: 252), "grown right to even")
+        #expect(editor.currentFrame == MediaFrame(width: 502, height: 252) && editor.tool == .crop)
+        #expect(editor.message == "Cropped to 502 × 252 px.")
+        // Restore Original removes the crop and the trim as one step.
+        let trimmed = editor.trim(to: TimeRange(startMs: 1000, endMs: 3000))
+        #expect(trimmed)
+        let depth = editor.undoStack.count
+        let restored = editor.restoreOriginal()
+        #expect(restored && editor.document.crops["v1"] == nil && editor.document.trims["v1"] == nil)
+        #expect(editor.currentFrame == Self.original && editor.currentDurationMs == 4000)
+        #expect(editor.undoStack.count == depth + 1)
+        editor.undo()
+        #expect(editor.document.crops["v1"] == PixelRect(x: 0, y: 0, width: 502, height: 252))
+        #expect(editor.document.trims["v1"] == TimeRange(startMs: 1000, endMs: 3000))
 
         var empty = AnnotationEditor(bundle: TestSupport.bundle(media: []))
         empty.setTool(.crop)
@@ -265,8 +284,8 @@ struct CropToolTests {
             "m1": PixelRect(x: 100, y: 100, width: 500, height: 250),
             "m2": PixelRect(x: 50, y: 50, width: 400, height: 300),
         ])
-        editor.show(mediaId: "v1") // a video: the cropped view of nothing, no crop overlay
-        #expect(!editor.showsOriginal && editor.cropOverlay == nil)
+        editor.show(mediaId: "v1") // a video, uncropped: the whole frame
+        #expect(editor.showsOriginal && editor.cropOverlay == CGRect(x: 0, y: 0, width: 1000, height: 500))
         editor.show(mediaId: "m1")
         #expect(editor.cropOverlay == CGRect(x: 100, y: 100, width: 500, height: 250))
         // Undo jumps back to the capture whose crop it undoes.
@@ -339,15 +358,15 @@ extension CropToolTests {
 
     static func checkInvariants(_ editor: AnnotationEditor, _ context: String) {
         guard let item = editor.currentMedia else { return }
-        let image = item.kind == .image
-        #expect(editor.showsOriginal == (editor.tool == .crop && image), "\(context)")
+        #expect(item.kind == .video || item.kind == .image)
+        #expect(editor.showsOriginal == (editor.tool == .crop), "\(context)")
         if editor.showsOriginal {
             #expect(editor.canvasFrame == original && editor.canvasOrigin == .zero, "\(context)")
             #expect(editor.cropOverlay != nil, "\(context)")
         } else {
             #expect(editor.canvasFrame == editor.currentFrame && editor.cropOverlay == nil, "\(context)")
         }
-        for media in ["m1", "m2"] {
+        for media in ["m1", "m2", "v1"] {
             let crop = editor.document.crops[media]
             let size = editor.media(media).map { PixelRect(x: 0, y: 0, width: $0.pixelWidth, height: $0.pixelHeight) }
             #expect(
@@ -358,11 +377,11 @@ extension CropToolTests {
                 #expect(crop != editor.originalSize(of: media), "\(context): a whole-image crop is stored as none")
                 #expect(crop.x >= 0 && crop.y >= 0 && crop.x + crop.width <= 1000 && crop.y + crop.height <= 500, "\(context)")
                 #expect(crop.width >= ImageCrop.minimumSide && crop.height >= ImageCrop.minimumSide, "\(context)")
+                if media == "v1" { #expect(crop.width % 2 == 0 && crop.height % 2 == 0, "\(context): video crops are even") }
             }
             for annotation in editor.annotationsInOriginal(on: media) {
                 #expect(annotation.shape == drawn[annotation.id], "\(context): \(annotation.id) drifted")
             }
         }
-        #expect(editor.document.crops["v1"] == nil, "\(context)")
     }
 }

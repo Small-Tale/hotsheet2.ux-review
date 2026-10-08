@@ -117,6 +117,9 @@ enum EditorPreviews {
             ("editor-video-timeline", CGSize(width: 1240, height: 800), [EditorScript.Step]()),
             ("editor-video-narrow", CGSize(width: 900, height: 560), []),
             ("editor-video-trimmed", CGSize(width: 1240, height: 800), [.trim(TimeRange(startMs: 500, endMs: duration)), .time(1000)]),
+            // A video crop (docs/06 §6.6): the whole frame under the Crop tool, then the cut frame.
+            ("editor-video-crop-tool", CGSize(width: 1240, height: 800), [.tool(.crop), .crop(videoCrop)]),
+            ("editor-video-cropped", CGSize(width: 1240, height: 800), [.tool(.crop), .crop(videoCrop), .tool(.select)]),
         ] {
             let model = try EditorModel(session: EditorSession(store: store, directory: draft.directory))
             offerWindowButtons(model)
@@ -468,29 +471,5 @@ struct MockScreenshot {
         text("Cancel", 1205, 904, size: 20)
         fill(CGRect(x: 1310, y: 870, width: 120, height: 52), CGColor(srgbRed: 0.04, green: 0.52, blue: 1, alpha: 1), radius: 10)
         text("Save", 1346, 904, size: 20, gray: 1, bold: true)
-    }
-}
-
-/// The Crop tool's preview states (docs/06 §6.6).
-extension EditorPreviews {
-    /// The Crop tool states: name, script steps after the annotations, and a press still held.
-    static var cropStates: [(String, [EditorScript.Step], [CGPoint])] {
-        let crop = CGRect(x: 220, y: 90, width: 1180, height: 560)
-        return [
-            ("editor-crop-drag", [.tool(.crop)], [CGPoint(x: 220, y: 90), CGPoint(x: 1400, y: 650)]),
-            ("editor-crop-tool", [.tool(.crop), .crop(crop)], []),
-            ("editor-crop-adjust", [.tool(.crop), .crop(crop)], [CGPoint(x: 1400, y: 370), CGPoint(x: 1530, y: 400)]),
-            ("editor-cropped", [.tool(.crop), .crop(crop), .tool(.select)], []),
-        ]
-    }
-
-    /// A gesture still in progress: pressed at the first point, dragged through the rest.
-    static func hold(_ points: [CGPoint], in model: EditorModel) {
-        guard let first = points.first else { return }
-        model.mutate { editor in
-            editor.hitTolerance = 7
-            editor.beginGesture(at: first)
-            points.dropFirst().forEach { editor.updateGesture(to: $0) }
-        }
     }
 }

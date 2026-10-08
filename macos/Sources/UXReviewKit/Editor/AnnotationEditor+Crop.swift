@@ -1,22 +1,18 @@
 import CoreGraphics
 import Foundation
 
-// The crop (`HS2-4N722Z`). Each capture has at most one crop, relative to its original (the file
-// as captured); a new or adjusted crop replaces it, and crops never compose. While the Crop tool
+// The crop (`HS2-4N722Z`; videos `HS2-M03YP2`). Each capture, image or video, has at most one
+// crop, relative to its original (the file as captured); a new or adjusted crop replaces it, and
+// crops never compose. Video crops have even sides (H.264). While the Crop tool
 // is chosen the canvas shows the original with the crop rectangle on it (`showsOriginal`); with
 // any other tool it shows the cropped media, and everything (fit, zoom, hit testing, drawing)
 // works in the cropped frame. Spec: docs/06-annotation-editor.md §6.6.
 public extension AnnotationEditor {
     // MARK: Canvas space
 
-    /// Whether `item` can be cropped.
-    func canCrop(_ item: MediaItem) -> Bool { item.kind == .image }
-
-    /// True while the Crop tool shows the current media uncropped, with its crop rectangle.
-    var showsOriginal: Bool {
-        guard tool == .crop, let item = currentMedia else { return false }
-        return canCrop(item)
-    }
+    /// True while the Crop tool shows the current media (image or video) uncropped, with its
+    /// crop rectangle.
+    var showsOriginal: Bool { tool == .crop && currentMedia != nil }
 
     /// The size of `mediaId`'s original, which crops are relative to.
     func originalSize(of mediaId: String) -> PixelRect? {
@@ -70,10 +66,6 @@ public extension AnnotationEditor {
     /// A Crop tool press at `start` (pixels of the original): on an edge or corner of the crop
     /// rectangle it resizes, inside a crop it moves, elsewhere it draws a new rectangle.
     internal mutating func beginCropGesture(_ item: MediaItem, at start: CGPoint) {
-        guard canCrop(item) else {
-            message = "Videos can't be cropped."
-            return
-        }
         gestureBase = snapshot
         if let crop = cropRect(of: item.id), let handle = cropHandle(at: start) {
             gesture = .adjustingCrop(handle, start: start, origin: crop, rect: crop.cgRect)
@@ -131,18 +123,19 @@ public extension AnnotationEditor {
     /// pixels and clipped to it), replacing any earlier crop: one undo step. A rectangle covering
     /// the whole original removes the crop. Annotations move with the media exactly; those left
     /// outside are hidden, not removed, and come back when the crop is widened or restored. The
-    /// file itself is cropped only when the review is submitted (`HS2-71SSJG`). The tool stays as
-    /// it is. Returns false, with a message, when the crop is refused.
+    /// file itself is cropped only when the review is submitted (`HS2-71SSJG`). A video's crop is
+    /// then widened to even sides (`PixelRect.evened`), so the filed movie is exactly its size. The
+    /// tool stays as it is. Returns false, with a message, when the crop is refused.
     @discardableResult
     mutating func crop(to rect: CGRect) -> Bool {
-        guard let item = currentMedia else { return false }
-        guard canCrop(item) else {
-            message = "Videos can't be cropped."
+        guard let item = currentMedia, let original = originalSize(of: item.id),
+              var pixels = PixelRect.snapping(rect, width: original.width, height: original.height)
+        else {
+            message = "A crop must be at least \(ImageCrop.minimumSide) × \(ImageCrop.minimumSide) pixels."
             return false
         }
-        guard let original = originalSize(of: item.id),
-              let pixels = PixelRect.snapping(rect, width: original.width, height: original.height),
-              pixels.width >= ImageCrop.minimumSide, pixels.height >= ImageCrop.minimumSide
+        if item.kind == .video { pixels = pixels.evened(within: original) }
+        guard pixels.width >= ImageCrop.minimumSide, pixels.height >= ImageCrop.minimumSide
         else {
             message = "A crop must be at least \(ImageCrop.minimumSide) × \(ImageCrop.minimumSide) pixels."
             return false
@@ -168,21 +161,33 @@ public extension AnnotationEditor {
         return true
     }
 
-    /// Restore Original for an image: removes its crop, mapping annotations back onto the
-    /// original. Undoable.
+    /// Removes the current media's crop, mapping annotations back onto the original. Undoable.
     @discardableResult
     mutating func resetCrop() -> Bool {
-        guard let item = currentMedia, let crop = document.crops[item.id], let original = originalSize(of: item.id) else { return false }
+        guard let item = currentMedia, document.crops[item.id] != nil, let original = originalSize(of: item.id) else { return false }
         return perform { snapshot in
-            snapshot.document.crops[item.id] = nil
-            snapshot.document.bundle.resize(item.id, width: original.width, height: original.height)
-            for index in snapshot.document.bundle.annotations.indices where snapshot.document.bundle.annotations[index].mediaId == item.id {
-                snapshot.document.bundle.annotations[index].shape = Self.reproject(
-                    snapshot.document.bundle.annotations[index].shape, from: crop, to: nil, original: original
-                )
-            }
+            Self.removeCrop(of: item.id, original: original, in: &snapshot)
             return true
         }
+    }
+
+    /// Takes `mediaId`'s crop out of `snapshot`, mapping its annotations back onto `original`.
+    internal static func removeCrop(of mediaId: String, original: PixelRect, in snapshot: inout Snapshot) {
+        guard let crop = snapshot.document.crops[mediaId] else { return }
+        snapshot.document.crops[mediaId] = nil
+        snapshot.document.bundle.resize(mediaId, width: original.width, height: original.height)
+        for index in snapshot.document.bundle.annotations.indices where snapshot.document.bundle.annotations[index].mediaId == mediaId {
+            snapshot.document.bundle.annotations[index].shape = reproject(
+                snapshot.document.bundle.annotations[index].shape, from: crop, to: nil, original: original
+            )
+        }
+    }
+
+    /// "crop" or "trim": what an annotation lies outside of (hidden, and left out when
+    /// submitting), or nil when it shows.
+    func outsideReason(_ annotation: Annotation) -> String? {
+        guard isOutsideEdit(annotation) else { return nil }
+        return document.crops[annotation.mediaId] != nil && EditProjection.isOutside(annotation.shape) ? "crop" : "trim"
     }
 
     /// `shape`, normalized to crop `from` of `original` (nil: the whole original), normalized to

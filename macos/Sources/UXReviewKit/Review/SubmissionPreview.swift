@@ -34,7 +34,12 @@ public struct SubmissionPreview: Equatable, Sendable {
         /// "2 annotations outside the crop will be left out", or nil when none are.
         public var leftOutNote: String? {
             guard leftOutCount > 0 else { return nil }
-            let what = crop != nil ? "the crop" : trim != nil ? "the trim" : "the capture"
+            let what = switch (crop != nil, trim != nil) {
+            case (true, true): "the crop or trim"
+            case (true, false): "the crop"
+            case (false, true): "the trim"
+            case (false, false): "the capture"
+            }
             return "\(leftOutCount) annotation\(leftOutCount == 1 ? "" : "s") outside \(what) will be left out"
         }
     }

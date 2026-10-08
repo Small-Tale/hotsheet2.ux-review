@@ -1203,3 +1203,32 @@ capture files are no longer cropped or trimmed while drafting.
   (`--render-ui-previews`), inspected by hand.
 - **Not covered automatically:** live mouse and trackpad crop gestures (`HS2-7MFNJP`); resize
   cursors over the crop's edges are `HS2-9RRP8G`.
+
+## HS2-M03YP2: crop videos (simulated in the editor, applied when submitting)
+
+- **Unit** (`CropToolTests`, `ImageCropTests`): the Crop tool shows a video's whole frame and
+  crops it with even sides (an odd side grows right/down, else left/up at the edge); tiny and
+  whole-frame video crops are refused; Restore Original removes the crop and the trim as one
+  undo step; the random walk includes the video and checks its crops stay even;
+  `PixelRect.evened` and `VideoTrim.renderSize`.
+- **Unit, real files** (`VideoCropTests`, a 160 × 90 movie in four colored quadrants that change
+  after 1 s): the Crop tool canvas is the whole frame and other tools the cut frame (pixel colors
+  at a point in each quadrant), player-sized frames are cut the same way, the trim shows the
+  second colors, saving leaves the movie byte-identical with the crop in `edits.json` next to the
+  trim; `SubmissionPreview` reports 80 × 50, 1 s, one annotation left out ("the crop or trim");
+  the thumbnail is the cut frame at the trim start; `SubmissionStaging` exports an 80 × 50, 1 s
+  movie whose frames have the expected colors, with the outside annotation dropped and the
+  inside one mapped. With AI downscaling the same single export crops, then scales (40 × 24 or 26
+  from the 80 × 50 crop, `scaledFrom` the crop's size, "cropped, scaled for AI", colors per
+  quadrant). A crop alone keeps the whole length; an odd record renders at the even
+  size below; Restore Original in a later session clears both edits.
+- **App end to end** (`scripts/app-e2e.sh`): the submit flow crops the narrated clip with the Crop
+  tool (101 × 61 dragged, recorded as 102 × 62 next to the 0–800 ms trim, the draft movie
+  unchanged); the ticket receives an H.264 102 × 62, 0.8 s clip whose frame at 0.4 s matches
+  ffmpeg's crop of the draft movie at (20, 20) (mean difference ≤ 8 per channel), and
+  review.json says 102 × 62.
+- **Visual QA:** `editor-video-crop-tool` and `editor-video-cropped` (`--render-ui-previews`),
+  inspected by hand.
+- **Not covered automatically:** playing a cropped video in the window, the Submit Review
+  window's cropped movie thumbnail on screen, and rotated or odd-sized imported movies
+  (`HS2-5KWZPJ`). The export session calls are deprecated in macOS 15 (`HS2-XA294W`).

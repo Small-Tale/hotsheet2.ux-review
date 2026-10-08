@@ -105,7 +105,8 @@ struct DraftEditsTests {
             crops: ["m1.png": PixelRect(x: 900, y: 400, width: 100, height: 100), "v1.png": Self.crop, "gone.png": Self.crop],
             trims: ["v1.png": TimeRange(startMs: 0, endMs: 4000), "m1.png": TimeRange(startMs: 0, endMs: 10)]
         ).byMediaId(in: bundle)
-        #expect(fitting.crops == ["m1": PixelRect(x: 900, y: 400, width: 100, height: 100)])
+        // Movies crop too (HS2-M03YP2).
+        #expect(fitting.crops == ["m1": PixelRect(x: 900, y: 400, width: 100, height: 100), "v1": Self.crop])
         #expect(fitting.trims.isEmpty, "a whole-length trim is no trim; images have none")
         let outside = DraftEdits(
             crops: ["m1.png": PixelRect(x: 950, y: 0, width: 100, height: 100)],

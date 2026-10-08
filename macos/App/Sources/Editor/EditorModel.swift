@@ -192,11 +192,13 @@ final class EditorModel: ObservableObject {
         revision += 1
     }
 
-    /// What the canvas draws for the current media: as `image`, but the whole original while the
-    /// Crop tool shows it (docs/06 §6.6).
+    /// What the canvas draws for the current media: as `image`, but the whole original (or the
+    /// whole video frame, playing or not) while the Crop tool shows it (docs/06 §6.6).
     func canvasImage() -> CGImage? {
         guard let id = editor.currentMediaId else { return nil }
-        guard editor.showsOriginal, editor.media(id)?.kind == .image else { return image(id) }
+        guard editor.showsOriginal else { return image(id) }
+        if let player = playback, let frame = player.frame() { return frame }
+        if editor.media(id)?.kind == .video { return session.displayImage(id, uncropped: true) }
         if let cached = originalCache[id] { return cached }
         let image = session.displayImage(id, uncropped: true)
         originalCache[id] = image
@@ -204,9 +206,12 @@ final class EditorModel: ObservableObject {
     }
 
     /// The current image for `mediaId` (cropped as edited), cached per crop. For a video, the
-    /// frame at the playhead (the session caches frames), or the player's frame while playing.
+    /// frame at the playhead (the session caches frames), or the player's frame while playing,
+    /// cut to the video's crop (`HS2-M03YP2`).
     func image(_ mediaId: String) -> CGImage? {
-        if let player = playback, mediaId == editor.currentMediaId, let frame = player.frame() { return frame }
+        if let player = playback, mediaId == editor.currentMediaId, let frame = player.frame() {
+            return session.cropped(frame, for: mediaId)
+        }
         if editor.media(mediaId)?.kind == .video { return session.displayImage(mediaId) }
         let crop = editor.document.crops[mediaId]
         if let cached = imageCache[mediaId], cached.crop == crop { return cached.image }

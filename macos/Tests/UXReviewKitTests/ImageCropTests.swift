@@ -124,13 +124,26 @@ struct ImageCropTests {
         Fixture.drag(&editor, [Fixture.p(10, 10)]) // a click
         #expect(editor.document.crops.isEmpty && !editor.canUndo)
 
+        // Videos crop too (HS2-M03YP2); a tiny or whole-frame crop is refused the same way.
         editor.show(mediaId: "v1")
-        editor.setTool(.crop)
-        editor.beginGesture(at: Fixture.p(10, 10))
-        #expect(editor.gesture == nil)
-        #expect(editor.message == "Videos can't be cropped.")
+        let tinyVideo = editor.crop(to: CGRect(x: 0, y: 0, width: 6, height: 100))
+        #expect(!tinyVideo && editor.document.crops.isEmpty)
+        let wholeVideo = editor.crop(to: CGRect(x: 0, y: 0, width: 999.5, height: 500)) // evens out to the whole frame
+        #expect(!wholeVideo && editor.document.crops.isEmpty)
         let video = editor.crop(to: CGRect(x: 0, y: 0, width: 100, height: 100))
-        #expect(!video)
+        #expect(video && editor.document.crops["v1"] == PixelRect(x: 0, y: 0, width: 100, height: 100))
+    }
+
+    /// H.264 needs even sides: odd sides grow right/down, else left/up at the edge, and shrink only
+    /// when they already span an odd-sized frame.
+    @Test func evenedGrowsOddSidesInsideTheFrame() {
+        let frame = PixelRect(x: 0, y: 0, width: 100, height: 50)
+        #expect(PixelRect(x: 10, y: 10, width: 20, height: 20).evened(within: frame) == PixelRect(x: 10, y: 10, width: 20, height: 20))
+        #expect(PixelRect(x: 10, y: 10, width: 21, height: 9).evened(within: frame) == PixelRect(x: 10, y: 10, width: 22, height: 10))
+        #expect(PixelRect(x: 79, y: 41, width: 21, height: 9).evened(within: frame) == PixelRect(x: 78, y: 40, width: 22, height: 10))
+        let odd = PixelRect(x: 0, y: 0, width: 99, height: 49)
+        #expect(odd.evened(within: odd) == PixelRect(x: 0, y: 0, width: 98, height: 48))
+        #expect(VideoTrim.renderSize(PixelRect(x: 0, y: 0, width: 81, height: 1)) == CGSize(width: 80, height: 2))
     }
 
     @Test func resetCropMapsAnnotationsBackOntoTheOriginal() {

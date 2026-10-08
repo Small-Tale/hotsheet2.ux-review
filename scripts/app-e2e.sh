@@ -306,8 +306,7 @@ cat >"$TMP/script-annotate.json" <<'JSON'
   {"op": "crop", "rect": [20, 20, 300, 200]},
   {"op": "media", "media": "m2"},
   {"op": "tool", "tool": "rect"}, {"op": "drag", "points": [[10, 10], [100, 60]]},
-  {"op": "note", "text": "On the video"},
-  {"op": "tool", "tool": "crop"}, {"op": "drag", "points": [[0, 0], [50, 50]]}
+  {"op": "note", "text": "On the video"}
 ]}
 JSON
 run annotate 0 -- --annotate "$TMP/script-annotate.json" --drafts-dir "$ADRAFTS" --render-dir "$TMP/annotated"
@@ -330,10 +329,9 @@ cmp -s "$shot" "$TMP/shot-before-crop.png" || die "annotate: copy"
 [[ "$(json "$adraft/review.json" '`${j.media[0].pixelWidth}x${j.media[0].pixelHeight}`')" == "$original_size" ]] || die "annotate: media size changed"
 [[ "$(json "$TMP/annotate.json" '`${j.media[0].pixelWidth}x${j.media[0].pixelHeight}`')" == 300x200 ]] || die "annotate: the editor is not cropped"
 json "$TMP/annotate.json" 'j.messages.join("|")' | grep -q "Cropped to 300 × 200 px" || die "annotate: crop message"
-json "$TMP/annotate.json" 'j.messages.join("|")' | grep -q "Videos can't be cropped" || die "annotate: video crop not refused"
 [[ "$(json "$adraft/review.json" 'j.media[1].kind + ":" + j.annotations[5].mediaId')" == video:m2 ]] || die "annotate: video annotation"
 validate_bundle "$adraft/review.json"
-ok "crop recorded in edits.json (20,20 300x200); the $original_size PNG and review.json are untouched; video refused crop; review.json validates"
+ok "crop recorded in edits.json (20,20 300x200); the $original_size PNG and review.json are untouched; review.json validates"
 
 [[ "$(png_size "$TMP/annotated/capture-1-annotated.png")" == 300x200 ]] || die "annotate: render size"
 [[ -s "$TMP/annotated/capture-2-annotated.png" ]] || die "annotate: video poster render missing"
@@ -602,11 +600,19 @@ run submit-clip 0 "${SYN[@]}" -- --capture video --narration --target region --r
 [[ "$(json "$TMP/submit-clip.json" j.media.hasAudio)" == true ]] || die "submit: the narrated clip is not marked hasAudio"
 sdraft="$(json "$TMP/submit-shot.json" j.draftDirectory)"
 [[ "$(json "$TMP/submit-clip.json" j.draftDirectory)" == "$sdraft" ]] || die "submit: captures went to different drafts"
-echo '{"steps": [{"op": "tool", "tool": "rect"}, {"op": "drag", "points": [[30, 30], [150, 90]]}, {"op": "note", "text": "Clipped label"}, {"op": "intent", "intent": "bug"}, {"op": "media", "media": "m2"}, {"op": "tool", "tool": "insertion"}, {"op": "drag", "points": [[50, 40]]}, {"op": "note", "text": "Add a hint"}, {"op": "media", "media": "m1"}, {"op": "tool", "tool": "rect"}, {"op": "drag", "points": [[300, 200], [380, 240]]}, {"op": "crop", "rect": [0, 0, 200, 120]}, {"op": "media", "media": "m2"}, {"op": "trim", "start": 0, "end": 800}]}' >"$TMP/script-submit.json"
+echo '{"steps": [{"op": "tool", "tool": "rect"}, {"op": "drag", "points": [[30, 30], [150, 90]]}, {"op": "note", "text": "Clipped label"}, {"op": "intent", "intent": "bug"}, {"op": "media", "media": "m2"}, {"op": "tool", "tool": "insertion"}, {"op": "drag", "points": [[50, 40]]}, {"op": "note", "text": "Add a hint"}, {"op": "media", "media": "m1"}, {"op": "tool", "tool": "rect"}, {"op": "drag", "points": [[300, 200], [380, 240]]}, {"op": "crop", "rect": [0, 0, 200, 120]}, {"op": "media", "media": "m2"}, {"op": "trim", "start": 0, "end": 800}, {"op": "tool", "tool": "crop"}, {"op": "drag", "points": [[20, 20], [121, 81]]}]}' >"$TMP/script-submit.json"
+clip_bytes="$(cksum <"$sdraft/capture-2.mov")"
 run submit-annotate 0 -- --annotate "$TMP/script-submit.json" --drafts-dir "$SDRAFTS"
 shot_size="$(png_size "$sdraft/capture-1.png")"
 [[ "$shot_size" != 200x120 ]] || die "submit: the draft PNG was cropped before submitting"
-ok "a two-capture session (screenshot + video) with an annotation on each, the screenshot cropped to 200x120 (plus one annotation outside the crop) and the clip trimmed to 0.8 s"
+# HS2-M03YP2: the clip's crop (101 x 61 dragged, widened to even 102 x 62) is recorded next to its
+# trim; the movie itself is never rewritten while drafting.
+[[ "$(cksum <"$sdraft/capture-2.mov")" == "$clip_bytes" ]] || die "submit: the draft movie was rewritten"
+[[ "$(json "$sdraft/edits.json" '((c, t) => `${c.x},${c.y},${c.width}x${c.height}/${t.startMs}-${t.endMs}`)(j.crops["capture-2.mov"], j.trims["capture-2.mov"])')" == "20,20,102x62/0-800" ]] \
+  || die "submit: video edits $(cat "$sdraft/edits.json")"
+[[ "$(json "$TMP/submit-annotate.json" '`${j.media[1].pixelWidth}x${j.media[1].pixelHeight}`')" == 102x62 ]] || die "submit: the editor's clip is not cropped"
+cp "$sdraft/capture-2.mov" "$TMP/clip-before-submit.mov"
+ok "a two-capture session (screenshot + video) with an annotation on each, the screenshot cropped to 200x120 (plus one annotation outside the crop), the clip trimmed to 0.8 s and cropped to 102x62 (edits.json; the movie untouched)"
 
 run submit-noproject 3 -- --submit --drafts-dir "$SDRAFTS" --project "$TMP/noproj"
 [[ "$(json "$TMP/submit-noproject.json" j.error)" == hotSheetUnavailable ]] || die "submit: no-store error"
@@ -656,14 +662,26 @@ filed_png="$(find "$TMP/subproj.hs2" -path '*attachments*' -name capture-1.png |
 filed_mov="$(find "$TMP/subproj.hs2" -path '*attachments*' -name capture-2.mov | head -1)"
 filed_json="$(find "$TMP/subproj.hs2" -path '*attachments*' -name review.json | head -1)"
 [[ -n "$filed_png" && "$(png_size "$filed_png")" == 200x120 ]] || die "submit: the filed PNG is not the crop ($(png_size "$filed_png"))"
-[[ "$(json "$filed_json" '`${j.media[0].pixelWidth}x${j.media[0].pixelHeight}/${j.media[1].durationMs}/${j.annotations.length}`')" == "200x120/800/2" ]] \
-  || die "submit: filed review.json $(json "$filed_json" '`${j.media[0].pixelWidth}x${j.media[0].pixelHeight}/${j.media[1].durationMs}/${j.annotations.length}`')"
+[[ "$(json "$filed_json" '`${j.media[0].pixelWidth}x${j.media[0].pixelHeight}/${j.media[1].pixelWidth}x${j.media[1].pixelHeight}/${j.media[1].durationMs}/${j.annotations.length}`')" == "200x120/102x62/800/2" ]] \
+  || die "submit: filed review.json $(json "$filed_json" '`${j.media[0].pixelWidth}x${j.media[0].pixelHeight}/${j.media[1].pixelWidth}x${j.media[1].pixelHeight}/${j.media[1].durationMs}/${j.annotations.length}`')"
 validate_bundle "$filed_json"
 if command -v ffprobe >/dev/null; then
-  secs="$(ffprobe -v error -show_entries format=duration -of csv=p=0 "$filed_mov")"
-  node -e "process.exit(Math.abs(parseFloat('$secs') - 0.8) <= 0.11 ? 0 : 1)" || die "submit: filed clip is $secs s"
+  probe="$(ffprobe -v error -select_streams v:0 -show_entries stream=codec_name,width,height:format=duration -of csv=p=0 "$filed_mov" | tr '\n' ',')"
+  [[ "$probe" == "h264,102,62,"* ]] || die "submit: filed clip is $probe"
+  node -e "process.exit(Math.abs(parseFloat('${probe##h264,102,62,}') - 0.8) <= 0.11 ? 0 : 1)" || die "submit: filed clip is $probe"
+  # Its frames are the draft movie's frames cut at (20, 20): compare one with ffmpeg's own crop.
+  frame() { ffmpeg -v error -ss 0.4 -i "$1" -frames:v 1 ${2:+-vf "$2"} -f rawvideo -pix_fmt rgb24 -; }
+  frame "$filed_mov" >"$TMP/filed-frame.rgb"
+  frame "$TMP/clip-before-submit.mov" "crop=102:62:20:20" >"$TMP/expected-frame.rgb"
+  node -e '
+    const fs = require("fs"); const a = fs.readFileSync(process.argv[1]), b = fs.readFileSync(process.argv[2]);
+    if (a.length !== 102 * 62 * 3 || a.length !== b.length) { console.error(`sizes ${a.length} ${b.length}`); process.exit(1); }
+    let sum = 0; for (let i = 0; i < a.length; i++) sum += Math.abs(a[i] - b[i]);
+    const mean = sum / a.length; if (mean > 8) { console.error(`mean difference ${mean}`); process.exit(1); }' \
+    "$TMP/filed-frame.rgb" "$TMP/expected-frame.rgb" || die "submit: the filed clip's pixels are not the crop"
+  ok "the filed clip is H.264 102x62, 0.8 s, and its pixels match ffmpeg's crop of the draft movie at (20, 20)"
 fi
-ok "the ticket received the 200x120 crop and the 0.8 s clip, with the annotation outside the crop left out; review.json validates"
+ok "the ticket received the 200x120 crop and the 0.8 s, 102x62 clip, with the annotation outside the crop left out; review.json validates"
 ok "attach failure keeps the draft (exit 5, ticket named); retry attaches to the same ticket; the draft is deleted; ticket has both captures (the narrated one marked with audio), the summary, and review.json"
 
 echo "review session: resume an interrupted attach (HS2-QNWMKF)"
@@ -1038,7 +1056,7 @@ ok "a Trash that refuses keeps the draft (exit 5); --delete deletes it immediate
 
 run previews 0 -- --render-ui-previews "$TMP/previews"
 for name in overlay-region-hint overlay-window-hint overlay-region-selection overlay-region-selection-bottom-edge overlay-window-hover recording-dim-region hud-countdown hud-saved hud-recording-countdown hud-recording hud-saved-video hud-recording-narration hud-saved-narrated settings-registered settings-in-use status-bar-icon-light status-bar-icon-dark menu-capture-target-row-light menu-capture-target-row-dark menu-delayed-row-light menu-delayed-row-dark \
-  editor-empty editor-no-media editor-annotated editor-arrow-selected editor-narrow editor-crop-drag editor-crop-tool editor-crop-adjust editor-cropped editor-multi-select editor-zoomed editor-keyboard-insert editor-video-timeline editor-video-narrow editor-video-trimmed editor-video-playing editor-video-range-drag editor-video-trim-drag editor-autoscroll \
+  editor-empty editor-no-media editor-annotated editor-arrow-selected editor-narrow editor-crop-drag editor-crop-tool editor-crop-adjust editor-cropped editor-multi-select editor-zoomed editor-keyboard-insert editor-video-timeline editor-video-narrow editor-video-trimmed editor-video-crop-tool editor-video-cropped editor-video-playing editor-video-range-drag editor-video-trim-drag editor-autoscroll \
   session-ready session-narrow session-edited session-submitting session-failed session-submitted session-issues session-empty \
   session-existing-looking session-existing-found session-existing-narrow session-existing-not-found session-existing-closed \
   session-existing-failed session-existing-submitted session-existing-selection session-existing-abandoned \

@@ -44,11 +44,11 @@ macos/
     Capture/CapturePhase.swift        capture life-cycle transition rules (docs/04 §4.10)
     Capture/CaptureCommand.swift      `--capture` argument parsing (docs/04 §4.11)
     Review/ReviewDraftStore.swift     draft reviews on disk, createEmptyDraft for New Review (docs/04 §4.6)
-    Review/DraftEdits.swift           edits.json (crops + trims until submitting), EditProjection: exact maps, outside rules, clipping (docs/06 §6.6, §6.10)
+    Review/DraftEdits.swift           edits.json (image and movie crops + trims until submitting), EditProjection: exact maps, outside rules, clipping (docs/06 §6.6, §6.10)
     Review/DraftEdits+Legacy.swift    migrateLegacyEdits: originals/ + crops.json drafts → edits.json
     Review/ReviewSelection.swift      the part of a review that goes to an existing ticket (what is left out), apply/prune (docs/07 §7.2.2)
     Review/SubmissionPreview.swift    each capture as it will be filed (cropped size, trimmed length, AI-scaled size, annotations left out) for the Submit Review window (docs/07 §7.2)
-    Review/SubmissionStaging.swift    applies crops + trims, then AI downscaling, into .submission/ when filing (docs/07 §7.5)
+    Review/SubmissionStaging.swift    applies crops + trims, then AI downscaling, into .submission/ when filing: cropped PNGs, movies trimmed + cropped + scaled in one export (docs/07 §7.5)
     Review/MediaScaling.swift         PixelSize, AIToolSettings (ai-settings JSON), MediaScaleTarget (Claude tiers' resize rule, Codex / 2048 px fallback, even movie sides), ClaudeVisionTier model mapping (docs/07 §7.5.1)
     Review/MediaImporter.swift        existing images/movies → draft (PNG re-encode, movie copy), `--import` parsing (docs/04 §4.12)
     Review/MediaOpenRouting.swift     Finder Open With / editor drop routing plan (dedupe, all-or-nothing), OpenBatch, `--open-media` parsing (docs/04 §4.12.1)
@@ -74,13 +74,13 @@ macos/
     Editor/FrameGrid.swift            uniform frame grid for frame steps at a movie's expected rate (recorded, constant nominal, or a variable-rate movie's snapped interval) (docs/06 §6.10)
     Editor/AnnotationEditor+Media.swift  syncMedia/dropMedia: follow captures added to or removed from the draft (docs/06 §6.7); media strip selection (clickMedia, mediaToRemove)
     Editor/MediaSelection.swift       media strip multiple selection: click / ⌘-click / ⇧-click rules, removal targets, CaptureRemovalPrompt (docs/06 §6.7.2)
-    Editor/VideoTrim.swift            trimmed / scaled movie export (AVAssetExportSession, one pass, scaling AVVideoComposition), byte-exact restore, expected frame rate (recorded metadata, sample cursor + edit list), frame cache
+    Editor/VideoTrim.swift            movie export trimmed + cropped + scaled in one pass (AVAssetExportSession, one AVVideoComposition), byte-exact restore, expected frame rate (recorded metadata, sample cursor + edit list), frame cache
     Editor/VideoPlayback.swift        play/pause: AVPlayer on the trimmed clip, player frames, PlaybackRules
     Editor/CanvasViewport.swift       canvas zoom/pan: fit, zoom stops, anchored zoom, clamped pan, reframe (Crop tool on/off), AutoScroll near edges (docs/06 §6.2.1)
     Editor/FreehandSmoothing.swift    freehand stroke cleanup: resample, corner-preserving bounded smoothing, gentle simplify
     Editor/ShapeGeometry.swift        MediaFrame pixel ↔ normalized, handles, hit distance, translate/resize
     Editor/OriginalsIndex.swift       legacy originals/crops.json and its trust rules, read only to migrate older drafts (docs/06 §6.6)
-    Editor/ImageCrop.swift            PixelRect snapping, annotation transform into a crop
+    Editor/ImageCrop.swift            PixelRect snapping and even sides (video crops), annotation transform into a crop
     Editor/AnnotationRenderer.swift   CoreGraphics drawing of shapes, badges, handles, crop overlay; IntentPalette
     Editor/EditorSession.swift        editor + files: display images, video frames, frame rates (now or in the background), save + reload (follow added/removed media), edits.json, exact no-drift save
     Editor/EditorScript.swift         JSON editing scripts + `--annotate` parsing (docs/06 §6.9)
@@ -120,6 +120,7 @@ macos/
     Editor/InspectorView.swift        selected annotation (intents, note) + annotation list
     Editor/HeadlessAnnotate.swift     `--annotate` mode with JSON output
     Editor/EditorPreviews.swift       editor states + mock screenshots for --render-ui-previews
+    Editor/EditorPreviews+Crop.swift  the Crop tool's preview states (image and video crops)
     Review/ReviewSessionWindowController.swift  one Submit Review window per draft (docs/07 §7.1)
     Review/ReviewSessionModel.swift   observable session: draft refresh, autosaved fields, remove, debounced ticket lookup, submit off-main
     Review/ReviewSessionView.swift    capture list, title/summary, issues, project, ticket, progress, failure, success

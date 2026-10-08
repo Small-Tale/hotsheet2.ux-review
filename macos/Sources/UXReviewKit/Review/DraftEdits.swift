@@ -11,7 +11,7 @@ public struct DraftEdits: Codable, Equatable, Sendable {
     public static let currentVersion = 1
 
     public var version = DraftEdits.currentVersion
-    /// Image crops in pixels of the file, keyed by media filename.
+    /// Crops (images and movies, `HS2-M03YP2`) in pixels of the file, keyed by media filename.
     public var crops: [String: PixelRect] = [:]
     /// Movie trims in ms of the file, keyed by media filename.
     public var trims: [String: TimeRange] = [:]
@@ -54,7 +54,7 @@ public struct DraftEdits: Codable, Equatable, Sendable {
         var byCrop: [String: PixelRect] = [:]
         var byTrim: [String: TimeRange] = [:]
         for item in bundle.media {
-            if item.kind == .image, let crop = crops[item.filename],
+            if let crop = crops[item.filename],
                crop.x >= 0, crop.y >= 0, crop.width > 0, crop.height > 0,
                crop.x + crop.width <= item.pixelWidth, crop.y + crop.height <= item.pixelHeight,
                crop != PixelRect(x: 0, y: 0, width: item.pixelWidth, height: item.pixelHeight) {

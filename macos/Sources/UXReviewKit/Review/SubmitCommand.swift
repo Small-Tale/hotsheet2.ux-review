@@ -86,8 +86,8 @@ public struct SubmitCommand: Equatable, Sendable {
 /// Small previews of captures for the session window's capture list.
 public enum MediaThumbnail {
     /// A thumbnail at most `maxPixels` on its longer side: the image, or a movie's first frame.
-    /// With `crop`, only that part of the image; with `atMs`, the movie's frame at that time
-    /// (the start of its trim), so the thumbnail shows the capture as it will be filed.
+    /// With `crop`, only that part of the image or frame; with `atMs`, the movie's frame at that
+    /// time (the start of its trim), so the thumbnail shows the capture as it will be filed.
     public static func make(_ url: URL, kind: MediaKind, crop: PixelRect? = nil, atMs: Int = 0, maxPixels: Int = 240) -> CGImage? {
         switch kind {
         case .image:
@@ -107,10 +107,14 @@ public enum MediaThumbnail {
         case .video:
             let generator = AVAssetImageGenerator(asset: AVURLAsset(url: url))
             generator.appliesPreferredTrackTransform = true
-            generator.maximumSize = CGSize(width: maxPixels, height: maxPixels)
+            // A cropped frame is cut from the whole frame, then scaled.
+            if crop == nil { generator.maximumSize = CGSize(width: maxPixels, height: maxPixels) }
             generator.requestedTimeToleranceBefore = .zero
             generator.requestedTimeToleranceAfter = CMTime(value: 100, timescale: 1000)
-            return try? generator.copyCGImage(at: CMTime(value: CMTimeValue(max(atMs, 0)), timescale: 1000), actualTime: nil)
+            let time = CMTime(value: CMTimeValue(max(atMs, 0)), timescale: 1000)
+            guard let frame = try? generator.copyCGImage(at: time, actualTime: nil) else { return nil }
+            guard let crop else { return frame }
+            return ImageCrop.apply(crop, to: frame).flatMap { scaled($0, maxPixels: maxPixels) }
         }
     }
 

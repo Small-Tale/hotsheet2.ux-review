@@ -28,7 +28,7 @@ Reviews window (§7.9) opens it on any other draft.
 | Area | Contents |
 | --- | --- |
 | Review | **Title** (required) and **Summary** (Markdown, optional). Typing is saved into the draft's `review.json` half a second after it stops. "Give the review a title." shows under a blank title |
-| Captures (N) | One row per capture in review order, **as it will be filed** (`SubmissionPreview`, `HS2-64P9DT`): thumbnail (the cropped part of a cropped image; a movie's frame at its trim start, with a play badge), file name, pixel size as filed ("cropped" after a crop; "scaled for Claude" when it is downscaled for AI, as in "2576×1449 scaled for Claude", §7.5.1), duration ("trimmed" after a trim), the number of annotations filed with it, and source app. When a crop or trim leaves annotations out, a line says so, such as "2 annotations outside the crop will be left out". Nothing is cropped or trimmed until submitting (§7.5); the preview reads `edits.json`. A capture with a problem shows it in orange under its details (§7.3). **Annotate** opens the editor on that capture; **Annotate…** in the header opens it on the first. The trash button removes the capture after a confirmation |
+| Captures (N) | One row per capture in review order, **as it will be filed** (`SubmissionPreview`, `HS2-64P9DT`): thumbnail (the cropped part of a cropped image; a movie's frame at its trim start, cut to its crop, with a play badge), file name, pixel size as filed ("cropped" after a crop of an image or movie; "scaled for Claude" when it is downscaled for AI, as in "2576×1449 scaled for Claude", §7.5.1), duration ("trimmed" after a trim), the number of annotations filed with it, and source app. When a crop or trim leaves annotations out, a line says so, such as "2 annotations outside the crop will be left out" ("the crop or trim" for a movie with both). Nothing is cropped or trimmed until submitting (§7.5); the preview reads `edits.json`. A capture with a problem shows it in orange under its details (§7.3). **Annotate** opens the editor on that capture; **Annotate…** in the header opens it on the first. The trash button removes the capture after a confirmation |
 | Hot Sheet project | The target project's name and the store it files into, or the problem (§7.6). **Change** lists recent projects and **Choose Folder…** |
 | Ticket | **Submit as** **New ticket** (the default) or **Add to existing ticket**, and for the latter the ticket field and its lookup (§7.2.1) |
 | Before submitting | Only when the review has a problem that belongs to no field or capture (an unsupported format, duplicate ids) |
@@ -167,7 +167,8 @@ rewritten while drafting), `review.json`, and `edits.json` with each crop and tr
 1. Saves the title (trimmed) and summary into the draft, under the store's lock.
 2. **Applies crops and trims** (`SubmissionStaging`, `HS2-71SSJG`). With none, the draft folder
    itself is filed. Otherwise a hidden `Drafts/<id>/.submission/` folder gets a cropped PNG for
-   each cropped image, a trimmed movie for each trimmed one, and copies of the rest. The bundle
+   each cropped image, a movie trimmed and cropped in one export pass for each trimmed or
+   cropped one (`VideoTrim.export(_:range:crop:size:to:)`, `HS2-M03YP2`), and copies of the rest. The bundle
    gets the cropped sizes and trimmed lengths, annotations clipped to them, and those entirely
    outside left out. With **Downscale for AI** on (the default), each capture is then scaled
    down for the project's AI tool (§7.5.1). The folder is removed afterwards, whatever happens.
@@ -202,7 +203,9 @@ capture at the size the target project's default AI tool reads well (`HS2-PT8PM6
   `SubmissionStaging` after the crop or trim. The aspect ratio is kept, and a capture is never
   scaled up. A capture that needs no crop, trim, or scaling is filed as it is.
 - **Images** are re-encoded as PNG at the new size.
-- **Movies** are exported once, with the trim and the scale together (`VideoTrim.export(_:range:size:to:)`).
+- **Movies** are exported once, with the trim, the crop, and the scale together
+  (`VideoTrim.export(_:range:crop:size:to:)`): one video composition cuts out the crop, then
+  scales it to the filed size.
   They keep the recorded frame rate, else the movie's nominal one.
 - **Annotations stay as they are.** Their coordinates are normalized to the media
   ([02-review-bundle.md](02-review-bundle.md) §2.3), so only the bundle's `pixelWidth` and

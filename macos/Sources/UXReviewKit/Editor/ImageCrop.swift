@@ -28,6 +28,21 @@ public struct PixelRect: Codable, Equatable, Hashable, Sendable {
         guard maxX > minX, maxY > minY else { return nil }
         return PixelRect(x: minX, y: minY, width: maxX - minX, height: maxY - minY)
     }
+
+    /// This rectangle with even sides, as H.264 movies need (`HS2-M03YP2`): an odd side grows by
+    /// one pixel to the right or bottom, else (at the edge) to the left or top, and shrinks by
+    /// one only when it already spans an odd-sized `bounds`.
+    public func evened(within bounds: PixelRect) -> PixelRect {
+        func even(_ origin: Int, _ length: Int, _ limit: Int) -> (Int, Int) {
+            guard length % 2 == 1 else { return (origin, length) }
+            if origin + length < limit { return (origin, length + 1) }
+            if origin > 0 { return (origin - 1, length + 1) }
+            return (origin, length - 1)
+        }
+        let (x, width) = even(x, width, bounds.width)
+        let (y, height) = even(y, height, bounds.height)
+        return PixelRect(x: x, y: y, width: width, height: height)
+    }
 }
 
 /// Crop math: which part of the image survives, and where each annotation lands in the cropped

@@ -196,8 +196,7 @@ struct AnnotationList: View {
                                 selected: annotation.id == model.editor.selection,
                                 onVideo: model.editor.currentDurationMs != nil,
                                 showing: annotation.isVisible(atMs: model.editor.currentTimeMs),
-                                outside: model.editor.isOutsideEdit(annotation)
-                                    ? (model.editor.currentDurationMs != nil ? "trim" : "crop") : nil
+                                outside: model.editor.outsideReason(annotation)
                             )
                             .onTapGesture { model.mutate { $0.select(annotation.id) } }
                         }

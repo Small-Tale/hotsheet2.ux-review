@@ -3,8 +3,9 @@ import Foundation
 /// What gets filed for a draft: its crops and trims applied (`HS2-71SSJG`), then each capture
 /// scaled down for the target project's AI tool when `scale` is given (`HS2-PT8PM6`). With
 /// nothing cropped, trimmed, or scaled this is the draft itself. Otherwise a hidden `.submission`
-/// folder in the draft holds a PNG for each cropped or scaled image, one export (trim and scale
-/// together) for each trimmed or scaled movie, and copies of the rest, and the bundle has their
+/// folder in the draft holds a PNG for each cropped or scaled image, one export (trim, crop, and
+/// scale together, `VideoTrim.export`) for each trimmed, cropped, or scaled movie (`HS2-M03YP2`),
+/// and copies of the rest, and the bundle has their
 /// filed sizes and annotations clipped to them, those entirely outside left out
 /// (`EditProjection.submission`). Annotation coordinates are normalized to the media, so scaling
 /// leaves them as they are. Part of a review (a `ReviewSelection` for an existing ticket, §7.2.2)
@@ -60,8 +61,8 @@ public struct SubmissionStaging {
                         image = scaled
                     }
                     try ImageFiles.writePNG(image, to: target)
-                } else if item.kind == .video, trims[item.id] != nil || scaledSize != nil {
-                    try VideoTrim.export(source, range: trims[item.id], size: scaledSize, to: target)
+                } else if item.kind == .video, trims[item.id] != nil || crops[item.id] != nil || scaledSize != nil {
+                    try VideoTrim.export(source, range: trims[item.id], crop: crops[item.id], size: scaledSize, to: target)
                 } else {
                     try fileManager.copyItem(at: source, to: target)
                 }

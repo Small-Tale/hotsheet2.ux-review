@@ -5,7 +5,7 @@ Status: implemented on macOS (`HS2-9H7WZ8`). Freehand smoothing is `HS2-5N1GFW`.
 `HS2-8FTZ09` (§6.4, §6.10); since `HS2-BADS0F` every movie, variable-frame-rate ones included,
 steps on a uniform grid at its expected frame rate (§6.10). The timeline step buttons and
 `,` / `.` keep 0.1 s steps (`HS2-JP7Z4W`, §6.10). The Crop tool shows the original and adjusts one
-crop rectangle (`HS2-4N722Z`, §6.6).
+crop rectangle (`HS2-4N722Z`, §6.6); videos crop with the same tool (`HS2-M03YP2`, §6.6).
 
 The editor marks up the captures of a draft review ([04-capture.md](04-capture.md) §4.6). It
 writes shapes, notes, and intents into the draft's `review.json`
@@ -50,7 +50,8 @@ UX Review** (or a click on the Dock icon) opens it on the current draft
 | Timeline (under the canvas, videos only) | Play/pause, frame step, playhead time, **Trim Start** / **Trim End**, and the scrubber with each annotation's time range (§6.10) |
 | Inspector (right) | The selected annotation's number, shape, intents, time (videos, §6.10), and Markdown note, with Duplicate and Delete buttons. Below that, every annotation on this capture in review order: number, shape, intents, time range (videos), and note preview. Click a row to select it |
 
-Videos can be trimmed and their annotations given time ranges (§6.10). They can't be cropped.
+Videos can be trimmed and their annotations given time ranges (§6.10), and cropped like images
+(§6.6).
 
 **Menu bar app.** UX Review has no visible main menu, so the editor installs a minimal hidden
 Edit menu. That lets ⌘Z, ⇧⌘Z, ⌘X, ⌘C, ⌘V, ⌘A, ⌘D, ⌘S, ⌘↩ (Submit Review…, only in the
@@ -300,8 +301,9 @@ shape's default intent is shown as on, with a "default" hint.
 
 ## 6.6 Crop
 
-Crop applies to images only. Each capture has **one crop, relative to its original** (the file
-as captured, `HS2-4N722Z`): a new or adjusted crop replaces the old one; crops never compose.
+Images and videos crop alike (videos: `HS2-M03YP2`). Each capture has **one crop, relative to its
+original** (the file as captured, `HS2-4N722Z`): a new or adjusted crop replaces the old one;
+crops never compose.
 
 **The Crop tool shows the original.** While Crop (C) is chosen, the canvas shows the whole,
 uncropped capture with the current crop rectangle on it (the whole capture when uncropped):
@@ -325,11 +327,16 @@ uncropped capture with the current crop rectangle on it (the whole capture when 
   still edits notes and intents, and ⌫ still deletes the selection. VoiceOver lists them at their
   places on the original, and the canvas label adds "Crop tool: the original with the crop, W × H
   px".
-- **Videos** show as usual, and pressing says "Videos can't be cropped."
+- **Videos** show the whole frame at the playhead (playing too), with the same rectangle. A video
+  crop is widened to **even** sides on release (`PixelRect.evened`: an odd side grows right or
+  down, else left or up at the frame's edge), as H.264 needs, so the filed movie is exactly the
+  crop's size and annotations map exactly. One crop covers the whole clip.
 
 **Any other tool shows the cropped capture** (simulated; the file is untouched): fit, zoom and
 pan limits, hit testing, drawing, inserting, and nudging all use the cropped size, and points
-are pixels of the crop. The media strip thumbnail always shows the crop.
+are pixels of the crop. The media strip thumbnail always shows the crop. A cropped video's frames
+are cut as they are drawn (`EditorSession.cropped`), while scrubbing and while playing; the
+movie is never rewritten while drafting.
 
 **History:** each committed crop change (new, moved, resized, or out to the whole capture) is
 one undo step, and undo shows that capture again. Esc, undo or redo, showing another capture,
@@ -348,8 +355,9 @@ never deletes annotations while the review is a draft:
 - Widening the crop again (Restore Original, then a larger crop) or undo brings hidden
   annotations back unchanged, in any later session.
 
-**Restore Original** (any tool) removes the crop and maps every annotation back exactly. It is
-undoable. With the Crop tool chosen, the rectangle becomes the whole capture again.
+**Restore Original** (any tool) removes the crop, and on a video the trim too (§6.10), as one undo
+step, mapping every annotation back exactly. With the Crop tool chosen, the rectangle becomes the
+whole capture again.
 
 **Exact mapping.** A crop change maps each annotation out of the old crop into the original and
 then into the new crop (`AnnotationEditor.reproject`), so however often the crop is redrawn,
@@ -359,7 +367,9 @@ finer than a crop of it, so mapping into a crop and back loses nothing.
 **On disk** (`DraftEdits`, `<draft>/edits.json`):
 
 ```json
-{"crops": {"capture-1.png": {"height": 200, "width": 300, "x": 20, "y": 20}}, "trims": {}, "version": 1}
+{"crops": {"capture-1.png": {"height": 200, "width": 300, "x": 20, "y": 20},
+           "capture-2.mov": {"height": 62, "width": 102, "x": 20, "y": 20}},
+ "trims": {"capture-2.mov": {"endMs": 800, "startMs": 0}}, "version": 1}
 ```
 
 - The capture file is never rewritten while drafting. `review.json` keeps the file's own
@@ -372,7 +382,8 @@ finer than a crop of it, so mapping into a crop and back loses nothing.
 - A record that doesn't fit its file (outside it, another version, unreadable) is ignored: the
   capture shows uncropped.
 - **Submitting** applies the crop ([07-review-session.md](07-review-session.md) §7.5): a cropped
-  PNG is made in a staging folder, and annotations are clipped to it
+  PNG, or a movie trimmed and cropped in one export (§6.10), is made in a staging folder, and
+  annotations are clipped to it
   (`EditProjection.clippedToMedia`: boxes are clipped, points pulled to the edge). Annotations
   entirely outside are left out of the ticket only.
 - `edits.json` is never attached.
@@ -541,7 +552,7 @@ pixels of the crop, except with the Crop tool on an image, where they are pixels
 | `{"op": "play", "ms": 400}` | Play the current video in real time for up to 0…60000 ms, then pause; it stops early at the clip end (fails on an image) |
 | `{"op": "range", "start": 200, "end": 900}`, `{"op": "range"}` | Set the selection's time range in ms, or make it the whole clip (fails on an image's annotation) |
 | `{"op": "trim", "start": 200, "end": 900}`, `{"op": "reset-trim"}` | Keep that part of the current video, or restore its length (§6.10) |
-| `{"op": "restore-original"}` | Restore Original: the current image's crop or the current video's trim |
+| `{"op": "restore-original"}` | Restore Original: the current capture's crop, and a video's trim (§6.6) |
 | `{"op": "remove-media", "media": "m1"}` | Remove a capture from the draft as the review session does, then let the editor catch up (§6.7) |
 | `{"op": "remove-capture", "media": "m1"}` | Remove from Review in the editor: save first, then remove (§6.7.1) |
 | `{"op": "click-media", "media": "m2", "modifier": "command"}` | Click a media strip thumbnail; `modifier` (optional) is `command` (⌘-click) or `shift` (⇧-click) (§6.7.2) |
@@ -571,6 +582,8 @@ editor offscreen through the real views, on a draft of mock app screenshots:
 - `editor-zoomed` (300 % with a selection, §6.2.1)
 - `editor-keyboard-insert` (R then ⏎ sent as real key events), with the canvas's accessibility
   tree written to `editor-accessibility.json`
+- `editor-video-crop-tool` and `editor-video-cropped`: the mock recording below cropped, under the
+  Crop tool (the whole frame) and then Select (the cut frame) (§6.6)
 - `editor-video-timeline`, `editor-video-narrow`, and `editor-video-trimmed`: a mock screen
   recording with a ranged, an instant, and a whole-clip annotation, the playhead inside the
   first range (§6.10)
@@ -758,7 +771,10 @@ the field reverts. After Return, focus goes back to the canvas, so its keys work
 - **Submitting** exports the kept part to the staging folder
   ([07-review-session.md](07-review-session.md) §7.5): `AVAssetExportSession` at the
   highest-quality preset, re-encoded so the cut is frame-accurate instead of snapping to key
-  frames. The container follows the file extension (`.mov`, `.mp4`, `.m4v`). The export keeps
+  frames. A crop (§6.6) is applied in the same pass, before any AI downscaling
+  (`VideoTrim.export(_:range:crop:size:to:)`, docs/07 §7.5.1): one video composition whose render
+  size is the crop (even sides) or its scaled size, and whose transform is the track's preferred
+  transform, a move of the crop's origin to the corner, then the scale, at the movie's frame rate. The container follows the file extension (`.mov`, `.mp4`, `.m4v`). The export keeps
   the audio track (such as narration), so the clip keeps its `hasAudio` flag
   ([02-review-bundle.md](02-review-bundle.md) §2.2).
 - **Older drafts** trimmed in place (the original under `originals/` with a `trims` record in
