@@ -66,6 +66,16 @@ Each feature gets both unit tests and end-to-end tests. Tests live in
   - which of UX Review's own windows display and region captures keep: all but capture chrome
     (HS2-63B0PJ), the same split the picker uses; the real ScreenCaptureKit output is manual QA
     (`HS2-JG04GX`)
+- **Recording window exceptions** (`RecordingWindowExceptionsTests`, HS2-XT5K63): when a
+  running display recording's filter must be updated.
+  - transition matrix: own windows opening, closing, reopening (same or new id), chrome
+    appearing and going away, other apps' windows, reordering, and no change (no update)
+  - one update in flight at a time; changes made, or undone, during it are caught up after
+  - failed updates apply nothing, are retried up to 3 times for the same set, then given up
+    until the set changes; a success resets the count
+  - a realistic multi-step recording session
+  - not covered automatically: `OwnWindowFollower` updating a live `SCStream`, which needs
+    Screen Recording permission (manual live check `HS2-3SE1KX`)
 - **Live window list** (`LiveWindowListTests`, HS2-VJ8VE8 regression): the window pick re-reads
   the window list while it runs.
   - transition matrix: no list / fresh / stale × pointer move, timer, click, mode switch; only a

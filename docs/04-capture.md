@@ -106,8 +106,18 @@ time to open a menu or hover over a control.
     a recording starts (the "Recording" HUD, the dim) stays out of the movie too. Chrome
     windows also set `sharingType = .none`, which current macOS no longer honors for
     ScreenCaptureKit, so the filter is what keeps them out.
-  - The exceptions are fixed when a recording starts, so a UX Review window that opens during
-    a recording is left out of that movie (`HS2-XT5K63`).
+  - A filter's exceptions are fixed, so a display or region recording follows UX Review's
+    windows while it runs (`HS2-XT5K63`). About four times a second it re-reads the window list
+    (`RecordingWindowExceptions`), and when its own non-chrome windows changed it updates the
+    running stream's filter (`SCStream.updateContentFilter`, `OwnWindowFollower`).
+    - An editor, Settings, or an alert that opens mid-recording is in the movie from then on
+      (within about a quarter second); one that closes drops out.
+    - Chrome appearing or going away (the "Recording" HUD, the dim) changes nothing, so it
+      never updates the filter and stays out of the movie.
+    - At most one update runs at a time; changes during it are picked up right after. A failed
+      update is retried up to 3 times for the same set of windows, then left until the set
+      changes again; the recording itself carries on either way.
+    - Window recordings show only their window and need none of this.
   - Window captures contain only the chosen window, which may be one of UX Review's own
     (§4.2).
 

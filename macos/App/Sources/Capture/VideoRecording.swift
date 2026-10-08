@@ -31,6 +31,8 @@ final class StreamRecorder: NSObject, SCStreamOutput, SCStreamDelegate, ActiveRe
     private let scale: Double
     private let queue = DispatchQueue(label: "com.smalltale.uxreview.recording")
     private let onUnexpectedStop: @MainActor () -> Void
+    /// Keeps a display recording's own-window exceptions current; set once at start.
+    private var follower: OwnWindowFollower?
 
     private init(
         stream: SCStream,
@@ -52,6 +54,7 @@ final class StreamRecorder: NSObject, SCStreamOutput, SCStreamDelegate, ActiveRe
         configuration: SCStreamConfiguration,
         url: URL,
         narration: Bool,
+        following: OwnWindowFollower.Target? = nil,
         onUnexpectedStop: @escaping @MainActor () -> Void
     ) async throws -> StreamRecorder {
         let size = RegionGeometry.evenPixelSize(width: configuration.width, height: configuration.height)
@@ -93,6 +96,13 @@ final class StreamRecorder: NSObject, SCStreamOutput, SCStreamDelegate, ActiveRe
             await microphone?.stop()
             throw ScreenCaptureKitBackend.map(error)
         }
+        if let following {
+            let follower = OwnWindowFollower(following) { [weak recorder] filter in
+                try await recorder?.stream.updateContentFilter(filter)
+            }
+            recorder.follower = follower
+            follower.start()
+        }
         return recorder
     }
 
@@ -114,6 +124,7 @@ final class StreamRecorder: NSObject, SCStreamOutput, SCStreamDelegate, ActiveRe
     }
 
     func stop() async throws -> RecordedVideo {
+        await follower?.stop()
         try? await stream.stopCapture()
         await microphone?.stop()
         // Drain frames already queued, then end the movie now (host clock, like the frames).

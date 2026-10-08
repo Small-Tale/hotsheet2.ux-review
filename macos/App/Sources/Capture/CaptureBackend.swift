@@ -101,7 +101,7 @@ struct ScreenCaptureKitBackend: CaptureBackend {
 
     func screenshot(_ source: CaptureSource) async throws -> CapturedImage {
         guard hasPermission() else { throw CaptureFailure.permissionDenied }
-        let (filter, configuration) = try await Self.makeFilter(for: source)
+        let (filter, configuration, _) = try await Self.makeFilter(for: source)
         // Screenshots never show the pointer: it would cover what is being reviewed, and an
         // annotation marks the spot instead (docs/04 §4.4).
         configuration.showsCursor = false
@@ -118,8 +118,9 @@ struct ScreenCaptureKitBackend: CaptureBackend {
     /// screen (HS2-63B0PJ), except its capture chrome (`CaptureChrome`: picker overlays, HUD,
     /// recording dim). The filter excludes the whole app and lists its other on-screen windows
     /// as exceptions, so chrome that appears later (the "Recording" HUD, the dim) stays out of a
-    /// recording too. docs/04-capture.md §4.3.
-    static func makeFilter(for source: CaptureSource) async throws -> (SCContentFilter, SCStreamConfiguration) {
+    /// recording too. Also returns those exceptions for a display source (nil for a window), so a
+    /// recording can follow own windows that open or close later (HS2-XT5K63). docs/04-capture.md §4.3.
+    static func makeFilter(for source: CaptureSource) async throws -> (SCContentFilter, SCStreamConfiguration, Set<UInt32>?) {
         let content: SCShareableContent
         do {
             content = try await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: true)
@@ -134,17 +135,12 @@ struct ScreenCaptureKitBackend: CaptureBackend {
                 throw CaptureFailure.targetUnavailable("The display")
             }
             let ownPID = ProcessInfo.processInfo.processIdentifier
-            let ours = content.applications.filter { $0.processID == ownPID }
             let kept = WindowSelection.ownWindowsToCapture(
                 in: content.windows.filter { $0.owningApplication?.processID == ownPID }.map(WindowSnapshot.init(window:)),
                 ownPID: ownPID,
                 chrome: CaptureChrome.windowIDs()
             )
-            let filter = SCContentFilter(
-                display: display,
-                excludingApplications: ours,
-                exceptingWindows: content.windows.filter { kept.contains($0.windowID) }
-            )
+            let filter = displayFilter(display, in: content, keeping: kept)
             let scale = Double(filter.pointPixelScale)
             if let region {
                 configuration.sourceRect = region.sourceRect
@@ -155,7 +151,7 @@ struct ScreenCaptureKitBackend: CaptureBackend {
                 configuration.width = size.width
                 configuration.height = size.height
             }
-            return (filter, configuration)
+            return (filter, configuration, kept)
         case let .window(id):
             guard let window = content.windows.first(where: { $0.windowID == id }) else {
                 throw CaptureFailure.targetUnavailable("The window")
@@ -165,8 +161,24 @@ struct ScreenCaptureKitBackend: CaptureBackend {
             configuration.width = size.width
             configuration.height = size.height
             configuration.ignoreShadowsSingleWindow = true
-            return (filter, configuration)
+            return (filter, configuration, nil)
         }
+    }
+
+    /// A display filter that leaves out UX Review except `kept`, its own windows to show. A
+    /// running recording's filter is rebuilt with this as those windows open and close
+    /// (`OwnWindowFollower`, HS2-XT5K63).
+    nonisolated static func displayFilter(
+        _ display: SCDisplay,
+        in content: SCShareableContent,
+        keeping kept: Set<UInt32>
+    ) -> SCContentFilter {
+        let ownPID = ProcessInfo.processInfo.processIdentifier
+        return SCContentFilter(
+            display: display,
+            excludingApplications: content.applications.filter { $0.processID == ownPID },
+            exceptingWindows: content.windows.filter { kept.contains($0.windowID) }
+        )
     }
 
     func microphoneAccess() -> MicrophoneAccess {
@@ -192,7 +204,7 @@ struct ScreenCaptureKitBackend: CaptureBackend {
     ) async throws -> ActiveRecording {
         guard hasPermission() else { throw CaptureFailure.permissionDenied }
         if narration, microphoneAccess() != .authorized { throw CaptureFailure.microphone(microphoneAccess()) }
-        let (filter, configuration) = try await Self.makeFilter(for: source)
+        let (filter, configuration, exceptions) = try await Self.makeFilter(for: source)
         // The pointer shows what the reviewer is doing; both are Settings › Video (HS2-S4GA06).
         configuration.showsCursor = pointer.showsPointer
         configuration.showMouseClicks = pointer.showsClicks
@@ -201,8 +213,16 @@ struct ScreenCaptureKitBackend: CaptureBackend {
             configuration: configuration,
             url: url,
             narration: narration,
+            following: Self.ownWindowFollowing(source, exceptions: exceptions),
             onUnexpectedStop: onUnexpectedStop
         )
+    }
+
+    /// A display or region recording keeps its own-window exceptions current; a window recording
+    /// shows only its window and needs nothing.
+    private static func ownWindowFollowing(_ source: CaptureSource, exceptions: Set<UInt32>?) -> OwnWindowFollower.Target? {
+        guard case let .display(id, _) = source, let exceptions else { return nil }
+        return OwnWindowFollower.Target(displayID: id, exceptions: exceptions)
     }
 
     nonisolated static func map(_ error: Error) -> CaptureFailure {
