@@ -65,6 +65,12 @@ files **dropped on its Dock icon** (like Finder Open With, [04-capture.md](04-ca
 the menu bar only. Capture overlays, HUDs, and alerts don't count (`WindowPresence`). Clicking
 the Dock icon with no window showing does what **Open UX Review** does.
 
+Opening or bringing forward any of these windows (Open UX Review, its global shortcut, a capture,
+Submit Review…, Draft Reviews…, Settings…) puts it **in front of every other app's windows** and
+makes UX Review the active app (`HS2-SZ6T9T`, `DockPresence.present`). macOS activation is
+cooperative, so a request from the menu bar menu can be refused or land late; the window is
+therefore ordered front regardless, and activation is asked again once the run loop turns.
+
 Each draft review has its own UX Review window; other drafts open as separate windows and stay
 until closed. The app menu bar:
 

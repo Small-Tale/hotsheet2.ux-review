@@ -26,6 +26,27 @@ enum DockPresence {
 
     static var policy: WindowPresence.Policy { presence.policy }
 
+    /// Tracks `window`, activates UX Review, and puts the window in front of every other app's
+    /// windows (`HS2-SZ6T9T`). Since macOS 14 activation is cooperative: a request can be refused
+    /// or land late, notably from the menu bar menu (the previous app takes focus back as the menu
+    /// closes) or right after the activation policy turns `.regular`. `makeKeyAndOrderFront`
+    /// alone then leaves the window behind the active app's windows, so it is also ordered front
+    /// regardless, and activation is asked again once the run loop turns.
+    static func present(_ window: NSWindow) {
+        track(window)
+        NSApp.unhide(nil)
+        NSApp.activate()
+        window.makeKeyAndOrderFront(nil)
+        window.orderFrontRegardless()
+        DispatchQueue.main.async {
+            MainActor.assumeIsolated {
+                guard window.isVisible else { return }
+                if !NSApp.isActive { NSApp.activate() }
+                window.makeKeyAndOrderFront(nil)
+            }
+        }
+    }
+
     private static func untrack(_ id: ObjectIdentifier) {
         if let observer = observers.removeValue(forKey: id) {
             NotificationCenter.default.removeObserver(observer)

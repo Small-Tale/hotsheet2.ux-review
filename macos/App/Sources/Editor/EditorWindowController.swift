@@ -71,9 +71,7 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
     private func present() {
         guard let window else { return }
         if !window.isVisible { window.center() }
-        DockPresence.track(window)
-        NSApp.activate(ignoringOtherApps: true)
-        window.makeKeyAndOrderFront(nil)
+        DockPresence.present(window)
         if let canvas = window.contentView?.firstDescendant(AnnotationCanvasView.self) {
             window.makeFirstResponder(canvas)
         }

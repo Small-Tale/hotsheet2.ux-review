@@ -46,9 +46,7 @@ final class DraftsWindowController: NSWindowController, NSWindowDelegate {
         controller.model.reload()
         guard let window = controller.window else { return }
         if !window.isVisible { window.center() }
-        DockPresence.track(window)
-        NSApp.activate(ignoringOtherApps: true)
-        window.makeKeyAndOrderFront(nil)
+        DockPresence.present(window)
     }
 
     init(model: DraftsModel) {

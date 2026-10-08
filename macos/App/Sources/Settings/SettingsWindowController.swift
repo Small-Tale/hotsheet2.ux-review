@@ -11,9 +11,7 @@ final class SettingsWindowController: NSWindowController {
         shared = controller
         guard let window = controller.window else { return }
         if !window.isVisible { window.center() }
-        DockPresence.track(window)
-        NSApp.activate(ignoringOtherApps: true)
-        window.makeKeyAndOrderFront(nil)
+        DockPresence.present(window)
     }
 
     init(model: SettingsModel) {

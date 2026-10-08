@@ -1287,3 +1287,11 @@ capture files are no longer cropped or trimmed while drafting.
 - **Not covered automatically:** playing a cropped video in the window, the Submit Review
   window's cropped movie thumbnail on screen, and rotated or odd-sized imported movies
   (`HS2-5KWZPJ`). The export session calls are deprecated in macOS 15 (`HS2-XA294W`).
+
+## HS2-SZ6T9T: UX Review windows open in front of other apps' windows
+
+- **Build + app e2e** (`scripts/check.sh`): every window controller (editor, Submit Review,
+  Draft Reviews, Settings) presents through `DockPresence.present`.
+- **Not covered automatically:** window ordering against other apps needs a live window server
+  and a person at a Mac (activation and window ordering are blocked headlessly); see the
+  follow-up live check.
