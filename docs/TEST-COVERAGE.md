@@ -407,9 +407,9 @@ Each feature gets both unit tests and end-to-end tests. Tests live in
   - the player's frame is the one at its time (red, then blue at the end)
   - it stops at the clip end, and playing again restarts from 0
   - a trimmed clip plays only the kept part (offset into the base movie, ending at the trim end)
-  - both output paths show the right frames (red, then blue): the macOS 26+ typed-attributes /
-    `pixelBufferAndDisplayTime` path and the pre-26 legacy path, forced on newer hosts
-    (HS2-27QR7T)
+  - the video output shows the right frames (red, then blue) through the typed-attributes /
+    `pixelBufferAndDisplayTime` path (HS2-27QR7T; the pre-26 fallback was dropped with the
+    macOS 26 deployment target, HS2-6ANG9S)
   - images have no playback; the script `play` op moves the playhead without dirtying the editor,
     and malformed `play` ops are rejected
 - **App end to end** (`scripts/app-e2e.sh`): `--annotate` with `play` on the synthetic recording

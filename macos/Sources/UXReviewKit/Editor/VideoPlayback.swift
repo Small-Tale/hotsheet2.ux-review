@@ -16,24 +16,17 @@ public final class VideoPlayback {
 
     private let player: AVPlayer
     private let output: AVPlayerItemVideoOutput
-    /// Forces the pre-macOS 26 output path, so tests on newer systems cover it too.
-    let legacyFrames: Bool
     private let images = CIContext(options: [.cacheIntermediates: false])
     private var lastFrame: CGImage?
     private var started = false
 
-    public convenience init(url: URL, offsetMs: Int, durationMs: Int) {
-        self.init(url: url, offsetMs: offsetMs, durationMs: durationMs, legacyFrames: false)
-    }
-
-    init(url: URL, offsetMs: Int, durationMs: Int, legacyFrames: Bool) {
+    public init(url: URL, offsetMs: Int, durationMs: Int) {
         self.url = url
-        self.legacyFrames = legacyFrames
         self.offsetMs = max(offsetMs, 0)
         self.durationMs = max(durationMs, 0)
         let item = AVPlayerItem(asset: AVURLAsset(url: url))
         item.forwardPlaybackEndTime = Self.time(self.offsetMs + self.durationMs)
-        output = Self.makeOutput(legacy: legacyFrames)
+        output = Self.makeOutput()
         item.add(output)
         player = AVPlayer(playerItem: item)
         player.actionAtItemEnd = .pause
@@ -74,48 +67,27 @@ public final class VideoPlayback {
     /// The frame the player shows now, or the last one it showed when no new frame is ready.
     public func frame() -> CGImage? {
         let time = output.itemTime(forHostTime: CACurrentMediaTime())
-        if output.hasNewPixelBuffer(forItemTime: time), let image = Self.image(from: output, at: time, legacy: legacyFrames) {
+        if output.hasNewPixelBuffer(forItemTime: time), let image = Self.image(from: output, at: time) {
             lastFrame = images.createCGImage(image, from: image.extent) ?? lastFrame
         }
         return lastFrame
     }
 
-    /// A BGRA video output. The typed `CVPixelBufferAttributes` init (macOS 26+) replaces the
-    /// dictionary one the macOS 27 SDK deprecates; older systems keep the dictionary form via
-    /// `init(outputSettings:)`, which takes the same keys and is not deprecated.
-    static func makeOutput(legacy: Bool) -> AVPlayerItemVideoOutput {
-        if !legacy, #available(macOS 26, *) {
-            let bgra = CVPixelFormatType(rawValue: kCVPixelFormatType_32BGRA)
-            return AVPlayerItemVideoOutput(pixelBufferAttributes: CVPixelBufferAttributes(pixelFormatTypes: [bgra]))
-        }
-        return AVPlayerItemVideoOutput(outputSettings: [
-            kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA,
-        ])
+    /// A BGRA video output, from the typed `CVPixelBufferAttributes` init (the dictionary one is
+    /// deprecated in the macOS 27 SDK).
+    static func makeOutput() -> AVPlayerItemVideoOutput {
+        let bgra = CVPixelFormatType(rawValue: kCVPixelFormatType_32BGRA)
+        return AVPlayerItemVideoOutput(pixelBufferAttributes: CVPixelBufferAttributes(pixelFormatTypes: [bgra]))
     }
 
-    /// The output's pixel buffer for `time` as an image, or nil when it has none. macOS 26+ uses
-    /// `pixelBufferAndDisplayTime(forItemTime:)`; older systems fall back to the legacy copy.
-    static func image(from output: AVPlayerItemVideoOutput, at time: CMTime, legacy: Bool) -> CIImage? {
-        if !legacy, #available(macOS 26, *) {
-            return output.pixelBufferAndDisplayTime(forItemTime: time).pixelBuffer?
-                .withUnsafeBuffer { CIImage(cvPixelBuffer: $0) }
-        }
-        return (output as LegacyPixelBufferCopying)
-            .copyPixelBuffer(forItemTime: time, itemTimeForDisplay: nil)
-            .map { CIImage(cvPixelBuffer: $0) }
+    /// The output's pixel buffer for `time` as an image, or nil when it has none.
+    static func image(from output: AVPlayerItemVideoOutput, at time: CMTime) -> CIImage? {
+        output.pixelBufferAndDisplayTime(forItemTime: time).pixelBuffer?
+            .withUnsafeBuffer { CIImage(cvPixelBuffer: $0) }
     }
 
     static func time(_ millis: Int) -> CMTime { CMTime(value: CMTimeValue(millis), timescale: 1000) }
 }
-
-/// The pre-macOS 26 frame copy, reached through a protocol so the call site (only taken on
-/// macOS 14-15) does not trip the macOS 27 SDK's Swift deprecation warning on
-/// `copyPixelBuffer(forItemTime:itemTimeForDisplay:)`.
-protocol LegacyPixelBufferCopying {
-    func copyPixelBuffer(forItemTime itemTime: CMTime, itemTimeForDisplay: UnsafeMutablePointer<CMTime>?) -> CVPixelBuffer?
-}
-
-extension AVPlayerItemVideoOutput: LegacyPixelBufferCopying {}
 
 /// Where playback starts, stops, and is, in clip time. Pure, so the rules are unit-tested apart
 /// from AVFoundation.

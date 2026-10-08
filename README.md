@@ -31,7 +31,7 @@ follow and share the same review bundle format.
 
 ## Getting started (macOS)
 
-Requirements: macOS 14+, Xcode 16+ (Swift 6), plus `brew install xcodegen swiftlint swiftformat`.
+Requirements: macOS 26+, Xcode 16+ (Swift 6), plus `brew install xcodegen swiftlint swiftformat`.
 You also need Node (for spec validation) and Hot Sheet 2's `hotsheet-cli` on `PATH`, or pointed
 to by `HOTSHEET_CLI`.
 

@@ -4,7 +4,7 @@ name: UXReview
 options:
   bundleIdPrefix: com.smalltale
   deploymentTarget:
-    macOS: "14.0"
+    macOS: "26.0"
   createIntermediateGroups: true
 packages:
   UXReviewKit:

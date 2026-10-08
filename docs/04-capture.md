@@ -233,8 +233,8 @@ target picker, so no question interrupts a countdown:
 The recording never silently loses narration it was asked for: the reviewer chooses. Headless
 mode never prompts and fails instead (§4.11).
 
-**How the audio is recorded.** The deployment target is macOS 14, so UX Review does not use
-ScreenCaptureKit's `captureMicrophone` (macOS 15+). One code path serves every version:
+**How the audio is recorded.** UX Review records the microphone itself rather than through
+ScreenCaptureKit's `captureMicrophone` (a choice made when the deployment target was macOS 14):
 
 - An `AVCaptureSession` on the default audio input delivers 48 kHz mono 16-bit LPCM.
 - Each buffer's timestamp is converted from the session's clock to the host clock, which

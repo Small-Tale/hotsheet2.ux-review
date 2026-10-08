@@ -564,10 +564,9 @@ playhead, and pauses it again. Space is taken by pan.
   movie's own audio, if any, plays too.
 - **Implementation:** `VideoPlayback` in `UXReviewKit` (an `AVPlayer` with an
   `AVPlayerItemVideoOutput` for the frames, and `PlaybackRules` for start, end, and trim
-  offset). `EditorModel` owns the player and its timer. On macOS 26 and later the output uses
-  the typed `CVPixelBufferAttributes` init and `pixelBufferAndDisplayTime(forItemTime:)`;
-  macOS 14-15 keep `init(outputSettings:)` and the legacy pixel-buffer copy (the dictionary
-  init and `copyPixelBuffer` are deprecated in the macOS 27 SDK).
+  offset). `EditorModel` owns the player and its timer. The output uses the typed
+  `CVPixelBufferAttributes` init and `pixelBufferAndDisplayTime(forItemTime:)` (macOS 26+; the
+  dictionary init and `copyPixelBuffer` are deprecated in the macOS 27 SDK).
 
 **Time ranges.** An annotation's `timeRange` ([02-review-bundle.md](02-review-bundle.md) §2.6)
 is inclusive, in ms of the clip as trimmed. Equal ends mark an instant. No range means the

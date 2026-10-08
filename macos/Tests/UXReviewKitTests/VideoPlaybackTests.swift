@@ -91,15 +91,12 @@ extension EncodingTests {
             #expect(playback.currentMs == 600, "playback ran past the trim end")
         }
 
-        /// The pre-macOS 26 output (`init(outputSettings:)` + the legacy pixel-buffer copy) still
-        /// yields frames; forced here so hosts on newer systems cover it too.
-        @Test(arguments: [false, true])
-        func showsFramesThroughEitherOutputPath(legacy: Bool) async throws {
+        /// The typed-attributes output and `pixelBufferAndDisplayTime` yield the right frames.
+        @Test func showsFramesThroughTheVideoOutput() async throws {
             let fixture = try await Fixture()
             let session = try fixture.session()
             let base = try #require(session.playback("m1"))
-            let playback = VideoPlayback(url: base.url, offsetMs: 0, durationMs: base.durationMs, legacyFrames: legacy)
-            #expect(playback.legacyFrames == legacy)
+            let playback = VideoPlayback(url: base.url, offsetMs: 0, durationMs: base.durationMs)
             _ = Self.play(playback, from: 0, for: 0.3)
             #expect(try VideoTrimSessionTests.color(playback.frame()) == "red")
             _ = Self.play(playback, from: 1300, for: 0.3)
