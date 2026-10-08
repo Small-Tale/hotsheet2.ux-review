@@ -50,12 +50,6 @@ struct EditorToolbar: View {
             .padding(3)
             .background(RoundedRectangle(cornerRadius: 8).fill(Color.primary.opacity(0.06)))
 
-            Button { model.mutate { $0.undo() } } label: { Image(systemName: "arrow.uturn.backward") }
-                .help("Undo (⌘Z)")
-                .disabled(!model.editor.canUndo)
-            Button { model.mutate { $0.redo() } } label: { Image(systemName: "arrow.uturn.forward") }
-                .help("Redo (⇧⌘Z)")
-                .disabled(!model.editor.canRedo)
             if let item = model.editor.currentMedia, model.editor.canRestoreOriginal {
                 Button("Restore Original") { model.mutate { _ = $0.restoreOriginal() } }
                     .help(
