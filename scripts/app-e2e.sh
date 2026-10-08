@@ -1094,10 +1094,14 @@ PICKED='j.statusMenuAfterPicking'
   || die "menus: Narrate flip in the open menu $(json "$MENUS" "JSON.stringify($PICKED)")"
 [[ "$(json "$MENUS" "($TITLES)(j.statusMenuRecording)")" == *"|Stop Recording (1:12)|Recording microphone narration|-|Settings…[⌘,]|"* ]] \
   || die "menus: recording $(json "$MENUS" "($TITLES)(j.statusMenuRecording)")"
-[[ "$(json "$MENUS" 'j.mainMenu.map(m => m.title).join()')" == "UX Review,File,Edit,Capture,Window" ]] || die "menus: main menu bar"
+[[ "$(json "$MENUS" 'j.mainMenu.map(m => m.title).join()')" == "UX Review,File,Edit,View,Capture,Window" ]] || die "menus: main menu bar"
+# HS2-8QBS4V: the View menu has the zoom commands with Preview's shortcuts (plus a hidden ⌘= Zoom In).
+[[ "$(json "$MENUS" 'j.mainMenu.find(m => m.title == "View").submenu.map(i => i.title + "[" + i.shortcut + "]" + i.action).join("|")')" == \
+  "Actual Size[⌘0]zoomToActualSize:|Zoom to Fit[⌘9]zoomToFit:|Zoom In[⌘+]zoomIn:|Zoom In[⌘=]zoomIn:|Zoom Out[⌘-]zoomOut:" ]] \
+  || die "menus: View menu $(json "$MENUS" 'JSON.stringify(j.mainMenu.find(m => m.title == "View"))')"
 [[ "$(json "$MENUS" "($TITLES)(j.mainMenu[1].submenu)")" == "New Review[⌘N]|Add Media…[⌘O]|Draft Reviews…[⇧⌘O]|-|Save[⌘S]|Submit Review…[⌘↩]|Show Review in Finder|-|Close Window[⌘W]" ]] \
   || die "menus: File $(json "$MENUS" "($TITLES)(j.mainMenu[1].submenu)")"
-[[ "$(json "$MENUS" 'j.mainMenu[3].submenu.length')" == 11 ]] || die "menus: Capture menu"
+[[ "$(json "$MENUS" 'j.mainMenu.find(m => m.title == "Capture").submenu.length')" == 11 ]] || die "menus: Capture menu"
 # HS2-0TQ6RP: Edit ends with the confirmed remove (no shortcut) and the immediate one on ⌘⌫.
 [[ "$(json "$MENUS" "($TITLES)(j.mainMenu[2].submenu.slice(-2))")" == "Remove Capture from Review…|Remove Capture Now[⌘⌫]" ]] \
   || die "menus: Edit remove items $(json "$MENUS" "($TITLES)(j.mainMenu[2].submenu)")"

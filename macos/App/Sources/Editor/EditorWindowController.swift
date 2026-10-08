@@ -114,6 +114,13 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
     @objc func duplicate(_: Any?) { model.mutate { _ = $0.duplicateSelection() } }
     @objc func saveDocument(_: Any?) { model.save() }
 
+    // MARK: View menu (`HS2-8QBS4V`)
+
+    @objc func zoomToActualSize(_: Any?) { model.zoomToActualPixels() }
+    @objc func zoomToFit(_: Any?) { model.zoomToFit() }
+    @objc func zoomIn(_: Any?) { model.zoomIn() }
+    @objc func zoomOut(_: Any?) { model.zoomOut() }
+
     /// File › Add Media… (⌘O): choose images or movies to add to *this* draft, like a drop.
     @objc func addMedia(_: Any?) {
         guard let window else { return }
@@ -185,6 +192,8 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
         case #selector(undo(_:)): model.editor.canUndo
         case #selector(redo(_:)): model.editor.canRedo
         case #selector(duplicate(_:)): model.editor.selection != nil
+        case #selector(zoomToActualSize(_:)), #selector(zoomToFit(_:)), #selector(zoomIn(_:)), #selector(zoomOut(_:)):
+            model.editor.currentMedia != nil
         case #selector(removeCapture(_:)):
             retitle(item, "\(CaptureRemovalPrompt.title(count: max(selectedItems.count, 1))) from Review…")
         case #selector(removeSelectedCaptures(_:)):

@@ -172,21 +172,6 @@ final class AnnotationCanvasView: NSView {
     override func otherMouseDragged(with event: NSEvent) { continuePan(event) }
     override func otherMouseUp(with _: NSEvent) { endPan() }
 
-    /// ⌘+ (or ⌘=), ⌘-, ⌘0 (fit), ⌘1 (actual pixels), whichever control in the window has focus.
-    override func performKeyEquivalent(with event: NSEvent) -> Bool {
-        guard let model, window?.isKeyWindow == true,
-              event.modifierFlags.intersection(.deviceIndependentFlagsMask).subtracting(.shift) == .command
-        else { return super.performKeyEquivalent(with: event) }
-        switch event.charactersIgnoringModifiers {
-        case "=", "+": model.zoomIn()
-        case "-": model.zoomOut()
-        case "0": model.zoomToFit()
-        case "1": model.zoomToActualPixels()
-        default: return super.performKeyEquivalent(with: event)
-        }
-        return true
-    }
-
     // MARK: Mouse
 
     private func mediaPoint(_ event: NSEvent) -> CGPoint? {

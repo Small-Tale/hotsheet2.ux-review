@@ -44,7 +44,7 @@ UX Review** (or a click on the Dock icon) opens it on the current draft
 
 | Area | Contents |
 | --- | --- |
-| Tool bar | Tools (§6.3), **Restore Original** (only while the image is cropped or the video trimmed, §6.6, §6.10), a status line ("Editing…" / "Saved to draft", the last editor message, or a save error), zoom, and **Submit Review…** (⌘↩): saves, then opens the Submit Review window on this editor's draft ([07-review-session.md](07-review-session.md) §7.1). Undo and redo are in the Edit menu only (⌘Z / ⇧⌘Z, `HS2-0C8ZVN`) |
+| Tool bar | Tools (§6.3), **Restore Original** (only while the image is cropped or the video trimmed, §6.6, §6.10), a status line ("Editing…" / "Saved to draft", the last editor message, or a save error), and **Submit Review…** (⌘↩): saves, then opens the Submit Review window on this editor's draft ([07-review-session.md](07-review-session.md) §7.1). Undo and redo are in the Edit menu only (⌘Z / ⇧⌘Z, `HS2-0C8ZVN`) |
 | Media strip (left, whenever the review has a capture) | Thumbnails (with the current crop) plus a count badge of annotations on each. Click one to show it; ⌘-click and ⇧-click select several (§6.7.2). Videos are marked. The shown thumbnail has a ✕ button, and every thumbnail a **Remove from Review…** context menu item (§6.7.1) |
 | Canvas | The current capture fitted to the view (at most 2×) or zoomed (§6.2.1), on a dark backdrop, with annotations drawn on top. A video shows the frame at the playhead |
 | Timeline (under the canvas, videos only) | Play/pause, frame step, playhead time, **Trim Start** / **Trim End**, and the scrubber with each annotation's time range (§6.10) |
@@ -116,21 +116,21 @@ example in a 5K screenshot), zoom in (`HS2-9Y9DDY`):
 | --- | --- |
 | Pinch | Zoom about the pointer |
 | ⌘-scroll (trackpad or mouse wheel) | Zoom about the pointer |
-| ⌘+ (or ⌘=) / ⌘- | Zoom in / out to the next stop: 5, 10, 25, 33, 50, 67, 100, 150, 200, 300, 400, 600, 800, 1200, 1600 % |
-| ⌘0 | Zoom to fit |
-| ⌘1 | Actual pixels (100 %) |
+| ⌘+ (or ⌘=) / ⌘- | View › Zoom In / Zoom Out to the next stop: 5, 10, 25, 33, 50, 67, 100, 150, 200, 300, 400, 600, 800, 1200, 1600 % |
+| ⌘9 | View › Zoom to Fit |
+| ⌘0 | View › Actual Size (100 %, actual pixels) |
 | Two-finger double tap | Toggle between fit and actual pixels at the pointer |
 | Scroll (two fingers or wheel) | Pan a zoomed capture |
 | Space-drag, middle-button drag | Pan (the cursor becomes a hand) |
 
 - **Percent** is relative to actual pixels: 100 % is one capture pixel per screen pixel, so
   on a Retina display 100 % shows a 2× screenshot at its original on-screen size.
-- **Tool bar:** the right end has − / percent / + controls. The percent menu offers Zoom to
-  Fit, Actual Pixels, Zoom In, and Zoom Out.
-- **Shortcuts:** the zoom shortcuts work while the window is key, even if a note field has
-  focus.
+- **View menu** (`HS2-8QBS4V`): **Actual Size** (⌘0), **Zoom to Fit** (⌘9), **Zoom In** (⌘+),
+  and **Zoom Out** (⌘-), with Preview's shortcuts. The window shows no zoom controls or percent.
+  The items work while an editor window is key, even if a note field has focus, and are disabled
+  when it shows no capture or another window is key.
 - **Range:** from 5 % (or the fit, if that is smaller) to 1600 %. Zooming keeps the capture
-  pixel under the pointer in place, and the canvas middle for keyboard and tool bar zoom.
+  pixel under the pointer in place, and the canvas middle for View menu zoom.
 - **Panning** stops when a capture edge reaches the canvas padding. A capture smaller than the
   canvas on an axis stays centered on that axis.
 - **Resizing** the window keeps the zoom and the pixel at the canvas middle. A fitted capture
@@ -219,7 +219,7 @@ So a small box drawn inside a big one stays selectable.
 | ⌘Z / ⇧⌘Z | Undo / redo |
 | ⌘D | Duplicate the selection (offset 2 %, with the same note and intents) |
 | ⌘S | Save now |
-| ⌘+ / ⌘- / ⌘0 / ⌘1, Space-drag | Zoom in / out / fit / actual pixels, pan (§6.2.1) |
+| ⌘+ / ⌘- / ⌘9 / ⌘0, Space-drag | Zoom in / out / to fit / actual size (View menu), pan (§6.2.1) |
 | K | Videos: play / pause (§6.10) |
 | , / . (⇧: 1 s) | Videos: step the playhead back / forward 0.1 s, like the timeline's step buttons, whatever the frame rate (§6.10) |
 | Home / End | Videos: move the playhead to the start / end |

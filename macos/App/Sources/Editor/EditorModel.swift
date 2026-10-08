@@ -20,7 +20,7 @@ final class EditorModel: ObservableObject {
     @Published var focusNoteRequest = 0
     /// Zoom and pan of the canvas (docs/06 §6.2.1); back to fit whenever other media is shown.
     @Published private(set) var viewport = CanvasViewport()
-    /// The canvas's size and screen scale, reported by the canvas so tool bar zoom commands
+    /// The canvas's size and screen scale, reported by the canvas so View menu zoom commands
     /// work in the same coordinates.
     private(set) var canvasSize = CGSize(width: 900, height: 700)
     private(set) var backingScale: CGFloat = 2
@@ -89,13 +89,11 @@ final class EditorModel: ObservableObject {
         mediaSize.flatMap { viewport.layout(view: size, media: $0) }
     }
 
-    var zoomPercent: Int? { layout(in: canvasSize)?.percent(backingScale: backingScale) }
-
     func canvasDidResize(_ size: CGSize, backingScale: CGFloat) {
         guard size != canvasSize || backingScale != self.backingScale else { return }
         canvasSize = size
         self.backingScale = backingScale
-        // The fit percentage shown in the tool bar follows the size; publish outside layout.
+        // Views that depend on the canvas size follow it; publish outside layout.
         DispatchQueue.main.async { [weak self] in self?.revision += 1 }
     }
 

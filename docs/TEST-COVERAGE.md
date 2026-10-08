@@ -1315,3 +1315,13 @@ capture files are no longer cropped or trimmed while drafting.
 - **Not covered automatically:** the live resize animation, and that the next window opens at
   the form's saved size (autosave is turned off before the resize).
 
+## HS2-8QBS4V: zoom lives in a View menu
+
+- **Unit** (`CanvasViewport` tests, unchanged): fit, actual pixels, zoom stops, anchors.
+- **App end to end** (`scripts/app-e2e.sh`): `menus.json` has the menu bar order UX Review, File,
+  Edit, View, Capture, Window, and the View menu's items, shortcuts, and actions: Actual Size ⌘0,
+  Zoom to Fit ⌘9, Zoom In ⌘+ (and a hidden ⌘=), Zoom Out ⌘-. Editor renders show no zoom
+  controls in the tool bar.
+- **Not covered automatically:** choosing the items in a live editor window (the actions forward
+  to the same `EditorModel` zoom functions the old tool bar used).
+

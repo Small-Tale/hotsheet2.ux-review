@@ -15,7 +15,7 @@ enum MainMenu {
         captureMenu = capture
         let window = windowMenu()
         let main = NSMenu(title: "Main Menu")
-        for menu in [appMenu(), fileMenu(), editMenu(), capture.menu, window] {
+        for menu in [appMenu(), fileMenu(), editMenu(), viewMenu(), capture.menu, window] {
             let item = NSMenuItem(title: menu.title, action: nil, keyEquivalent: "")
             item.submenu = menu
             main.addItem(item)
@@ -80,6 +80,21 @@ enum MainMenu {
             action: #selector(EditorWindowController.removeSelectedCaptures(_:)),
             keyEquivalent: "\u{8}"
         )
+        return menu
+    }
+
+    /// Zoom for the editor window's canvas, with Preview's shortcuts (`HS2-8QBS4V`). The editor
+    /// window answers; without one the items are disabled.
+    private static func viewMenu() -> NSMenu {
+        let menu = NSMenu(title: "View")
+        menu.addItem(withTitle: "Actual Size", action: #selector(EditorWindowController.zoomToActualSize(_:)), keyEquivalent: "0")
+        menu.addItem(withTitle: "Zoom to Fit", action: #selector(EditorWindowController.zoomToFit(_:)), keyEquivalent: "9")
+        menu.addItem(withTitle: "Zoom In", action: #selector(EditorWindowController.zoomIn(_:)), keyEquivalent: "+")
+        // ⌘= (no Shift) zooms in too, as in Preview and Safari; hidden.
+        let equals = menu.addItem(withTitle: "Zoom In", action: #selector(EditorWindowController.zoomIn(_:)), keyEquivalent: "=")
+        equals.isHidden = true
+        equals.allowsKeyEquivalentWhenHidden = true
+        menu.addItem(withTitle: "Zoom Out", action: #selector(EditorWindowController.zoomOut(_:)), keyEquivalent: "-")
         return menu
     }
 
