@@ -43,13 +43,13 @@ extension EncodingTests {
             defer { try? FileManager.default.removeItem(at: base) }
             // 0–500 ms of the source, then 250–750 ms of it again (from inside its frame at 200).
             let url = try await Self.editedMovie(in: base) { movie, source in
-                try await movie.insertTimeRange(
+                try movie.insertTimeRange(
                     CMTimeRange(start: Self.ms(0), duration: Self.ms(500)),
                     of: source,
                     at: Self.ms(0),
                     copySampleData: false
                 )
-                try await movie.insertTimeRange(
+                try movie.insertTimeRange(
                     CMTimeRange(start: Self.ms(250), duration: Self.ms(500)),
                     of: source,
                     at: Self.ms(500),
@@ -72,7 +72,7 @@ extension EncodingTests {
             defer { try? FileManager.default.removeItem(at: base) }
             // The second half plays at half speed: 500–1000 ms of the source take 1 s.
             let url = try await Self.editedMovie(in: base) { movie, source in
-                try await movie.insertTimeRange(
+                try movie.insertTimeRange(
                     CMTimeRange(start: Self.ms(0), duration: Self.ms(1000)),
                     of: source,
                     at: Self.ms(0),
