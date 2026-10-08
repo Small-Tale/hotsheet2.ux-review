@@ -23,6 +23,8 @@ enum HeadlessSubmit {
         var ticketTitle: String?
         /// Part of the review was added (`--exclude`): the draft keeps this many captures.
         var remainingCaptures: Int?
+        /// A ticket an earlier failed New ticket try created and left behind (not deleted).
+        var abandonedTicket: String?
     }
 
     struct Failure: Encodable, Error {
@@ -132,7 +134,8 @@ enum HeadlessSubmit {
                 draftRemoved: review.draftRemoved,
                 addedToExistingTicket: review.addedToExistingTicket,
                 ticketTitle: review.ticketTitle,
-                remainingCaptures: review.remainingCaptures
+                remainingCaptures: review.remainingCaptures,
+                abandonedTicket: review.abandonedTicket
             )))
             return 0
         } catch {

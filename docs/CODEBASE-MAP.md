@@ -26,7 +26,7 @@ macos/
     Model/BundleValidation.swift   ReviewBundle.validate() rules (docs/02 §2.7)
     Tickets/TicketComposer.swift   intake ticket body, existing-ticket note, Hot Sheet annotation projection (docs/03 §3.3–3.5)
     Tickets/ReviewSubmitter.swift  validate → write review.json → create ticket → attach batch; steps, resume, attachFailed; add(…) to an existing ticket: attach batch → note, noteFailed; PartialAttach: resume an interrupted attach into the same batch
-    HotSheet/HotSheetCLIClient.swift  HotSheetClient protocol, CreatedTicket (slug + file), CLI transport (new, attach with stored names + --batch-id, attachIncomplete, show, edit --note-file), HotSheetLocator
+    HotSheet/HotSheetCLIClient.swift  HotSheetClient protocol, CreatedTicket (slug + file), CLI transport (new, attach with stored names + --batch-id, attachIncomplete, show, edit --note-file, moveToTrash), HotSheetLocator
     HotSheet/HotSheetTicket.swift     an existing ticket from `show` front matter, its file; TicketReference (slug/ULID/path in pasted text)
     HotSheet/HotSheetStatus.swift     ready/problem detection for UI and --status
     HotSheet/ProcessRunner.swift      Process seam (fakeable in tests)

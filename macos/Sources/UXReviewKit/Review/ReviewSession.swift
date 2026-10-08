@@ -104,6 +104,9 @@ public struct SubmittedReview: Codable, Equatable, Sendable {
     /// Only part of the review went to the existing ticket: the draft is kept with this many
     /// captures that weren't sent (§7.2.2). Nil when the whole review was filed.
     public var remainingCaptures: Int?
+    /// A ticket an earlier New ticket try of this draft created, whose media never (fully)
+    /// arrived, left behind when the review went to an existing ticket instead (§7.5).
+    public var abandonedTicket: String?
 
     public init(
         ticket: CreatedTicket,
@@ -115,7 +118,8 @@ public struct SubmittedReview: Codable, Equatable, Sendable {
         draftRemoved: Bool = true,
         addedToExistingTicket: Bool = false,
         ticketTitle: String? = nil,
-        remainingCaptures: Int? = nil
+        remainingCaptures: Int? = nil,
+        abandonedTicket: String? = nil
     ) {
         self.ticket = ticket
         self.title = title
@@ -127,6 +131,7 @@ public struct SubmittedReview: Codable, Equatable, Sendable {
         self.addedToExistingTicket = addedToExistingTicket
         self.ticketTitle = ticketTitle
         self.remainingCaptures = remainingCaptures
+        self.abandonedTicket = abandonedTicket
     }
 }
 

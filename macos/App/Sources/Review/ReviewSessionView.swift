@@ -14,7 +14,10 @@ struct ReviewSessionView: View {
 
     var body: some View {
         if case let .submitted(review) = model.session.phase {
-            SubmittedView(review: review, copySlug: model.copySlug, showTicketFile: model.showTicketFile, done: done)
+            SubmittedView(
+                review: review, abandoned: model.abandonedTicket, trashAbandoned: model.trashAbandonedTicket,
+                copySlug: model.copySlug, showTicketFile: model.showTicketFile, done: done
+            )
         } else {
             VStack(spacing: 0) {
                 form
@@ -375,6 +378,9 @@ private struct ProjectRow: View {
 
 private struct SubmittedView: View {
     let review: SubmittedReview
+    let abandoned: ReviewSessionModel.AbandonedTicket?
+    let trashAbandoned: () -> Void
+    @State private var confirmingTrash = false
     let copySlug: () -> Void
     let showTicketFile: () -> Void
     let done: () -> Void
@@ -395,6 +401,7 @@ private struct SubmittedView: View {
                 .multilineTextAlignment(.center)
                 .fixedSize(horizontal: false, vertical: true)
                 .frame(maxWidth: 440)
+            if let abandoned { abandonedRow(abandoned) }
             HStack(spacing: 10) {
                 Button("Copy Slug", action: copySlug)
                 Button("Show Ticket File", action: showTicketFile)
@@ -406,6 +413,41 @@ private struct SubmittedView: View {
         }
         .padding(32)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    /// The ticket an earlier failed New ticket try created (HS2-3SVGZ3, docs/07 §7.5).
+    @ViewBuilder private func abandonedRow(_ state: ReviewSessionModel.AbandonedTicket) -> some View {
+        VStack(spacing: 8) {
+            switch state {
+            case let .offered(slug), let .failed(slug, _):
+                Text("\(slug) was created by an earlier try that failed, and doesn't have this review.")
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+                if case let .failed(_, reason) = state {
+                    Label("Couldn't move it: \(reason)", systemImage: "exclamationmark.triangle.fill")
+                        .foregroundStyle(.orange)
+                        .font(.caption)
+                }
+                Button("Move \(slug) to Hot Sheet's Trash…") { confirmingTrash = true }
+                    .confirmationDialog("Move \(slug) to Hot Sheet's Trash?", isPresented: $confirmingTrash) {
+                        Button("Move to Trash", role: .destructive, action: trashAbandoned)
+                        Button("Cancel", role: .cancel) {}
+                    } message: {
+                        Text("It can be restored from Hot Sheet's Trash.")
+                    }
+            case let .moving(slug):
+                HStack(spacing: 6) {
+                    ProgressView().controlSize(.small)
+                    Text("Moving \(slug) to Hot Sheet's Trash…").foregroundStyle(.secondary)
+                }
+            case let .moved(slug):
+                Label("Moved \(slug) to Hot Sheet's Trash.", systemImage: "trash").foregroundStyle(.secondary)
+            }
+        }
+        .font(.callout)
+        .frame(maxWidth: 440)
+        .padding(12)
+        .background(RoundedRectangle(cornerRadius: 8).fill(Color.secondary.opacity(0.08)))
     }
 
     private var summary: String {

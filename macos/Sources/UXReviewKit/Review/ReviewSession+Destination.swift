@@ -261,6 +261,8 @@ extension DraftSubmitter {
         } catch {
             throw SubmissionFailure(message: ReviewSubmitter.describe(error), attachedTo: resume == nil ? nil : existing.slug)
         }
+        // A ticket a failed New ticket try created in this store, now left behind (HS2-3SVGZ3).
+        let abandoned = pending.flatMap { $0.isForExistingTicket || $0.ticket.slug == existing.slug ? nil : $0.ticket.slug }
         let (removed, remaining) = cleanUp(draft.directory, after: record.selection)
         return SubmittedReview(
             ticket: ticket,
@@ -272,7 +274,8 @@ extension DraftSubmitter {
             draftRemoved: removed,
             addedToExistingTicket: true,
             ticketTitle: existing.title,
-            remainingCaptures: remaining
+            remainingCaptures: remaining,
+            abandonedTicket: abandoned
         )
     }
 

@@ -1002,3 +1002,18 @@ capture files are no longer cropped or trimmed while drafting.
 - **Not covered automatically:** pressing keys in the live overlays (they can't be driven
   headless). The session code is a thin switch over `PickerKeys.action`; the manual check is
   in `HS2-3JD5PS`.
+
+## HS2-3SVGZ3: offer to trash a ticket left behind by a failed New ticket try
+
+- **Unit** (`AbandonedTicketTests`): after a failed (or partly attached) New ticket try, adding
+  to an existing ticket names the created ticket and trashes nothing; a record of the existing
+  ticket itself, no record, or a record in another store names none; `moveToTrash` runs
+  `edit --status=deleted` with the reviewer's actor.
+- **Real CLI** (`HotSheetEndToEndTests.anAbandonedTicketCanBeTrashed`): an unreadable capture
+  fails the New ticket attach, the existing-ticket submission names the created ticket (still
+  `not_started`), and `moveToTrash` sets it to `deleted`.
+- **App end to end** (`scripts/app-e2e.sh`): `--submit --to-ticket` reports `abandonedTicket`
+  and leaves that ticket untouched.
+- **Visual QA:** `session-existing-abandoned` (`--render-ui-previews`), inspected by hand.
+- **Not covered automatically:** clicking Move to Trash and its confirmation in a live window
+  (`ReviewSessionModel.trashAbandonedTicket` runs the tested `moveToTrash` off the main thread).

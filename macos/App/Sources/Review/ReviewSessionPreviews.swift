@@ -145,6 +145,16 @@ enum ReviewSessionPreviews {
         )))
         try shoot("session-existing-submitted", submitted, Self.size)
 
+        // HS2-3SVGZ3: an earlier New ticket try left HS-R58EY5 behind.
+        let abandoned = existing("HS-YCDZ2A", .success(existingTicket))
+        abandoned.previewSubmitting(.addingNote)
+        abandoned.finish(.success(SubmittedReview(
+            ticket: existingTicket.createdTicket, title: draft.bundle.title, mediaCount: 3, annotationCount: 4,
+            storePath: "/Users/me/Code/acme-mail.hs2", submittedAt: Date(),
+            addedToExistingTicket: true, ticketTitle: existingTicket.title, abandonedTicket: "HS-R58EY5"
+        )))
+        try shoot("session-existing-abandoned", abandoned, Self.size)
+
         // HS2-00TXV6: only part of the review goes to the ticket.
         let part = existing("HS-YCDZ2A", .success(existingTicket))
         part.setIncluded(media: "m2", false)

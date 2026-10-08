@@ -140,6 +140,15 @@ final class FakeHotSheetClient: HotSheetClient, @unchecked Sendable {
         return tickets[reference] ?? tickets.values.first { $0.id == reference }
     }
 
+    /// Tickets moved to the Trash, in order.
+    var trashed: [String] = []
+    var trashError: Error?
+
+    func moveToTrash(_ slug: String) throws {
+        if let trashError { throw trashError }
+        trashed.append(slug)
+    }
+
     func addNote(_ markdown: String, to slug: String) throws {
         if !noteErrors.isEmpty { throw noteErrors.removeFirst() }
         notes.append((slug, markdown))

@@ -695,6 +695,20 @@ hs -C "$TMP/subproj.hs2" show "$existing" >"$TMP/exclude-ticket.md"
 [[ "$(grep -c '## UX review: Part' "$TMP/exclude-ticket.md")" == 1 ]] || die "exclude: expected one note"
 ok "--exclude adds only the chosen capture to the existing ticket and keeps the rest in the draft; excluding all or an unknown id is refused"
 
+# HS2-3SVGZ3: a New ticket try whose attach fails, then Add to existing names the ticket left behind.
+ADRAFTS="$TMP/abandoned-drafts"
+ASUB=(--drafts-dir "$ADRAFTS" --project "$TMP/subproj")
+run abandoned-shot 0 "${SYN[@]}" -- --capture screenshot --target region --rect 100,100,300,200 --drafts-dir "$ADRAFTS"
+adraft="$(json "$TMP/abandoned-shot.json" j.draftDirectory)"
+chmod 000 "$adraft/capture-1.png"
+run abandoned-new 5 -- --submit "${ASUB[@]}" --title "Lost"
+chmod 644 "$adraft/capture-1.png"
+lost="$(json "$TMP/abandoned-new.json" j.createdTicket)"
+run abandoned-existing 0 -- --submit "${ASUB[@]}" --to-ticket "$existing"
+[[ "$lost" == HS-* && "$(json "$TMP/abandoned-existing.json" j.abandonedTicket)" == "$lost" ]] || die "abandoned: $(cat "$TMP/abandoned-existing.json")"
+hs -C "$TMP/subproj.hs2" show "$lost" | grep -q "^status: not_started" || die "abandoned: the left-behind ticket should be untouched"
+ok "after a failed New ticket try, adding to an existing ticket reports the ticket left behind (abandonedTicket) without deleting it"
+
 # HS2-2QP0GM: a capture removed by the review session leaves an open editor consistent.
 RDRAFTS="$TMP/remove-drafts"
 run remove-shot1 0 "${SYN[@]}" -- --capture screenshot --target region --rect 100,100,300,200 --drafts-dir "$RDRAFTS"
@@ -816,7 +830,7 @@ for name in overlay-region-hint overlay-window-hint overlay-region-selection ove
   editor-empty editor-no-media editor-annotated editor-arrow-selected editor-narrow editor-crop-drag editor-cropped editor-zoomed editor-keyboard-insert editor-video-timeline editor-video-narrow editor-video-trimmed editor-video-playing editor-video-range-drag editor-video-trim-drag editor-autoscroll \
   session-ready session-narrow session-edited session-submitting session-failed session-submitted session-issues session-empty \
   session-existing-looking session-existing-found session-existing-narrow session-existing-not-found session-existing-closed \
-  session-existing-failed session-existing-submitted session-existing-selection \
+  session-existing-failed session-existing-submitted session-existing-selection session-existing-abandoned \
   drafts-list drafts-narrow drafts-empty drafts-delete-immediately; do
   [[ -s "$TMP/previews/$name.png" ]] || die "previews: $name.png missing"
 done

@@ -205,7 +205,11 @@ one `attach` batch of the media plus `review.json`, then one note.
 - A record is reused only for the same kind of submission, ticket, and store. A note-pending
   record is never treated as a created ticket, and a created-ticket record is never reused for an
   existing ticket. A ticket created by an earlier failed New ticket submission stays in Hot Sheet,
-  without media, if the review then goes to an existing ticket.
+  without (all of) its media, if the review then goes to an existing ticket. The result names it
+  (`abandonedTicket`, `HS2-3SVGZ3`): "HS-… was created by an earlier try that failed, and doesn't
+  have this review." **Move HS-… to Hot Sheet's Trash…** asks first, then sets its status to
+  `deleted` (`hotsheet-cli edit --status=deleted`; Hot Sheet can restore it). Nothing is deleted
+  without that click; `--submit` only reports it.
 - The Draft Reviews row reads "Media attached to HS-…; the review note isn't added yet" (or,
   part-way, "Some media attached to HS-…; the rest and the review note aren't added yet"), and
   Discard says the media stays attached. Opening the session on such a draft selects **Add to
@@ -252,7 +256,8 @@ before checking, so an unknown ticket is an `invalidReview` issue. `--exclude m2
 - On success: `status: "submitted"`, `slug`, `ticketFile`, `storePath`, `title`, `mediaCount`,
   `annotationCount`, `draftDirectory`, `draftRemoved`, `addedToExistingTicket`, and `ticketTitle`
   (the existing ticket's title, with `--to-ticket`), plus `remainingCaptures` when part of the
-  review was added and the draft keeps the rest.
+  review was added and the draft keeps the rest, and `abandonedTicket` when an earlier failed New
+  ticket try left a ticket behind (§7.5; it is not deleted).
 - On failure: `status: "error"`, `error`, `message`, plus `issues` (messages, for
   `invalidReview`), `createdTicket` (when the ticket exists but the attach failed), `attachedTo`
   (when the media is attached to the existing ticket but the note failed, or some of it before

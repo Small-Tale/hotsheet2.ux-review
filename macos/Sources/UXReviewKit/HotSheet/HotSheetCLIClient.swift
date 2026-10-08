@@ -62,6 +62,8 @@ public protocol HotSheetClient: Sendable {
     func findTicket(_ reference: String) throws -> HotSheetTicket?
     /// Appends a Markdown note to a ticket.
     func addNote(_ markdown: String, to slug: String) throws
+    /// Moves a ticket to Hot Sheet's Trash (`status: deleted`; `hotsheet-cli restore` brings it back).
+    func moveToTrash(_ slug: String) throws
 }
 
 public extension HotSheetClient {
@@ -195,6 +197,10 @@ public struct HotSheetCLIClient: HotSheetClient {
         try Data(markdown.utf8).write(to: file, options: .atomic)
         defer { try? FileManager.default.removeItem(at: file) }
         _ = try invoke(["edit", slug, "--note-file=\(file.path)"])
+    }
+
+    public func moveToTrash(_ slug: String) throws {
+        _ = try invoke(["edit", slug, "--status=deleted"])
     }
 
     /// Runs `hotsheet-cli`, throwing on a non-zero exit.

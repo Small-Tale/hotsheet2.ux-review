@@ -124,6 +124,10 @@ only when it exists. A `deleted` or `moved` ticket doesn't take reviews.
 2. `hotsheet-cli -C <store> edit --actor-role=human --actor-id=ux-review <SLUG> --note-file=<tmp>.md`:
    one note, from a temporary file that is removed afterwards.
 
+**Trashing a left-behind ticket** (`HotSheetClient.moveToTrash`, docs/07 §7.5): `hotsheet-cli -C
+<store> edit --actor-role=human --actor-id=ux-review <SLUG> --status=deleted`, only when the
+reviewer confirms it in the Submit Review result.
+
 The attach goes first because Hot Sheet renames a file whose name the ticket already has
 (`review.json` → `review (2).json`, `capture-1.png` → `capture-1 (2).png`). That is common on a
 ticket that came from an earlier review. `attach` prints `Durable attachment id: <ULID> (<stored

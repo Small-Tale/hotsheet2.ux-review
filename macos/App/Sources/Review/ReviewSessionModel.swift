@@ -49,6 +49,25 @@ final class ReviewSessionModel: ObservableObject {
     var closeEditor: (URL) -> Void = { _ in }
     /// Where the Hot Sheet target comes from (the app settings; previews pass a fixed one).
     var statusProvider: () -> HotSheetStatus = AppSettings.currentStatus
+    /// Moves a ticket to Hot Sheet's Trash (off the main thread): slug, cli, store. Previews replace it.
+    var ticketTrasher: @Sendable (String, String, String) -> String? = { slug, cli, store in
+        do {
+            try HotSheetCLIClient(executable: URL(fileURLWithPath: cli), storePath: URL(fileURLWithPath: store)).moveToTrash(slug)
+            return nil
+        } catch {
+            return ReviewSubmitter.describe(error)
+        }
+    }
+
+    /// The ticket a failed New ticket try left behind, after the review went to an existing one (§7.5).
+    enum AbandonedTicket: Equatable {
+        case offered(String)
+        case moving(String)
+        case moved(String)
+        case failed(String, reason: String)
+    }
+
+    @Published private(set) var abandonedTicket: AbandonedTicket?
     /// Looks a ticket up (off the main thread); previews and tests replace it.
     var ticketFinder: @Sendable (TicketQuery, String) -> Result<HotSheetTicket?, SubmissionFailure> = { query, cli in
         query.run(cliPath: cli)
@@ -309,6 +328,7 @@ final class ReviewSessionModel: ObservableObject {
     func finish(_ result: Result<SubmittedReview, SubmissionFailure>) {
         guard session.finish(result) else { return }
         if case let .success(review) = result {
+            abandonedTicket = review.abandonedTicket.map(AbandonedTicket.offered)
             AppSettings.rememberProject(target: review)
             NotificationCenter.default.post(name: .reviewDraftChanged, object: directory)
         } else {
@@ -320,6 +340,24 @@ final class ReviewSessionModel: ObservableObject {
     /// Previews put the session into a given phase without touching Hot Sheet.
     func previewSubmitting(_ step: SubmitStep) {
         if session.beginSubmit() { session.advance(step) }
+    }
+
+    /// Moves the left-behind ticket to Hot Sheet's Trash (after the view's confirmation).
+    func trashAbandonedTicket() {
+        guard case let .submitted(review) = session.phase, let slug = review.abandonedTicket,
+              let cli = session.target.cliPath ?? statusProvider().cliPath
+        else { return }
+        switch abandonedTicket {
+        case .offered, .failed: break
+        default: return
+        }
+        abandonedTicket = .moving(slug)
+        let trash = ticketTrasher
+        let store = review.storePath
+        Task { [weak self] in
+            let failure = await Task.detached { trash(slug, cli, store) }.value
+            self?.abandonedTicket = failure.map { .failed(slug, reason: $0) } ?? .moved(slug)
+        }
     }
 
     func copySlug() {
