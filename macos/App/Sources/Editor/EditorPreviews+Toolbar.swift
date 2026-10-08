@@ -30,9 +30,14 @@ extension EditorPreviews {
         var submitted = 0
         let toolbar = EditorToolbar(model: model) { submitted += 1 }
         toolbar.install(on: window)
-        func settle() {
-            RunLoop.main.run(until: Date().addingTimeInterval(0.05))
-            window.contentView?.layoutSubtreeIfNeeded()
+        // The toolbar follows the model on later run loop turns. Under load one 50 ms turn wasn't
+        // enough (HS2-5D947C), so wait, up to 2 s, until `done` says the expected state arrived.
+        func settle(until done: () -> Bool = { true }) {
+            let deadline = Date().addingTimeInterval(2)
+            repeat {
+                RunLoop.main.run(until: Date().addingTimeInterval(0.05))
+                window.contentView?.layoutSubtreeIfNeeded()
+            } while !done() && Date() < deadline
         }
         settle()
         let opened = toolbar.describe()
@@ -49,7 +54,7 @@ extension EditorPreviews {
         // C (keyboard) chooses Crop; cropping makes Restore Original appear.
         model.mutate { $0.setTool(.crop) }
         apply(.crop(CGRect(x: 220, y: 90, width: 1180, height: 560)), to: model)
-        settle()
+        settle { toolbar.describe()["restoreHidden"] as? Bool == false }
         let cropped = toolbar.describe()
         if let submit = window.toolbar?.items.first(where: { $0.itemIdentifier == EditorToolbar.submitReview }),
            let action = submit.action {

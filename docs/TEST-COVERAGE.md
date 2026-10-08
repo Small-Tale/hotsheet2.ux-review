@@ -1387,3 +1387,10 @@ text stacked one word per line at 99 pt wide. The empty Draft Reviews window was
   `session-submitted-fitted.png` draw the result.
 - **Not covered automatically:** restoring the user's real saved frames on a live screen
   (`WindowSizing.keepOnScreen` calls the unit-tested `WindowFrameFit`).
+
+## HS2-5D947C: the editor toolbar check waits for the toolbar
+
+- **App end to end** (`scripts/app-e2e.sh`, `toolbar: states`): after the crop,
+  `EditorPreviews.renderToolbar` waits up to 2 s for Restore Original to show before reading the
+  toolbar, instead of a single 50 ms run loop turn that a loaded machine could miss. A real
+  regression still fails: the state never arrives and the check reads it as before.
