@@ -51,6 +51,10 @@ and **Copy Slug**, **Show Ticket File** (the ticket's Markdown file in the store
 Finder), and **Done**. After adding to an existing ticket it shows **Added to HS-…**, that
 ticket's title, and that the review is a note on it, with the same buttons.
 
+The window then shrinks around that message (`HS2-J2BE94`): at least 520 pt wide and just tall
+enough for it, with its top edge where it was, and it no longer resizes. The form's size isn't
+touched: the next Submit Review window opens at the size it was last given.
+
 ### 7.2.1 Adding to an existing ticket
 
 Sometimes a review is feedback on, or extra information for, a ticket that already exists

@@ -54,14 +54,9 @@ enum ReviewSessionPreviews {
         )))
         try shoot("session-failed", failed)
 
-        let submitted = model(draft)
-        submitted.previewSubmitting(.attachingMedia)
-        submitted.finish(.success(SubmittedReview(
-            ticket: CreatedTicket(slug: "HS-R58EY5", file: "/Users/me/Code/acme-mail.hs2/tickets/X5/01M4.md"),
-            title: draft.bundle.title, mediaCount: 3, annotationCount: 4,
-            storePath: "/Users/me/Code/acme-mail.hs2", submittedAt: Date()
-        )))
+        let submitted = filed(model(draft))
         try shoot("session-submitted", submitted)
+        try written += fitSubmitted(submitted, to: directory)
         try renderExistingTicket(draft, model: { model($0) }, shoot: shoot)
 
         // Blocked: no title, a capture whose file is gone, an annotation outside its capture,
@@ -195,6 +190,44 @@ enum ReviewSessionPreviews {
                 ),
             ]
         }
+    }
+
+    /// `model` after filing its review as HS-R58EY5.
+    private static func filed(_ model: ReviewSessionModel) -> ReviewSessionModel {
+        model.previewSubmitting(.attachingMedia)
+        model.finish(.success(SubmittedReview(
+            ticket: CreatedTicket(slug: "HS-R58EY5", file: "/Users/me/Code/acme-mail.hs2/tickets/X5/01M4.md"),
+            title: model.session.bundle.title, mediaCount: 3, annotationCount: 4,
+            storePath: "/Users/me/Code/acme-mail.hs2", submittedAt: Date()
+        )))
+        return model
+    }
+
+    /// HS2-J2BE94: a 640 × 2000 Submit Review window holding a filed review, shrunk around the
+    /// success message the way the real window is (`session-submitted-fit.json`, and the result
+    /// drawn as `session-submitted-fitted.png`).
+    private static func fitSubmitted(_ model: ReviewSessionModel, to directory: URL) throws -> [URL] {
+        let window = NSWindow(
+            contentRect: CGRect(x: 100, y: 100, width: 640, height: 2000),
+            styleMask: [.titled, .closable, .resizable], backing: .buffered, defer: false
+        )
+        let host = NSHostingView(rootView: ReviewSessionView(model: model))
+        window.contentView = host
+        let top = window.frame.maxY
+        ReviewSessionWindowController.fitToSubmitted(window)
+        let content = window.contentRect(forFrameRect: window.frame).size
+        let json = directory.appendingPathComponent("session-submitted-fit.json")
+        try JSONSerialization.data(withJSONObject: [
+            "width": content.width, "height": content.height,
+            "topKept": window.frame.maxY == top, "resizable": window.styleMask.contains(.resizable),
+        ], options: [.prettyPrinted, .sortedKeys]).write(to: json)
+        host.layoutSubtreeIfNeeded()
+        let png = directory.appendingPathComponent("session-submitted-fitted.png")
+        guard let rep = host.bitmapImageRepForCachingDisplay(in: host.bounds) else { throw CaptureFailure.failed("no bitmap") }
+        host.cacheDisplay(in: host.bounds, to: rep)
+        guard let image = rep.cgImage else { throw CaptureFailure.failed("render failed") }
+        try ImageFiles.writePNG(image, to: png)
+        return [json, png]
     }
 
     private static func snapshot(_ view: some View, size: CGSize, to url: URL) throws -> URL {

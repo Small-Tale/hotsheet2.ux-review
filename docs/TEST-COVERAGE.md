@@ -1305,3 +1305,13 @@ capture files are no longer cropped or trimmed while drafting.
   model must both read "Field labelXYZ is clipped…". Before the fix it jumped to the end (43)
   after the first character.
 
+## HS2-J2BE94: the Submit Review window fits the success message
+
+- **App end to end** (`scripts/app-e2e.sh`): `--render-ui-previews` puts a filed review in a
+  640 × 2000 window and runs `ReviewSessionWindowController.fitToSubmitted`
+  (`session-submitted-fit.json`). The window must end up 520 pt wide, 150–400 pt tall, with its top
+  edge kept and no longer resizable.
+- **Visual QA:** `session-submitted-fitted.png`, inspected by hand.
+- **Not covered automatically:** the live resize animation, and that the next window opens at
+  the form's saved size (autosave is turned off before the resize).
+

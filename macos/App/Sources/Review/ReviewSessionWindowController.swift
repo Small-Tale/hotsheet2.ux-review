@@ -1,4 +1,5 @@
 import AppKit
+import Combine
 import SwiftUI
 import UXReviewKit
 
@@ -86,7 +87,51 @@ final class ReviewSessionWindowController: NSWindowController, NSWindowDelegate 
             }
         ))
         window.delegate = self
+        phaseChanges = model.$session
+            .map { if case .submitted = $0.phase { true } else { false } }
+            .removeDuplicates()
+            .filter { $0 }
+            .receive(on: DispatchQueue.main)
+            .sink { [weak window] _ in
+                MainActor.assumeIsolated {
+                    guard let window else { return }
+                    Self.fitToSubmitted(window)
+                }
+            }
+        abandonedChanges = model.$abandonedTicket
+            .dropFirst()
+            .receive(on: DispatchQueue.main)
+            .sink { [weak window, weak model] _ in
+                MainActor.assumeIsolated {
+                    guard let window, let model, case .submitted = model.session.phase else { return }
+                    Self.fitToSubmitted(window)
+                }
+            }
     }
+
+    private var phaseChanges: AnyCancellable?
+    /// Refits a filed review's window when the leftover-ticket row under the message changes.
+    private var abandonedChanges: AnyCancellable?
+
+    /// Shrinks the window around the success message once the review is filed (`HS2-J2BE94`): the
+    /// form's size, possibly very tall, would leave the message floating in empty space. The top
+    /// edge stays put and the window stops resizing. Autosaving stops first, so the next Submit
+    /// Review window still opens at the form's saved size.
+    static func fitToSubmitted(_ window: NSWindow) {
+        guard let content = window.contentView else { return }
+        window.setFrameAutosaveName("")
+        content.layoutSubtreeIfNeeded()
+        let fitting = content.fittingSize
+        let size = CGSize(width: max(ceil(fitting.width), submittedMinWidth), height: ceil(fitting.height))
+        window.contentMinSize = size
+        window.contentMaxSize = size
+        window.styleMask.remove(.resizable)
+        var frame = window.frameRect(forContentRect: CGRect(origin: .zero, size: size))
+        frame.origin = CGPoint(x: window.frame.minX, y: window.frame.maxY - frame.height)
+        window.setFrame(frame, display: true, animate: window.isVisible)
+    }
+
+    static let submittedMinWidth: CGFloat = 520
 
     @available(*, unavailable)
     required init?(coder _: NSCoder) { fatalError("not used") }
