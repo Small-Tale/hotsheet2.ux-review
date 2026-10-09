@@ -1801,3 +1801,11 @@ text stacked one word per line at 99 pt wide. The empty Draft Reviews window was
   insets at 6 points on each side.
 - **Visual QA:** `editor-window` (`--render-ui-previews`): the selected tool's highlight sits
   inside the capsule, inspected by hand. The live glass rendering is part of `HS2-3AWMBZ`'s check.
+
+## HS2-FXZSA4: the Narrate switch is blue when on
+
+- **App end to end:** `menu-narrate-switch.json` (`--render-ui-previews`): the off row is off
+  with a gray track; the on row is on with the accent-colored track. Both are VoiceOver switches
+  (`AXSwitch`).
+- **Visual QA:** `menu-narrate-row-off/-on-light/-dark`, inspected by hand.
+- **Not covered automatically:** the live menu (part of `HS2-PV2RA7`'s check).

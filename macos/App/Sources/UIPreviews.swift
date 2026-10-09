@@ -249,6 +249,7 @@ enum UIPreviews {
                 rows.append((name, toggle))
             }
         }
+        written.append(try writeNarrateSwitch(rows, to: directory))
         for (prefix, entry) in rows {
             for (suffix, appearance) in [("light", NSAppearance.Name.aqua), ("dark", .darkAqua)] {
                 guard let row = MenuRendering.item(entry, perform: { _ in }).view else { continue }
@@ -269,6 +270,22 @@ enum UIPreviews {
             }
         }
         return written
+    }
+
+    /// HS2-FXZSA4: the Narrate switch's track is the accent color when on, in a live menu too (an
+    /// NSSwitch drew it gray there, since a menu's window is never key): `menu-narrate-switch.json`.
+    private static func writeNarrateSwitch(_ rows: [(String, MenuEntry)], to directory: URL) throws -> URL {
+        var switches: [String: Any] = [:]
+        for (prefix, entry) in rows {
+            guard let toggle = MenuRendering.item(entry, perform: { _ in }).view as? MenuToggleView else { continue }
+            switches[prefix] = [
+                "isOn": toggle.isOn, "trackIsAccent": toggle.control.trackColor == .controlAccentColor,
+                "role": toggle.control.accessibilitySubrole()?.rawValue ?? "",
+            ]
+        }
+        let url = directory.appendingPathComponent("menu-narrate-switch.json")
+        try JSONSerialization.data(withJSONObject: switches, options: [.prettyPrinted, .sortedKeys]).write(to: url)
+        return url
     }
 
     /// Builds the idle status menu the way `StatusItemController` does, chooses Window and 3 s in

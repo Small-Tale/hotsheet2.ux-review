@@ -152,19 +152,18 @@ final class MenuChoicesView: NSView {
 final class MenuToggleView: NSView {
     private let command: MenuCommand
     private let perform: @MainActor (MenuCommand) -> Void
-    let control = NSSwitch()
+    let control: MenuSwitch
     let titleInset = CGFloat(MenuMetrics.titleInset)
 
     init(title: String, isOn: Bool, command: MenuCommand, perform: @escaping @MainActor (MenuCommand) -> Void) {
         self.command = command
         self.perform = perform
+        control = MenuSwitch(isOn: isOn)
         super.init(frame: CGRect(x: 0, y: 0, width: MenuChoicesView.minimumWidth, height: 26))
         autoresizingMask = [.width]
         let label = NSTextField(labelWithString: title)
         label.font = .menuFont(ofSize: 0)
         label.textColor = .labelColor
-        control.controlSize = .mini
-        control.state = isOn ? .on : .off
         control.target = self
         control.action = #selector(flipped(_:))
         control.setAccessibilityLabel(title)
@@ -187,15 +186,14 @@ final class MenuToggleView: NSView {
     @available(*, unavailable)
     required init?(coder _: NSCoder) { fatalError("not used") }
 
-    var isOn: Bool { control.state == .on }
+    var isOn: Bool { control.isOn }
 
     /// Flips the switch and runs the command, as a click on the row does (UI previews and tests).
     func flip() {
-        control.state = isOn ? .off : .on
-        perform(command)
+        control.flip()
     }
 
-    @objc private func flipped(_: NSSwitch) {
+    @objc private func flipped(_: MenuSwitch) {
         perform(command)
     }
 

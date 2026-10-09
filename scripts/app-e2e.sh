@@ -1375,6 +1375,12 @@ ok "the canvas surround is light gray in light mode and near-black in dark mode"
   "true|text.insert|Select|Crop|Rectangle|Rectangle|Rectangle|Select,Rectangle,Freehand,Arrow,Insertion,Strike,Crop" ]] \
   || die "toolbar: tool buttons $(json "$TB" 'JSON.stringify([j.opened, j.clicked, j.clickedAgain, j.toolAfterClicks])')"
 ok "the tools are one capsule of buttons: one selected, clicks choose, the overflow menu lists them"
+# HS2-FXZSA4: the menu's Narrate switch is drawn by UX Review: the accent color when on, gray
+# when off (an NSSwitch in a menu looked off even when on); VoiceOver gets a switch.
+SW="$TMP/previews/menu-narrate-switch.json"
+[[ "$(json "$SW" '["menu-narrate-row-off", "menu-narrate-row-on"].map(k => [j[k].isOn, j[k].trackIsAccent, j[k].role].join("/")).join("|")')" == \
+  "false/false/AXSwitch|true/true/AXSwitch" ]] || die "narrate switch: $(cat "$SW")"
+ok "the menu's Narrate switch is blue (the accent color) when on and gray when off"
 # HS2-RA1Y5Z: every tool button is the same size, and the row is inset from the capsule's ends.
 [[ "$(json "$TB" '[[...new Set(j.opened.toolButtonSizes)].join(), j.opened.toolInsets.join()].join("|")')" == "32x28|6,6" ]] \
   || die "toolbar: tool sizes/insets $(json "$TB" 'JSON.stringify([j.opened.toolButtonSizes, j.opened.toolInsets])')"

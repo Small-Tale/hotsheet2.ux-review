@@ -108,6 +108,7 @@ macos/
     UXReviewApp.swift          @main: headless mode routing, else an AppKit NSApplication run loop
     AppDelegate.swift          owns capture + settings, status item, app menu bar; open-files batching; File-menu fallbacks for the current draft (docs/05 §5.1)
     Menus/MenuRendering.swift  MenuEntry → NSMenuItem (CommandMenuItem, MenuChoicesView: the "Capture [Screen | Window | Region]" and "Delay [None | 3 s | 10 s]" pickers), MenuDump for menus.json
+    Menus/MenuSwitch.swift            the menu rows' on/off switch, drawn in the accent color when on (HS2-FXZSA4)
     Menus/StatusItemController.swift  menu bar icon (StatusBarIcon) + menu rebuilt from AppMenus.statusMenu on open
     Menus/MainMenu.swift       app menu bar (UX Review, File, Edit, View, Window) shown while a window is open (docs/05 §5.1.1)
     Menus/DockPresence.swift   Dock icon + app menu bar while a UX Review window is open (WindowPresence)

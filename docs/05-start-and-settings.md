@@ -30,7 +30,9 @@ work happens in UX Review's own windows (§5.1.1). When idle, it lists:
 5. **Narrate Next Recording with Microphone**: a switch row that turns narration on or off for
    the next recording only ([04-capture.md](04-capture.md) §4.9). Like the picker rows, flipping
    it (the switch or anywhere on the row) keeps the menu open (`HS2-JBWPP5`), so the reviewer sees
-   the new state and can go on to Capture Video.
+   the new state and can go on to Capture Video. The switch is drawn like the system's, in the
+   accent color when on (`HS2-FXZSA4`; an `NSSwitch` in a menu draws its "on" track gray, since a
+   menu's window is never key, so it looked off).
 
    A 5 s delay is set in Settings (§5.3); the Delay row then shows it as its own segment.
    With Region or Window as the target, the picker itself switches: **Space** toggles
