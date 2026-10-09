@@ -29,6 +29,8 @@ enum ReviewSessionPreviews {
             model.previewScale(.claudeStandard)
             // Previews never run hotsheet-cli; they resolve lookups with previewLookup.
             model.ticketFinder = { _, _ in .success(nil) }
+            // No Hot Sheet web client unless a preview says so.
+            model.hotSheetLinkFinder = { _, _ in nil }
             return model
         }
 
@@ -57,6 +59,7 @@ enum ReviewSessionPreviews {
         try written += renderTicketText(draft, store: store, model: { model($0) }, to: directory)
 
         try shoot("session-submitted", filed(model(draft)))
+        try shoot("session-submitted-hotsheet", filedWithHotSheet(model(draft)))
         try written += fitSubmitted(model(draft), to: directory)
         try renderExistingTicket(draft, model: { model($0) }, shoot: shoot)
 
@@ -243,6 +246,14 @@ enum ReviewSessionPreviews {
     }
 
     /// `model` after filing its review as HS-R58EY5.
+    /// HS2-ZEF6XD: Hot Sheet's web client is running, so the ticket can be opened in it.
+    private static func filedWithHotSheet(_ model: ReviewSessionModel) -> ReviewSessionModel {
+        let link = URL(string: "http://127.0.0.1:4175/?store=/Users/me/Code/acme-mail.hs2&ticket=HS-R58EY5")
+        model.hotSheetLinkFinder = { _, _ in link }
+        model.hotSheetLink = link
+        return filed(model)
+    }
+
     private static func filed(_ model: ReviewSessionModel) -> ReviewSessionModel {
         model.previewSubmitting(.attachingMedia)
         model.finish(.success(SubmittedReview(

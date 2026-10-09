@@ -29,6 +29,7 @@ macos/
     Tickets/MarkdownBlocks.swift   headings / list items / paragraphs of a short Markdown text, for the rendered ticket text
     Tickets/ReviewSubmitter.swift  validate → write review.json → create ticket → attach batch; steps, resume, attachFailed; add(…) to an existing ticket: attach batch → note, noteFailed; PartialAttach: resume an interrupted attach into the same batch
     HotSheet/HotSheetCLIClient.swift  HotSheetClient protocol, CreatedTicket (slug + file), CLI transport (new, attach with stored names + --batch-id, attachIncomplete, show, edit --note-file, moveToTrash, ai-settings get --json), HotSheetLocator
+    HotSheet/HotSheetWebClient.swift  the running Hot Sheet 2 web client (client.json, live pid, answers) and its ticket deep link (docs/07 §7.2)
     HotSheet/HotSheetTicket.swift     an existing ticket from `show` front matter, its file; TicketReference (slug/ULID/path in pasted text)
     HotSheet/HotSheetStatus.swift     ready/problem detection for UI and --status
     HotSheet/ProcessRunner.swift      Process seam (fakeable in tests)
@@ -140,6 +141,7 @@ macos/
     Editor/EditorPreviews+Typing.swift  types into the middle of a note through the real text view (editor-note-typing.json)
     Review/ReviewSessionWindowController.swift  one Submit Review window per draft (docs/07 §7.1)
     Review/ReviewSessionModel.swift   observable session: draft refresh, autosaved fields, remove, debounced ticket lookup, submit off-main
+    Review/ReviewSessionModel+HotSheet.swift  Open in Hot Sheet after filing: find the web client's ticket link off the main thread (HS2-ZEF6XD)
     Review/ReviewSessionView.swift    capture list, title/summary, issues, project, ticket, progress, failure, success
     Review/ReviewDestinationView.swift  Ticket section: New ticket / Add to existing ticket, ticket field, lookup status (docs/07 §7.2.1); Ticket text: rendered preamble, click to edit (TicketTextBox, MarkdownPreview, §7.2.3)
     Review/HeadlessSubmit.swift       `--submit` mode with JSON output (docs/07 §7.8)

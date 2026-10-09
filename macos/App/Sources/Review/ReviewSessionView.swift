@@ -21,6 +21,7 @@ struct ReviewSessionView: View {
         if case let .submitted(review) = model.session.phase {
             SubmittedView(
                 review: review, abandoned: model.abandonedTicket, trashAbandoned: model.trashAbandonedTicket,
+                openInHotSheet: openInHotSheet,
                 copySlug: model.copySlug, showTicketFile: model.showTicketFile, done: done
             )
             .frame(minWidth: Self.minimumSize.width)
@@ -46,6 +47,13 @@ struct ReviewSessionView: View {
                 )
             }
         }
+    }
+
+    /// Open in Hot Sheet, only while a web client is running (HS2-ZEF6XD).
+    private var openInHotSheet: (() -> Void)? {
+        guard model.hotSheetLink != nil else { return nil }
+        let model = model
+        return { model.openInHotSheet() }
     }
 
     private var editable: Bool { model.session.isEditable }
@@ -395,6 +403,8 @@ private struct SubmittedView: View {
     let abandoned: ReviewSessionModel.AbandonedTicket?
     let trashAbandoned: () -> Void
     @State private var confirmingTrash = false
+    /// Opens the ticket in the running Hot Sheet web client; nil when none is running (HS2-ZEF6XD).
+    let openInHotSheet: (() -> Void)?
     let copySlug: () -> Void
     let showTicketFile: () -> Void
     let done: () -> Void
@@ -417,6 +427,10 @@ private struct SubmittedView: View {
                 .frame(maxWidth: 440)
             if let abandoned { abandonedRow(abandoned) }
             HStack(spacing: 10) {
+                if let openInHotSheet {
+                    Button("Open in Hot Sheet", action: openInHotSheet)
+                        .help("Opens \(review.ticket.slug) in Hot Sheet in your browser")
+                }
                 Button("Copy Slug", action: copySlug)
                 Button("Show Ticket File", action: showTicketFile)
                     .disabled(review.ticket.file == nil)

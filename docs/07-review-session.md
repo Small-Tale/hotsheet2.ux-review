@@ -47,8 +47,21 @@ does not free its file name or media id either. The draft's `numbering.json` rec
 never removed one have no such file.
 
 After a successful submission the window shows **Filed as HS-…**, the title, what was attached,
-and **Copy Slug**, **Show Ticket File** (the ticket's Markdown file in the store, revealed in
-Finder), and **Done**. After adding to an existing ticket it shows **Added to HS-…**, that
+and **Open in Hot Sheet** (only while Hot Sheet's web client is running, below), **Copy Slug**,
+**Show Ticket File** (the ticket's Markdown file in the store, revealed in Finder), and **Done**.
+
+**Open in Hot Sheet** (`HS2-ZEF6XD`, `HotSheetWebClient`) opens the ticket in Hot Sheet 2's web
+client in the default browser, at its deep link
+`<client url>/?store=<ticket store path>&ticket=<slug>` (Hot Sheet 2 `HS2-RVSPQ9`). After filing,
+the window reads `${HOTSHEET_HOME:-~/.hotsheet2}/client.json`, off the main thread. The client
+counts as running only if all of these hold:
+
+- its `url` is a loopback `http(s)` origin;
+- its `pid` is alive;
+- the URL gives any HTTP answer within 1.5 s.
+
+Otherwise there is no button. A native `hotsheet://` scheme would replace this once Hot Sheet
+has an app. After adding to an existing ticket it shows **Added to HS-…**, that
 ticket's title, and that the review is a note on it, with the same buttons.
 
 The window then shrinks around that message (`HS2-J2BE94`): at least 520 pt wide and just tall
@@ -338,9 +351,7 @@ Changing the project in one session window refreshes every open session window.
 
 ## 7.7 Not yet
 
-- Open the ticket in Hot Sheet (web UI or app) when it is running: `HS2-ZEF6XD`.
 - Downscaling for AI (§7.5.1):
-  - Tell the AI a capture was scaled (its original size in the ticket and `review.json`): `HS2-KMB528`.
   - OpenAI's patch rule for GPT models run by other tools: `HS2-G4YZR4`.
 
 ## 7.8 Headless submit
@@ -364,7 +375,8 @@ replaces the Downscale for AI setting for this submission (§7.5.1).
   (the existing ticket's title, with `--to-ticket`), plus `remainingCaptures` when part of the
   review was added and the draft keeps the rest, and `abandonedTicket` when an earlier failed New
   ticket try left a ticket behind (§7.5; it is not deleted), plus `scaledCaptures` and `scaledFor`
-  when captures were scaled down for AI (§7.5.1).
+  when captures were scaled down for AI (§7.5.1), and `hotSheetURL`, the ticket's deep link, when a
+  Hot Sheet web client is running (§7.2, `HS2-ZEF6XD`).
 - On failure: `status: "error"`, `error`, `message`, plus `issues` (messages, for
   `invalidReview`), `createdTicket` (when the ticket exists but the attach failed), `attachedTo`
   (when the media is attached to the existing ticket but the note failed, or some of it before

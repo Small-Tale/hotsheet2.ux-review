@@ -28,6 +28,8 @@ enum HeadlessSubmit {
         /// The captures scaled down for AI (draft file names), and who for (§7.5.1).
         var scaledCaptures: [String]?
         var scaledFor: String?
+        /// The ticket in the running Hot Sheet web client, when one is running (HS2-ZEF6XD).
+        var hotSheetURL: String?
     }
 
     struct Failure: Encodable, Error {
@@ -141,7 +143,8 @@ enum HeadlessSubmit {
                 remainingCaptures: review.remainingCaptures,
                 abandonedTicket: review.abandonedTicket,
                 scaledCaptures: review.scaledCaptures,
-                scaledFor: review.scaledFor
+                scaledFor: review.scaledFor,
+                hotSheetURL: HotSheetWebClient.discover()?.ticketURL(store: review.storePath, ticket: review.ticket.slug).absoluteString
             )))
             return 0
         } catch {

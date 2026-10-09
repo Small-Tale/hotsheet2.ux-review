@@ -1495,3 +1495,16 @@ text stacked one word per line at 99 pt wide. The empty Draft Reviews window was
 - **App end to end** (`scripts/app-e2e.sh`, every `downscale_case`): the attached `review.json`
   has `scaledFrom` 3840x2400 when scaled and none at full size, it validates against the schema
   (ajv), and the ticket file's media line reads `(image, W×H, scaled from 3840×2400)`.
+
+## HS2-ZEF6XD: Open in Hot Sheet after filing
+
+- **Unit** (`HotSheetWebClientTests`):
+  - `HOTSHEET_HOME` and the default home;
+  - loopback records read (IPv4, IPv6, localhost); missing, broken, pid-less, zero-pid, remote, LAN, `file:`, and empty-URL records ignored;
+  - discovery needs a live pid and an answering URL, and a removed record means no client;
+  - `processIsAlive` for this process and a free pid;
+  - deep-link encoding of spaces, `+`, `&`, `=`, and a client URL with a path;
+  - `answers` against a real local TCP listener (a 404 counts), and not after it closes.
+- **App end to end** (`scripts/app-e2e.sh`): `--submit` with a fake web host (a node HTTP server that writes `client.json` with its own pid) reports `hotSheetURL` as `<url>/?store=<store>&ticket=<slug>`; with an empty `HOTSHEET_HOME` it reports none.
+- **Visual QA:** `session-submitted-hotsheet` (`--render-ui-previews`), inspected by hand; `session-submitted` still has no button.
+- **Not covered automatically:** clicking the button and the browser opening the link (`NSWorkspace.open`).

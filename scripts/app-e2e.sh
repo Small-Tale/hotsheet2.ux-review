@@ -669,7 +669,19 @@ json "$TMP/submit-flaky.json" j.message | grep -q "the store is locked" || die "
 [[ -f "$sdraft/submission.json" && -f "$sdraft/capture-1.png" ]] || die "submit: a failed attach did not keep the draft and its record"
 [[ "$(json "$sdraft/review.json" j.title)" == "Checkout flow" ]] || die "submit: the typed title was not saved before filing"
 
-run submit 0 HOTSHEET_CLI="$TMP/flaky-cli" -- --submit "${SUB[@]}"
+# HS2-ZEF6XD: a running Hot Sheet web client (a node HTTP server with its client.json) gets a
+# deep link to the ticket in the result.
+mkdir -p "$TMP/hshome"
+node -e 'const s = require("http").createServer((q, r) => r.writeHead(404).end()).listen(0, "127.0.0.1", () => {
+  require("fs").writeFileSync(process.argv[1], JSON.stringify({pid: process.pid, url: `http://127.0.0.1:${s.address().port}`, started_at: "now", id: "e2e"}));
+}); setTimeout(() => process.exit(0), 120000);' "$TMP/hshome/client.json" &
+web_pid=$!
+for _ in $(seq 50); do [[ -s "$TMP/hshome/client.json" ]] && break; sleep 0.1; done
+run submit 0 HOTSHEET_CLI="$TMP/flaky-cli" HOTSHEET_HOME="$TMP/hshome" -- --submit "${SUB[@]}"
+kill "$web_pid" 2>/dev/null || true
+web_url="$(json "$TMP/hshome/client.json" j.url)"
+[[ "$(json "$TMP/submit.json" j.hotSheetURL)" == "$web_url/?store=$(json "$TMP/submit.json" j.storePath | sed 's/ /%20/g')&ticket=$slug" ]] \
+  || die "submit: hotSheetURL is $(json "$TMP/submit.json" j.hotSheetURL)"
 [[ "$(json "$TMP/submit.json" j.slug)" == "$slug" ]] || die "submit: retry created another ticket"
 [[ "$(json "$TMP/submit.json" '`${j.mediaCount}/${j.annotationCount}/${j.draftRemoved}`')" == "2/2/true" ]] || die "submit: counts (the annotation outside the crop is left out)"
 [[ ! -e "$sdraft" ]] || die "submit: the submitted draft was not deleted"
@@ -781,7 +793,9 @@ run existing-drafts 0 -- --drafts --drafts-dir "$EDRAFTS"
 [[ "$(json "$TMP/existing-drafts.json" '`${j.drafts[0].pendingTicket}/${j.drafts[0].pendingNoteOnly}`')" == "$existing/true" ]] \
   || die "existing: --drafts does not show the pending note"
 
-run existing 0 HOTSHEET_CLI="$TMP/flaky-note-cli" -- --submit "${ESUB[@]}" --to-ticket "$existing"
+run existing 0 HOTSHEET_CLI="$TMP/flaky-note-cli" HOTSHEET_HOME="$TMP/no-hshome" -- --submit "${ESUB[@]}" --to-ticket "$existing"
+# HS2-ZEF6XD: no Hot Sheet web client running, so no link.
+[[ "$(json "$TMP/existing.json" '"hotSheetURL" in j')" == false ]] || die "existing: hotSheetURL without a running client"
 [[ "$(json "$TMP/existing.json" '`${j.slug}/${j.addedToExistingTicket}/${j.ticketTitle}`')" == "$existing/true/Accounts page redesign" ]] \
   || die "existing: result $(cat "$TMP/existing.json")"
 [[ "$(json "$TMP/existing.json" '`${j.mediaCount}/${j.annotationCount}/${j.draftRemoved}`')" == "1/1/true" ]] || die "existing: counts"
@@ -1102,7 +1116,7 @@ ok "a Trash that refuses keeps the draft (exit 5); --delete deletes it immediate
 run previews 0 -- --render-ui-previews "$TMP/previews"
 for name in overlay-region-hint overlay-window-hint overlay-region-selection overlay-region-selection-bottom-edge overlay-window-hover recording-dim-region hud-countdown hud-saved hud-recording-countdown hud-recording hud-saved-video hud-recording-narration hud-saved-narrated settings-registered settings-in-use status-bar-icon-light status-bar-icon-dark menu-capture-target-row-light menu-capture-target-row-dark menu-delay-row-light menu-delay-row-dark menu-narrate-row-off-light menu-narrate-row-off-dark menu-narrate-row-on-light menu-narrate-row-on-dark \
   editor-empty editor-no-media editor-annotated editor-intent-single editor-window editor-wide-sidebar editor-arrow-selected editor-arrow-heads editor-narrow editor-crop-drag editor-crop-tool editor-crop-adjust editor-cropped editor-multi-select editor-zoomed editor-keyboard-insert editor-video-timeline editor-video-narrow editor-video-trimmed editor-video-crop-tool editor-video-cropped editor-video-playing editor-video-range-drag editor-video-trim-drag editor-autoscroll \
-  session-ready session-narrow session-edited session-ticket-text-new session-ticket-text-existing session-ticket-text-edited session-ticket-text-editing session-ticket-text-narrow session-submitting session-failed session-submitted session-submitted-fitted session-issues session-empty \
+  session-ready session-narrow session-edited session-ticket-text-new session-ticket-text-existing session-ticket-text-edited session-ticket-text-editing session-ticket-text-narrow session-submitting session-failed session-submitted session-submitted-hotsheet session-submitted-fitted session-issues session-empty \
   session-existing-looking session-existing-found session-existing-narrow session-existing-not-found session-existing-closed \
   session-existing-failed session-existing-submitted session-existing-selection session-existing-abandoned \
   drafts-list drafts-narrow drafts-empty drafts-delete-immediately drafts-window-empty drafts-window-list; do
