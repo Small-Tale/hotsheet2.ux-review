@@ -136,8 +136,11 @@ final class EditorToolbar: NSObject, NSToolbarDelegate {
     /// restore.
     func update() {
         let current = EditorTool.allCases.firstIndex(of: model.editor.tool)
+        // In Trim mode only its own controls work (HS2-ECE7WY).
+        let trimming = model.editor.trimMode != nil
         for button in toolButtons {
             button.state = button.tag == current ? .on : .off
+            button.isEnabled = !trimming
         }
         for item in toolMenu?.items ?? [] {
             item.state = item.tag == current ? .on : .off

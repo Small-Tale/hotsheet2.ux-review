@@ -47,7 +47,7 @@ UX Review** (or a click on the Dock icon) opens it on the current draft
 | Media strip (left, whenever the review has a capture) | Thumbnails (with the current crop) plus a count badge of annotations on each. Click one to show it; ⌘-click and ⇧-click select several (§6.7.2). The whole thumbnail cell (image, filename, and the space around them) takes the click, and only that cell: a capture of any shape, such as a tall portrait window, never takes clicks meant for its neighbors (`HS2-QXJZJ9`). Videos are marked. The shown thumbnail has a ✕ button while the pointer is over it (§6.7.1), and every thumbnail a **Remove from Review…** context menu item (§6.7.1). **Resizable** (`HS2-AH6HW4`): drag the line between the strip and the canvas (96–320 pt, 112 standard); thumbnails grow with it, the width is kept across windows and launches, a double-click on the line restores the standard width, and VoiceOver adjusts it in 16 pt steps. In a window too narrow for the saved width, the strip gives way (never below 96 pt) so the canvas keeps its 420 pt minimum and the 300 pt inspector stays inside the window; the saved width comes back as the window widens (`HS2-RZVDEQ`) |
 | Canvas | The current capture fitted to the view (at most 2×) or zoomed (§6.2.1), on a neutral surround that follows the appearance (light gray in light mode, near-black in dark mode, as in Preview; a soft shadow and hairline keep a white screenshot's edge visible, `HS2-JMCM6S`), with annotations drawn on top. A video shows the frame at the playhead |
 | Toasts (top of the canvas) | No status line (`HS2-KJCJWX`). The editor's messages (crop and trim results and hints) show as a toast that fades after 4 seconds; a save error shows as a toast with a warning sign that stays until saving works again. Saving itself (autosave, ⌘S) shows nothing (`EditorToast`, `ToastPresenter`) |
-| Timeline (under the canvas, videos only) | Play/pause, playhead time with the total duration (always one line), **Trim Start** / **Trim End** (icons only when the window is too narrow for their titles, with the same tooltips and VoiceOver labels, `HS2-XSXV5E`), and the scrubber with each annotation's time range (§6.10) |
+| Timeline (under the canvas, videos only) | Play/pause, playhead time with the total duration (always one line), **Trim** (Trim mode, `HS2-ECE7WY`; in it, **Cancel** and **Trim**), and the scrubber with each annotation's time range (§6.10) |
 | Inspector (right) | A navigation stack (§6.5.1, `HS2-4R84WH`). Its root has the **Capture note** for the capture on the canvas (§6.5.2), then lists every annotation on this capture in review order: number, shape, intents, time range (videos), and note preview. Clicking a row (or selecting the annotation on the canvas) pushes that annotation's page: a **‹ Annotations** back button, then its number, shape, intents, shape options, time (videos, §6.10), and Markdown note, with Duplicate and Delete buttons |
 
 Videos can be trimmed and their annotations given time ranges (§6.10), and cropped like images
@@ -242,8 +242,7 @@ So a small box drawn inside a big one stays selectable.
 timeline (`AnnotationEditor.arrowKey`, `frameStepTarget`):
 
 - **Timeline targets:** the playhead (scrubbing, typing the playhead time, `,` / `.`, Home / End,
-  an inspector **Go To** button), the trim start or end (dragging a trim bracket, Trim Start / Trim
-  End), or an end of the selected annotation's range (dragging its grip, typing From / To, Use
+  an inspector **Go To** button), a Trim-mode handle (dragging it), or an end of the selected annotation's range (dragging its grip, typing From / To, Use
   Playhead). After one of these, ← / → step that target frame by frame (§6.10), even while a shape
   is selected.
 - **Canvas:** a press on the canvas (selecting, moving, or drawing), inserting a shape with ⏎,
@@ -688,8 +687,9 @@ editor offscreen through the real views, on a draft of mock app screenshots:
 - `editor-video-playing`: the same recording while it plays (the pause button showing)
 - `editor-autoscroll`: a rectangle drawn on a 5K capture at 200 %, with the pointer held at
   the right edge for 1.5 s of timer ticks (§6.2.1)
-- `editor-video-range-drag` and `editor-video-trim-drag`: mid-drag of the selected range's end
-  grip, and of the start trim handle (the cut part dimmed)
+- `editor-video-range-drag`: mid-drag of the selected range's end grip
+- `editor-video-trim-mode`: Trim mode with its handles moved in to 0:00.50 and 0:02.50 (the rest
+  dimmed, Cancel and Trim on the timeline, `HS2-ECE7WY`)
 - `editor-video-frame-step`: the selected range's end grip pressed in place, then ⇧→ and ← sent
   as real key events through the canvas (the range ends at 0:02.90 and the playhead follows)
 - `editor-strip-portrait`: a strip of landscape captures around a tall portrait one, after real
@@ -772,7 +772,8 @@ the clip, and the clip itself can be trimmed.
   and tests read it while the session opens (`.immediately`), so scripts always step the
   movie's rate.
 - **Playhead:** clamps to the clip. Navigation, so not undoable.
-- **Trim start / end:** trims through the same rules and message as the trim handles. Stepping
+- **Trim start / end:** in Trim mode, moves that handle (nothing is applied until Trim). Outside
+  it, the scripted `timeline-drag` and `trim` ops still trim through the same rules and message. Stepping
   outward brings back trimmed-away time, up to the original's ends; reaching the whole original
   drops the trim (as Restore Original would). The kept clip never gets shorter than the minimum.
   The playhead shows the new first frame (start) or the new end, as after a handle drag.
@@ -835,21 +836,32 @@ whole clip.
   enough. Instants are thin ticks, and the selection is outlined. Whole-clip annotations aren't
   drawn.
 
-**Trimming.** **Trim Start** cuts everything before the playhead, and **Trim End** cuts everything
-after it.
+**Trimming is a mode** (`HS2-ECE7WY`, `AnnotationEditor+TrimMode`), like QuickTime Player's trim
+bar. **Trim** (scissors) on the timeline starts it for the current video:
 
-- **Trim handles:** the clip's ends carry `[` and `]` brackets on the scrubber row. Drag one
-  inward to preview a trim. The part that would be cut is dimmed, and the playhead follows the
-  handle. Nothing changes until release, which trims (through the same rules and message as the
-  buttons) as one undo step. The handle never leaves less than the minimum clip. Releasing at
-  the clip's end does nothing.
+- **The whole original shows.** The timeline spans the whole movie, even when it was trimmed
+  before; the canvas, the scrubber, and playback show the original's frames. The kept part is
+  framed in yellow between two yellow handles, and the rest of the track is dimmed.
+- **Only Trim controls work:** the handles, play, the scrubber and playhead time, and ← / →. The
+  canvas only shows the frame, the tools and the inspector are disabled, and no edit changes the
+  review. Annotation ranges are dimmed on the track.
+- **The handles:** drag one to move that end. The playhead follows it, and they always keep the
+  minimum clip between them. ← / → then step the handle used last frame by frame.
+- **Trim** (Return) keeps the part between the handles as **one undo step**, through the same
+  rules and message as any trim. Back to the whole movie drops the trim. Unchanged handles
+  change nothing.
+- **Cancel** (Esc), ⌘Z, showing another capture, or captures changing on disk end the mode with
+  everything as it was before it.
+- **Saving during the mode** writes the review as it was before the mode
+  (`persistentDocument`); nothing of the mode is saved until Trim.
+- Outside the mode, the timeline shows the clip as trimmed and has no trim handles.
 - **Hit rules** (`TimelineHitTest`): presses within 6 pt of a selected range's grip (in the
-  range lane) or of a trim bracket (on the scrubber row) grab it, and the pointer shows a
-  left-right resize cursor there. A press anywhere else scrubs.
+  range lane) or, in Trim mode, of a trim handle (on the scrubber row) grab it, and the pointer
+  shows a left-right resize cursor there. A press anywhere else scrubs.
 - **Cancelling a drag:** Esc, undo or redo, moving the playhead, showing another capture,
   selecting, or starting a canvas gesture abandons the drag and restores the range and playhead
   from before it. Autosave and playback wait until the drag ends.
-- **Exact trims:** type the cut time in the playhead field, then Trim Start or Trim End.
+- **Exact trims:** in Trim mode, drag a handle near the time, then step it with ← / → to the frame.
 
 - **Limits:** the kept clip must be at least 100 ms. A trim to the whole clip does nothing.
   Trims are refused for images ("Only videos can be trimmed.").

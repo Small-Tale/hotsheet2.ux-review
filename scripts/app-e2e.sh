@@ -922,6 +922,28 @@ run modifier-annotate 0 -- --annotate "$TMP/script-modifiers.json" --drafts-dir 
   "10,10,100,100|120,80,60,40" ]] || die "modifiers: shapes $(json "$mdraft/review.json" 'JSON.stringify(j.annotations.map(a => a.shape))')"
 ok "⇧ draws a square and ⌥ draws from the center, through --annotate"
 
+echo "editor: Trim mode (HS2-ECE7WY)"
+TRDRAFTS="$TMP/trim-mode-drafts"
+run trim-mode-clip 0 "${SYN[@]}" -- --capture video --target region --rect 100,100,200,120 --duration 1 --drafts-dir "$TRDRAFTS"
+trdraft="$(json "$TMP/trim-mode-clip.json" j.draftDirectory)"
+trclip="$(json "$trdraft/review.json" j.media[0].filename)"
+# Moving the handles and cancelling changes nothing; Trim keeps the part between them.
+echo '{"steps": [{"op": "trim-mode", "action": "enter"}, {"op": "trim-mode", "action": "set", "start": 100, "end": 300},
+  {"op": "trim-mode", "action": "cancel"}, {"op": "save"}]}' >"$TMP/script-trim-cancel.json"
+run trim-mode-cancel 0 -- --annotate "$TMP/script-trim-cancel.json" --drafts-dir "$TRDRAFTS"
+[[ ! -e "$trdraft/edits.json" || "$(json "$trdraft/edits.json" 'Object.keys(j.trims || {}).length')" == 0 ]] || die "trim mode: cancel trimmed $(cat "$trdraft/edits.json")"
+echo '{"steps": [{"op": "trim-mode", "action": "enter"}, {"op": "trim-mode", "action": "set", "start": 200, "end": 700},
+  {"op": "trim-mode", "action": "commit"}, {"op": "save"}]}' >"$TMP/script-trim-commit.json"
+run trim-mode-commit 0 -- --annotate "$TMP/script-trim-commit.json" --drafts-dir "$TRDRAFTS"
+[[ "$(json "$trdraft/edits.json" "(t => t.startMs + '-' + t.endMs)(j.trims['$trclip'])")" == "200-700" ]] \
+  || die "trim mode: edits.json $(cat "$trdraft/edits.json")"
+[[ "$(json "$TMP/trim-mode-commit.json" j.media[0].durationMs)" == 500 ]] || die "trim mode: the clip is $(json "$TMP/trim-mode-commit.json" j.media[0].durationMs) ms"
+# A handle can't move outside the mode.
+echo '{"steps": [{"op": "trim-mode", "action": "set", "start": 100}]}' >"$TMP/script-trim-off.json"
+run trim-mode-off 2 -- --annotate "$TMP/script-trim-off.json" --drafts-dir "$TRDRAFTS"
+grep -q "Trim mode is not on" "$TMP/trim-mode-off.json" || die "trim mode: $(cat "$TMP/trim-mode-off.json")"
+ok "Trim mode: cancel leaves the clip whole; Trim keeps 200–700 ms (edits.json); its handles need the mode"
+
 echo "review session: one title (HS2-025XNF)"
 TDRAFTS="$TMP/title-drafts"
 run title-shot 0 "${SYN[@]}" -- --capture screenshot --target region --rect 100,100,300,200 --drafts-dir "$TDRAFTS"
@@ -1264,7 +1286,7 @@ ok "a Trash that refuses keeps the draft (exit 5); --delete deletes it immediate
 
 run previews 0 -- --render-ui-previews "$TMP/previews"
 for name in overlay-region-hint overlay-window-hint overlay-region-selection overlay-region-selection-bottom-edge overlay-window-hover recording-dim-region hud-countdown hud-saved hud-recording-countdown hud-recording hud-saved-video hud-recording-narration hud-saved-narrated settings-registered settings-in-use status-bar-icon-light status-bar-icon-dark menu-capture-target-row-light menu-capture-target-row-dark menu-delay-row-light menu-delay-row-dark menu-narrate-row-off-light menu-narrate-row-off-dark menu-narrate-row-on-light menu-narrate-row-on-dark \
-  editor-empty editor-empty-dark editor-strip-hover editor-video-narrow-wide-strip editor-no-media editor-annotated editor-annotated-dark editor-intent-single editor-window editor-wide-sidebar editor-arrow-selected editor-arrow-heads editor-narrow editor-crop-drag editor-crop-tool editor-crop-adjust editor-cropped editor-multi-select editor-zoomed editor-keyboard-insert editor-video-timeline editor-video-narrow editor-video-trimmed editor-video-crop-tool editor-video-cropped editor-video-playing editor-video-range-drag editor-video-trim-drag editor-autoscroll editor-strip-portrait editor-inspector-list editor-inspector-pushed editor-capture-note \
+  editor-empty editor-empty-dark editor-strip-hover editor-video-narrow-wide-strip editor-no-media editor-annotated editor-annotated-dark editor-intent-single editor-window editor-wide-sidebar editor-arrow-selected editor-arrow-heads editor-narrow editor-crop-drag editor-crop-tool editor-crop-adjust editor-cropped editor-multi-select editor-zoomed editor-keyboard-insert editor-video-timeline editor-video-narrow editor-video-trimmed editor-video-crop-tool editor-video-cropped editor-video-playing editor-video-range-drag editor-video-trim-mode editor-autoscroll editor-strip-portrait editor-inspector-list editor-inspector-pushed editor-capture-note \
   session-ready session-narrow session-edited session-ticket-text-new session-ticket-text-existing session-ticket-text-edited session-ticket-text-editing session-ticket-text-narrow session-submitting session-failed session-submitted filed-hud filed-hud-hotsheet filed-hud-partial session-submitted-hotsheet session-submitted-fitted session-issues session-empty \
   session-existing-looking session-existing-found session-existing-narrow session-existing-not-found session-existing-closed \
   session-existing-failed session-existing-submitted session-existing-selection session-existing-abandoned \

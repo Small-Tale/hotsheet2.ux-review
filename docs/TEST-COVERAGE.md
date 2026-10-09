@@ -1899,3 +1899,24 @@ text stacked one word per line at 99 pt wide. The empty Draft Reviews window was
   and Trim with no ◁| / |▷ buttons, inspected by hand.
 - Stepping is unchanged on the keyboard, still covered by the frame-step tests (`HS2-8FTZ09`,
   `HS2-BADS0F`: `FrameStepTests` and the app-e2e frame steps).
+
+## HS2-ECE7WY: Trim mode
+
+- **Unit** (`TrimModeTests`), a transition walk:
+  - entering shows the whole original (no trim in the working document, the playhead on the same
+    frame, ranges in the original's time) while `persistentDocument` keeps the trimmed review;
+  - only videos enter; handles stay apart (minimum clip) and inside the movie;
+  - Trim is one undo step (undo and redo); trimming again starts from the trim, and back to the
+    whole movie drops it;
+  - Trim with unchanged handles, and Cancel, leave the document, playhead, and selection as before;
+  - during the mode, edits, tools, gestures, Restore Original, and trims are refused, while the
+    playhead still moves;
+  - ⌘Z, showing another capture, and syncing media end the mode unchanged;
+  - frame steps move the last-used handle without applying anything.
+- **Unit** (`TimelineDragTests`): trim handles hit only in Trim mode, at its range's ends.
+- **App end to end** (`scripts/app-e2e.sh`, `--annotate` `trim-mode` steps): Cancel leaves the clip
+  whole, and Trim records 200–700 ms in `edits.json` (the clip becomes 500 ms). Moving a handle
+  outside the mode fails ("Trim mode is not on").
+- **Visual QA:** `editor-video-trim-mode`, inspected by hand.
+- **Not covered automatically:** dragging the handles, Return / Esc, and the disabled toolbar
+  and inspector in a live window.

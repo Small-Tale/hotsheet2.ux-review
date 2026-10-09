@@ -207,7 +207,9 @@ public final class EditorSession {
     /// The editor's document in the files' own space: media at their files' sizes and durations,
     /// annotations mapped out of their crop and trim, and the crops and trims by filename.
     func persistable() -> (bundle: ReviewBundle, edits: DraftEdits) {
-        let document = editor.document
+        // In Trim mode the editor shows the untrimmed movie; the review keeps its trim until
+        // the mode's Trim applies the new one (HS2-ECE7WY).
+        let document = editor.persistentDocument
         var bundle = document.bundle
         var edits = DraftEdits()
         for index in bundle.media.indices {

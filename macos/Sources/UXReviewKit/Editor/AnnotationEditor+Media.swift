@@ -25,6 +25,7 @@ public extension AnnotationEditor {
     /// plus an addition.
     @discardableResult
     mutating func syncMedia(with disk: ReviewBundle) -> MediaChanges {
+        cancelTrimMode()
         func identity(_ item: MediaItem) -> String { "\(item.id)|\(item.capturedAt.timeIntervalSince1970)|\(item.filename)" }
         let onDisk = Set(disk.media.map(identity))
         let gone = bundle.media.filter { !onDisk.contains(identity($0)) }.map(\.id)
@@ -119,5 +120,37 @@ public extension AnnotationEditor {
             previous = entry.document
         }
         redoStack = redo.reversed()
+    }
+}
+
+public extension AnnotationEditor {
+    /// Adds media captured while the editor is open (by `filename`, keeping the editor's own
+    /// order). Undo history and the saved state learn about them too, so undo never drops a
+    /// capture. Returns the ids that were added.
+    @discardableResult
+    mutating func mergeMedia(from disk: ReviewBundle) -> [String] {
+        cancelTrimMode()
+        let known = Set(bundle.media.map(\.filename))
+        let added = disk.media.filter { !known.contains($0.filename) && media($0.id) == nil }
+        guard !added.isEmpty else { return [] }
+        func merge(_ target: inout EditorDocument) { target.bundle.media += added }
+        merge(&document)
+        merge(&savedDocument)
+        for index in undoStack.indices {
+            merge(&undoStack[index].document)
+        }
+        for index in redoStack.indices {
+            merge(&redoStack[index].document)
+        }
+        if var base = gestureBase {
+            merge(&base.document)
+            gestureBase = base
+        }
+        for item in added {
+            originalSizes[item.id] = Self.size(of: item)
+            if let duration = item.durationMs { originalDurations[item.id] = duration }
+        }
+        if currentMediaId == nil { currentMediaId = added.first?.id }
+        return added.map(\.id)
     }
 }

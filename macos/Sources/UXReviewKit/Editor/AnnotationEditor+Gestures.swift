@@ -9,6 +9,7 @@ public extension AnnotationEditor {
     /// While the Crop tool shows the original (`showsOriginal`), points are pixels of the original.
     mutating func beginGesture(at point: CGPoint) {
         cancelGesture()
+        guard trimMode == nil else { return } // Trim mode: the canvas only shows the frame
         guard let item = currentMedia, let frame = canvasFrame else { return }
         // A canvas press hands ← / → back to the canvas (docs/06 §6.4).
         timelineTarget = nil

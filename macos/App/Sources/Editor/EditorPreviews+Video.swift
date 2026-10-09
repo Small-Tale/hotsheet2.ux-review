@@ -66,19 +66,24 @@ extension EditorPreviews {
         return written
     }
 
-    /// Timeline drags (HS2-MAH7NK), caught mid-drag: a range end, and a trim handle's preview.
+    /// Timeline drags (HS2-MAH7NK), caught mid-drag: a range end; and Trim mode (HS2-ECE7WY) with
+    /// its handles moved in to 0.5 s and 2.5 s.
     private static func renderTimelineDrags(
         store: ReviewDraftStore, draft: ReviewDraft, steps: [EditorScript.Step], to directory: URL
     ) throws -> [URL] {
-        try [
-            ("editor-video-range-drag", TimelineHandle.rangeEnd, 2600), ("editor-video-trim-drag", TimelineHandle.trimStart, 700),
-        ].map { name, handle, millis in
+        try [("editor-video-range-drag", true), ("editor-video-trim-mode", false)].map { name, rangeDrag in
             let dragging = try EditorModel(session: EditorSession(store: store, directory: draft.directory))
             offerWindowButtons(dragging)
             steps.forEach { apply($0, to: dragging) }
             dragging.mutate { editor in
-                editor.beginTimelineDrag(handle)
-                editor.updateTimelineDrag(toMs: millis)
+                if rangeDrag {
+                    editor.beginTimelineDrag(.rangeEnd)
+                    editor.updateTimelineDrag(toMs: 2600)
+                } else {
+                    editor.enterTrimMode()
+                    editor.setTrimModeEnd(.trimStart, toMs: 500)
+                    editor.setTrimModeEnd(.trimEnd, toMs: 2500)
+                }
             }
             return try snapshot(
                 EditorView(model: dragging),

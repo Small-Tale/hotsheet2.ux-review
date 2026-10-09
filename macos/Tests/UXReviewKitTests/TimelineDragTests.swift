@@ -253,8 +253,8 @@ struct TimelineDragTests {
 
     @Test func hitTestingPicksRangeEndsThenTrimHandlesElseScrub() {
         let range = Clip.range(1000, 2000) // x 100…200 on a 400 pt track of 4000 ms
-        func hit(_ x: CGFloat, _ y: CGFloat, _ selected: TimeRange? = range) -> TimelineHandle? {
-            TimelineHitTest.handle(x: x, y: y, width: 400, durationMs: 4000, selectedRange: selected)
+        func hit(_ x: CGFloat, _ y: CGFloat, _ selected: TimeRange? = range, trim: TimeRange? = Clip.range(0, 4000)) -> TimelineHandle? {
+            TimelineHitTest.handle(x: x, y: y, width: 400, durationMs: 4000, selectedRange: selected, trim: trim)
         }
         #expect(hit(102, 20) == .rangeStart)
         #expect(hit(196, 20) == .rangeEnd)
@@ -268,6 +268,11 @@ struct TimelineDragTests {
         #expect(hit(101, 20, Clip.range(1000, 1000)) == .rangeEnd)
         #expect(hit(2, 20, Clip.range(0, 4000)) == .rangeStart, "a full range still has handles at the ends")
         #expect(TimelineHitTest.handle(x: 3, y: 5, width: 400, durationMs: 0, selectedRange: nil) == nil)
+        // HS2-ECE7WY: trim handles only in Trim mode, at its range's ends; elsewhere the row scrubs.
+        #expect(hit(3, 5, trim: nil) == nil && hit(398, 5, trim: nil) == nil)
+        #expect(hit(102, 5, trim: Clip.range(1000, 3000)) == .trimStart)
+        #expect(hit(296, 5, trim: Clip.range(1000, 3000)) == .trimEnd)
+        #expect(hit(3, 5, trim: Clip.range(1000, 3000)) == nil)
     }
 
     // MARK: Scripts

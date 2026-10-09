@@ -99,6 +99,8 @@ public extension AnnotationEditor {
             coalesceKey = nil
             return currentTimeMs != before
         case .trimStart, .trimEnd:
+            // In Trim mode the handle moves; nothing is applied until Trim (HS2-ECE7WY).
+            if trimMode != nil { return stepTrimModeEnd(frames, start: target == .trimStart) }
             let base = document.trims[item.id] ?? TimeRange(startMs: 0, endMs: duration)
             let original = max(originalDurations[item.id] ?? 0, base.endMs)
             var start = 0

@@ -34,11 +34,7 @@ struct TimelineBar: View {
                         .fixedSize()
                 }
                 Spacer(minLength: 8)
-                // With their labels when they fit, else as icons (with the same help and labels).
-                ViewThatFits(in: .horizontal) {
-                    trimButtons(labeled: true)
-                    trimButtons(labeled: false)
-                }
+                trimControls
             }
             .buttonStyle(.borderless)
             TimelineTrack(model: model, duration: duration)
@@ -48,38 +44,33 @@ struct TimelineBar: View {
         .padding(.vertical, 8)
     }
 
-    private func trimButtons(labeled: Bool) -> some View {
-        let editor = model.editor
-        let duration = editor.currentDurationMs ?? 0
-        return HStack(spacing: 8) {
-            Button { model.mutate { _ = $0.trimStartToPlayhead() } } label: {
-                Label("Trim Start", systemImage: "arrow.right.to.line").labelStyle(TrimLabelStyle(labeled: labeled))
+    /// Trim mode (`HS2-ECE7WY`): **Trim** starts it; in it, **Cancel** (Esc) and **Trim** (Return).
+    @ViewBuilder private var trimControls: some View {
+        if model.editor.trimMode != nil {
+            HStack(spacing: 8) {
+                Button("Cancel") { model.mutate { _ = $0.cancelTrimMode() } }
+                    .help("Leave the video as it was (Esc)")
+                Button("Trim") { model.mutate { _ = $0.commitTrimMode() } }
+                    .buttonStyle(.borderedProminent)
+                    .tint(TrimModeStyle.color)
+                    .help("Keep the part between the yellow handles (Return)")
             }
-            .help("Cut everything before the playhead (or drag the clip's left handle)")
-            .accessibilityLabel("Trim Start")
-            .disabled(editor.currentTimeMs <= 0 || duration - editor.currentTimeMs < AnnotationEditor.minimumTrimMs)
-            Button { model.mutate { _ = $0.trimEndToPlayhead() } } label: {
-                Label("Trim End", systemImage: "arrow.left.to.line").labelStyle(TrimLabelStyle(labeled: labeled))
+            .controlSize(.small)
+            .fixedSize()
+        } else {
+            Button { model.mutate { _ = $0.enterTrimMode() } } label: {
+                Label("Trim", systemImage: "scissors")
             }
-            .help("Cut everything after the playhead (or drag the clip's right handle)")
-            .accessibilityLabel("Trim End")
-            .disabled(editor.currentTimeMs >= duration || editor.currentTimeMs < AnnotationEditor.minimumTrimMs)
+            .help("Trim the video: drag the yellow handles to keep a part of it")
+            .disabled(!model.editor.canTrim)
+            .fixedSize()
         }
-        .fixedSize()
     }
 }
 
-/// Title and icon, or the icon alone when the timeline bar is narrow.
-private struct TrimLabelStyle: LabelStyle {
-    let labeled: Bool
-
-    func makeBody(configuration: Configuration) -> some View {
-        if labeled {
-            HStack(spacing: 4) { configuration.icon; configuration.title }
-        } else {
-            configuration.icon
-        }
-    }
+/// Trim mode's yellow, as in QuickTime Player's trim bar.
+enum TrimModeStyle {
+    static let color = Color(red: 0.98, green: 0.78, blue: 0.16)
 }
 
 /// The scrubber: a track with the playhead, the clip's trim handles at its ends, and below it a
@@ -97,7 +88,6 @@ struct TimelineTrack: View {
         GeometryReader { geometry in
             let width = max(geometry.size.width, 1)
             let x = { (millis: Int) -> CGFloat in duration > 0 ? CGFloat(millis) / CGFloat(duration) * width : 0 }
-            let trim = model.editor.timelineDrag?.pendingTrim ?? TimeRange(startMs: 0, endMs: duration)
             ZStack(alignment: .topLeading) {
                 RoundedRectangle(cornerRadius: 3)
                     .fill(Color.primary.opacity(0.12))
@@ -110,9 +100,10 @@ struct TimelineTrack: View {
                 ForEach(ranged, id: \.annotation.id) { entry in
                     rangeMark(entry, x: x)
                 }
-                trimShade(trim, width: width, x: x)
-                trimHandle(at: x(trim.startMs), leading: true)
-                trimHandle(at: x(trim.endMs), leading: false)
+                .opacity(model.editor.trimMode == nil ? 1 : 0.3)
+                if let mode = model.editor.trimMode {
+                    trimModeOverlay(mode.range, width: width, x: x)
+                }
                 Capsule()
                     .fill(Color.accentColor)
                     .overlay(Capsule().stroke(Color.white.opacity(0.9), lineWidth: 1))
@@ -140,7 +131,8 @@ struct TimelineTrack: View {
 
     private var selectedRange: TimeRange? {
         let editor = model.editor
-        guard let selected = editor.selectedAnnotation, selected.mediaId == editor.currentMediaId else { return nil }
+        guard editor.trimMode == nil, let selected = editor.selectedAnnotation,
+              selected.mediaId == editor.currentMediaId else { return nil }
         return selected.timeRange
     }
 
@@ -153,13 +145,17 @@ struct TimelineTrack: View {
             // ← / → step what was pressed here, so the canvas takes the keys back.
             focusEditorCanvas()
             let handle = TimelineHitTest.handle(
-                x: value.startLocation.x, y: value.startLocation.y, width: width, durationMs: duration, selectedRange: selectedRange
+                x: value.startLocation.x, y: value.startLocation.y, width: width, durationMs: duration,
+                selectedRange: selectedRange, trim: model.editor.trimMode?.range
             )
             grabbed = .some(handle)
-            if let handle { model.mutate { _ = $0.beginTimelineDrag(handle) } }
+            if let handle, !handle.isTrim { model.mutate { _ = $0.beginTimelineDrag(handle) } }
         }
         let millis = time(at: value.location.x, width: width)
-        if case .some(.some) = grabbed {
+        if case let .some(.some(handle)) = grabbed, handle.isTrim {
+            // A Trim-mode handle: moves the mode's range; nothing is applied until Trim.
+            model.mutate { $0.setTrimModeEnd(handle, toMs: millis) }
+        } else if case .some(.some) = grabbed {
             model.mutate { $0.updateTimelineDrag(toMs: millis) }
         } else {
             model.mutate { $0.movePlayhead(to: millis) }
@@ -167,7 +163,7 @@ struct TimelineTrack: View {
     }
 
     private func endDrag() {
-        if case .some(.some) = grabbed { model.mutate { $0.endTimelineDrag() } }
+        if case let .some(.some(handle)) = grabbed, !handle.isTrim { model.mutate { $0.endTimelineDrag() } }
         grabbed = nil
     }
 
@@ -176,7 +172,8 @@ struct TimelineTrack: View {
         var overHandle = false
         if case let .active(location) = phase {
             overHandle = TimelineHitTest.handle(
-                x: location.x, y: location.y, width: width, durationMs: duration, selectedRange: selectedRange
+                x: location.x, y: location.y, width: width, durationMs: duration,
+                selectedRange: selectedRange, trim: model.editor.trimMode?.range
             ) != nil
         }
         guard overHandle != hoverCursor else { return }
@@ -234,43 +231,30 @@ struct TimelineTrack: View {
             .allowsHitTesting(false)
     }
 
-    /// While a trim handle is dragged, what would be cut is dimmed.
+    /// Trim mode: the kept part framed in yellow with a handle at each end, the rest dimmed.
     @ViewBuilder
-    private func trimShade(_ trim: TimeRange, width: CGFloat, x: (Int) -> CGFloat) -> some View {
-        if model.editor.timelineDrag?.pendingTrim != nil {
-            Rectangle().fill(Color.black.opacity(0.45))
-                .frame(width: max(x(trim.startMs), 0), height: 30)
-                .allowsHitTesting(false)
-            Rectangle().fill(Color.black.opacity(0.45))
-                .frame(width: max(width - x(trim.endMs), 0), height: 30)
-                .offset(x: x(trim.endMs))
+    private func trimModeOverlay(_ range: TimeRange, width: CGFloat, x: (Int) -> CGFloat) -> some View {
+        let start = x(range.startMs), end = x(range.endMs)
+        Rectangle().fill(Color.black.opacity(0.4))
+            .frame(width: max(start, 0), height: 30)
+            .allowsHitTesting(false)
+        Rectangle().fill(Color.black.opacity(0.4))
+            .frame(width: max(width - end, 0), height: 30)
+            .offset(x: end)
+            .allowsHitTesting(false)
+        RoundedRectangle(cornerRadius: 4)
+            .strokeBorder(TrimModeStyle.color, lineWidth: 3)
+            .frame(width: max(end - start, 6), height: 30)
+            .offset(x: start)
+            .allowsHitTesting(false)
+        ForEach([start, end - 8], id: \.self) { left in
+            RoundedRectangle(cornerRadius: 3)
+                .fill(TrimModeStyle.color)
+                .overlay(Capsule().fill(Color.black.opacity(0.45)).frame(width: 2, height: 12))
+                .frame(width: 8, height: 30)
+                .offset(x: left)
                 .allowsHitTesting(false)
         }
-    }
-
-    /// The clip's in or out point: a bracket on the scrubber row.
-    private func trimHandle(at position: CGFloat, leading: Bool) -> some View {
-        TrimBracket(leading: leading)
-            .stroke(Color.primary.opacity(0.7), style: StrokeStyle(lineWidth: 2, lineCap: .round, lineJoin: .round))
-            .frame(width: 5, height: 12)
-            .offset(x: leading ? position : position - 5, y: 0)
-            .allowsHitTesting(false)
-    }
-}
-
-/// `[` or `]`.
-struct TrimBracket: SwiftUI.Shape {
-    let leading: Bool
-
-    func path(in rect: CGRect) -> Path {
-        var path = Path()
-        let spine = leading ? rect.minX + 1 : rect.maxX - 1
-        let tip = leading ? rect.maxX : rect.minX
-        path.move(to: CGPoint(x: tip, y: rect.minY + 1))
-        path.addLine(to: CGPoint(x: spine, y: rect.minY + 1))
-        path.addLine(to: CGPoint(x: spine, y: rect.maxY - 1))
-        path.addLine(to: CGPoint(x: tip, y: rect.maxY - 1))
-        return path
     }
 }
 

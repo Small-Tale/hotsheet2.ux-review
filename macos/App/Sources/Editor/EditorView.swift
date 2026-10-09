@@ -54,6 +54,7 @@ struct EditorView: View {
                 }
                 Divider()
                 InspectorView(model: model)
+                    .disabled(model.editor.trimMode != nil)
                     .frame(width: Self.inspectorWidth)
             }
         }

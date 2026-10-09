@@ -140,8 +140,11 @@ public enum TimelineHitTest {
 
     /// The handle under (`x`, `y`) on a timeline `width` points wide showing `durationMs`, given
     /// the selected annotation's range (nil: none, or the whole clip). Range ends win in the
-    /// range lane; the trim handles sit at the track's ends on the scrubber row. Nil: scrub.
-    public static func handle(x: CGFloat, y: CGFloat, width: CGFloat, durationMs: Int, selectedRange: TimeRange?) -> TimelineHandle? {
+    /// range lane. Trim handles exist only in Trim mode (`HS2-ECE7WY`): at `trim`'s ends on the
+    /// scrubber row; without it the scrubber row only scrubs. Nil: scrub.
+    public static func handle(
+        x: CGFloat, y: CGFloat, width: CGFloat, durationMs: Int, selectedRange: TimeRange?, trim: TimeRange? = nil
+    ) -> TimelineHandle? {
         guard width > 0, durationMs > 0 else { return nil }
         let position = { (millis: Int) in CGFloat(millis) / CGFloat(durationMs) * width }
         if y >= laneTop, let range = selectedRange {
@@ -153,10 +156,10 @@ public enum TimelineHitTest {
                 return start < end ? .rangeStart : .rangeEnd
             }
         }
-        guard y < laneTop else { return nil }
-        if x <= tolerance { return .trimStart }
-        if x >= width - tolerance { return .trimEnd }
-        return nil
+        guard y < laneTop, let trim else { return nil }
+        let start = abs(x - position(trim.startMs)), end = abs(x - position(trim.endMs))
+        guard min(start, end) <= tolerance else { return nil }
+        return start <= end ? .trimStart : .trimEnd
     }
 }
 

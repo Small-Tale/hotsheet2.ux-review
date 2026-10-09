@@ -17,6 +17,7 @@ import Foundation
 ///       {"op": "undo"}, {"op": "redo"}, {"op": "save"}
 ///     ]}
 public struct EditorScript: Decodable, Equatable, Sendable {
+
     public enum Step: Equatable, Sendable {
         case media(String)
         case tool(EditorTool)
@@ -40,6 +41,9 @@ public struct EditorScript: Decodable, Equatable, Sendable {
         /// The modifier keys held for the drags that follow (`HS2-Q5TA4C`): ⇧ (`"shift"`)
         /// constrains, ⌥ (`"option"`) works from the center; `[]` releases them.
         case modifiers(DragModifiers)
+        /// Trim mode (`HS2-ECE7WY`): `{"op": "trim-mode", "action": "enter" | "commit" | "cancel"}`,
+        /// or `"set"` with `start` / `end` (ms of the original) to move its handles.
+        case trimMode(TrimModeAction)
         case crop(CGRect)
         case resetCrop
         /// Restore Original: the current image's crop or the current video's trim.
@@ -101,12 +105,29 @@ public enum EditorScriptError: Error, Equatable, CustomStringConvertible {
 extension EditorScript.Step: Decodable {
     private enum CodingKeys: String,
         CodingKey { case op, media, tool, points, point, id, text, intent, closed, dx, dy, rect, start, end, handle, key, shift,
-                     modifier, keys
+                     modifier, keys, action
         case millis = "ms"
+    }
+
+    private static func trimModeStep(in container: KeyedDecodingContainer<CodingKeys>) throws -> EditorScript.Step {
+        switch try container.decode(String.self, forKey: .action) {
+        case "enter": return .trimMode(.enter)
+        case "commit": return .trimMode(.commit)
+        case "cancel": return .trimMode(.cancel)
+        case "set":
+            return try .trimMode(.set(
+                start: container.decodeIfPresent(Int.self, forKey: .start), end: container.decodeIfPresent(Int.self, forKey: .end)
+            ))
+        case let action:
+            throw DecodingError.dataCorruptedError(
+                forKey: .action, in: container, debugDescription: "Unknown trim-mode action \(action) (enter, set, commit, cancel)"
+            )
+        }
     }
 
     /// `nudge` (move the selection) and `modifiers` (the keys held for the drags that follow).
     private static func adjustStep(_ op: String, in container: KeyedDecodingContainer<CodingKeys>) throws -> EditorScript.Step {
+        if op == "trim-mode" { return try trimModeStep(in: container) }
         guard op == "modifiers" else {
             return try .nudge(dx: container.decode(Double.self, forKey: .dx), dy: container.decode(Double.self, forKey: .dy))
         }
@@ -170,7 +191,7 @@ extension EditorScript.Step: Decodable {
         case "note": self = try .note(container.decode(String.self, forKey: .text))
         case "intent": self = try Self.intent(in: container)
         case "closed", "heads": self = try Self.outline(op, in: container)
-        case "nudge", "modifiers": self = try Self.adjustStep(op, in: container)
+        case "nudge", "modifiers", "trim-mode": self = try Self.adjustStep(op, in: container)
         case "crop", "insert": self = try Self.geometry(op, in: container)
         case "time", "play", "timeline-drag", "cancel-timeline-drag", "arrow-key": self = try Self.playhead(op, in: container)
         case "range", "trim": self = try Self.timing(op, in: container)
@@ -299,7 +320,7 @@ public extension EditorScript {
         return messages
     }
 
-    private enum StepFailure: Error { case reason(String) }
+    enum StepFailure: Error { case reason(String) }
 
     private static func apply(_ step: Step, to session: EditorSession) throws {
         switch step {
@@ -318,7 +339,7 @@ public extension EditorScript {
         case .note, .intent, .closed, .heads, .delete, .duplicate, .nudge, .range:
             try applyToSelection(step, in: session)
         case let .crop(rect): session.editor.crop(to: rect)
-        case .resetCrop, .restoreOriginal, .time, .play, .timelineDrag, .trim, .resetTrim, .arrowKey:
+        case .resetCrop, .restoreOriginal, .time, .play, .timelineDrag, .trim, .resetTrim, .arrowKey, .trimMode:
             try applyToMedia(step, in: session)
         case .undo: session.editor.undo()
         case .redo: session.editor.redo()
@@ -357,6 +378,7 @@ public extension EditorScript {
 
     /// Crop/trim resets, video time, and ← / → on the current media.
     private static func applyToMedia(_ step: Step, in session: EditorSession) throws {
+        if case let .trimMode(action) = step { return try applyTrimMode(action, in: session) }
         switch step {
         case .resetCrop: session.editor.resetCrop()
         case .restoreOriginal: session.editor.restoreOriginal()

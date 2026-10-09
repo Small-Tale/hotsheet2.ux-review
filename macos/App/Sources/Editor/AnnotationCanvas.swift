@@ -254,16 +254,8 @@ final class AnnotationCanvasView: NSView {
         case .carriageReturn?, .enter?:
             pressReturn()
         default:
-            if event.keyCode == 53 { // Esc: cancel the gesture, else the tool, else the selection
-                model.mutate { editor in
-                    if editor.gesture != nil || editor.timelineDrag != nil {
-                        editor.cancelGesture()
-                    } else if editor.tool != .select {
-                        editor.setTool(.select)
-                    } else {
-                        editor.select(nil)
-                    }
-                }
+            if event.keyCode == 53 {
+                pressEscape()
             } else if command || !handleCharacter(event.charactersIgnoringModifiers?.first, shift: shift) {
                 super.keyDown(with: event)
                 return
@@ -290,10 +282,11 @@ final class AnnotationCanvasView: NSView {
         return true
     }
 
-    /// Return: with a drawing tool, a default shape at the middle of what is visible; with
-    /// Select, focus the selected annotation's note (docs/06 §6.4).
+    /// Return: in Trim mode, Trim (HS2-ECE7WY); with a drawing tool, a default shape at the middle
+    /// of what is visible; with Select, focus the selected annotation's note (docs/06 §6.4).
     private func pressReturn() {
         guard let model else { return }
+        if model.editor.trimMode != nil { return model.mutate { _ = $0.commitTrimMode() } }
         guard model.editor.tool != .select else {
             if model.editor.selection != nil { model.focusNoteRequest += 1 }
             return
@@ -482,5 +475,22 @@ struct AnnotationCanvas: NSViewRepresentable {
         view.model = model
         view.window?.invalidateCursorRects(for: view)
         view.announceChanges()
+    }
+}
+
+extension AnnotationCanvasView {
+    /// Esc: leave Trim mode (HS2-ECE7WY), else cancel the gesture, else the tool, else the selection.
+    func pressEscape() {
+        model?.mutate { editor in
+            if editor.cancelTrimMode() {
+                return
+            } else if editor.gesture != nil || editor.timelineDrag != nil {
+                editor.cancelGesture()
+            } else if editor.tool != .select {
+                editor.setTool(.select)
+            } else {
+                editor.select(nil)
+            }
+        }
     }
 }

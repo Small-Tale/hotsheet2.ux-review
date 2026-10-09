@@ -154,7 +154,7 @@ public struct AnnotationEditor: Sendable {
     /// How far from a stroke or handle a click still hits, in media pixels.
     public var hitTolerance: Double = 6
     var drag = DragState() // the drag's modifier keys and points (HS2-Q5TA4C)
-
+    public internal(set) var trimMode: TrimMode? // Trim mode (HS2-ECE7WY, AnnotationEditor+TrimMode)
     var undoStack: [Snapshot] = []
     var redoStack: [Snapshot] = []
     var coalesceKey: CoalesceKey?
@@ -197,7 +197,7 @@ public struct AnnotationEditor: Sendable {
     public var canUndo: Bool { !undoStack.isEmpty }
     public var canRedo: Bool { !redoStack.isEmpty }
     /// True when the document differs from the last `markSaved()`.
-    public var isDirty: Bool { document != savedDocument }
+    public var isDirty: Bool { persistentDocument != savedDocument }
 
     public var currentMedia: MediaItem? { currentMediaId.flatMap(media) }
     public var currentFrame: MediaFrame? { currentMedia.map(MediaFrame.init) }
@@ -221,6 +221,7 @@ public struct AnnotationEditor: Sendable {
     // MARK: Navigation (not undoable)
 
     public mutating func show(mediaId: String) {
+        if let mode = trimMode, mode.mediaId != mediaId { cancelTrimMode() }
         guard media(mediaId) != nil, mediaId != currentMediaId else { return }
         cancelGesture()
         currentMediaId = mediaId
@@ -259,6 +260,7 @@ public struct AnnotationEditor: Sendable {
     /// Chooses a tool. The Crop tool shows the original with its crop rectangle (docs/06 §6.6)
     /// and says how to adjust it.
     public mutating func setTool(_ tool: EditorTool) {
+        guard trimMode == nil else { return } // Trim mode: only its own controls work
         cancelGesture()
         let changed = tool != self.tool
         self.tool = tool
@@ -358,6 +360,7 @@ public struct AnnotationEditor: Sendable {
     // MARK: Undo
 
     public mutating func undo() {
+        if cancelTrimMode() { return } // in Trim mode, ⌘Z leaves it unchanged
         cancelGesture()
         guard let previous = undoStack.popLast() else { return }
         redoStack.append(snapshot)
@@ -365,6 +368,7 @@ public struct AnnotationEditor: Sendable {
     }
 
     public mutating func redo() {
+        if cancelTrimMode() { return }
         cancelGesture()
         guard let next = redoStack.popLast() else { return }
         undoStack.append(snapshot)
@@ -373,36 +377,7 @@ public struct AnnotationEditor: Sendable {
 
     /// Records the current document as saved, so `isDirty` is false until the next change.
     public mutating func markSaved() {
-        savedDocument = document
-    }
-
-    /// Adds media captured while the editor is open (by `filename`, keeping the editor's own
-    /// order). Undo history and the saved state learn about them too, so undo never drops a
-    /// capture. Returns the ids that were added.
-    @discardableResult
-    public mutating func mergeMedia(from disk: ReviewBundle) -> [String] {
-        let known = Set(bundle.media.map(\.filename))
-        let added = disk.media.filter { !known.contains($0.filename) && media($0.id) == nil }
-        guard !added.isEmpty else { return [] }
-        func merge(_ target: inout EditorDocument) { target.bundle.media += added }
-        merge(&document)
-        merge(&savedDocument)
-        for index in undoStack.indices {
-            merge(&undoStack[index].document)
-        }
-        for index in redoStack.indices {
-            merge(&redoStack[index].document)
-        }
-        if var base = gestureBase {
-            merge(&base.document)
-            gestureBase = base
-        }
-        for item in added {
-            originalSizes[item.id] = Self.size(of: item)
-            if let duration = item.durationMs { originalDurations[item.id] = duration }
-        }
-        if currentMediaId == nil { currentMediaId = added.first?.id }
-        return added.map(\.id)
+        savedDocument = persistentDocument
     }
 
     // MARK: Internals
@@ -425,6 +400,7 @@ public struct AnnotationEditor: Sendable {
     /// abort without touching history.
     @discardableResult
     mutating func perform(coalescing key: CoalesceKey? = nil, _ change: (inout Snapshot) -> Bool) -> Bool {
+        guard trimMode == nil else { return false } // nothing changes in Trim mode until Trim
         let before = snapshot
         var after = before
         guard change(&after), after.document != before.document else { return false }
