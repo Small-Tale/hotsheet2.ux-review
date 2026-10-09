@@ -885,6 +885,20 @@ done
 [[ -e "$learlier" ]] || die "link: the other review was removed"
 ok "a review a capture link started files to the link's project and ticket by default"
 
+echo "review session: the new ticket's title (HS2-CR8M4X)"
+TDRAFTS="$TMP/title-drafts"
+TSUB=(--drafts-dir "$TDRAFTS" --project "$TMP/subproj")
+run title-shot 0 "${SYN[@]}" -- --capture screenshot --target region --rect 100,100,300,200 --drafts-dir "$TDRAFTS"
+tdraft="$(json "$TMP/title-shot.json" j.draftDirectory)"
+run title-with-existing 2 -- --submit "${TSUB[@]}" --ticket-title "Nope" --to-ticket "$existing"
+[[ "$(json "$TMP/title-with-existing.json" j.error)" == invalidArguments && -e "$tdraft" ]] || die "ticket title: --to-ticket combination"
+run title-submit 0 -- --submit "${TSUB[@]}" --title "Checkout" --ticket-title "  Checkout: clipped labels "
+tslug="$(json "$TMP/title-submit.json" j.slug)"
+hs -C "$TMP/subproj.hs2" show "$tslug" >"$TMP/title-ticket.md"
+[[ "$(grep '^title:' "$TMP/title-ticket.md" | head -1)" == "title: 'Checkout: clipped labels'" ]] \
+  || die "ticket title: $(grep '^title:' "$TMP/title-ticket.md")"
+ok "--ticket-title files the new ticket under the typed title (trimmed); it can't go with --to-ticket"
+
 # HS2-2QP0GM: a capture removed by the review session leaves an open editor consistent.
 RDRAFTS="$TMP/remove-drafts"
 run remove-shot1 0 "${SYN[@]}" -- --capture screenshot --target region --rect 100,100,300,200 --drafts-dir "$RDRAFTS"

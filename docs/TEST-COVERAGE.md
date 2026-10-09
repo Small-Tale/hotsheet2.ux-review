@@ -1768,3 +1768,19 @@ text stacked one word per line at 99 pt wide. The empty Draft Reviews window was
   - a synthetic `--capture` goes into it;
   - `--submit` with no `--project` or `--to-ticket` adds it to the link's ticket in the link's project, and the ticket shows the title and context.
 - **Not covered automatically:** clicking a real `uxreview://` link in a browser. That covers Launch Services routing, a cold launch, and the app stepping back so the page is the capture's app. The `AppDelegate` routing and `CaptureCoordinator.openLink` are thin. Live check: `HS2-P50AJK`.
+
+## HS2-CR8M4X: the new ticket's title
+
+- **Unit** (`TicketTitleTests`):
+  - typed titles become one trimmed line (`\r\n` included); blank or standard is none;
+  - composing uses the typed title, the body unchanged;
+  - storage beside an edited preamble, each clearing on its own; the file is removed when standard; an older file reads as standard;
+  - filing a new ticket under the typed title, else "UX review: <review title>";
+  - `--ticket-title` parsing: not with `--to-ticket`, not blank, needs a value.
+- **App end to end** (`scripts/app-e2e.sh`): `--ticket-title` with `--to-ticket` exits 2 and keeps
+  the draft. `--submit --ticket-title "  Checkout: clipped labels "` files a real Hot Sheet ticket
+  whose title is exactly `Checkout: clipped labels`.
+- **Visual QA:** `session-ticket-text-new` (the prompt shows the standard title) and
+  `session-ticket-text-edited` (a typed title) from `--render-ui-previews`, inspected by hand.
+- **Not covered automatically:** typing in the live field. It keeps its own text, so spaces
+  survive, and saves each change through the tested `setTicketTitle`.

@@ -35,7 +35,9 @@ The extra locations matter because GUI apps launched from Finder get a minimal `
    check fails.
 2. Writes `review.json` into the media directory.
 3. Runs `hotsheet-cli -C <store> new --actor-role=human --actor-id=ux-review --title=… --category=task --details=… --tag=ux-review`,
-   then parses `Created <SLUG>` from its output.
+   then parses `Created <SLUG>` from its output. The title is "UX review: <review title>", or the
+   reviewer's own ticket title when one was typed (`HS2-CR8M4X`,
+   [07-review-session.md](07-review-session.md) §7.2).
 4. Runs `hotsheet-cli -C <store> attach --actor-role=human --actor-id=ux-review <SLUG> --batch-id=batch-uxreview-<uuid> --batch-label=UX review capture --purpose=problem_evidence -- <media…> review.json`.
    This attaches everything as **one durable batch**. UX Review picks the batch id, so a resumed
    attach can join the same batch (below).

@@ -1,7 +1,8 @@
 import AppKit
 import UXReviewKit
 
-/// `UXReview --submit [--drafts-dir DIR] [--draft NAME] [--project DIR] [--title T] [--summary S] [--to-ticket REF] [--downscale on|off]`:
+/// `UXReview --submit [--drafts-dir DIR] [--draft NAME] [--project DIR] [--title T] [--summary S] [--to-ticket REF]
+/// [--ticket-title T] [--downscale on|off]`:
 /// files a draft review in Hot Sheet with no UI (a new ticket, or the existing ticket `--to-ticket`
 /// names), through the same `ReviewSession` rules and `DraftSubmitter` as the session window, and
 /// prints one JSON object. Used by scripts/app-e2e.sh. A draft a capture link started files to the
@@ -90,6 +91,18 @@ enum HeadlessSubmit {
             )
         )
         session.edit(title: command.title, summary: command.summary)
+        if let ticketTitle = command.ticketTitle {
+            // Kept with the draft like one typed in the window (HS2-CR8M4X); the submitter reads it.
+            do {
+                try store.setDetails(draft.directory, title: session.bundle.title, summary: session.bundle.summary)
+                try store.setTicketTitle(ticketTitle, in: draft.directory)
+            } catch {
+                return fail(
+                    Failure(error: "failed", message: ReviewSubmitter.describe(error), draftDirectory: draft.directory.path),
+                    code: 5
+                )
+            }
+        }
         let path = draft.directory.path
         if let problem = target.problem {
             return fail(Failure(error: "hotSheetUnavailable", message: problem, draftDirectory: path), code: 3)

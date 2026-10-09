@@ -37,7 +37,18 @@ public enum TicketComposer {
 
     /// - Parameter preamble: the reviewer's edited instructions template (docs/07 §7.2.3); nil
     ///   for the standard one.
-    public static func compose(_ bundle: ReviewBundle, preamble: String? = nil) -> ComposedReview {
+    /// The new ticket's title unless the reviewer gave one: "UX review: <review title>".
+    public static func standardTitle(_ bundle: ReviewBundle) -> String {
+        standardTitle(reviewTitle: bundle.title)
+    }
+
+    public static func standardTitle(reviewTitle: String) -> String {
+        "UX review: \(reviewTitle.trimmingCharacters(in: .whitespacesAndNewlines))"
+    }
+
+    /// - Parameter title: the reviewer's ticket title (docs/07 §7.2.1, `HS2-CR8M4X`); nil for the
+    ///   standard one.
+    public static func compose(_ bundle: ReviewBundle, preamble: String? = nil, title: String? = nil) -> ComposedReview {
         let numbered = Array(bundle.annotations.enumerated())
         var projection: [String: [HotSheetMediaAnnotation]] = [:]
         for (index, annotation) in numbered {
@@ -54,7 +65,7 @@ public enum TicketComposer {
             ))
         }
         let ticket = NewTicket(
-            title: "UX review: \(bundle.title)",
+            title: title ?? standardTitle(bundle),
             details: details(for: bundle, preamble: preamble),
             category: "task",
             tags: [tag],

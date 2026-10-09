@@ -4,7 +4,7 @@ import Foundation
 import ImageIO
 
 /// `UXReview --submit [--drafts-dir DIR] [--draft NAME] [--project DIR] [--title T] [--summary S] [--to-ticket REF [--exclude IDS]]
-/// [--downscale on|off]`:
+/// [--ticket-title T] [--downscale on|off]`:
 /// files a draft (the current one unless `--draft` names one) in the project's Hot Sheet store
 /// with no UI and prints JSON; `--to-ticket` adds it to that existing ticket instead of a new one.
 /// `--downscale` overrides the Downscale for AI setting for this run.
@@ -20,6 +20,8 @@ public struct SubmitCommand: Equatable, Sendable {
     public var exclude: [String]
     /// Overrides `CaptureSettings.downscaleForAI` for this submission (`--downscale on|off`).
     public var downscale: Bool?
+    /// The new ticket's title (`--ticket-title`, `HS2-CR8M4X`); not with `--to-ticket`.
+    public var ticketTitle: String?
 
     public init(
         draftsDirectory: URL? = nil,
@@ -28,7 +30,8 @@ public struct SubmitCommand: Equatable, Sendable {
         summary: String? = nil,
         toTicket: String? = nil,
         exclude: [String] = [],
-        downscale: Bool? = nil
+        downscale: Bool? = nil,
+        ticketTitle: String? = nil
     ) {
         self.draftsDirectory = draftsDirectory
         self.draft = draft
@@ -37,6 +40,7 @@ public struct SubmitCommand: Equatable, Sendable {
         self.toTicket = toTicket
         self.exclude = exclude
         self.downscale = downscale
+        self.ticketTitle = ticketTitle
     }
 
     /// `exclude` as a selection of `bundle`.
@@ -71,6 +75,10 @@ public struct SubmitCommand: Equatable, Sendable {
         if let exclude, exclude.isEmpty || toTicket == nil {
             throw CommandLineError.invalidValue("--exclude", toTicket == nil ? "needs --to-ticket" : "")
         }
+        let ticketTitle = try values.optional("--ticket-title")
+        if let ticketTitle, toTicket != nil || ticketTitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            throw CommandLineError.invalidValue("--ticket-title", toTicket != nil ? "not with --to-ticket" : ticketTitle)
+        }
         return try SubmitCommand(
             draftsDirectory: values.optional("--drafts-dir").map { URL(fileURLWithPath: $0, isDirectory: true) },
             draft: draft,
@@ -78,7 +86,8 @@ public struct SubmitCommand: Equatable, Sendable {
             summary: values.optional("--summary"),
             toTicket: toTicket,
             exclude: exclude ?? [],
-            downscale: SettingsCommand.parseSwitch(values, flag: "--downscale")
+            downscale: SettingsCommand.parseSwitch(values, flag: "--downscale"),
+            ticketTitle: ticketTitle
         )
     }
 }

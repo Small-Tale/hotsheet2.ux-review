@@ -474,6 +474,20 @@ extension ReviewSessionModel {
 
     var preambleIsStandard: Bool { ticketText[preambleMode] == nil }
 
+    /// The new ticket's title as filed: the reviewer's, else "UX review: <title being typed>"
+    /// (`HS2-CR8M4X`, §7.2.1).
+    var standardTicketTitle: String { TicketComposer.standardTitle(reviewTitle: title) }
+
+    /// Saves the new ticket's title; blank goes back to the standard one.
+    func setTicketTitle(_ text: String) {
+        guard session.isEditable else { return }
+        do {
+            ticketText = try store.setTicketTitle(text, in: directory)
+        } catch {
+            notice = "Couldn't save the ticket title: \(ReviewSubmitter.describe(error))"
+        }
+    }
+
     /// Saves the chosen destination's preamble template; nil goes back to the standard text (§7.2.3).
     func setPreamble(_ template: String?) {
         guard session.isEditable else { return }
