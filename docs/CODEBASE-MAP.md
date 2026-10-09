@@ -95,6 +95,7 @@ macos/
     Editor/AnnotationRenderer.swift   CoreGraphics drawing of shapes, badges, handles, crop overlay; IntentPalette
     Editor/AnnotationRenderer+ArrowHeads.swift  each arrow end drawn in its ArrowHead style
     Editor/EditorSession.swift        editor + files: display images, video frames, frame rates (now or in the background), save + reload (follow added/removed media), edits.json, exact no-drift save
+    Editor/InspectorNavigation.swift  the inspector's list → annotation page stack, derived from the selection (docs/06 §6.5.1)
     Editor/MediaStripWidth.swift      the resizable capture sidebar: width range, drag rule, thumbnail size
     Editor/EditorToast.swift          toasts over the canvas: which message shows, info fades / errors stay (ToastPresenter)
     Editor/EditorScript.swift         JSON editing scripts + `--annotate` parsing (docs/06 §6.9)
@@ -135,12 +136,13 @@ macos/
     Editor/AnnotationCanvas.swift     NSView canvas: mouse/keyboard → editor (← / → monitor for unedited time fields), drawing via AnnotationRenderer
     Editor/AnnotationCanvas+Cursor.swift  canvas cursor: cursor rects per tool; the Crop tool tracks the pointer (mouse moved / cursor update) → NSCursor.frameResize, hands (docs/06 §6.6)
     Editor/TimelineBar.swift          video timeline: play/pause, typed playhead, scrubber, range grips + trim handles, Trim Start/End; TimeField
-    Editor/InspectorView.swift        selected annotation (intents, note) + annotation list
+    Editor/InspectorView.swift        navigation stack: annotation list → annotation page (back button, intents, note) (docs/06 §6.5.1)
     Editor/HeadlessAnnotate.swift     `--annotate` mode with JSON output
     Editor/EditorPreviews.swift       editor states + mock screenshots for --render-ui-previews
     Editor/EditorPreviews+Crop.swift  the Crop tool's preview states (image and video crops)
     Editor/EditorPreviews+ArrowHeads.swift  every head style and a selected span (editor-arrow-heads)
     Editor/EditorPreviews+Toolbar.swift  the real toolbar on a titled window: editor-toolbar.json, editor-window.png
+    Editor/EditorPreviews+Inspector.swift  real clicks and ⌘[ through the inspector's stack (editor-inspector-navigation.json)
     Editor/EditorPreviews+StripClicks.swift  real clicks swept down a media strip with a portrait capture (editor-strip-clicks.json)
     Editor/EditorPreviews+Typing.swift  types into the middle of a note through the real text view (editor-note-typing.json)
     Review/ReviewSessionWindowController.swift  one Submit Review window per draft (docs/07 §7.1)

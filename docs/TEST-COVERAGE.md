@@ -1583,3 +1583,21 @@ text stacked one word per line at 99 pt wide. The empty Draft Reviews window was
 - **Visual QA:** `editor-strip-portrait` (the portrait capture shown), inspected by hand.
 - **Unit:** none; the fix is two SwiftUI hit-test shapes with no logic of their own.
 - **Not covered automatically:** a person clicking in a live window; see the follow-up live check.
+
+## HS2-4R84WH: the inspector is a navigation stack
+
+- **Unit** (`InspectorNavigationTests`): the path is `[]` or `[selection]`. Stack changes map to
+  selection changes: unchanged (nothing to do), Back (deselect), push, push over a page.
+  A real editor walks row click → canvas pick of another (replaces) → Back → Back again → canvas
+  pick → Esc → Tab → delete (pops) → undo (pushes back) → another capture (pops). Also empty then
+  refilled, and a stale row id selecting nothing.
+- **App end to end** (`scripts/app-e2e.sh`): `--render-ui-previews` drives the real editor in an
+  off-screen key window (`editor-inspector-navigation.json`). A real click on the first list row
+  selects annotation #1 and pushes its page; a real click on Back clears the selection; ⌘[ (a key
+  equivalent through the window) is handled and clears it; a note-focus request made just before a
+  push leaves the note text view focused.
+- **Visual QA:** `editor-inspector-list`, `editor-inspector-pushed`, `editor-annotated`,
+  `editor-narrow`, `editor-video-narrow`, and `editor-window`, inspected by hand.
+- **Not covered automatically:** the push/pop animation and VoiceOver reading the rows in a live
+  window; see the live-check follow-up.
+

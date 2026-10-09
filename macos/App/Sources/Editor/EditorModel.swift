@@ -18,6 +18,9 @@ final class EditorModel: ObservableObject {
     @Published private(set) var saveError: String?
     /// Asks the inspector to focus the note field (double-click on a shape, Return).
     @Published var focusNoteRequest = 0
+    /// The last request the note field acted on. A request made before the annotation's page was
+    /// pushed onto the inspector's stack is acted on when the page appears (`HS2-4R84WH`).
+    var noteFocusHandled = 0
     /// Zoom and pan of the canvas (docs/06 §6.2.1); back to fit whenever other media is shown.
     @Published private(set) var viewport = CanvasViewport()
     /// The canvas's size and screen scale, reported by the canvas so View menu zoom commands

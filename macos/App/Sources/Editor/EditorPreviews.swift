@@ -62,6 +62,7 @@ enum EditorPreviews {
         }
         written += try renderKeyboardInsert(to: directory, store: store, draft: draft, size: wide)
         written += try renderWindowInteractions(to: directory, store: store, draft: draft)
+        written += try renderInspectorNavigation(to: directory, store: store, draft: draft)
         // 300 % (1.5 points per pixel) on the clipped-label box, panned so its corner is near the middle.
         try capture(
             "editor-zoomed", size: wide, script: annotations + [.select("#1")],

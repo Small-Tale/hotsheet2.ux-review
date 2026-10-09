@@ -49,7 +49,7 @@ UX Review** (or a click on the Dock icon) opens it on the current draft
 | Canvas | The current capture fitted to the view (at most 2×) or zoomed (§6.2.1), on a dark backdrop, with annotations drawn on top. A video shows the frame at the playhead |
 | Toasts (top of the canvas) | No status line (`HS2-KJCJWX`). The editor's messages (crop and trim results and hints) show as a toast that fades after 4 seconds; a save error shows as a toast with a warning sign that stays until saving works again. Saving itself (autosave, ⌘S) shows nothing (`EditorToast`, `ToastPresenter`) |
 | Timeline (under the canvas, videos only) | Play/pause, frame step, playhead time, **Trim Start** / **Trim End**, and the scrubber with each annotation's time range (§6.10) |
-| Inspector (right) | The selected annotation's number, shape, intents, time (videos, §6.10), and Markdown note, with Duplicate and Delete buttons. Below that, every annotation on this capture in review order: number, shape, intents, time range (videos), and note preview. Click a row to select it |
+| Inspector (right) | A navigation stack (§6.5.1, `HS2-4R84WH`). Its root lists every annotation on this capture in review order: number, shape, intents, time range (videos), and note preview. Clicking a row (or selecting the annotation on the canvas) pushes that annotation's page: a **‹ Annotations** back button, then its number, shape, intents, shape options, time (videos, §6.10), and Markdown note, with Duplicate and Delete buttons |
 
 Videos can be trimmed and their annotations given time ranges (§6.10), and cropped like images
 (§6.6).
@@ -318,6 +318,26 @@ one way defaults to *move*; with any other heads its default intent is *comment*
 the ticket's intent follow the heads unless the reviewer chose intents. VoiceOver reads
 non-standard heads after the shape, for example "Annotation 2: Arrow, start flat, end flat,
 comment."
+
+### 6.5.1 The inspector's navigation stack
+
+`HS2-4R84WH`. The inspector is a SwiftUI `NavigationStack` with two levels: the annotation list
+at the root, and one annotation's page pushed over it. The editor's selection decides which shows
+(`InspectorNavigation`), so the inspector and the canvas always agree:
+
+- **Selecting pushes.** Clicking a list row, clicking or Tab-selecting the annotation on the
+  canvas, drawing or inserting one, and an undo that brings one back all show its page.
+- **Selecting another replaces the page.** The stack never grows past one page.
+- **Back deselects.** The page's **‹ Annotations** button (top left, ⌘[) returns to the list and
+  clears the selection, so the canvas shows no handles. Deselecting on the canvas (Esc, a click on
+  nothing), deleting the annotation, and showing another capture also return to the list.
+- The back button sits in the page, not the window toolbar: the toolbar is AppKit's
+  (`EditorToolbar`), which SwiftUI navigation can't reach.
+- A request to focus the note (double-click on a shape, Return with Select) made before the
+  page is pushed focuses the note once the page shows.
+- **Keyboard and VoiceOver.** Rows are navigation links (buttons). VoiceOver reads each row and
+  the hint "Shows its intents and note"; the back button reads "Back to annotations". Each row
+  ends with a chevron, which VoiceOver skips.
 
 ## 6.6 Crop
 
@@ -602,7 +622,10 @@ pixels of the crop, except with the Crop tool on an image, where they are pixels
 editor offscreen through the real views, on a draft of mock app screenshots:
 
 - `editor-empty`
-- `editor-annotated` (rect selected)
+- `editor-annotated` (rect selected: its page pushed in the inspector, §6.5.1)
+- `editor-inspector-list` and `editor-inspector-pushed`: the inspector's list, then annotation #1's page
+  after a real click on its row; real clicks on Back and ⌘[ and a note-focus request are recorded
+  in `editor-inspector-navigation.json` (§6.5.1)
 - `editor-arrow-selected`
 - `editor-intent-single` (#1 after a plain click on **change**: just that intent, §6.5)
 - `editor-arrow-heads`: one arrow per head style, and a selected span with its Arrow heads menus

@@ -1159,7 +1159,7 @@ ok "a Trash that refuses keeps the draft (exit 5); --delete deletes it immediate
 
 run previews 0 -- --render-ui-previews "$TMP/previews"
 for name in overlay-region-hint overlay-window-hint overlay-region-selection overlay-region-selection-bottom-edge overlay-window-hover recording-dim-region hud-countdown hud-saved hud-recording-countdown hud-recording hud-saved-video hud-recording-narration hud-saved-narrated settings-registered settings-in-use status-bar-icon-light status-bar-icon-dark menu-capture-target-row-light menu-capture-target-row-dark menu-delay-row-light menu-delay-row-dark menu-narrate-row-off-light menu-narrate-row-off-dark menu-narrate-row-on-light menu-narrate-row-on-dark \
-  editor-empty editor-no-media editor-annotated editor-intent-single editor-window editor-wide-sidebar editor-arrow-selected editor-arrow-heads editor-narrow editor-crop-drag editor-crop-tool editor-crop-adjust editor-cropped editor-multi-select editor-zoomed editor-keyboard-insert editor-video-timeline editor-video-narrow editor-video-trimmed editor-video-crop-tool editor-video-cropped editor-video-playing editor-video-range-drag editor-video-trim-drag editor-autoscroll editor-strip-portrait \
+  editor-empty editor-no-media editor-annotated editor-intent-single editor-window editor-wide-sidebar editor-arrow-selected editor-arrow-heads editor-narrow editor-crop-drag editor-crop-tool editor-crop-adjust editor-cropped editor-multi-select editor-zoomed editor-keyboard-insert editor-video-timeline editor-video-narrow editor-video-trimmed editor-video-crop-tool editor-video-cropped editor-video-playing editor-video-range-drag editor-video-trim-drag editor-autoscroll editor-strip-portrait editor-inspector-list editor-inspector-pushed \
   session-ready session-narrow session-edited session-ticket-text-new session-ticket-text-existing session-ticket-text-edited session-ticket-text-editing session-ticket-text-narrow session-submitting session-failed session-submitted session-submitted-hotsheet session-submitted-fitted session-issues session-empty \
   session-existing-looking session-existing-found session-existing-narrow session-existing-not-found session-existing-closed \
   session-existing-failed session-existing-submitted session-existing-selection session-existing-abandoned \
@@ -1239,6 +1239,14 @@ BANDS='x => { const runs = []; for (const p of j.probes.filter(p => p.x == x)) {
 [[ "$(json "$STRIP" "[56, 14].map($BANDS).join(\"|\")")" == "-,m1,-,m2,-,m3,-|-,m1,-,m2,-,m3,-" ]] \
   || die "strip clicks: $(json "$STRIP" "[56, 14].map($BANDS).join(\"|\")")"
 ok "every click on the media strip shows the capture under the pointer, a tall portrait thumbnail included"
+
+# HS2-4R84WH: the inspector is a navigation stack. Real clicks: a list row pushes annotation #1's
+# page; Back pops to the list and deselects; ⌘[ does the same; a note-focus request made just
+# before the page is pushed (a double-click on the canvas) focuses the note once it shows.
+NAV="$TMP/previews/editor-inspector-navigation.json"
+[[ "$(json "$NAV" '[j.annotations, j.rowClick.selected, j.backClick.y > 0, j.commandBracket.handled, j.commandBracket.selection, j.noteFocusedAfterPush].join("|")')" == \
+  "5|1|true|true|none|true" ]] || die "inspector navigation $(json "$NAV" 'JSON.stringify(j)')"
+ok "the inspector lists the annotations; a row pushes its editor, Back and ⌘[ return to the list and deselect, the note takes focus after a push"
 
 # HS2-J2BE94: once filed, the real 640 x 680 Submit Review window shrinks around the success message
 # and stays that size through further SwiftUI layout (HS2-VX8T5A).

@@ -2,22 +2,68 @@ import AppKit
 import SwiftUI
 import UXReviewKit
 
-/// Right-hand panel: the selected annotation's intents and Markdown note, then every annotation
-/// on the current media. Spec: docs/06-annotation-editor.md §6.5.
+/// Right-hand panel, a navigation stack (`HS2-4R84WH`): every annotation on the current capture
+/// at the root; clicking one (or selecting it on the canvas) pushes its editor, whose Back button
+/// returns to the list and deselects. The stack follows the editor's selection
+/// (`InspectorNavigation`). Spec: docs/06-annotation-editor.md §6.5.1.
 struct InspectorView: View {
     @ObservedObject var model: EditorModel
 
-    var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            if let selected = model.editor.selectedAnnotation {
-                AnnotationDetail(model: model, annotation: selected)
-                    .padding(12)
-                Divider()
+    private var path: Binding<[String]> {
+        Binding(
+            get: { InspectorNavigation.path(selection: model.editor.selectedAnnotation?.id) },
+            set: { path in
+                guard let change = InspectorNavigation.selection(afterNavigatingTo: path, current: model.editor.selection)
+                else { return }
+                model.mutate { $0.select(change) }
             }
+        )
+    }
+
+    var body: some View {
+        NavigationStack(path: path) {
             AnnotationList(model: model)
+                .navigationDestination(for: String.self) { id in
+                    AnnotationPage(model: model, id: id)
+                }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background(Color(nsColor: .windowBackgroundColor))
+    }
+}
+
+/// One annotation's editor, pushed over the list: a Back button (⌘[) to the list, then the
+/// annotation's intents, shape options, time, and note.
+struct AnnotationPage: View {
+    @ObservedObject var model: EditorModel
+    let id: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack {
+                Button { model.mutate { $0.select(nil) } } label: {
+                    Label("Annotations", systemImage: "chevron.backward")
+                }
+                .buttonStyle(.borderless)
+                .keyboardShortcut("[", modifiers: .command)
+                .help("Back to the annotation list (⌘[)")
+                .accessibilityLabel("Back to annotations")
+                Spacer()
+            }
+            .padding(.horizontal, 12)
+            .padding(.top, 10)
+            .padding(.bottom, 6)
+            Divider()
+            if let annotation = model.editor.annotation(id) {
+                ScrollView {
+                    AnnotationDetail(model: model, annotation: annotation)
+                        .padding(12)
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .background(Color(nsColor: .windowBackgroundColor))
+        .navigationBarBackButtonHidden(true)
     }
 }
 
@@ -87,7 +133,14 @@ struct AnnotationDetail: View {
             .background(RoundedRectangle(cornerRadius: 6).fill(Color(nsColor: .textBackgroundColor)))
             .overlay(RoundedRectangle(cornerRadius: 6).stroke(Color.primary.opacity(0.15)))
         }
-        .onChange(of: model.focusNoteRequest) { noteFocused = true }
+        .onChange(of: model.focusNoteRequest) { focusNote() }
+        // A double-click or Return on the canvas can ask for the note before this page is pushed.
+        .onAppear { if model.focusNoteRequest != model.noteFocusHandled { focusNote() } }
+    }
+
+    private func focusNote() {
+        model.noteFocusHandled = model.focusNoteRequest
+        DispatchQueue.main.async { noteFocused = true }
     }
 }
 
@@ -246,15 +299,18 @@ struct AnnotationList: View {
                 ScrollView {
                     VStack(spacing: 2) {
                         ForEach(annotations, id: \.id) { annotation in
-                            AnnotationRow(
-                                number: model.editor.number(of: annotation.id) ?? 0,
-                                annotation: annotation,
-                                selected: annotation.id == model.editor.selection,
-                                onVideo: model.editor.currentDurationMs != nil,
-                                showing: annotation.isVisible(atMs: model.editor.currentTimeMs),
-                                outside: model.editor.outsideReason(annotation)
-                            )
-                            .onTapGesture { model.mutate { $0.select(annotation.id) } }
+                            NavigationLink(value: annotation.id) {
+                                AnnotationRow(
+                                    number: model.editor.number(of: annotation.id) ?? 0,
+                                    annotation: annotation,
+                                    selected: annotation.id == model.editor.selection,
+                                    onVideo: model.editor.currentDurationMs != nil,
+                                    showing: annotation.isVisible(atMs: model.editor.currentTimeMs),
+                                    outside: model.editor.outsideReason(annotation)
+                                )
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityHint("Shows its intents and note")
                         }
                     }
                     .padding(.horizontal, 6)
@@ -297,6 +353,11 @@ struct AnnotationRow: View {
                     .lineLimit(2)
             }
             Spacer(minLength: 0)
+            Image(systemName: "chevron.forward")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.tertiary)
+                .frame(maxHeight: .infinity)
+                .accessibilityHidden(true)
         }
         .padding(.horizontal, 6)
         .padding(.vertical, 6)

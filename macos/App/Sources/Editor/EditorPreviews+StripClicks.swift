@@ -98,6 +98,21 @@ final class ClickableEditor {
         }
     }
 
+    /// A key equivalent such as ⌘[ through the window, as a key press reaches SwiftUI's shortcuts.
+    func pressKeyEquivalent(_ characters: String, keyCode: UInt16, modifiers: NSEvent.ModifierFlags) -> Bool {
+        guard let event = NSEvent.keyEvent(
+            with: .keyDown, location: .zero, modifierFlags: modifiers, timestamp: ProcessInfo.processInfo.systemUptime,
+            windowNumber: window.windowNumber, context: nil, characters: characters, charactersIgnoringModifiers: characters,
+            isARepeat: false, keyCode: keyCode
+        ) else { return false }
+        let handled = window.performKeyEquivalent(with: event)
+        settle()
+        return handled
+    }
+
+    /// True when a text view (the note field) has keyboard focus.
+    var textHasFocus: Bool { window.firstResponder is NSTextView }
+
     func snapshot(to url: URL) throws -> URL {
         guard let rep = host.bitmapImageRepForCachingDisplay(in: host.bounds) else { throw CaptureFailure.failed("no bitmap") }
         host.cacheDisplay(in: host.bounds, to: rep)
