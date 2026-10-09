@@ -424,6 +424,13 @@ names and still open.
   moves with it. Replacing an existing item (the save panel asks) moves that item to the Trash.
 - **A saved review** keeps saving in place. The item reads **Save**, and the editor window shows
   the document's proxy icon (its `representedURL`).
+- **File › Duplicate** (⇧⌘S, `HS2-0D87NR`) makes an untitled copy titled "<title> copy" and opens
+  it in its own window; the original stays open and stays current.
+- **File › Save As…** (hold ⌥: Duplicate becomes Save As…, ⌥⇧⌘S, `HS2-0D87NR`) asks where, writes
+  a copy there (`ReviewDraftStore.saveCopy`), closes the original's windows, and opens the copy in
+  its place. The original stays as it is on disk. When the original was the current review, the
+  copy becomes current. A copy is a fresh review: its own id, and none of the original's
+  half-filed submission (`submission.json`, `.submission/`).
 - **File › Open…** (⌘O) opens `.uxreview` documents, several at once. Opening one from Finder or
   the Dock does the same. A package without a readable `review.json` gets "Couldn't open …".
 - **File › Open Recent** lists the last 10 reviews opened in the editor (or saved, or copied), most

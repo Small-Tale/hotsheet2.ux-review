@@ -128,6 +128,19 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
     @objc func undo(_: Any?) { model.mutate { $0.undo() } }
     @objc func redo(_: Any?) { model.mutate { $0.redo() } }
     @objc func duplicate(_: Any?) { model.mutate { _ = $0.duplicateSelection() } }
+    /// File › Duplicate: an untitled copy of the review, opened in its own window (HS2-0D87NR).
+    @objc func duplicateDocument(_: Any?) {
+        model.save()
+        ReviewDocuments.duplicate(model.session.directory, store: model.session.store)
+    }
+
+    /// File › Save As… (⌥): writes a copy where the reviewer chooses and continues in the copy;
+    /// the original stays as it is (HS2-0D87NR).
+    @objc func saveDocumentAs(_: Any?) {
+        model.save()
+        ReviewDocuments.saveAs(model.session.directory, store: model.session.store, window: window)
+    }
+
     /// File › Save: writes the editor's changes, then an untitled review asks where to save it.
     @objc func saveDocument(_: Any?) {
         model.save()

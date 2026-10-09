@@ -1558,3 +1558,14 @@ text stacked one word per line at 99 pt wide. The empty Draft Reviews window was
   - discarding a saved review trashes the package;
   - the File menu dump matches the new File menu.
 - **Not covered automatically:** the save and open panels, the Open Recent submenu filled live, Finder opening a `.uxreview`, and the editor reopening after Save (live check `HS2-WXZVDJ`).
+
+## HS2-0D87NR: Duplicate and Save As… (⌥)
+
+- **Unit** (`ReviewDocumentTests`, shared with HS2-BKWZ5N): Save As writes a separate copy with
+  its own id and leaves the original and the current review alone; an existing destination is
+  refused unless replacing; Duplicate makes an untitled "… copy"; copies never carry a pending
+  submission.
+- **App end to end:** `--save-review --copy` and `--duplicate-review` (see HS2-BKWZ5N); the File
+  menu dump has Duplicate ⇧⌘S followed by Save As… ⌥⇧⌘S as its alternate item.
+- **Not covered automatically:** the ⌥ swap in the open menu, the save panel, and the original's
+  windows closing as the copy opens (live check `HS2-WXZVDJ`).

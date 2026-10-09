@@ -80,6 +80,29 @@ enum ReviewDocuments {
         }
     }
 
+    /// File › Save As… (HS2-0D87NR): a copy where the reviewer chooses. The original's windows
+    /// close and the copy opens in its place; when the original was current, the copy becomes
+    /// current, so the next captures go where the reviewer now works.
+    static func saveAs(_ directory: URL, store: ReviewDraftStore, window: NSWindow?) {
+        runSavePanel(for: directory, store: store, window: window, title: "Save As") { destination in
+            let wasCurrent = store.isCurrent(directory)
+            let copy = try store.saveCopy(directory, to: destination, replacing: true)
+            if wasCurrent { try store.makeCurrent(copy.directory) }
+            return copy
+        }
+    }
+
+    /// File › Duplicate (HS2-0D87NR): an untitled copy, "<title> copy", in its own editor window.
+    static func duplicate(_ directory: URL, store: ReviewDraftStore) {
+        do {
+            let copy = try store.duplicate(directory)
+            NotificationCenter.default.post(name: .reviewDraftChanged, object: copy.directory)
+            try EditorWindowController.show(directory: copy.directory, store: store)
+        } catch {
+            alert("Couldn't duplicate the review", error)
+        }
+    }
+
     /// The save panel, then `write` to the chosen place; the review's open windows follow the result.
     static func runSavePanel(
         for directory: URL,

@@ -47,6 +47,12 @@ enum MainMenu {
         menu.addItem(.separator())
         menu.addItem(withTitle: "Close", action: #selector(NSWindow.performClose(_:)), keyEquivalent: "w")
         menu.addItem(withTitle: "Save…", action: #selector(AnnotationCanvasView.saveDocument(_:)), keyEquivalent: "s")
+        // Duplicate, and with ⌥ held Save As… in its place, as in other document apps (HS2-0D87NR).
+        menu.addItem(withTitle: "Duplicate", action: #selector(EditorWindowController.duplicateDocument(_:)), keyEquivalent: "s")
+            .keyEquivalentModifierMask = [.command, .shift]
+        let saveAs = menu.addItem(withTitle: "Save As…", action: #selector(EditorWindowController.saveDocumentAs(_:)), keyEquivalent: "s")
+        saveAs.keyEquivalentModifierMask = [.command, .shift, .option]
+        saveAs.isAlternate = true
         menu.addItem(.separator())
         menu.addItem(withTitle: "Add Media…", action: #selector(AppDelegate.addMedia(_:)), keyEquivalent: "o")
             .keyEquivalentModifierMask = [.command, .shift]

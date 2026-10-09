@@ -219,6 +219,7 @@ enum MenuDump {
                 entry["shortcut"] = shortcut(item)
             }
             if item.state == .on { entry["checked"] = true }
+            if item.isAlternate { entry["alternate"] = true }
             if let row = item.view as? MenuToggleView {
                 entry["toggle"] = true
                 entry["checked"] = row.isOn
