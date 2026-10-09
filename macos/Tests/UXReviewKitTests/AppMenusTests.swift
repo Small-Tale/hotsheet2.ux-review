@@ -13,8 +13,9 @@ struct AppMenusTests {
             "Narrate Next Recording with Microphone", nil, "Settings…", "Open UX Review", nil, "Quit UX Review",
         ])
         #expect(entries.first == .label("UX Review 1.2"))
-        #expect(entries.contains(.action("Settings…", .openSettings, shortcut: MenuShortcut(","))))
-        #expect(entries.contains(.action("Quit UX Review", .quit, shortcut: MenuShortcut("q"))))
+        // HS2-2NAVKX: only global hotkeys show; ⌘, and ⌘Q aren't global, so Settings… and Quit show none.
+        #expect(entries.contains(.action("Settings…", .openSettings)))
+        #expect(entries.contains(.action("Quit UX Review", .quit)))
         // HS2-WC6JSH: no submenus; Capture Image/Video capture the default request when chosen.
         #expect(!entries.contains { if case .submenu = $0 { true } else { false } })
         #expect(entries[4] == .action("Capture Image", .captureDefault(.screenshot)))

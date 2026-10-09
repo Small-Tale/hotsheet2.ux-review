@@ -37,11 +37,15 @@ work happens in UX Review's own windows (§5.1.1). When idle, it lists:
    A 5 s delay is set in Settings (§5.3); the Delay row then shows it as its own segment.
    With Region or Window as the target, the picker itself switches: **Space** toggles
    region ⇄ window and **Return** takes the whole screen ([04-capture.md](04-capture.md) §4.2).
-6. **Settings…** (⌘,) opens the Settings window.
+6. **Settings…** opens the Settings window.
 7. **Open UX Review** opens the UX Review window (the annotation editor) on the current draft
    review. With no current draft it brings open UX Review windows forward, or, with none open,
-   starts a new empty review (**New Review**, §5.1.1).
-8. **Quit UX Review** (⌘Q).
+   starts a new empty review (**New Review**, §5.1.1). It shows its global shortcut (§5.2),
+   by default ⌥⇧⌘E.
+8. **Quit UX Review**.
+
+The menu shows only global shortcuts (`HS2-2NAVKX`). Settings… and Quit show no ⌘, or ⌘Q:
+those keys work only while UX Review is the active app, and they stay in the app menu (§5.1.1).
 
 The rows from Capture to Narrate are replaced while a capture runs:
 

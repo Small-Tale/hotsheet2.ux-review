@@ -155,10 +155,10 @@ public enum AppMenus {
     ///     Capture Video                       ⌥⇧⌘V
     ///     Narrate Next Recording with Microphone  (switch)
     ///     ───
-    ///     Settings…  ⌘,
-    ///     Open UX Review
+    ///     Settings…
+    ///     Open UX Review                      ⌥⇧⌘E
     ///     ───
-    ///     Quit UX Review  ⌘Q
+    ///     Quit UX Review
     ///
     /// While a capture runs, the rows from Capture to Narrate are replaced by what stops or
     /// explains it.
@@ -187,12 +187,14 @@ public enum AppMenus {
                 narrationToggle(state),
             ]
         }
+        // Only global hotkeys show as shortcuts: ⌘, and ⌘Q reach UX Review only while it is the
+        // active app, so they stay in the app menu alone (`HS2-2NAVKX`).
         entries += [
             .separator,
-            .action("Settings…", .openSettings, shortcut: MenuShortcut(",")),
+            .action("Settings…", .openSettings),
             .action("Open UX Review", .openUXReview, shortcut: MenuShortcut(state.hotkeys[.openReview])),
             .separator,
-            .action("Quit UX Review", .quit, shortcut: MenuShortcut("q")),
+            .action("Quit UX Review", .quit),
         ]
         return entries
     }

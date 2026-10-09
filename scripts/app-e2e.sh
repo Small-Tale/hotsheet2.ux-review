@@ -1296,9 +1296,10 @@ done
 ok "UI renders offscreen (picker overlays, recording dim, HUDs, Settings window, status bar icon, annotation editor, review session, draft reviews)"
 
 # HS2-80CTK8: the menus the real app builds (menus.json): the short menu bar menu, and the app menu bar.
+# HS2-2NAVKX: the menu bar menu shows only global shortcuts, so Settings… and Quit carry no ⌘, or ⌘Q.
 MENUS="$TMP/previews/menus.json"
 TITLES='m => m.map(i => i.separator ? "-" : i.title + (i.shortcut ? "[" + i.shortcut + "]" : "")).join("|")'
-[[ "$(json "$MENUS" "($TITLES)(j.statusMenuIdle)")" == "UX Review "*"|-|Capture|Delay|Capture Image[⌥⇧⌘U]|Capture Video[⌥⇧⌘V]|Narrate Next Recording with Microphone|-|Settings…[⌘,]|Open UX Review|-|Quit UX Review[⌘Q]" ]] \
+[[ "$(json "$MENUS" "($TITLES)(j.statusMenuIdle)")" == "UX Review "*"|-|Capture|Delay|Capture Image[⌥⇧⌘U]|Capture Video[⌥⇧⌘V]|Narrate Next Recording with Microphone|-|Settings…|Open UX Review|-|Quit UX Review" ]] \
   || die "menus: status menu $(json "$MENUS" "($TITLES)(j.statusMenuIdle)")"
 # HS2-W62GWS: the Capture [Screen | Window | Region] picker shows the default target.
 [[ "$(json "$MENUS" 'j.statusMenuIdle[2].choices.join() + "|" + j.statusMenuIdle[2].selected')" == "Screen,Window,Region|Region" ]] \
@@ -1320,9 +1321,12 @@ PICKED='j.statusMenuAfterPicking'
 # HS2-JBWPP5: flipping Narrate in the open menu runs it in place; the menu keeps every row.
 [[ "$(json "$MENUS" "$PICKED.menu[6].checked + \"|\" + $PICKED.menu.length + \"|\" + $PICKED.commands.join()")" == "true|12|setCaptureTarget,setCaptureDelay,toggleNarration,captureDefault,captureDefault" ]] \
   || die "menus: Narrate flip in the open menu $(json "$MENUS" "JSON.stringify($PICKED)")"
-[[ "$(json "$MENUS" "($TITLES)(j.statusMenuRecording)")" == *"|Stop Recording (1:12)|Recording microphone narration|-|Settings…[⌘,]|"* ]] \
+[[ "$(json "$MENUS" "($TITLES)(j.statusMenuRecording)")" == *"|Stop Recording (1:12)|Recording microphone narration|-|Settings…|"* ]] \
   || die "menus: recording $(json "$MENUS" "($TITLES)(j.statusMenuRecording)")"
 [[ "$(json "$MENUS" 'j.mainMenu.map(m => m.title).join()')" == "UX Review,File,Edit,View,Window" ]] || die "menus: main menu bar (HS2-3239JD: no Capture menu)"
+# HS2-2NAVKX: ⌘, and ⌘Q live in the app menu, not the menu bar menu.
+[[ "$(json "$MENUS" 'j.mainMenu.find(m => m.title == "UX Review").submenu.filter(i => ["Settings…", "Quit UX Review"].includes(i.title)).map(i => i.title + "[" + i.shortcut + "]").join("|")')" == "Settings…[⌘,]|Quit UX Review[⌘Q]" ]] \
+  || die "menus: app menu Settings…/Quit shortcuts $(json "$MENUS" 'JSON.stringify(j.mainMenu.find(m => m.title == "UX Review"))')"
 # HS2-8QBS4V: the View menu has the zoom commands with Preview's shortcuts (plus a hidden ⌘= Zoom In).
 [[ "$(json "$MENUS" 'j.mainMenu.find(m => m.title == "View").submenu.map(i => i.title + "[" + i.shortcut + "]" + i.action).join("|")')" == \
   "Actual Size[⌘0]zoomToActualSize:|Zoom to Fit[⌘9]zoomToFit:|Zoom In[⌘+]zoomIn:|Zoom In[⌘=]zoomIn:|Zoom Out[⌘-]zoomOut:" ]] \
