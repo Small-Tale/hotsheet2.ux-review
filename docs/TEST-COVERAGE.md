@@ -1794,3 +1794,10 @@ text stacked one word per line at 99 pt wide. The empty Draft Reviews window was
   `--submit --project <dir>` reports `hotSheetURL` as `<client>/?store=<dir>&ticket=<slug>`.
 - **Not covered automatically:** Hot Sheet 2 opening that link (its `HS2-RVSPQ9` deep link
   accepts a project path), covered by the live check `HS2-K4KHR3`.
+
+## HS2-RA1Y5Z: the tool group's padding
+
+- **App end to end:** `editor-toolbar.json` reports every tool button at 32 × 28 and the row's
+  insets at 6 points on each side.
+- **Visual QA:** `editor-window` (`--render-ui-previews`): the selected tool's highlight sits
+  inside the capsule, inspected by hand. The live glass rendering is part of `HS2-3AWMBZ`'s check.

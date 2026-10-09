@@ -14,6 +14,9 @@ final class EditorToolbar: NSObject, NSToolbarDelegate {
     static let submitReview = NSToolbarItem.Identifier("UXReview.submitReview")
 
     let toolbar = NSToolbar(identifier: "UXReviewEditor")
+    /// Each tool button, and the tool row's inset inside its capsule (`HS2-RA1Y5Z`).
+    static let toolButtonSize = CGSize(width: 32, height: 28)
+    static let toolGroupInsets = NSEdgeInsets(top: 0, left: 6, bottom: 0, right: 6)
     private let model: EditorModel
     private let submit: () -> Void
     private var toolButtons: [NSButton] = []
@@ -96,10 +99,19 @@ final class EditorToolbar: NSObject, NSToolbarDelegate {
             button.toolTip = tool.toolTip
             button.setAccessibilityLabel(tool.label)
             button.setAccessibilityHelp(tool.toolTip)
+            // Every tool the same size, so the selected one's highlight is the same everywhere.
+            button.translatesAutoresizingMaskIntoConstraints = false
+            NSLayoutConstraint.activate([
+                button.widthAnchor.constraint(equalToConstant: Self.toolButtonSize.width),
+                button.heightAnchor.constraint(equalToConstant: Self.toolButtonSize.height),
+            ])
             return button
         }
         let stack = NSStackView(views: toolButtons)
-        stack.spacing = 4
+        // Inset from the glass capsule's ends, so the first and last tools' highlights don't touch
+        // its edge (as in Preview's markup tools; HS2-RA1Y5Z).
+        stack.spacing = 2
+        stack.edgeInsets = Self.toolGroupInsets
         stack.setAccessibilityElement(true)
         stack.setAccessibilityRole(.group)
         stack.setAccessibilityLabel("Tools")
@@ -172,6 +184,9 @@ final class EditorToolbar: NSObject, NSToolbarDelegate {
             "selectedTools": toolButtons.filter { $0.state == .on }.map { $0.accessibilityLabel() ?? "" },
             "selectedTool": toolButtons.first { $0.state == .on }?.accessibilityLabel() ?? "",
             "menuTools": toolMenu?.items.map(\.title) ?? [],
+            "toolButtonSizes": toolButtons.map { "\(Int($0.fittingSize.width))x\(Int($0.fittingSize.height))" },
+            "toolInsets": (toolbar.items.first { $0.itemIdentifier == Self.tools }?.view as? NSStackView)
+                .map { [$0.edgeInsets.left, $0.edgeInsets.right] } ?? [],
             "restoreHidden": restoreItem?.isHidden ?? true,
             "submit": toolbar.items.first { $0.itemIdentifier == Self.submitReview }?.title ?? "",
         ]

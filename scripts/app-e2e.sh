@@ -1375,6 +1375,10 @@ ok "the canvas surround is light gray in light mode and near-black in dark mode"
   "true|text.insert|Select|Crop|Rectangle|Rectangle|Rectangle|Select,Rectangle,Freehand,Arrow,Insertion,Strike,Crop" ]] \
   || die "toolbar: tool buttons $(json "$TB" 'JSON.stringify([j.opened, j.clicked, j.clickedAgain, j.toolAfterClicks])')"
 ok "the tools are one capsule of buttons: one selected, clicks choose, the overflow menu lists them"
+# HS2-RA1Y5Z: every tool button is the same size, and the row is inset from the capsule's ends.
+[[ "$(json "$TB" '[[...new Set(j.opened.toolButtonSizes)].join(), j.opened.toolInsets.join()].join("|")')" == "32x28|6,6" ]] \
+  || die "toolbar: tool sizes/insets $(json "$TB" 'JSON.stringify([j.opened.toolButtonSizes, j.opened.toolInsets])')"
+ok "the tool buttons share one size and sit inset from the capsule's ends"
 # HS2-56FCW3: Submit Review… is a prominent item whose real button carries its label on glass. The
 # offscreen editor-window.png can't draw the glass fill (a white capsule there is expected).
 [[ "$(json "$TB" '[j.submitStyle, j.submitButton.found, j.submitButton.enabled, j.submitButton.visible, j.submitButton.glass].join("|")')" == \
