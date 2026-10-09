@@ -176,16 +176,24 @@ public extension Shape {
 
     /// The shape after dragging `handle` to `point` (media pixels). Boxes keep at least
     /// `minimumSide` pixels and never flip past their opposite edge.
-    func resized(_ handle: ShapeHandle, to point: CGPoint, in frame: MediaFrame, minimumSide: Double) -> Shape {
+    /// - Parameter modifiers: ⇧ keeps a box's aspect ratio (and snaps an arrow end to 45°), ⌥
+    ///   resizes a box about its center (`HS2-Q5TA4C`).
+    func resized(
+        _ handle: ShapeHandle, to point: CGPoint, in frame: MediaFrame, minimumSide: Double, modifiers: DragModifiers = []
+    ) -> Shape {
         let target = CGPoint(x: min(max(point.x, 0), frame.width), y: min(max(point.y, 0), frame.height))
+        let limits = CGSize(width: frame.width, height: frame.height)
+        func box(_ rect: CGRect, _ handle: BoxHandle) -> CGRect {
+            ModifiedBox.resize(rect, handle, to: target, modifiers: modifiers, within: BoxLimits(bounds: limits, minimumSide: minimumSide))
+        }
         switch (self, handle) {
-        case let (.rect(rect), .box(box)):
-            return .rect(frame.norm(Self.resize(frame.pixel(rect), box, to: target, minimumSide: minimumSide, in: frame)))
-        case let (.strike(rect), .box(box)):
-            return .strike(frame.norm(Self.resize(frame.pixel(rect), box, to: target, minimumSide: minimumSide, in: frame)))
-        case let (.freehand(points, closed), .box(box)):
+        case let (.rect(rect), .box(handle)):
+            return .rect(frame.norm(box(frame.pixel(rect), handle)))
+        case let (.strike(rect), .box(handle)):
+            return .strike(frame.norm(box(frame.pixel(rect), handle)))
+        case let (.freehand(points, closed), .box(handle)):
             let old = frame.pixel(bounds)
-            let new = Self.resize(old, box, to: target, minimumSide: minimumSide, in: frame)
+            let new = box(old, handle)
             let scaled = points.map { norm -> NormPoint in
                 let pixel = frame.pixel(norm)
                 let fractionX = old.width > 0 ? (pixel.x - old.minX) / old.width : 0
@@ -195,7 +203,11 @@ public extension Shape {
             return .freehand(points: scaled, closed: closed)
         case let (.arrow(points, heads), .vertex(index)) where points.indices.contains(index):
             var moved = points
-            moved[index] = frame.norm(target)
+            // ⇧ snaps the dragged end to 45° from the point it joins.
+            let neighbor = index > 0 ? index - 1 : index + 1
+            let end = modifiers.contains(.constrain) && points.indices.contains(neighbor)
+                ? ModifiedBox.snapped(target, from: frame.pixel(points[neighbor]), bounds: limits) : target
+            moved[index] = frame.norm(end)
             return .arrow(points: moved, heads: heads)
         default:
             return self

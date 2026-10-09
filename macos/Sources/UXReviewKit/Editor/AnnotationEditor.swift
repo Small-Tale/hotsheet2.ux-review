@@ -153,6 +153,7 @@ public struct AnnotationEditor: Sendable {
     public var minimumSide: Double = 6
     /// How far from a stroke or handle a click still hits, in media pixels.
     public var hitTolerance: Double = 6
+    var drag = DragState() // the drag's modifier keys and points (HS2-Q5TA4C)
 
     var undoStack: [Snapshot] = []
     var redoStack: [Snapshot] = []

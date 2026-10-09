@@ -188,6 +188,7 @@ enum EditorPreviews {
             case let .trim(range): editor.trim(to: range)
             case let .clickMedia(id, click): editor.clickMedia(id, click)
             case let .mediaNote(id, text): editor.setMediaNote(text, for: id)
+            case let .modifiers(modifiers): editor.setDragModifiers(modifiers)
             default: break
             }
         }

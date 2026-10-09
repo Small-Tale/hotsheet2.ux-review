@@ -9,6 +9,7 @@ import Foundation
 ///       {"op": "media", "media": "m1"},
 ///       {"op": "tool", "tool": "rect"},
 ///       {"op": "drag", "points": [[40, 40], [200, 120]]},
+///       {"op": "modifiers", "keys": ["shift", "option"]},
 ///       {"op": "note", "text": "Label is clipped"},
 ///       {"op": "media-note", "media": "m1", "text": "The whole page feels cramped"},
 ///       {"op": "intent", "intent": "bug"},
@@ -36,6 +37,9 @@ public struct EditorScript: Decodable, Equatable, Sendable {
         case delete
         case duplicate
         case nudge(dx: Double, dy: Double)
+        /// The modifier keys held for the drags that follow (`HS2-Q5TA4C`): ⇧ (`"shift"`)
+        /// constrains, ⌥ (`"option"`) works from the center; `[]` releases them.
+        case modifiers(DragModifiers)
         case crop(CGRect)
         case resetCrop
         /// Restore Original: the current image's crop or the current video's trim.
@@ -97,8 +101,27 @@ public enum EditorScriptError: Error, Equatable, CustomStringConvertible {
 extension EditorScript.Step: Decodable {
     private enum CodingKeys: String,
         CodingKey { case op, media, tool, points, point, id, text, intent, closed, dx, dy, rect, start, end, handle, key, shift,
-                     modifier
+                     modifier, keys
         case millis = "ms"
+    }
+
+    /// `nudge` (move the selection) and `modifiers` (the keys held for the drags that follow).
+    private static func adjustStep(_ op: String, in container: KeyedDecodingContainer<CodingKeys>) throws -> EditorScript.Step {
+        guard op == "modifiers" else {
+            return try .nudge(dx: container.decode(Double.self, forKey: .dx), dy: container.decode(Double.self, forKey: .dy))
+        }
+        var modifiers: DragModifiers = []
+        for key in try container.decode([String].self, forKey: .keys) {
+            switch key.lowercased() {
+            case "shift": modifiers.insert(.constrain)
+            case "option", "alt": modifiers.insert(.fromCenter)
+            default:
+                throw DecodingError.dataCorruptedError(
+                    forKey: .keys, in: container, debugDescription: "Unknown modifier \(key) (shift or option)"
+                )
+            }
+        }
+        return .modifiers(modifiers)
     }
 
     /// Ops that take no arguments.
@@ -147,7 +170,7 @@ extension EditorScript.Step: Decodable {
         case "note": self = try .note(container.decode(String.self, forKey: .text))
         case "intent": self = try Self.intent(in: container)
         case "closed", "heads": self = try Self.outline(op, in: container)
-        case "nudge": self = try .nudge(dx: container.decode(Double.self, forKey: .dx), dy: container.decode(Double.self, forKey: .dy))
+        case "nudge", "modifiers": self = try Self.adjustStep(op, in: container)
         case "crop", "insert": self = try Self.geometry(op, in: container)
         case "time", "play", "timeline-drag", "cancel-timeline-drag", "arrow-key": self = try Self.playhead(op, in: container)
         case "range", "trim": self = try Self.timing(op, in: container)
@@ -284,6 +307,8 @@ public extension EditorScript {
             try applyMediaStep(step, in: session)
         case let .tool(tool):
             session.editor.setTool(tool)
+        case let .modifiers(modifiers):
+            session.editor.setDragModifiers(modifiers)
         case .drag, .cancelDrag, .insert:
             try draw(step, in: session)
         case let .select(reference):

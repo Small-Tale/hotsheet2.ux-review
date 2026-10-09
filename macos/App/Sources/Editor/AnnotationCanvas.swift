@@ -187,6 +187,7 @@ final class AnnotationCanvasView: NSView {
             // Sizes are in screen points, so the feel is the same at every zoom.
             editor.minimumSide = 6 / scale
             editor.hitTolerance = Self.hitTolerance / scale
+            editor.setDragModifiers(Self.dragModifiers(event.modifierFlags))
             editor.beginGesture(at: point)
         }
         if event.clickCount == 2, model.editor.selection != nil {
@@ -197,8 +198,26 @@ final class AnnotationCanvasView: NSView {
     override func mouseDragged(with event: NSEvent) {
         if panAnchor != nil { return continuePan(event) }
         guard let model, let point = mediaPoint(event) else { return }
-        model.mutate { $0.updateGesture(to: point) }
+        model.mutate { editor in
+            editor.setDragModifiers(Self.dragModifiers(event.modifierFlags))
+            editor.updateGesture(to: point)
+        }
         autoScroller.track(convert(event.locationInWindow, from: nil), model: model)
+    }
+
+    /// ⇧ or ⌥ pressed or released mid-drag reshapes it at once (HS2-Q5TA4C).
+    override func flagsChanged(with event: NSEvent) {
+        super.flagsChanged(with: event)
+        guard let model, model.editor.gesture != nil else { return }
+        model.mutate { $0.setDragModifiers(Self.dragModifiers(event.modifierFlags)) }
+    }
+
+    /// ⇧ constrains (aspect ratio, squares, 45° arrows); ⌥ works from the center.
+    static func dragModifiers(_ flags: NSEvent.ModifierFlags) -> DragModifiers {
+        var modifiers: DragModifiers = []
+        if flags.contains(.shift) { modifiers.insert(.constrain) }
+        if flags.contains(.option) { modifiers.insert(.fromCenter) }
+        return modifiers
     }
 
     /// Pans near the edges while a gesture runs (docs/06 §6.2.1).

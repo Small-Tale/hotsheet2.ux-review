@@ -1831,3 +1831,22 @@ text stacked one word per line at 99 pt wide. The empty Draft Reviews window was
   spaces become one space), cut with "…" past the limit, and none when blank.
 - **Visual QA:** `session-ready` and the other `session-*` renders show capture 1's note under
   its row. `session-existing-selection` shows it under the capture's checkbox. Inspected by hand.
+
+## HS2-Q5TA4C: modifier keys while drawing, resizing, moving, and cropping
+
+- **Unit** (`DragModifiersTests`):
+  - Geometry: with no modifiers the plain resize, for every handle. ⇧ on corners (the larger
+    change wins, down to the minimum) and edges (centered on the other side). ⌥ about the center,
+    limited at the media's edge. ⇧⌥ together. A constrained box shrinks to fit, keeping its ratio.
+    Drawn boxes: square, centered, both, and up or left with limited room. 45° snapping, pulled
+    back at the edge, and a zero-length drag.
+  - Editor: drawing with ⇧ and ⌥ (rect, strike, arrow), each one undo step. A modifier pressed
+    and released mid-drag reshapes the preview at once; with no drag it changes nothing.
+    Resizing and moving a selected shape. Cropping with ⇧ (square, then a square edge resize)
+    and ⌥.
+  - The `modifiers` script op parses, and an unknown key is rejected.
+- **App end to end** (`scripts/app-e2e.sh`): `--annotate` with ⇧ draws a 100 × 100 px square
+  and with ⌥ a 60 × 40 px box centered on the start, read back from `review.json`.
+- **Not covered automatically:** the canvas reading `NSEvent.modifierFlags` on press and drag,
+  and `flagsChanged` mid-drag, with a real keyboard. Added to the live Crop tool check
+  `HS2-7MFNJP`.

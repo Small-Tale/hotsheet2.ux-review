@@ -887,6 +887,19 @@ done
 [[ -e "$learlier" ]] || die "link: the other review was removed"
 ok "a review a capture link started files to the link's project and ticket by default"
 
+echo "editor: modifier keys while drawing (HS2-Q5TA4C)"
+MDRAFTS="$TMP/modifier-drafts"
+run modifier-shot 0 "${SYN[@]}" -- --capture screenshot --target region --rect 100,100,300,200 --drafts-dir "$MDRAFTS"
+mdraft="$(json "$TMP/modifier-shot.json" j.draftDirectory)"
+echo '{"steps": [{"op": "modifiers", "keys": ["shift"]}, {"op": "tool", "tool": "rect"}, {"op": "drag", "points": [[10, 10], [110, 40]]},
+  {"op": "modifiers", "keys": ["option"]}, {"op": "tool", "tool": "rect"}, {"op": "drag", "points": [[150, 100], [180, 120]]},
+  {"op": "modifiers", "keys": []}, {"op": "save"}]}' >"$TMP/script-modifiers.json"
+run modifier-annotate 0 -- --annotate "$TMP/script-modifiers.json" --drafts-dir "$MDRAFTS"
+# ⇧: a 100 × 100 px square; ⌥: 60 × 40 px centered on (150, 100). Shapes are in 0–10000 units.
+[[ "$(json "$mdraft/review.json" 'const m = j.media[0], px = (r) => [r.x * m.pixelWidth, r.y * m.pixelHeight, r.width * m.pixelWidth, r.height * m.pixelHeight].map(v => Math.round(v / 10000)).join(","); j.annotations.map(a => px(a.shape.rect)).join("|")')" == \
+  "10,10,100,100|120,80,60,40" ]] || die "modifiers: shapes $(json "$mdraft/review.json" 'JSON.stringify(j.annotations.map(a => a.shape))')"
+ok "⇧ draws a square and ⌥ draws from the center, through --annotate"
+
 echo "review session: one title (HS2-025XNF)"
 TDRAFTS="$TMP/title-drafts"
 run title-shot 0 "${SYN[@]}" -- --capture screenshot --target region --rect 100,100,300,200 --drafts-dir "$TDRAFTS"

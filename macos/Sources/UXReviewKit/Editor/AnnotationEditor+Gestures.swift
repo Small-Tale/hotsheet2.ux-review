@@ -13,6 +13,8 @@ public extension AnnotationEditor {
         // A canvas press hands ← / → back to the canvas (docs/06 §6.4).
         timelineTarget = nil
         let start = clamp(point, frame)
+        drag.anchor = start
+        drag.point = start
         message = nil
         switch tool {
         case .select:
@@ -39,23 +41,40 @@ public extension AnnotationEditor {
     mutating func updateGesture(to point: CGPoint) {
         guard let gesture, let frame = canvasFrame else { return }
         let current = clamp(point, frame)
+        drag.point = current
+        let anchor = drag.anchor ?? current, modifiers = drag.modifiers
+        let limits = CGSize(width: frame.width, height: frame.height)
         switch gesture {
         case let .drawing(tool, points):
-            if tool == .freehand {
+            switch tool {
+            case .freehand:
                 guard let last = points.last, hypot(current.x - last.x, current.y - last.y) >= 1 else { return }
                 self.gesture = .drawing(tool, points: points + [current])
-            } else {
+            case .rect, .strike:
+                // ⇧ a square, ⌥ from the center (HS2-Q5TA4C).
+                let box = ModifiedBox.drawn(from: anchor, to: current, modifiers: modifiers, bounds: limits)
+                self.gesture = .drawing(tool, points: [box.origin, CGPoint(x: box.maxX, y: box.maxY)])
+            case .arrow:
+                let end = modifiers.contains(.constrain) ? ModifiedBox.snapped(current, from: anchor, bounds: limits) : current
+                self.gesture = .drawing(tool, points: [anchor, end])
+            default:
                 self.gesture = .drawing(tool, points: [points[0], current])
             }
         case let .moving(id, start, origin):
             let scale = Double(NormalizedSpace.max)
-            let dx = Int(((current.x - start.x) / frame.width * scale).rounded())
-            let dy = Int(((current.y - start.y) / frame.height * scale).rounded())
+            var moveX = current.x - start.x, moveY = current.y - start.y
+            // ⇧ keeps the move horizontal or vertical, whichever is larger (HS2-Q5TA4C).
+            if modifiers.contains(.constrain) { if abs(moveX) >= abs(moveY) { moveY = 0 } else { moveX = 0 } }
+            let dx = Int((moveX / frame.width * scale).rounded())
+            let dy = Int((moveY / frame.height * scale).rounded())
             _ = document.bundle.update(id) { $0.shape = origin.translated(dx: dx, dy: dy) }
         case let .resizing(id, handle, origin):
-            _ = document.bundle.update(id) { $0.shape = origin.resized(handle, to: current, in: frame, minimumSide: minimumSide) }
-        case let .cropping(start, _):
-            self.gesture = .cropping(start: start, current: current)
+            _ = document.bundle.update(id) {
+                $0.shape = origin.resized(handle, to: current, in: frame, minimumSide: minimumSide, modifiers: modifiers)
+            }
+        case .cropping:
+            let box = ModifiedBox.drawn(from: anchor, to: current, modifiers: modifiers, bounds: limits)
+            self.gesture = .cropping(start: box.origin, current: CGPoint(x: box.maxX, y: box.maxY))
         case let .adjustingCrop(handle, start, origin, _):
             self.gesture = .adjustingCrop(
                 handle,
@@ -64,6 +83,14 @@ public extension AnnotationEditor {
                 rect: adjustedCrop(origin, handle, from: start, to: current)
             )
         }
+    }
+
+    /// The modifier keys now held (`HS2-Q5TA4C`). During a drag, the last update is redone with
+    /// them, so pressing or releasing ⇧ or ⌥ reshapes the drag without moving the pointer.
+    mutating func setDragModifiers(_ modifiers: DragModifiers) {
+        guard modifiers != drag.modifiers else { return }
+        drag.modifiers = modifiers
+        if gesture != nil, let point = drag.point { updateGesture(to: point) }
     }
 
     /// Pointer up: commits the gesture as one undo step.

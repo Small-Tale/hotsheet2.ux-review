@@ -113,8 +113,11 @@ public extension AnnotationEditor {
             let y = min(max(origin.y + Int((point.y - start.y).rounded()), 0), size.height - origin.height)
             return CGRect(x: x, y: y, width: origin.width, height: origin.height)
         case let .edge(box):
-            let frame = MediaFrame(width: Double(size.width), height: Double(size.height))
-            return Shape.resize(origin.cgRect, box, to: point, minimumSide: Double(ImageCrop.minimumSide), in: frame)
+            // ⇧ keeps the crop's aspect ratio, ⌥ resizes it about its center (HS2-Q5TA4C).
+            return ModifiedBox.resize(
+                origin.cgRect, box, to: point, modifiers: dragModifiers,
+                within: BoxLimits(bounds: CGSize(width: size.width, height: size.height), minimumSide: Double(ImageCrop.minimumSide))
+            )
         }
     }
 

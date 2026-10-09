@@ -194,6 +194,20 @@ example in a 5K screenshot), zoom in (`HS2-9Y9DDY`):
 - Moves stop at the media edge.
 - Resizes never flip a box and never shrink it below the minimum side.
 
+**Modifier keys** (`HS2-Q5TA4C`, `DragModifiers` / `ModifiedBox`), as in other Mac drawing apps.
+They apply while the key is held, and pressing or releasing one mid-drag reshapes the drag at
+once without moving the pointer:
+
+| Key | Drawing a rectangle, strike, or crop | Resizing a box (rect, strike, outline, crop) | Arrows | Moving |
+| --- | --- | --- | --- | --- |
+| ⇧ | a square (the larger side) | keeps the aspect ratio: a corner scales both sides by the larger change; an edge scales the other side to match, centered on it | the dragged end snaps to the nearest 45° | horizontal or vertical only |
+| ⌥ | grows from where the drag began (its center) | symmetric about the center: the opposite side moves too | — | — |
+| ⇧⌥ | a square centered on the start | the aspect ratio kept, about the center | 45° | — |
+
+A constrained or centered box stays inside the media: it shrinks about its fixed point (keeping
+its ratio) instead of sliding. Each drag is still one undo step. `--annotate` takes
+`{"op": "modifiers", "keys": ["shift", "option"]}` for the drags that follow (§6.9).
+
 **Picking among overlapping shapes.** Clicks hit within 7 screen points of a stroke or handle.
 Inside a filled shape (rect, strike, closed outline) the whole area counts. When shapes
 overlap, the winner is, in order:
