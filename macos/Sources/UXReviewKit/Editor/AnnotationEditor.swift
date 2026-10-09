@@ -114,6 +114,8 @@ public struct AnnotationEditor: Sendable {
 
     enum CoalesceKey: Equatable, Sendable {
         case note(String)
+        /// Typing into one capture's note (`HS2-KVDDFH`).
+        case mediaNote(String)
         case nudge(String)
         /// Consecutive ← / → frame steps of the same trim or range end (docs/06 §6.10).
         case frameStep(TimelineStepTarget)
@@ -272,6 +274,17 @@ public struct AnnotationEditor: Sendable {
     public mutating func setNote(_ note: String, for id: String) -> Bool {
         perform(coalescing: .note(id)) { snapshot in
             snapshot.document.bundle.update(id) { $0.note = note }
+        }
+    }
+
+    /// Edits the note about capture `mediaId` as a whole (`HS2-KVDDFH`, docs/02 §2.2). Typing into
+    /// the same capture's note is one undo step; an empty note is stored as none.
+    @discardableResult
+    public mutating func setMediaNote(_ note: String, for mediaId: String) -> Bool {
+        perform(coalescing: .mediaNote(mediaId)) { snapshot in
+            guard let index = snapshot.document.bundle.media.firstIndex(where: { $0.id == mediaId }) else { return false }
+            snapshot.document.bundle.media[index].note = note.isEmpty ? nil : note
+            return true
         }
     }
 

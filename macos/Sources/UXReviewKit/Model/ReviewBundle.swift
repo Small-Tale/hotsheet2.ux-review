@@ -285,6 +285,9 @@ public struct MediaItem: Codable, Equatable, Sendable {
     /// The capture's size before it was downscaled for AI (after any crop), only when it was
     /// (docs/07 §7.5.1). Tells a reader the attachment lost detail. Spec: docs/02 §2.2.
     public var scaledFrom: MediaPixelSize?
+    /// The reviewer's Markdown note about the capture as a whole (`HS2-KVDDFH`). Nil when there is
+    /// none; never empty, so it is omitted from `review.json`. Spec: docs/02 §2.2.
+    public var note: String?
 
     public init(
         id: String,

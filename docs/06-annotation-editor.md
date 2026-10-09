@@ -49,7 +49,7 @@ UX Review** (or a click on the Dock icon) opens it on the current draft
 | Canvas | The current capture fitted to the view (at most 2×) or zoomed (§6.2.1), on a dark backdrop, with annotations drawn on top. A video shows the frame at the playhead |
 | Toasts (top of the canvas) | No status line (`HS2-KJCJWX`). The editor's messages (crop and trim results and hints) show as a toast that fades after 4 seconds; a save error shows as a toast with a warning sign that stays until saving works again. Saving itself (autosave, ⌘S) shows nothing (`EditorToast`, `ToastPresenter`) |
 | Timeline (under the canvas, videos only) | Play/pause, frame step, playhead time, **Trim Start** / **Trim End**, and the scrubber with each annotation's time range (§6.10) |
-| Inspector (right) | A navigation stack (§6.5.1, `HS2-4R84WH`). Its root lists every annotation on this capture in review order: number, shape, intents, time range (videos), and note preview. Clicking a row (or selecting the annotation on the canvas) pushes that annotation's page: a **‹ Annotations** back button, then its number, shape, intents, shape options, time (videos, §6.10), and Markdown note, with Duplicate and Delete buttons |
+| Inspector (right) | A navigation stack (§6.5.1, `HS2-4R84WH`). Its root has the **Capture note** for the capture on the canvas (§6.5.2), then lists every annotation on this capture in review order: number, shape, intents, time range (videos), and note preview. Clicking a row (or selecting the annotation on the canvas) pushes that annotation's page: a **‹ Annotations** back button, then its number, shape, intents, shape options, time (videos, §6.10), and Markdown note, with Duplicate and Delete buttons |
 
 Videos can be trimmed and their annotations given time ranges (§6.10), and cropped like images
 (§6.6).
@@ -339,6 +339,20 @@ at the root, and one annotation's page pushed over it. The editor's selection de
   the hint "Shows its intents and note"; the back button reads "Back to annotations". Each row
   ends with a chevron, which VoiceOver skips.
 
+### 6.5.2 Capture notes
+
+`HS2-KVDDFH`. Each capture can have one Markdown note about the capture as a whole, for what no
+single annotation marks ("the whole page feels cramped"). It is the media entry's optional `note`
+in `review.json` ([02-review-bundle.md](02-review-bundle.md) §2.2).
+
+- It is edited in the **Capture note** field at the top of the inspector's list page (§6.5.1),
+  for the capture on the canvas. Showing another capture shows its note.
+- Typing into one capture's note is one undo step, like an annotation's note. Clearing the
+  field removes the note (it is never stored empty).
+- The ticket shows it under that capture's line in the Media list
+  ([03-hotsheet-integration.md](03-hotsheet-integration.md) §3.3), in a new ticket and in a note
+  on an existing one. A capture left out of an existing-ticket submission leaves its note out too.
+
 ## 6.6 Crop
 
 Images and videos crop alike (videos: `HS2-M03YP2`). Each capture has **one crop, relative to its
@@ -607,6 +621,7 @@ pixels of the crop, except with the Crop tool on an image, where they are pixels
 | `{"op": "restore-original"}` | Restore Original: the current capture's crop, and a video's trim (§6.6) |
 | `{"op": "remove-media", "media": "m1"}` | Remove a capture from the draft as the review session does, then let the editor catch up (§6.7) |
 | `{"op": "remove-capture", "media": "m1"}` | Remove from Review in the editor: save first, then remove (§6.7.1) |
+| `{"op": "media-note", "media": "m1", "text": …}` | Type the note about capture `m1` as a whole; `""` clears it (§6.5.2) |
 | `{"op": "click-media", "media": "m2", "modifier": "command"}` | Click a media strip thumbnail; `modifier` (optional) is `command` (⌘-click) or `shift` (⇧-click) (§6.7.2) |
 | `{"op": "remove-selected-captures"}` | ⌘⌫: remove every selected capture without asking (§6.7.2); fails with no capture |
 | `{"op": "undo"}`, `{"op": "redo"}`, `{"op": "save"}` | History and saving |
@@ -623,6 +638,7 @@ editor offscreen through the real views, on a draft of mock app screenshots:
 
 - `editor-empty`
 - `editor-annotated` (rect selected: its page pushed in the inspector, §6.5.1)
+- `editor-capture-note`: the inspector's list page with a capture note (§6.5.2)
 - `editor-inspector-list` and `editor-inspector-pushed`: the inspector's list, then annotation #1's page
   after a real click on its row; real clicks on Back and ⌘[ and a note-focus request are recorded
   in `editor-inspector-navigation.json` (§6.5.1)

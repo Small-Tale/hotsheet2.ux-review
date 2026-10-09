@@ -48,6 +48,8 @@ enum EditorPreviews {
         try capture("editor-intent-single", size: wide, script: annotations + [.select("#1"), .intent(.change, .single)])
         // Both captures selected (⌘-click), the second one shown (docs/06 §6.7.2).
         try capture("editor-multi-select", size: wide, script: annotations + [.clickMedia("m2", .toggle)])
+        // HS2-KVDDFH: a note about the whole capture, on the inspector's list page.
+        try capture("editor-capture-note", size: wide, script: annotations + [.mediaNote("m1", captureNote)])
         try capture("editor-arrow-selected", size: wide, script: annotations + [.select("#3")])
         // HS2-HQV9R8: every head style, on separate arrows, the last (a span) selected.
         try capture("editor-arrow-heads", size: wide, script: annotations + arrowHeadStyles)
@@ -240,6 +242,8 @@ enum EditorPreviews {
         return [try snapshot(EditorView(model: model), size: CGSize(width: 1240, height: 800), to: url2, interact: drag)]
     }
 
+    static let captureNote = "The whole page feels cramped at this window size; give the form more room."
+
     /// A realistic review of the mock settings page: one of each shape, notes, and intents.
     static let annotations: [EditorScript.Step] = [
         .tool(.rect), .drag([CGPoint(x: 330, y: 250), CGPoint(x: 820, y: 330)]),
@@ -282,6 +286,7 @@ enum EditorPreviews {
             case let .time(millis): editor.setCurrentTime(millis)
             case let .trim(range): editor.trim(to: range)
             case let .clickMedia(id, click): editor.clickMedia(id, click)
+            case let .mediaNote(id, text): editor.setMediaNote(text, for: id)
             default: break
             }
         }

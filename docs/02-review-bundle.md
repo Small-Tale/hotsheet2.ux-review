@@ -51,6 +51,15 @@ after any crop. `pixelWidth`/`pixelHeight` are then the filed size.
 - Both sizes must be positive (`invalidMediaSize`, §2.7).
 - The ticket's media line reads "scaled from W×H" (docs/03 §3.3).
 
+Optional `note` (`HS2-KVDDFH`) is the reviewer's Markdown note about the capture as a whole, for
+what no single annotation marks (for example "this whole page feels cramped"):
+
+- It is written in the editor's inspector, on the list page of that capture
+  ([06-annotation-editor.md](06-annotation-editor.md) §6.5.2).
+- Writers omit it when there is no note; they never write an empty string. Absent means no note,
+  which is how bundles written before the field read.
+- The ticket shows it under the capture's media line (docs/03 §3.3).
+
 ## 2.3 Coordinates
 
 Every coordinate is an integer from 0 to 10000, normalized to the media itself (not to the
@@ -125,7 +134,8 @@ validation before it can be submitted. The checks are:
 Breaking changes bump the schema to a new id (`uxreview/bundle/v2`). Readers reject schemas they
 don't know.
 
-Adding an optional field that older bundles simply lack (such as `hasAudio`, §2.2) is not
+Adding an optional field that older bundles simply lack (such as `hasAudio` or a capture's
+`note`, §2.2) is not
 breaking: the schema id stays `uxreview/bundle/v1`, every older bundle stays valid, and readers
 must treat the missing field as its documented default. The JSON Schema lists the new field, so
 validate against the current `spec/review-bundle.schema.json`.

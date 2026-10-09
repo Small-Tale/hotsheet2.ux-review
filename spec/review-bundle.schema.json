@@ -102,6 +102,7 @@
         "capturedAt": { "type": "string", "format": "date-time" },
         "context": { "$ref": "#/$defs/context", "description": "Where this capture came from; the bundle-level context describes the review as a whole." },
         "hasAudio": { "type": "boolean", "description": "Video only: true when the movie has an audio track, such as the reviewer's spoken narration, worth listening to or transcribing. Writers omit it when there is no audio track or it is unknown (older bundles), and never write false." },
+        "note": { "type": "string", "minLength": 1, "description": "The reviewer's Markdown note about the capture as a whole. Writers omit it when there is no note and never write an empty string." },
         "scaledFrom": {
           "type": "object",
           "description": "Only when the file was downscaled for an AI reader before filing: its size before scaling (after any crop). pixelWidth/pixelHeight are the filed size. Tells a reader the attachment shows less detail than the reviewer saw.",

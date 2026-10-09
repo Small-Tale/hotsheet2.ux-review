@@ -94,6 +94,9 @@ The ticket is titled `UX review: <title>`, has category `task`, and carries the 
    `(image, 2576×1449, scaled from 3840×2160)`. The list is then followed by a note that such
    captures show less detail than the reviewer saw, that annotation regions still line up, and
    to ask the reviewer for a crop when finer detail is needed (`HS2-KMB528`).
+   A capture with a `note` (docs/02 §2.2, `HS2-KVDDFH`) has it right under its line, inside the
+   same list item: `Capture note:` and the note's first line, then any further lines, each
+   indented two spaces.
 5. **Annotations**: one section per annotation, `### #N · <intents> · attachment:<file>`. Each
    gives the shape, the projected region in 0–10000 units, the time range as `m:ss.mmm`, and the
    note (or `_No note._`).

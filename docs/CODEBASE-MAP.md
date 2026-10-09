@@ -22,7 +22,7 @@ macos/
   Signing.xcconfig             code signing: ad hoc unless the gitignored Signing.local.xcconfig sets an identity (docs/01 §1.3)
   Signing.local.xcconfig.example  template for the machine-local signing identity
   Sources/UXReviewKit/
-    Model/ReviewBundle.swift       bundle, media (incl. scaledFrom: MediaPixelSize), shapes, intents, time ranges, Codable
+    Model/ReviewBundle.swift       bundle, media (incl. scaledFrom: MediaPixelSize, the capture's note), shapes, intents, time ranges, Codable
     Model/BundleValidation.swift   ReviewBundle.validate() rules (docs/02 §2.7)
     Tickets/TicketComposer.swift   intake ticket body, existing-ticket note, Hot Sheet annotation projection (docs/03 §3.3–3.5)
     Tickets/TicketPreamble.swift   the editable preamble (AI instructions / existing-ticket intro): standard templates, {{placeholders}}, DraftTicketText (`ticket-text.json`) (docs/07 §7.2.3)
@@ -136,7 +136,7 @@ macos/
     Editor/AnnotationCanvas.swift     NSView canvas: mouse/keyboard → editor (← / → monitor for unedited time fields), drawing via AnnotationRenderer
     Editor/AnnotationCanvas+Cursor.swift  canvas cursor: cursor rects per tool; the Crop tool tracks the pointer (mouse moved / cursor update) → NSCursor.frameResize, hands (docs/06 §6.6)
     Editor/TimelineBar.swift          video timeline: play/pause, typed playhead, scrubber, range grips + trim handles, Trim Start/End; TimeField
-    Editor/InspectorView.swift        navigation stack: annotation list → annotation page (back button, intents, note) (docs/06 §6.5.1)
+    Editor/InspectorView.swift        navigation stack: capture note + annotation list → annotation page (back button, intents, note) (docs/06 §6.5.1)
     Editor/HeadlessAnnotate.swift     `--annotate` mode with JSON output
     Editor/EditorPreviews.swift       editor states + mock screenshots for --render-ui-previews
     Editor/EditorPreviews+Crop.swift  the Crop tool's preview states (image and video crops)

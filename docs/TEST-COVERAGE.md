@@ -1601,3 +1601,22 @@ text stacked one word per line at 99 pt wide. The empty Draft Reviews window was
 - **Not covered automatically:** the push/pop animation and VoiceOver reading the rows in a live
   window; see the live-check follow-up.
 
+## HS2-KVDDFH: capture notes
+
+- **Unit** (`MediaNoteTests`):
+  - the note round-trips and is omitted when absent, and an older bundle without it reads as none;
+  - the spec example carries one and validates;
+  - typing coalesces per capture, undo/redo work, and an empty note is stored as none (a repeat changes nothing), interleaved with an annotation's note;
+  - the `media-note` script op parses, and a missing `text` is rejected;
+  - the media list puts the note (multi-line, with blank lines) inside the capture's list item, in both the intake ticket and the existing-ticket note;
+  - a capture left out by `ReviewSelection` takes its note with it;
+  - through real files (`EditorSession`): saved, read back by a new editor, kept when a capture is added, removed from disk once cleared, and an unknown capture fails the script step.
+- **App end to end** (`scripts/app-e2e.sh`, the Claude standard-tier submission):
+  - `--annotate` sets a two-line note on capture 1, and sets then clears one on capture 2;
+  - the draft's `review.json` has the first and omits the second;
+  - the filed `review.json` (after AI downscaling; ajv-validated against the schema) keeps it;
+  - the ticket file has `  Capture note: Feels cramped.` and `  Give the form room.` under the media line.
+- **Spec:** `spec/review-bundle.schema.json` lists `note` (a non-empty string); the example uses it (ajv in `scripts/check.sh`).
+- **Visual QA:** `editor-capture-note` and `editor-empty` (the empty field with its placeholder), inspected by hand.
+- **Not covered automatically:** typing into the live field (it uses the same model call the script op uses).
+

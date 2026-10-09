@@ -167,6 +167,7 @@ public enum TicketComposer {
             if let source = sourceLabel(item.context) { line += ", from \(source)" }
             if stored != item.filename { line += "; stored under this name, `\(bundleFilename)` calls it \(codeSpan(item.filename))" }
             lines.append(line)
+            if let note = item.note { lines.append(captureNote(note)) }
         }
         if bundle.media.contains(where: { $0.hasAudio == true }) {
             lines += ["", audioHint]
@@ -175,6 +176,15 @@ public enum TicketComposer {
             lines += ["", scaledHint]
         }
         return lines.joined(separator: "\n")
+    }
+
+    /// A capture's own note (`HS2-KVDDFH`) under its media line, every line indented two spaces so
+    /// Markdown keeps it inside that list item; blank lines stay blank.
+    static func captureNote(_ note: String) -> String {
+        note.split(separator: "\n", omittingEmptySubsequences: false).enumerated().map { index, line in
+            let text = index == 0 ? "Capture note: \(line)" : String(line)
+            return text.isEmpty ? "" : "  \(text)"
+        }.joined(separator: "\n")
     }
 
     /// Follows the media list when a video has sound, so the agent doesn't treat it as silent.

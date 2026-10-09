@@ -186,6 +186,7 @@ public final class EditorSession {
                     disk.media[index].pixelWidth = item.pixelWidth
                     disk.media[index].pixelHeight = item.pixelHeight
                     disk.media[index].durationMs = item.durationMs
+                    disk.media[index].note = item.note
                 }
             }
             // A capture removed between the reload above and this write keeps its annotations out.

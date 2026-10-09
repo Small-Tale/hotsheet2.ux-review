@@ -281,6 +281,41 @@ struct IntentChips: View {
     }
 }
 
+/// The note about the capture on the canvas as a whole (`HS2-KVDDFH`, docs/06 §6.5.2), at the
+/// top of the inspector's list page.
+struct CaptureNoteField: View {
+    @ObservedObject var model: EditorModel
+    let mediaId: String
+
+    var body: some View {
+        let note = model.editor.media(mediaId)?.note ?? ""
+        VStack(alignment: .leading, spacing: 4) {
+            Text("Capture note (Markdown)").font(.caption).foregroundStyle(.secondary)
+            ZStack(alignment: .topLeading) {
+                // Reads the model on every get, like the annotation note (`HS2-XCJPTX`).
+                TextEditor(text: Binding(
+                    get: { [mediaId] in model.editor.media(mediaId)?.note ?? "" },
+                    set: { text in model.mutate { _ = $0.setMediaNote(text, for: mediaId) } }
+                ))
+                .font(.body)
+                .scrollContentBackground(.hidden)
+                .padding(4)
+                .accessibilityLabel("Capture note")
+                if note.isEmpty {
+                    Text("Anything about this whole capture?")
+                        .foregroundStyle(.tertiary)
+                        .padding(.horizontal, 9)
+                        .padding(.vertical, 4)
+                        .allowsHitTesting(false)
+                }
+            }
+            .frame(height: 72)
+            .background(RoundedRectangle(cornerRadius: 6).fill(Color(nsColor: .textBackgroundColor)))
+            .overlay(RoundedRectangle(cornerRadius: 6).stroke(Color.primary.opacity(0.15)))
+        }
+    }
+}
+
 struct AnnotationList: View {
     @ObservedObject var model: EditorModel
 
@@ -288,6 +323,11 @@ struct AnnotationList: View {
         let mediaId = model.editor.currentMediaId ?? ""
         let annotations = model.editor.annotations(on: mediaId)
         VStack(alignment: .leading, spacing: 0) {
+            if let media = model.editor.currentMedia {
+                CaptureNoteField(model: model, mediaId: media.id)
+                    .padding(.horizontal, 12).padding(.top, 10).padding(.bottom, 4)
+                    .id(media.id)
+            }
             Text(annotations.isEmpty ? "Annotations" : "Annotations (\(annotations.count))")
                 .font(.caption).foregroundStyle(.secondary)
                 .padding(.horizontal, 12).padding(.top, 10).padding(.bottom, 4)

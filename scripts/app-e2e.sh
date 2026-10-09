@@ -1004,7 +1004,7 @@ run "$dname-import" 0 -- --import "$TMP/big.png" --drafts-dir "$TMP/$dname-draft
 run "$dname-clip" 0 "${SYN[@]}" -- --capture video --target region --rect 0,0,1400,900 --duration 1 --drafts-dir "$TMP/$dname-drafts"
 clip_size="$(json "$TMP/$dname-clip.json" '`${j.media.pixelWidth} ${j.media.pixelHeight}`')"
 std_clip="$(claude_size $clip_size 1568 1568 | node -e 'const [w, h] = require("fs").readFileSync(0, "utf8").trim().split("x").map(Number); console.log(`${w - w % 2}x${h - h % 2}`)')"
-echo '{"steps": [{"op": "tool", "tool": "rect"}, {"op": "drag", "points": [[400, 300], [1600, 1200]]}, {"op": "note", "text": "Too small"}, {"op": "media", "media": "m2"}, {"op": "tool", "tool": "rect"}, {"op": "drag", "points": [[100, 100], [900, 600]]}, {"op": "note", "text": "Flicker"}]}' >"$TMP/$dname-script.json"
+echo '{"steps": [{"op": "tool", "tool": "rect"}, {"op": "drag", "points": [[400, 300], [1600, 1200]]}, {"op": "note", "text": "Too small"}, {"op": "media", "media": "m2"}, {"op": "tool", "tool": "rect"}, {"op": "drag", "points": [[100, 100], [900, 600]]}, {"op": "note", "text": "Flicker"}, {"op": "media-note", "media": "m1", "text": "Feels cramped.\nGive the form room."}, {"op": "media-note", "media": "m2", "text": "x"}, {"op": "media-note", "media": "m2", "text": ""}]}' >"$TMP/$dname-script.json"
 run "$dname-annotate" 0 -- --annotate "$TMP/$dname-script.json" --drafts-dir "$TMP/$dname-drafts"
 cp "$(json "$TMP/$dname-import.json" j.draftDirectory)/review.json" "$TMP/$dname-draft.json"
 run "$dname" 0 HOTSHEET_CLI="$TMP/ai-cli" AI_JSON='{"tool":"claude","model":"haiku","effort":"medium"}' -- \
@@ -1019,6 +1019,16 @@ std_json="$(find "$std_dir" -name review.json | head -1)"
 [[ "$(json "$std_json" 'JSON.stringify(j.annotations.map(a => a.shape))')" == "$(json "$TMP/$dname-draft.json" 'JSON.stringify(j.annotations.map(a => a.shape))')" ]] \
   || die "claude-std: annotation coordinates changed"
 validate_bundle "$std_json"
+# HS2-KVDDFH: a capture note set by --annotate is in the draft, the filed review.json (schema-valid
+# above), and the ticket's media list; a note cleared again is omitted, never written empty.
+[[ "$(json "$TMP/$dname-draft.json" 'JSON.stringify(j.media.map(m => m.note ?? null))')" == '["Feels cramped.\nGive the form room.",null]' ]] \
+  || die "capture note: draft $(json "$TMP/$dname-draft.json" 'JSON.stringify(j.media.map(m => m.note))')"
+[[ "$(json "$std_json" 'JSON.stringify(j.media[0].note) + "|" + ("note" in j.media[1])')" == '"Feels cramped.\nGive the form room."|false' ]] \
+  || die "capture note: filed review.json $(json "$std_json" 'JSON.stringify(j.media)')"
+std_ticket="$(json "$TMP/$dname.json" j.ticketFile)"
+grep -q "^  Capture note: Feels cramped.$" "$std_ticket" && grep -q "^  Give the form room.$" "$std_ticket" \
+  || die "capture note: ticket media list $(grep -n -A3 'capture-1.png' "$std_ticket" | head -5)"
+ok "a capture note set by --annotate reaches the draft, the filed review.json, and the ticket's media list; a cleared one is omitted"
 if command -v ffprobe >/dev/null; then
   mov_size="$(ffprobe -v error -select_streams v:0 -show_entries stream=width,height -of csv=s=x:p=0 "$(find "$std_dir" -name capture-2.mov | head -1)")"
   [[ "$mov_size" == "$std_clip" ]] || die "claude-std: filed movie is $mov_size, expected $std_clip"
@@ -1159,7 +1169,7 @@ ok "a Trash that refuses keeps the draft (exit 5); --delete deletes it immediate
 
 run previews 0 -- --render-ui-previews "$TMP/previews"
 for name in overlay-region-hint overlay-window-hint overlay-region-selection overlay-region-selection-bottom-edge overlay-window-hover recording-dim-region hud-countdown hud-saved hud-recording-countdown hud-recording hud-saved-video hud-recording-narration hud-saved-narrated settings-registered settings-in-use status-bar-icon-light status-bar-icon-dark menu-capture-target-row-light menu-capture-target-row-dark menu-delay-row-light menu-delay-row-dark menu-narrate-row-off-light menu-narrate-row-off-dark menu-narrate-row-on-light menu-narrate-row-on-dark \
-  editor-empty editor-no-media editor-annotated editor-intent-single editor-window editor-wide-sidebar editor-arrow-selected editor-arrow-heads editor-narrow editor-crop-drag editor-crop-tool editor-crop-adjust editor-cropped editor-multi-select editor-zoomed editor-keyboard-insert editor-video-timeline editor-video-narrow editor-video-trimmed editor-video-crop-tool editor-video-cropped editor-video-playing editor-video-range-drag editor-video-trim-drag editor-autoscroll editor-strip-portrait editor-inspector-list editor-inspector-pushed \
+  editor-empty editor-no-media editor-annotated editor-intent-single editor-window editor-wide-sidebar editor-arrow-selected editor-arrow-heads editor-narrow editor-crop-drag editor-crop-tool editor-crop-adjust editor-cropped editor-multi-select editor-zoomed editor-keyboard-insert editor-video-timeline editor-video-narrow editor-video-trimmed editor-video-crop-tool editor-video-cropped editor-video-playing editor-video-range-drag editor-video-trim-drag editor-autoscroll editor-strip-portrait editor-inspector-list editor-inspector-pushed editor-capture-note \
   session-ready session-narrow session-edited session-ticket-text-new session-ticket-text-existing session-ticket-text-edited session-ticket-text-editing session-ticket-text-narrow session-submitting session-failed session-submitted session-submitted-hotsheet session-submitted-fitted session-issues session-empty \
   session-existing-looking session-existing-found session-existing-narrow session-existing-not-found session-existing-closed \
   session-existing-failed session-existing-submitted session-existing-selection session-existing-abandoned \
