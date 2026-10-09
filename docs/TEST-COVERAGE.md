@@ -1928,3 +1928,16 @@ text stacked one word per line at 99 pt wide. The empty Draft Reviews window was
   by hand.
 - **App end to end:** the narrow layout check (`HS2-XSXV5E`) still sees the bar keep its height.
 - Playback itself is unchanged (`VideoPlaybackTests`, the `play` script op).
+
+## HS2-VMKTHQ: a larger, nicer timeline with a filmstrip
+
+- **Unit** (`FilmstripTests`): how many frames fit (16:10 at 44 pt over 1000 pt is 15; at least 1,
+  at most 40; bad input gives 1), frame times in the middle of each slot, and real frames from a
+  red-then-blue movie at their times, shifted by a trim's start, no taller than asked, with a
+  missing movie giving none. `TimelineDragTests` uses the new lane (`laneTop` 48).
+- **App end to end:** the narrow-layout check (`HS2-XSXV5E`) still sees the timeline keep its
+  height. The video renders draw the filmstrip.
+- **Visual QA:** `editor-video-timeline`, `editor-video-narrow`, and `editor-video-trim-mode`
+  (the filmstrip dimmed outside the yellow range), inspected by hand.
+- **Not covered automatically:** the background load and reload in a live window (previews load
+  synchronously with `loadFilmstripNow`).

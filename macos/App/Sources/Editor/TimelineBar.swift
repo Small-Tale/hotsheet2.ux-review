@@ -35,7 +35,7 @@ struct TimelineBar: View {
             HStack(alignment: .top, spacing: 10) {
                 PlayButton(model: model)
                 TimelineTrack(model: model, duration: duration)
-                    .frame(height: 30)
+                    .frame(height: TimelineHitTest.trackHeight)
             }
         }
         .padding(.horizontal, 12)
@@ -107,15 +107,22 @@ struct TimelineTrack: View {
         GeometryReader { geometry in
             let width = max(geometry.size.width, 1)
             let x = { (millis: Int) -> CGFloat in duration > 0 ? CGFloat(millis) / CGFloat(duration) * width : 0 }
+            let strip = TimelineHitTest.stripHeight
+            let count = Filmstrip.count(width: width, height: strip, aspect: aspect)
             ZStack(alignment: .topLeading) {
-                RoundedRectangle(cornerRadius: 3)
-                    .fill(Color.primary.opacity(0.12))
-                    .frame(height: 8)
-                    .offset(y: 2)
-                RoundedRectangle(cornerRadius: 3)
-                    .fill(Color.accentColor.opacity(0.55))
-                    .frame(width: x(model.editor.currentTimeMs), height: 8)
-                    .offset(y: 2)
+                // The filmstrip (HS2-VMKTHQ): frames across the clip, the played part tinted.
+                FilmstripView(frames: model.filmstrip?.frames ?? [], width: width, height: strip)
+                    .overlay(alignment: .leading) {
+                        Rectangle().fill(Color.accentColor.opacity(0.18)).frame(width: x(model.editor.currentTimeMs))
+                    }
+                    .clipShape(RoundedRectangle(cornerRadius: 6))
+                    .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(Color.primary.opacity(0.2)))
+                    .allowsHitTesting(false)
+                RoundedRectangle(cornerRadius: 4)
+                    .fill(Color.primary.opacity(0.06))
+                    .frame(height: TimelineHitTest.laneHeight)
+                    .offset(y: TimelineHitTest.laneTop)
+                    .allowsHitTesting(false)
                 ForEach(ranged, id: \.annotation.id) { entry in
                     rangeMark(entry, x: x)
                 }
@@ -126,10 +133,12 @@ struct TimelineTrack: View {
                 Capsule()
                     .fill(Color.accentColor)
                     .overlay(Capsule().stroke(Color.white.opacity(0.9), lineWidth: 1))
-                    .frame(width: 4, height: 30)
+                    .shadow(color: .black.opacity(0.35), radius: 1.5)
+                    .frame(width: 4, height: TimelineHitTest.trackHeight)
                     .offset(x: x(model.editor.currentTimeMs) - 2)
                     .allowsHitTesting(false)
             }
+            .task(id: model.filmstripKey(count: count)) { model.requestFilmstrip(count: count) }
             .contentShape(Rectangle())
             .gesture(
                 DragGesture(minimumDistance: 0)
@@ -144,6 +153,12 @@ struct TimelineTrack: View {
         .accessibilityAdjustableAction { direction in
             model.mutate { $0.stepTime(forward: direction == .increment) }
         }
+    }
+
+    /// The current video's width / height, for how many frames fit the filmstrip.
+    private var aspect: Double {
+        guard let item = model.editor.currentMedia, item.pixelHeight > 0 else { return 16.0 / 10 }
+        return Double(item.pixelWidth) / Double(item.pixelHeight)
     }
 
     // MARK: Dragging
@@ -232,7 +247,7 @@ struct TimelineTrack: View {
                     .padding(.leading, 5)
                     .opacity(width >= 18 ? 1 : 0)
             }
-            .offset(x: left, y: 15)
+            .offset(x: left, y: TimelineHitTest.laneTop + 1.5)
             .allowsHitTesting(false)
         if selected {
             // Grips on the selected range's ends: drag them to change when it shows.
@@ -246,7 +261,7 @@ struct TimelineTrack: View {
             .fill(Color.white)
             .overlay(RoundedRectangle(cornerRadius: 1.5).stroke(Color.black.opacity(0.55), lineWidth: 1))
             .frame(width: 4, height: 15)
-            .offset(x: position - 2, y: 14)
+            .offset(x: position - 2, y: TimelineHitTest.laneTop + 0.5)
             .allowsHitTesting(false)
     }
 
@@ -255,25 +270,54 @@ struct TimelineTrack: View {
     private func trimModeOverlay(_ range: TimeRange, width: CGFloat, x: (Int) -> CGFloat) -> some View {
         let start = x(range.startMs), end = x(range.endMs)
         Rectangle().fill(Color.black.opacity(0.4))
-            .frame(width: max(start, 0), height: 30)
+            .frame(width: max(start, 0), height: TimelineHitTest.stripHeight)
             .allowsHitTesting(false)
         Rectangle().fill(Color.black.opacity(0.4))
-            .frame(width: max(width - end, 0), height: 30)
+            .frame(width: max(width - end, 0), height: TimelineHitTest.stripHeight)
             .offset(x: end)
             .allowsHitTesting(false)
         RoundedRectangle(cornerRadius: 4)
             .strokeBorder(TrimModeStyle.color, lineWidth: 3)
-            .frame(width: max(end - start, 6), height: 30)
+            .frame(width: max(end - start, 6), height: TimelineHitTest.stripHeight)
             .offset(x: start)
             .allowsHitTesting(false)
         ForEach([start, end - 8], id: \.self) { left in
             RoundedRectangle(cornerRadius: 3)
                 .fill(TrimModeStyle.color)
                 .overlay(Capsule().fill(Color.black.opacity(0.45)).frame(width: 2, height: 12))
-                .frame(width: 8, height: 30)
+                .frame(width: 8, height: TimelineHitTest.stripHeight)
                 .offset(x: left)
                 .allowsHitTesting(false)
         }
+    }
+}
+
+/// The filmstrip's frames, side by side across `width`, each filling its slot (`HS2-VMKTHQ`). A
+/// frame not read yet is a neutral tile.
+struct FilmstripView: View {
+    let frames: [CGImage?]
+    let width: CGFloat
+    let height: CGFloat
+
+    var body: some View {
+        let slot = width / CGFloat(max(frames.count, 1))
+        HStack(spacing: 0) {
+            if frames.isEmpty {
+                Rectangle().fill(Color.primary.opacity(0.1))
+            }
+            ForEach(Array(frames.enumerated()), id: \.offset) { _, frame in
+                if let frame {
+                    Image(decorative: frame, scale: 1)
+                        .resizable()
+                        .aspectRatio(contentMode: .fill)
+                        .frame(width: slot, height: height)
+                        .clipped()
+                } else {
+                    Rectangle().fill(Color.primary.opacity(0.1)).frame(width: slot, height: height)
+                }
+            }
+        }
+        .frame(width: width, height: height)
     }
 }
 

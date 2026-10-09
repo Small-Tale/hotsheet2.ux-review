@@ -47,6 +47,7 @@ extension EditorPreviews {
             let model = try EditorModel(session: EditorSession(store: store, directory: draft.directory))
             offerWindowButtons(model)
             (steps + extra).forEach { apply($0, to: model) }
+            model.loadFilmstripNow(count: 16)
             let view = EditorView(model: model, stripWidthOverride: strip)
             written.append(try snapshot(view, size: size, to: directory.appendingPathComponent("\(name).png")) { canvas in
                 let frame = canvas.convert(canvas.bounds, to: nil)
@@ -75,6 +76,7 @@ extension EditorPreviews {
             let dragging = try EditorModel(session: EditorSession(store: store, directory: draft.directory))
             offerWindowButtons(dragging)
             steps.forEach { apply($0, to: dragging) }
+            dragging.loadFilmstripNow(count: 16)
             dragging.mutate { editor in
                 if rangeDrag {
                     editor.beginTimelineDrag(.rangeEnd)
@@ -100,6 +102,7 @@ extension EditorPreviews {
         let model = try EditorModel(session: EditorSession(store: store, directory: draft.directory))
         offerWindowButtons(model)
         (steps + [.time(600)]).forEach { apply($0, to: model) }
+        model.loadFilmstripNow(count: 16)
         model.togglePlayback()
         RunLoop.main.run(until: Date().addingTimeInterval(1.2))
         defer { model.pause() }

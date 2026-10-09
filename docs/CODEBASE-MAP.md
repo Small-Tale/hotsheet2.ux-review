@@ -104,6 +104,7 @@ macos/
     Editor/EditorToast.swift          toasts over the canvas: which message shows, info fades / errors stay (ToastPresenter)
     Editor/EditorScript.swift         JSON editing scripts + `--annotate` parsing (docs/06 §6.9)
     Editor/DragModifiers.swift        ⇧ / ⌥ while dragging: ModifiedBox resize, drawn boxes, 45° snapping (HS2-Q5TA4C)
+    Editor/Filmstrip.swift            the timeline filmstrip: frame count, times, small frames from the movie (HS2-VMKTHQ)
   Tests/UXReviewKitTests/      Swift Testing unit + end-to-end tests (docs/TEST-COVERAGE.md)
   App/Resources/Assets.xcassets  StatusBarIcon template vector (menu bar icon, docs/05 §5.1)
   App/Sources/
@@ -138,6 +139,7 @@ macos/
     Settings/HeadlessSettings.swift   `--settings` mode with JSON output
     Editor/EditorWindowController.swift  the UX Review window: one per draft, save on close, Add Media / Submit / Show in Finder for its draft, file drop target (docs/04 §4.12.2), MediaChooser
     Editor/EditorModel.swift          observable wrapper: mutate → redraw + autosave, reload on capture
+    Editor/EditorModel+Filmstrip.swift  loads the filmstrip off the main thread (HS2-VMKTHQ)
     Editor/EditorToolbar.swift        the editor window's native NSToolbar: tool group, Restore Original, Submit Review… (prominent)
     Editor/EditorView.swift           toast overlay, media strip (resizable via StripDivider) (⌘/⇧-click multiple selection), layout
     Editor/CanvasAutoScroller.swift   60 Hz auto-scroll timer while a canvas gesture runs near an edge

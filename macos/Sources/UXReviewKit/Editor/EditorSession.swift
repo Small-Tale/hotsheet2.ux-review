@@ -325,6 +325,13 @@ public final class EditorSession {
         return VideoPlayback(url: fileURL(item), offsetMs: editor.document.trims[item.id]?.startMs ?? 0, durationMs: duration)
     }
 
+    /// The movie a video's frames come from, the clip's offset into it (its trim's start), and
+    /// the clip's length, for the timeline's filmstrip (`HS2-VMKTHQ`). Nil for images.
+    public func movieSource(_ mediaId: String) -> (url: URL, offsetMs: Int, durationMs: Int)? {
+        guard let item = editor.media(mediaId), item.kind == .video, let duration = item.durationMs else { return nil }
+        return (fileURL(item), editor.document.trims[item.id]?.startMs ?? 0, duration)
+    }
+
     private func frame(_ item: MediaItem, atMs millis: Int) -> CGImage? {
         let url = fileURL(item)
         if frames[item.id]?.url != url { frames[item.id] = VideoFrames(url: url) }

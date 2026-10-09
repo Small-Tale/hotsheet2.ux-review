@@ -135,8 +135,13 @@ extension AnnotationEditor {
 public enum TimelineHitTest {
     /// How close, in points, a press must be to a handle.
     public static let tolerance: CGFloat = 6
+    /// The track's filmstrip (the scrubber row) is this tall (`HS2-VMKTHQ`).
+    public static let stripHeight: CGFloat = 44
     /// The scrubber row is above this y; the range lane is below it.
-    public static let laneTop: CGFloat = 13
+    public static let laneTop: CGFloat = 48
+    /// The annotation range lane's height, and the whole track's.
+    public static let laneHeight: CGFloat = 16
+    public static let trackHeight: CGFloat = laneTop + laneHeight
 
     /// The handle under (`x`, `y`) on a timeline `width` points wide showing `durationMs`, given
     /// the selected annotation's range (nil: none, or the whole clip). Range ends win in the

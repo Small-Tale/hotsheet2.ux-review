@@ -47,7 +47,7 @@ UX Review** (or a click on the Dock icon) opens it on the current draft
 | Media strip (left, whenever the review has a capture) | Thumbnails (with the current crop) plus a count badge of annotations on each. Click one to show it; ⌘-click and ⇧-click select several (§6.7.2). The whole thumbnail cell (image, filename, and the space around them) takes the click, and only that cell: a capture of any shape, such as a tall portrait window, never takes clicks meant for its neighbors (`HS2-QXJZJ9`). Videos are marked. The shown thumbnail has a ✕ button while the pointer is over it (§6.7.1), and every thumbnail a **Remove from Review…** context menu item (§6.7.1). **Resizable** (`HS2-AH6HW4`): drag the line between the strip and the canvas (96–320 pt, 112 standard); thumbnails grow with it, the width is kept across windows and launches, a double-click on the line restores the standard width, and VoiceOver adjusts it in 16 pt steps. In a window too narrow for the saved width, the strip gives way (never below 96 pt) so the canvas keeps its 420 pt minimum and the 300 pt inspector stays inside the window; the saved width comes back as the window widens (`HS2-RZVDEQ`) |
 | Canvas | The current capture fitted to the view (at most 2×) or zoomed (§6.2.1), on a neutral surround that follows the appearance (light gray in light mode, near-black in dark mode, as in Preview; a soft shadow and hairline keep a white screenshot's edge visible, `HS2-JMCM6S`), with annotations drawn on top. A video shows the frame at the playhead |
 | Toasts (top of the canvas) | No status line (`HS2-KJCJWX`). The editor's messages (crop and trim results and hints) show as a toast that fades after 4 seconds; a save error shows as a toast with a warning sign that stays until saving works again. Saving itself (autosave, ⌘S) shows nothing (`EditorToast`, `ToastPresenter`) |
-| Timeline (under the canvas, videos only) | A top row with the playhead time with the total duration (always one line), **Trim** (Trim mode, `HS2-ECE7WY`; in it, **Cancel** and **Trim**), then a round **play / pause** button (K) leading the scrubber, larger than the controls above it (`HS2-VJRM2V`), and the scrubber with each annotation's time range (§6.10) |
+| Timeline (under the canvas, videos only) | A top row with the playhead time with the total duration (always one line), **Trim** (Trim mode, `HS2-ECE7WY`; in it, **Cancel** and **Trim**), then a round **play / pause** button (K) leading the scrubber, larger than the controls above it (`HS2-VJRM2V`), and the scrubber: a **filmstrip** of the clip's frames, 44 pt tall, with the played part tinted, and under it a lane with each annotation's time range (`HS2-VMKTHQ`, §6.10) |
 | Inspector (right) | A navigation stack (§6.5.1, `HS2-4R84WH`). Its root has the **Capture note** for the capture on the canvas (§6.5.2), then lists every annotation on this capture in review order: number, shape, intents, time range (videos), and note preview. Clicking a row (or selecting the annotation on the canvas) pushes that annotation's page: a **‹ Annotations** back button, then its number, shape, intents, shape options, time (videos, §6.10), and Markdown note, with Duplicate and Delete buttons |
 
 Videos can be trimmed and their annotations given time ranges (§6.10), and cropped like images
@@ -835,6 +835,14 @@ whole clip.
 - **Timeline:** ranges are drawn under the scrubber in their intent color, numbered when wide
   enough. Instants are thin ticks, and the selection is outlined. Whole-clip annotations aren't
   drawn.
+
+**The filmstrip** (`HS2-VMKTHQ`, `Filmstrip`): the scrubber row shows frames from across the clip,
+as QuickTime Player does: as many as fit at 44 pt tall for the movie's shape (at most 40), each
+from the middle of its slot, read in the background (`EditorModel.requestFilmstrip`) and again
+after a trim, another capture, or a resize. Until they arrive the row is a neutral bar. The
+played part is tinted with the accent color. The annotation range lane sits under it, 16 pt tall
+on a faint background, and the playhead runs through both. In Trim mode the filmstrip shows the
+whole original.
 
 **Trimming is a mode** (`HS2-ECE7WY`, `AnnotationEditor+TrimMode`), like QuickTime Player's trim
 bar. **Trim** (scissors) on the timeline starts it for the current video:

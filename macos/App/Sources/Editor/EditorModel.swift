@@ -39,6 +39,9 @@ final class EditorModel: ObservableObject {
 
     /// The player while a video plays (docs/06 §6.10); nil when paused.
     @Published private(set) var playback: VideoPlayback?
+    /// The timeline's filmstrip for the current video and what it shows (`HS2-VMKTHQ`).
+    @Published var filmstrip: (key: FilmstripKey, frames: [CGImage?])?
+    var filmstripTask: Task<Void, Never>?
     private var playbackTimer: Timer?
 
     /// Asks before removing captures from the review (docs/06 §6.7.1, §6.7.2). Set by the editor
