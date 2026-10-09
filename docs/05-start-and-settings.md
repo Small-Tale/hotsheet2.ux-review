@@ -68,6 +68,12 @@ files **dropped on its Dock icon** (like Finder Open With, [04-capture.md](04-ca
 the menu bar only. Capture overlays, HUDs, and alerts don't count (`WindowPresence`). Clicking
 the Dock icon with no window showing does what **Open UX Review** does.
 
+The **app icon** (Dock, ⌘-Tab, Finder, `HS2-XF3NMV`) is the same flame in viewfinder corners in
+full color: an orange-to-red flame and charcoal corners on a warm off-white tile. Its source is the
+Hot Sheet 2 design export `docs/design/exports/ux-review-icon.png` (1024 px, full bleed);
+`scripts/make-app-icon.swift <png>` regenerates `macos/App/Resources/Assets.xcassets/AppIcon.appiconset`
+from it, clipping each size to the macOS icon shape (824 of 1024 pt, standard drop shadow).
+
 Opening or bringing forward any of these windows (Open UX Review, its global shortcut, a capture,
 Submit Review…, Settings…) puts it **in front of every other app's windows** and
 makes UX Review the active app (`HS2-SZ6T9T`, `DockPresence.present`). macOS activation is

@@ -16,6 +16,7 @@ scripts/
   check.sh                     repo gate: lint, spec, tests, app build + smoke + app e2e
   app-e2e.sh                   drives the built app's headless modes (docs/04 §4.11, docs/06 §6.9, docs/07 §7.8, §7.10)
   macos-project.sh             XcodeGen → macos/UXReview.xcodeproj (not committed)
+  make-app-icon.swift          1024 px icon export → macos/App/Resources/Assets.xcassets/AppIcon.appiconset (docs/05 §5.1.1)
 macos/
   Package.swift                SwiftPM package UXReviewKit (core, no AppKit)
   project.yml                  XcodeGen spec for UXReview.app (menu bar agent app)

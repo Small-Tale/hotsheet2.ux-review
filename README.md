@@ -27,7 +27,7 @@ follow and share the same review bundle format.
 | `macos/` | macOS app: SwiftPM package `UXReviewKit` (core, no AppKit) and the menu bar app (`App/`, XcodeGen `project.yml`). |
 | `linux/`, `windows/` | Future native variants (placeholders). |
 | `docs/` | Requirements and design docs, the source of truth for behavior. |
-| `scripts/` | `check.sh` (the repo gate) and `macos-project.sh` (generates the Xcode project). |
+| `scripts/` | `check.sh` (the repo gate) `macos-project.sh` (generates the Xcode project), and `make-app-icon.swift` (regenerates the app icon set). |
 
 ## Getting started (macOS)
 

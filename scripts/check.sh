@@ -38,6 +38,12 @@ if [[ "${SKIP_APP:-0}" != "1" ]]; then
     -destination 'generic/platform=macOS' -derivedDataPath "$DERIVED" -quiet build
   APP_BIN="$DERIVED/Build/Products/Debug/UXReview.app/Contents/MacOS/UXReview"
 
+  step "app icon: AppIcon compiled into the bundle (docs/05 §5.1.1)"
+  APP_CONTENTS="$DERIVED/Build/Products/Debug/UXReview.app/Contents"
+  [[ -s "$APP_CONTENTS/Resources/AppIcon.icns" ]] || { echo "AppIcon.icns missing" >&2; exit 1; }
+  [[ "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIconName' "$APP_CONTENTS/Info.plist")" == AppIcon ]] \
+    || { echo "CFBundleIconName is not AppIcon" >&2; exit 1; }
+
   step "app smoke: UXReview --status against a throwaway Hot Sheet store"
   TMP="$(mktemp -d)"
   trap 'rm -rf "$TMP"' EXIT
