@@ -1,8 +1,9 @@
 # 03 — Hot Sheet integration
 
 Status: CLI transport implemented and tested end to end against the real `hotsheet-cli`
-(`HS2-3ZSBZ9`), including adding a review to an existing ticket (§3.5, `HS2-E3001H`). The
-service transport and native annotation projection are tracked in `HS2-K1XT5V`.
+(`HS2-3ZSBZ9`), including adding a review to an existing ticket (§3.5, `HS2-E3001H`) and writing
+each capture's regions to Hot Sheet's gallery (§3.4, `HS2-K1XT5V`). Native shapes and intents
+are tracked in `HS2-CKPCD5`.
 
 ## 3.1 Discovery
 
@@ -41,6 +42,7 @@ The extra locations matter because GUI apps launched from Finder get a minimal `
 4. Runs `hotsheet-cli -C <store> attach --actor-role=human --actor-id=ux-review <SLUG> --batch-id=batch-uxreview-<uuid> --batch-label=UX review capture --purpose=problem_evidence -- <media…> review.json`.
    This attaches everything as **one durable batch**. UX Review picks the batch id, so a resumed
    attach can join the same batch (below).
+5. Writes each annotated capture's regions so Hot Sheet's gallery shows them (§3.4).
 
 **`attach` is not atomic.** It writes file by file and prints `Attached …` plus `Durable attachment
 id: <ULID> (<stored path>)` for each. When a file fails part-way (missing, unreadable), the files
@@ -67,8 +69,8 @@ with `-` are never parsed as flags. The client removes `HOTSHEET_ACTOR_ROLE` and
 `HOTSHEET_ACTOR_ID` from the child environment, so a review never inherits an AI session's
 identity.
 
-The CLI cannot set Hot Sheet attachment annotations, so this transport does not show regions in
-Hot Sheet's gallery. The regions are fully described in the ticket body and in `review.json`.
+Writing regions (step 5) is **best effort**. The ticket body and `review.json` are the canonical
+record, so a failure there never fails the submission. See §3.4.
 
 ## 3.3 Intake ticket body
 
@@ -108,10 +110,28 @@ The ticket is titled with the review's title as typed (`HS2-025XNF`), has catego
 `TicketComposer.compose(...).hotSheetAnnotations` maps each media id to a list of Hot Sheet
 `MediaAnnotation` values:
 
-- `{id, x, y, width, height, start_ms, end_ms, text}`, with `text` set to
-  `#N [intents] note`.
-- The service transport (`HS2-K1XT5V`) will `PUT` these lists so Hot Sheet's gallery shows the
-  regions.
+- `{id, x, y, width, height, start_ms, end_ms, text}`, with `text` set to `#N [intents] note`.
+- Every shape is projected to its bounding rectangle. Point shapes grow to at least 1 unit, the
+  same box Hot Sheet derives from points.
+- Rectangle-only annotations keep the ticket readable by every Hot Sheet 2 version. Native shapes
+  and intents raise the ticket's format marker (`hotsheet/v3-annotation-shapes`, `v4`); they are
+  tracked in `HS2-CKPCD5`.
+
+**Writing them (`HS2-K1XT5V`).** `ReviewSubmitter` does this after a successful attach, both for a
+new intake ticket and for a review added to an existing ticket (before its note):
+
+1. It reads the ticket's attachment ids with `hotsheet-cli show` (front matter `attachments:`
+   list, stored file name → ULID). Reading the ticket back, rather than the attach output, also
+   covers files attached by an earlier, interrupted attach (§3.2).
+2. For each capture with annotations, it runs
+   `hotsheet-cli -C <store> annotate --actor-role=human --actor-id=ux-review <SLUG> <attachment id> --file=<json>`.
+   This replaces that attachment's annotations, so a retry writes the same list again.
+   Captures without annotations and `review.json` are left alone.
+
+`annotate` needs Hot Sheet 2 `HS2-3GA0WK` (2026-10-08). With an older `hotsheet-cli`
+(`unrecognized subcommand`), the client throws `annotationsUnsupported` and the submitter skips the
+rest. If `show` fails, or one capture's write fails, that capture has no regions and the others
+are still written. A retry of only an existing ticket's note doesn't write them again.
 
 ## 3.5 Adding to an existing ticket
 

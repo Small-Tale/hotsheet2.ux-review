@@ -10,6 +10,9 @@ public enum HotSheetError: Error, Equatable, Sendable {
     /// (under these stored names, in order) before it stopped. `hotsheet-cli attach` is not
     /// atomic, so a retry must attach only the rest (HS2-QNWMKF).
     case attachIncomplete(storedNames: [String], exitCode: Int32, stderr: String)
+    /// The transport can't write attachment annotations, such as a `hotsheet-cli` from before
+    /// `annotate` (Hot Sheet 2 `HS2-3GA0WK`).
+    case annotationsUnsupported
 }
 
 /// Who the ticket write is attributed to. A person running a UX review is a `human` actor;
@@ -58,6 +61,11 @@ public protocol HotSheetClient: Sendable {
     /// the same batch as the files an interrupted one already attached.
     /// - Throws: `HotSheetError.attachIncomplete` when some files were attached before a failure.
     func attachReportingNames(files: [URL], to slug: String, batchLabel: String?, purpose: String?, batchID: String?) throws -> [String]
+    /// The ticket's attachments, stored file name → attachment id (ULID).
+    func attachmentIDs(on slug: String) throws -> [String: String]
+    /// Replaces one attachment's annotations so Hot Sheet's gallery shows the regions (docs/03 §3.4).
+    /// - Throws: `HotSheetError.annotationsUnsupported` when the transport can't.
+    func annotate(_ annotations: [HotSheetMediaAnnotation], attachmentID: String, on slug: String) throws
     /// Looks up an existing ticket by slug or ULID. Nil when the store has no such ticket.
     func findTicket(_ reference: String) throws -> HotSheetTicket?
     /// Appends a Markdown note to a ticket.
@@ -72,6 +80,13 @@ public protocol HotSheetClient: Sendable {
 public extension HotSheetClient {
     func createTicketReportingFile(_ ticket: NewTicket) throws -> CreatedTicket {
         try CreatedTicket(slug: createTicket(ticket))
+    }
+
+    /// Transports without attachment ids or annotations: nothing to annotate.
+    func attachmentIDs(on _: String) throws -> [String: String] { [:] }
+
+    func annotate(_: [HotSheetMediaAnnotation], attachmentID _: String, on _: String) throws {
+        throw HotSheetError.annotationsUnsupported
     }
 
     /// Transports that can't read the project's AI settings: unknown.
@@ -195,6 +210,26 @@ public struct HotSheetCLIClient: HotSheetClient {
         let file = HotSheetTicket.ticketFile(id: ticket.id, store: storePath)
         ticket.file = FileManager.default.fileExists(atPath: file.path) ? file.path : nil
         return ticket
+    }
+
+    /// Reads the ticket's `attachments` list from `hotsheet-cli show`.
+    public func attachmentIDs(on slug: String) throws -> [String: String] {
+        let result = try invoke(["show", slug])
+        return HotSheetTicket.parseAttachments(result.stdout)
+    }
+
+    /// `hotsheet-cli annotate <slug> <attachment id> --file=<json>`, which replaces the
+    /// attachment's annotations. A CLI without `annotate` throws `annotationsUnsupported`.
+    public func annotate(_ annotations: [HotSheetMediaAnnotation], attachmentID: String, on slug: String) throws {
+        let file = FileManager.default.temporaryDirectory.appendingPathComponent("uxreview-annotations-\(UUID().uuidString).json")
+        try JSONEncoder().encode(annotations).write(to: file, options: .atomic)
+        defer { try? FileManager.default.removeItem(at: file) }
+        let result = try run(["annotate", slug, attachmentID, "--file=\(file.path)"])
+        guard result.exitCode == 0 else {
+            // clap: `error: unrecognized subcommand 'annotate'`.
+            if result.stderr.contains("unrecognized subcommand") { throw HotSheetError.annotationsUnsupported }
+            throw HotSheetError.commandFailed(command: "annotate", exitCode: result.exitCode, stderr: result.stderr)
+        }
     }
 
     public func addNote(_ markdown: String, to slug: String) throws {

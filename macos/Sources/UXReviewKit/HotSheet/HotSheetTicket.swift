@@ -46,6 +46,47 @@ public struct HotSheetTicket: Codable, Equatable, Sendable {
         return HotSheetTicket(id: id, slug: slug, title: fields["title"] ?? "", status: fields["status"] ?? "")
     }
 
+    /// The `attachments` list in the front matter `hotsheet-cli show` prints, stored file name →
+    /// attachment id. Each entry starts `- id: <ULID>` and has a `filename:` key at the same indent.
+    public static func parseAttachments(_ output: String) -> [String: String] {
+        var result: [String: String] = [:]
+        var inAttachments = false
+        // The list's own dash column, so nested lists (an attachment's `annotations`) don't count.
+        var listIndent: Int?
+        var id: String?, filename: String?
+        func record() {
+            if let id, let filename { result[filename] = id }
+        }
+        for line in output.split(separator: "\n", omittingEmptySubsequences: false).dropFirst() {
+            if line.trimmingCharacters(in: .whitespaces) == "---" { break }
+            if let first = line.first, first != " ", first != "-" {
+                inAttachments = line.hasPrefix("attachments:")
+                listIndent = nil
+                continue
+            }
+            guard inAttachments else { continue }
+            let indent = line.prefix { $0 == " " }.count
+            var body = line.dropFirst(indent)
+            if body.hasPrefix("- "), indent == (listIndent ?? indent) {
+                listIndent = indent
+                id = nil
+                filename = nil
+                body = body.dropFirst(2)
+            } else if let listIndent, indent == listIndent + 2 {
+                // An entry's other keys sit two columns right of its dash.
+            } else {
+                continue
+            }
+            if body.hasPrefix("id:") {
+                id = YAMLScalar.parse(String(body.dropFirst("id:".count)))
+            } else if body.hasPrefix("filename:") {
+                filename = YAMLScalar.parse(String(body.dropFirst("filename:".count)))
+            }
+            record()
+        }
+        return result
+    }
+
     /// Where Hot Sheet 2 keeps a ticket's file: `<store>/tickets/<last two ULID characters>/<ULID>.md`.
     public static func ticketFile(id: String, store: URL) -> URL {
         store.appendingPathComponent("tickets", isDirectory: true)

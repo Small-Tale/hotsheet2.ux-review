@@ -8,6 +8,15 @@ import Testing
 struct HotSheetEndToEndTests {
     static let cli = HotSheetLocator.findCLI()
     static let required = ProcessInfo.processInfo.environment["UXREVIEW_REQUIRE_HOTSHEET"] == "1"
+    /// Whether this `hotsheet-cli` has `annotate` (Hot Sheet 2 `HS2-3GA0WK`); older ones file
+    /// reviews without gallery regions.
+    static let supportsAnnotate: Bool = {
+        guard let cli else { return false }
+        let result = try? SystemProcessRunner().run(
+            executable: cli, arguments: ["annotate", "--help"], environment: [:], currentDirectory: nil
+        )
+        return result?.exitCode == 0
+    }()
 
     @Test func hotSheetCLIIsAvailableWhenRequired() {
         if Self.required { #expect(Self.cli != nil, "hotsheet-cli not found; set HOTSHEET_CLI or add it to PATH") }
@@ -78,6 +87,56 @@ struct HotSheetEndToEndTests {
         #expect(try Data(contentsOf: storedBundle) == Data(contentsOf: media.appendingPathComponent("review.json")))
         let attached = try ReviewBundle.makeDecoder().decode(ReviewBundle.self, from: Data(contentsOf: storedBundle))
         #expect(attached.media.map(\.hasAudio) == [nil, true])
+
+        // HS2-K1XT5V: each capture's regions reach Hot Sheet's gallery when the CLI can write them.
+        try Self.expectGalleryRegions(slug, bundle: bundle, client: client, env: env)
+    }
+
+    /// With a CLI that has `annotate`, each annotated capture holds exactly its projection; with an
+    /// older one, the ticket has no annotations.
+    static func expectGalleryRegions(_ slug: String, bundle: ReviewBundle, client: HotSheetCLIClient, env: [String: String]) throws {
+        let ids = try client.attachmentIDs(on: slug)
+        let projection = TicketComposer.compose(bundle).hotSheetAnnotations
+        let ticketFile = try URL(fileURLWithPath: #require(client.findTicket(slug)?.file))
+        let before = try Data(contentsOf: ticketFile)
+        for (filename, mediaID) in [("capture-1.png", "m1"), ("capture-2.mov", "m2")] {
+            let stored = try storedAnnotations(
+                resending: projection[mediaID] ?? [], to: slug, attachment: #require(ids[filename]), client: client, env: env
+            )
+            if supportsAnnotate {
+                #expect(stored == projection[mediaID], "\(filename)")
+            }
+        }
+        if supportsAnnotate {
+            #expect(projection["m1"]?.first?.text.hasPrefix("#1 [") == true)
+            // Re-sending identical annotations is a no-op, so the ticket already held exactly these.
+            #expect(try Data(contentsOf: ticketFile) == before)
+        } else {
+            #expect(String(bytes: before, encoding: .utf8)?.contains("annotations:") == false)
+        }
+    }
+
+    /// Sends `annotations` to one attachment with `annotate --json` and returns what Hot Sheet
+    /// stored (nil from a CLI without `annotate`). An identical batch changes nothing.
+    static func storedAnnotations(
+        resending annotations: [HotSheetMediaAnnotation], to slug: String, attachment: String, client: HotSheetCLIClient,
+        env: [String: String]
+    ) throws -> [HotSheetMediaAnnotation]? {
+        struct Attachment: Decodable { var annotations: [HotSheetMediaAnnotation]? }
+        let file = try TestSupport.makeTempDirectory().appendingPathComponent("annotations.json")
+        defer { try? FileManager.default.removeItem(at: file.deletingLastPathComponent()) }
+        try JSONEncoder().encode(annotations).write(to: file)
+        let result = try SystemProcessRunner().run(
+            executable: client.executable,
+            arguments: [
+                "-C", client.storePath.path, "annotate", "--actor-role=human", "--actor-id=ux-review",
+                slug, attachment, "--file=\(file.path)", "--json",
+            ],
+            environment: env,
+            currentDirectory: nil
+        )
+        guard result.exitCode == 0 else { return nil }
+        return try JSONDecoder().decode(Attachment.self, from: Data(result.stdout.utf8)).annotations ?? []
     }
 
     /// The review session path (docs/07 §7.5): a draft with three captures, filed by

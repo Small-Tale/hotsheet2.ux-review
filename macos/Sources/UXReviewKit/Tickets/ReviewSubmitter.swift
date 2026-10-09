@@ -92,8 +92,35 @@ public struct ReviewSubmitter: Sendable {
             ticket = try client.createTicketReportingFile(composed.ticket)
         }
         progress(.attachingMedia)
-        _ = try attachRest(files, to: ticket, resume: existingTicket == nil ? nil : resume)
+        let storedNames = try attachRest(files, to: ticket, resume: existingTicket == nil ? nil : resume)
+        annotateMedia(composed, bundle: bundle, storedNames: storedNames, on: ticket)
         return ticket
+    }
+
+    /// Writes each annotated capture's Hot Sheet annotations (docs/03 §3.4) so Hot Sheet's gallery
+    /// shows the regions. Best effort: the ticket text and `review.json` are the canonical record,
+    /// so a transport or CLI that can't annotate, or a failed write, never fails the submission.
+    /// - Returns: the stored file names whose annotations were written.
+    @discardableResult
+    func annotateMedia(
+        _ composed: ComposedReview, bundle: ReviewBundle, storedNames: [String: String], on ticket: CreatedTicket
+    ) -> [String] {
+        let annotated = bundle.media.filter { !(composed.hotSheetAnnotations[$0.id] ?? []).isEmpty }
+        guard !annotated.isEmpty, let ids = try? client.attachmentIDs(on: ticket.slug) else { return [] }
+        var written: [String] = []
+        for item in annotated {
+            let stored = storedNames[item.filename] ?? item.filename
+            guard let id = ids[stored], let annotations = composed.hotSheetAnnotations[item.id] else { continue }
+            do {
+                try client.annotate(annotations, attachmentID: id, on: ticket.slug)
+                written.append(stored)
+            } catch HotSheetError.annotationsUnsupported {
+                break
+            } catch {
+                continue
+            }
+        }
+        return written
     }
 
     /// Attaches the files `resume` doesn't list yet, into its batch (or a new one), and returns
@@ -161,13 +188,15 @@ public struct ReviewSubmitter: Sendable {
         resume: PartialAttach? = nil,
         progress: (SubmitStep) -> Void = { _ in }
     ) throws -> CreatedTicket {
-        let (_, files) = try prepare(bundle, mediaDirectory: mediaDirectory)
+        let (composed, files) = try prepare(bundle, mediaDirectory: mediaDirectory)
         let storedNames: [String: String]
         if let attached {
+            // A retry of the note alone: the media and its annotations are already written.
             storedNames = attached
         } else {
             progress(.attachingMedia)
             storedNames = try attachRest(files, to: ticket, resume: resume)
+            annotateMedia(composed, bundle: bundle, storedNames: storedNames, on: ticket)
         }
         progress(.addingNote)
         do {
@@ -195,6 +224,8 @@ public struct ReviewSubmitter: Sendable {
                 return "hotsheet-cli \(command) failed (exit \(exitCode))" + (detail.isEmpty ? "." : ": \(detail)")
             case let .unexpectedOutput(command, _):
                 return "hotsheet-cli \(command) printed something unexpected."
+            case .annotationsUnsupported:
+                return "This hotsheet-cli can't write attachment annotations."
             case let .attachIncomplete(stored, exitCode, stderr):
                 let detail = stderr.trimmingCharacters(in: .whitespacesAndNewlines)
                 let count = "\(stored.count) file\(stored.count == 1 ? "" : "s")"

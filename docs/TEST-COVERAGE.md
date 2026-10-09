@@ -1962,3 +1962,29 @@ text stacked one word per line at 99 pt wide. The empty Draft Reviews window was
 - Removing captures stays covered in the editor (`EditorSessionRemovalTests`, the app-e2e ⌘⌫
   checks). The window's own remove action and its Annotate buttons are gone.
 - **Not covered automatically:** the tiles' tooltips in a live window.
+
+## HS2-K1XT5V: regions reach Hot Sheet's gallery through `hotsheet-cli annotate`
+
+- **Unit** (`HotSheetAnnotationTests`):
+  - Attachment ids parsed from `show` front matter: renamed and quoted names, keys in either
+    order, and an attachment's nested `annotations` list ignored.
+  - `annotate` arguments, and the snake_case JSON file it reads, which is removed afterward.
+  - `unrecognized subcommand` → `annotationsUnsupported`; other failures → `commandFailed`.
+- **Submitter transitions** (`FakeHotSheetClient`, `HotSheetAnnotationTests`):
+  - Each annotated capture of a new ticket gets its projection, by stored name.
+  - Captures without annotations and `review.json` are skipped, and a review with no annotations
+    never asks for ids.
+  - An old CLI, a failed `show`, or one failed write never fails filing; the later captures are
+    still written.
+  - "Unsupported" stops after the first try.
+  - An existing ticket is annotated under its renamed files, and a note-only retry doesn't
+    annotate again.
+  - A partial attach writes nothing; its resume annotates the files from both tries.
+- **End to end, real CLI** (`HotSheetEndToEndTests.submitsExampleReviewIntoRealStore`):
+  - With a CLI that has `annotate`, re-sending each capture's projection with `annotate --json`
+    returns the same list and leaves the ticket file byte-identical. Hot Sheet skips identical
+    batches, so this proves the submission stored exactly the projection.
+  - With an older CLI, the review files with no `annotations:`.
+  - `supportsAnnotate` probes `annotate --help`.
+  - The gate uses whichever `hotsheet-cli` it finds. Both branches were run, setting
+    `HOTSHEET_CLI` to each CLI in turn.

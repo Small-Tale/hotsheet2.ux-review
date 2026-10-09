@@ -71,6 +71,8 @@ final class FakeRunner: ProcessRunning, @unchecked Sendable {
     private let lock = NSLock()
     private var results: [ProcessResult]
     private(set) var calls: [Call] = []
+    /// Called during each run, while files the arguments name (such as `annotate --file=`) exist.
+    var onRun: ((Call) -> Void)?
 
     init(results: [ProcessResult]) {
         self.results = results
@@ -79,7 +81,9 @@ final class FakeRunner: ProcessRunning, @unchecked Sendable {
     func run(executable: URL, arguments: [String], environment: [String: String], currentDirectory _: URL?) throws -> ProcessResult {
         lock.lock()
         defer { lock.unlock() }
-        calls.append(Call(executable: executable, arguments: arguments, environment: environment))
+        let call = Call(executable: executable, arguments: arguments, environment: environment)
+        calls.append(call)
+        onRun?(call)
         return results.isEmpty ? ProcessResult(exitCode: 0, stdout: "", stderr: "") : results.removeFirst()
     }
 }
@@ -174,6 +178,28 @@ final class FakeHotSheetClient: HotSheetClient, @unchecked Sendable {
     func addNote(_ markdown: String, to slug: String) throws {
         if !noteErrors.isEmpty { throw noteErrors.removeFirst() }
         notes.append((slug, markdown))
+    }
+
+    // MARK: Annotations
+
+    /// False acts like a `hotsheet-cli` without `annotate`.
+    var annotationSupport = true
+    /// Each `annotate`, in order: the stored file name it targeted and the annotations.
+    var annotated: [(slug: String, filename: String, annotations: [HotSheetMediaAnnotation])] = []
+    /// Thrown by the next annotates (each failure consumes one entry).
+    var annotateErrors: [Error] = []
+    var attachmentIDsError: Error?
+
+    /// Every stored name gets the id `ID-<name>`, like the ULIDs `hotsheet-cli show` lists.
+    func attachmentIDs(on _: String) throws -> [String: String] {
+        if let attachmentIDsError { throw attachmentIDsError }
+        return Dictionary(uniqueKeysWithValues: existingNames.map { ($0, "ID-\($0)") })
+    }
+
+    func annotate(_ annotations: [HotSheetMediaAnnotation], attachmentID: String, on slug: String) throws {
+        guard annotationSupport else { throw HotSheetError.annotationsUnsupported }
+        if !annotateErrors.isEmpty { throw annotateErrors.removeFirst() }
+        annotated.append((slug, String(attachmentID.dropFirst("ID-".count)), annotations))
     }
 
     /// What `aiSettings` returns or throws (`hotsheet-cli ai-settings get --json`); unknown by default.

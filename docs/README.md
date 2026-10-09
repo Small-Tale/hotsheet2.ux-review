@@ -34,7 +34,7 @@ Repository foundation: `HS2-3ZSBZ9`. The following are tracked as Hot Sheet tick
 | Review session flow + submit | `HS2-CRJDJ8` |
 | Open in Hot Sheet · Submit from the editor (done) · editor drops removed captures (done) | `HS2-ZEF6XD` · `HS2-6HA14G` · `HS2-2QP0GM` |
 | Browse, reopen, and discard older drafts | `HS2-WE30PY` (done) |
-| Hot Sheet service transport + native annotation projection | `HS2-K1XT5V` |
+| Hot Sheet gallery regions via `hotsheet-cli annotate` · native shapes and intents | `HS2-K1XT5V` (done) · `HS2-CKPCD5` |
 | App UI end-to-end tests + visual QA | `HS2-HA9TW3` |
 | Git remote + CI | `HS2-MWKQEP` |
 | Signing, notarization, distribution | `HS2-418QY0` |
