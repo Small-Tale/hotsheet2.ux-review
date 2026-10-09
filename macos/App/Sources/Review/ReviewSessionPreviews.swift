@@ -60,6 +60,7 @@ enum ReviewSessionPreviews {
 
         try shoot("session-submitted", filed(model(draft)))
         try shoot("session-submitted-hotsheet", filedWithHotSheet(model(draft)))
+        try written += renderFiledHUD(model(draft), to: directory)
         try written += fitSubmitted(model(draft), to: directory)
         try renderExistingTicket(draft, model: { model($0) }, shoot: shoot)
         try written += probeDownscaleWiring(draft, store: store, to: directory)

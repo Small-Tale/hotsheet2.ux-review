@@ -46,9 +46,19 @@ does not free its file name or media id either. The draft's `numbering.json` rec
 `capture-N` and `mN` used once a capture is removed (`DraftNumbering`, `HS2-44ZXNE`); drafts that
 never removed one have no such file.
 
-After a successful submission the window shows **Filed as HS-…**, the title, what was attached,
-and **Open in Hot Sheet** (only while Hot Sheet's web client is running, below), **Copy Slug**,
-**Show Ticket File** (the ticket's Markdown file in the store, revealed in Finder), and **Done**.
+After a successful submission the window closes, and a **transient HUD** confirms it
+(`HS2-ZYV3SC`, `FiledHUD`): a dark translucent panel like the capture HUD, centered where the
+window was. It shows **Filed as HS-…** (or **Added to HS-…**), the title in quotes, and, when only
+part of a review went to an existing ticket, how many captures stay in the review. It has two
+small buttons: **Open in Hot Sheet** (appearing once Hot Sheet's web client is found, below) and
+**Copy Slug**; either one also dismisses it. It never takes focus, stays while the pointer is over
+it, and fades after 5 s (8 s with the extra line).
+
+When the filing needs the reviewer, the window stays on its result page instead
+(`SubmittedReview.needsResultWindow`): an earlier failed try left a ticket behind (the page offers
+to move it to Hot Sheet's Trash, below), or the draft folder couldn't be deleted. The page shows
+**Filed as HS-…**, the title, what was attached, **Open in Hot Sheet**, **Copy Slug**, **Show
+Ticket File** (the ticket's Markdown file in the store, revealed in Finder), and **Done**.
 
 **Open in Hot Sheet** (`HS2-ZEF6XD`, `HotSheetWebClient`) opens the ticket in Hot Sheet 2's web
 client in the default browser, at its deep link

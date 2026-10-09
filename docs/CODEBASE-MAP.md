@@ -160,6 +160,7 @@ macos/
     Review/ReviewSessionWindowController.swift  one Submit Review window per draft (docs/07 §7.1)
     Review/ReviewSessionModel.swift   observable session: draft refresh, autosaved fields, remove, debounced ticket lookup, submit off-main
     Review/ReviewSessionModel+HotSheet.swift  Open in Hot Sheet after filing: find the web client's ticket link off the main thread (HS2-ZEF6XD)
+    Review/FiledHUD.swift             the transient HUD confirming a filing (Open in Hot Sheet, Copy Slug; HS2-ZYV3SC)
     Review/ReviewSessionModel+Project.swift  choosing the project in Submit Review (replaces a capture link's project, docs/07 §7.6)
     Review/ReviewSessionView.swift    capture list, title/summary, issues, project, ticket, progress, failure, success
     Review/ReviewDestinationView.swift  Ticket section: New ticket / Add to existing ticket, ticket field, lookup status (docs/07 §7.2.1); Ticket text: rendered preamble, click to edit (TicketTextBox, MarkdownPreview, §7.2.3)

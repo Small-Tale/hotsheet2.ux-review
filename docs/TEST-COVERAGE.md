@@ -1850,3 +1850,15 @@ text stacked one word per line at 99 pt wide. The empty Draft Reviews window was
 - **Not covered automatically:** the canvas reading `NSEvent.modifierFlags` on press and drag,
   and `flagsChanged` mid-drag, with a real keyboard. Added to the live Crop tool check
   `HS2-7MFNJP`.
+
+## HS2-ZYV3SC: a transient HUD confirms a filing
+
+- **Unit** (`FiledConfirmationTests`): only a left-behind ticket or a draft folder that couldn't be
+  deleted keeps the result window. The HUD's headline, detail (the remaining captures for a
+  partial add), and duration.
+- **App end to end:** `--render-ui-previews` must write `filed-hud`, `filed-hud-hotsheet`, and
+  `filed-hud-partial`. The result-window renders (`session-submitted*`) stay for the cases that
+  keep it.
+- **Visual QA:** the three HUD renders, inspected by hand.
+- **Not covered automatically:** the live window closing and the HUD fading, pausing on hover, and
+  its buttons. Added to the live check `HS2-K4KHR3`.

@@ -90,10 +90,17 @@ final class ReviewSessionWindowController: NSWindowController, NSWindowDelegate 
             .removeDuplicates()
             .filter { $0 }
             .receive(on: DispatchQueue.main)
-            .sink { [weak window] _ in
+            .sink { [weak window, weak model] _ in
                 MainActor.assumeIsolated {
-                    guard let window else { return }
-                    Self.fitToSubmitted(window)
+                    guard let window, let model, case let .submitted(review) = model.session.phase else { return }
+                    // Usually a transient HUD confirms it and the window closes (HS2-ZYV3SC); a
+                    // filing that needs the reviewer keeps the result page.
+                    if review.needsResultWindow {
+                        Self.fitToSubmitted(window)
+                    } else {
+                        FiledHUD.show(review, model: model, centeredOn: window.frame)
+                        window.close()
+                    }
                 }
             }
         abandonedChanges = model.$abandonedTicket
