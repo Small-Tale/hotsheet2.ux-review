@@ -72,19 +72,26 @@ public struct MediaScaleTarget: Codable, Equatable, Hashable, Sendable {
     /// and 2,500 patches of 32 × 32 px (2048×2048 → 1600×1600), the same for every GPT model Hot
     /// Sheet offers for codex.
     public static let codex = MediaScaleTarget(rule: .patches(maxEdge: 2048, maxPatches: 2500), audience: "Codex")
+    /// A GPT model (GPT-5 or later) under another tool than codex, such as opencode's
+    /// `openai/gpt-5.6-sol` (`HS2-G4YZR4`): the same high-detail patch rule as Codex. "High" is
+    /// what Codex sends; a tool sending "original" detail would take larger images, so this
+    /// smaller size is safe either way.
+    public static let openAI = MediaScaleTarget(rule: .patches(maxEdge: 2048, maxPatches: 2500), audience: "GPT")
     /// Any other tool, or when the tool can't be determined: 2048 px on the longest side.
     public static let fallback = MediaScaleTarget(rule: .longestEdge(2048), audience: "AI")
 
     /// The target for a project's default AI tool; `fallback` when it is unknown. A model that is
     /// recognisably a Claude model picks Claude's rule whatever the tool, such as antigravity's
-    /// `claude-opus-4-6-thinking` or opencode's `anthropic/claude-sonnet-4-5` (`HS2-8G9F3R`).
+    /// `claude-opus-4-6-thinking` or opencode's `anthropic/claude-sonnet-4-5` (`HS2-8G9F3R`); a
+    /// recognisable GPT-5-or-later model picks OpenAI's patch rule (`HS2-G4YZR4`).
     public static func forTool(_ settings: AIToolSettings?) -> MediaScaleTarget {
         guard let settings else { return .fallback }
         let tool = settings.tool.lowercased()
         if tool == "claude" || ClaudeVisionTier.isClaudeModel(settings.model) {
             return ClaudeVisionTier.of(model: settings.model) == .highResolution ? .claudeHighResolution : .claudeStandard
         }
-        return tool == "codex" ? .codex : .fallback
+        if tool == "codex" { return .codex }
+        return OpenAIModel.isPatchModel(settings.model) ? .openAI : .fallback
     }
 
     /// Asks the project's Hot Sheet (`HotSheetClient.aiSettings`) for its default AI tool.
@@ -258,5 +265,23 @@ public enum ClaudeVisionTier: Equatable, Sendable {
         guard let first = parts.first, let major = Int(first), major < 100 else { return nil }
         let minor = parts.dropFirst().first.flatMap { Int($0) }.flatMap { $0 < 100 ? $0 : nil } ?? 0
         return (major, minor)
+    }
+}
+
+/// OpenAI model ids (`HS2-G4YZR4`).
+public enum OpenAIModel {
+    /// Whether `model` is recognisably an OpenAI GPT model whose images go by the 32 px patch
+    /// budget: `gpt-<major>[.<minor>][-…]` with major 5 or later (`gpt-5.5`, `gpt-5.6-sol`,
+    /// `gpt-6-astra`, `gpt-5.3-codex-spark`), alone or after a provider path (`openai/gpt-…`,
+    /// `openrouter/openai/gpt-…`), any case, with an optional `[…]` suffix. Older GPTs (`gpt-4o`,
+    /// which tile by 512 px) and anything else are not.
+    public static func isPatchModel(_ model: String?) -> Bool {
+        guard var name = model?.lowercased().trimmingCharacters(in: .whitespaces), !name.isEmpty else { return false }
+        if let bracket = name.firstIndex(of: "[") { name = String(name[..<bracket]) }
+        if let slash = name.lastIndex(of: "/") { name = String(name[name.index(after: slash)...]) }
+        guard name.hasPrefix("gpt-") else { return false }
+        let version = name.dropFirst(4).prefix { $0.isNumber || $0 == "." }
+        guard let major = version.split(separator: ".").first.flatMap({ Int($0) }) else { return false }
+        return major >= 5
     }
 }

@@ -213,7 +213,8 @@ struct MediaScalingTests {
         #expect(MediaScaleTarget.forTool(antigravityOld).audience == "Claude")
         // Unrecognised ids keep the tool's own target.
         #expect(MediaScaleTarget.forTool(AIToolSettings(tool: "opencode", model: "opus")) == .fallback)
-        #expect(MediaScaleTarget.forTool(AIToolSettings(tool: "opencode", model: "openai/gpt-6.1-sol")) == .fallback)
+        // …but a GPT-5-or-later id now picks the patch rule (HS2-G4YZR4).
+        #expect(MediaScaleTarget.forTool(AIToolSettings(tool: "opencode", model: "openai/gpt-6.1-sol")) == .openAI)
         #expect(MediaScaleTarget.forTool(AIToolSettings(tool: "opencode")) == .fallback)
         #expect(MediaScaleTarget.forTool(AIToolSettings(tool: "codex", model: "sonnet")) == .codex)
     }
@@ -347,5 +348,30 @@ struct MediaScalingTests {
         let filed = MediaScaleTarget.claudeStandard.imageSize(for: Self.size(3000, 1000))
         #expect(cropped.media["m1"]?.sizeText == "\(filed.width)×\(filed.height) cropped, scaled for Claude")
         #expect(cropped.media["m1"]?.scaledFrom == Self.size(3000, 1000))
+    }
+}
+
+/// HS2-G4YZR4: a GPT-5-or-later model under any tool gets OpenAI's patch rule.
+struct OpenAIModelTests {
+    @Test(arguments: [
+        ("gpt-5.5", true), ("gpt-5.6-sol", true), ("GPT-6-astra", true), ("gpt-5.3-codex-spark", true), ("gpt-5", true),
+        ("openai/gpt-5.6-terra", true), ("openrouter/openai/gpt-6-astra", true), ("gpt-5.5[1m]", true),
+        ("gpt-4o", false), ("gpt-4.1", false), ("gpt-", false), ("gpt-x", false), ("o3", false),
+        ("claude-opus-5-5", false), ("my-gpt-5", false), ("", false),
+    ])
+    func recognisesGPTPatchModels(model: String, isPatch: Bool) {
+        #expect(OpenAIModel.isPatchModel(model) == isPatch)
+    }
+
+    @Test func aGPTModelPicksThePatchRuleUnderAnyTool() {
+        #expect(MediaScaleTarget.forTool(AIToolSettings(tool: "opencode", model: "openai/gpt-5.6-sol")) == .openAI)
+        #expect(MediaScaleTarget.forTool(AIToolSettings(tool: "opencode", model: "openai/gpt-5.6-sol")).audience == "GPT")
+        #expect(MediaScaleTarget.forTool(AIToolSettings(tool: "cursor", model: "gpt-6-astra")) == .openAI)
+        // Codex keeps its own target (and name); Claude and unknown models are unchanged.
+        #expect(MediaScaleTarget.forTool(AIToolSettings(tool: "codex", model: "gpt-5.5")) == .codex)
+        #expect(MediaScaleTarget.forTool(AIToolSettings(tool: "opencode", model: "gpt-4o")) == .fallback)
+        #expect(MediaScaleTarget.forTool(AIToolSettings(tool: "opencode", model: "anthropic/claude-opus-4-7")) == .claudeHighResolution)
+        // The same budget as Codex: 2048×2048 → 1600×1600.
+        #expect(MediaScaleTarget.openAI.imageSize(for: PixelSize(width: 2048, height: 2048)) == PixelSize(width: 1600, height: 1600))
     }
 }

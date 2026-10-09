@@ -1872,3 +1872,12 @@ text stacked one word per line at 99 pt wide. The empty Draft Reviews window was
 - **Checked by an ad-hoc harness** (not in the repo): a free lock taken and released, a stale lock
   (dead pid) taken over, a live holder waited for (about 1.3 s), a non-owner unable to release it,
   and a missing folder failing at once.
+
+## HS2-G4YZR4: a GPT model under any tool gets OpenAI's patch rule
+
+- **Unit** (`MediaScalingTests`): `OpenAIModel.isPatchModel` recognises GPT-5-or-later ids, bare or
+  with a provider path, in any case and with a `[…]` suffix, and rejects `gpt-4o`, `gpt-4.1`,
+  `o3`, Claude ids, and look-alikes. `forTool` gives `.openAI` ("GPT") for such a model under
+  opencode and others, keeps `.codex` under codex, and leaves Claude and unknown models as before.
+  The budget matches Codex (2048×2048 → 1600×1600). The earlier expectation that opencode's
+  `openai/gpt-6.1-sol` fell back to 2048 px is updated.
