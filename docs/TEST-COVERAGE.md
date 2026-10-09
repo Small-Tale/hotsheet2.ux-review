@@ -1815,3 +1815,12 @@ text stacked one word per line at 99 pt wide. The empty Draft Reviews window was
 - **Not covered automatically:** clicking the live status item. `StatusItemController` drops
   the menu and sets the button's action from `AppMenus.statusItemClick`. Part of `HS2-PV2RA7`'s
   menu bar check.
+
+## HS2-7B92Y3: Discard Review moves to the File menu
+
+- **App end to end** (`scripts/app-e2e.sh`, `menus.json`): the File menu ends with a separator
+  and **Discard Review…**. The `session-*` renders no longer show a footer Discard button.
+- **Unit:** the discard itself is unchanged (`DraftDeletionTests`, `--discard-draft` e2e).
+- **Not covered automatically:** choosing the menu item in a live editor or Submit Review
+  window (the action saves, then runs the same `DraftDiscarding.confirm`), and it being off in
+  other windows and after filing.

@@ -1271,7 +1271,7 @@ PICKED='j.statusMenuAfterPicking'
   "Actual Size[⌘0]zoomToActualSize:|Zoom to Fit[⌘9]zoomToFit:|Zoom In[⌘+]zoomIn:|Zoom In[⌘=]zoomIn:|Zoom Out[⌘-]zoomOut:" ]] \
   || die "menus: View menu $(json "$MENUS" 'JSON.stringify(j.mainMenu.find(m => m.title == "View"))')"
 # HS2-BKWZ5N: reviews are documents: Open…, Open Recent, Close, Save; no Draft Reviews.
-[[ "$(json "$MENUS" "($TITLES)(j.mainMenu[1].submenu)")" == "New Review[⌘N]|Open…[⌘O]|Open Recent|-|Close[⌘W]|Save…[⌘S]|Duplicate[⇧⌘S]|Save As…[⌥⇧⌘S]|-|Add Media…[⇧⌘O]|Submit Review…[⌘↩]|Show Review in Finder" ]] \
+[[ "$(json "$MENUS" "($TITLES)(j.mainMenu[1].submenu)")" == "New Review[⌘N]|Open…[⌘O]|Open Recent|-|Close[⌘W]|Save…[⌘S]|Duplicate[⇧⌘S]|Save As…[⌥⇧⌘S]|-|Add Media…[⇧⌘O]|Submit Review…[⌘↩]|Show Review in Finder|-|Discard Review…" ]] \
   || die "menus: File $(json "$MENUS" "($TITLES)(j.mainMenu[1].submenu)")"
 # HS2-0D87NR: holding ⌥ turns Duplicate into Save As… (an alternate item right after it).
 [[ "$(json "$MENUS" 'j.mainMenu[1].submenu.filter(i => i.alternate).map(i => i.title + ":" + i.action).join()')" == "Save As…:saveDocumentAs:" ]] \

@@ -82,12 +82,7 @@ final class ReviewSessionWindowController: NSWindowController, NSWindowDelegate 
                     NSSound.beep()
                 }
             },
-            done: { [weak window] in window?.close() },
-            discard: { [weak model, weak window] in
-                guard let model else { return }
-                model.saveFields()
-                DraftDiscarding.confirm(model.directory, store: store, window: window)
-            }
+            done: { [weak window] in window?.close() }
         ))
         window.delegate = self
         phaseChanges = model.$session
@@ -172,6 +167,18 @@ final class ReviewSessionWindowController: NSWindowController, NSWindowDelegate 
                 alert.beginSheetModal(for: window) { _ in }
             }
         }
+    }
+
+    /// Discard Review… is off once the review is filed (or while it is being filed).
+    @objc func validateMenuItem(_ item: NSMenuItem) -> Bool {
+        item.action == #selector(discardReview(_:)) ? model.session.isEditable : true
+    }
+
+    /// File › Discard Review… (`HS2-7B92Y3`): asks, then moves this review to the Trash.
+    @objc func discardReview(_: Any?) {
+        guard model.session.isEditable else { return }
+        model.saveFields()
+        DraftDiscarding.confirm(model.directory, store: model.store, window: window)
     }
 
     @objc func revealReview(_: Any?) {

@@ -59,6 +59,10 @@ enum MainMenu {
         // Disabled in a Submit Review window, so ⌘↩ reaches its Submit button instead.
         menu.addItem(withTitle: "Submit Review…", action: #selector(AppDelegate.submitReview(_:)), keyEquivalent: "\r")
         menu.addItem(withTitle: "Show Review in Finder", action: #selector(AppDelegate.revealReview(_:)), keyEquivalent: "")
+        menu.addItem(.separator())
+        // The review in the key editor or Submit Review window, after asking (HS2-7B92Y3, docs/07
+        // §7.9). Only those windows answer it, so it is off elsewhere.
+        menu.addItem(withTitle: "Discard Review…", action: #selector(EditorWindowController.discardReview(_:)), keyEquivalent: "")
         return menu
     }
 

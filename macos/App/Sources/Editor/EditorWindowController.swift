@@ -146,6 +146,12 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
         ReviewDocuments.saveAs(model.session.directory, store: model.session.store, window: window)
     }
 
+    /// File › Discard Review… (`HS2-7B92Y3`): asks, then moves this review to the Trash.
+    @objc func discardReview(_: Any?) {
+        model.save()
+        DraftDiscarding.confirm(model.session.directory, store: model.session.store, window: window)
+    }
+
     /// File › Save: writes the editor's changes, then an untitled review asks where to save it.
     @objc func saveDocument(_: Any?) {
         model.save()

@@ -32,7 +32,7 @@ Reviews window (§7.9) opens it on any other draft.
 | Captures (N) | One row per capture in review order, **as it will be filed** (`SubmissionPreview`, `HS2-64P9DT`): thumbnail (the cropped part of a cropped image; a movie's frame at its trim start, cut to its crop, with a play badge), file name, pixel size as filed ("cropped" after a crop of an image or movie; "scaled for Claude" when it is downscaled for AI, as in "2576×1449 scaled for Claude", §7.5.1), duration ("trimmed" after a trim), the number of annotations filed with it, and source app. When a crop or trim leaves annotations out, a line says so, such as "2 annotations outside the crop will be left out" ("the crop or trim" for a movie with both). Nothing is cropped or trimmed until submitting (§7.5); the preview reads `edits.json`. A capture with a problem shows it in orange under its details (§7.3). **Annotate** opens the editor on that capture; **Annotate…** in the header opens it on the first. The trash button removes the capture after a confirmation |
 | Ticket | **Submit as** **New ticket** (the default) or **Add to existing ticket**, and for the latter the ticket field and its lookup (§7.2.1). Then **Ticket text**, the preamble for the chosen destination (§7.2.3) |
 | Before submitting | Only when the review has a problem that belongs to no field or capture (an unsupported format, duplicate ids); shown above every other section |
-| Footer | **Discard Review…** (§7.9; disabled while submitting), the counts as filed ("3 captures · 4 annotations", plus "(2 left out)" when a crop or trim leaves some out), the only remaining problem, or "N things to fix before submitting"; progress while submitting; the failure (§7.5); and **Submit to Hot Sheet** (default button, Return), which reads **Try Again** after a failure |
+| Footer | The counts as filed ("3 captures · 4 annotations", plus "(2 left out)" when a crop or trim leaves some out), the only remaining problem, or "N things to fix before submitting"; progress while submitting; the failure (§7.5); and **Submit to Hot Sheet** (default button, Return), which reads **Try Again** after a failure |
 
 New captures and editor saves appear while the window is open: it follows the draft-changed
 notification the capture pipeline and the editor already post.
@@ -456,7 +456,9 @@ names and still open.
   one moves to the Trash instead, so a file kept somewhere the reviewer chose is never deleted
   outright.
 
-**Discarding** (**Discard Review…** in the Submit Review window, or `--discard-draft`):
+**Discarding** (**File › Discard Review…** with the review's editor or Submit Review window in
+front, or `--discard-draft`; `HS2-7B92Y3` moved it out of the Submit Review window's footer, where
+it sat next to Submit; it is off once the review is filed):
 
 1. A confirmation names the review and says its captures and annotations go to the Trash with
    the folder. When a ticket was already created (§7.5), it adds that discarding doesn't delete
