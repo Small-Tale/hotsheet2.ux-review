@@ -30,6 +30,7 @@ macos/
     Tickets/ReviewSubmitter.swift  validate → write review.json → create ticket → attach batch; steps, resume, attachFailed; add(…) to an existing ticket: attach batch → note, noteFailed; PartialAttach: resume an interrupted attach into the same batch
     HotSheet/HotSheetCLIClient.swift  HotSheetClient protocol, CreatedTicket (slug + file), CLI transport (new, attach with stored names + --batch-id, attachIncomplete, show, edit --note-file, moveToTrash, ai-settings get --json), HotSheetLocator
     HotSheet/HotSheetWebClient.swift  the running Hot Sheet 2 web client (client.json, live pid, answers) and its ticket deep link (docs/07 §7.2)
+    HotSheet/HotSheetProjects.swift   the projects Hot Sheet knows: `hotsheet-cli checkout list` (HS2-T32CZC)
     HotSheet/HotSheetTicket.swift     an existing ticket from `show` front matter, its file; TicketReference (slug/ULID/path in pasted text)
     HotSheet/HotSheetStatus.swift     ready/problem detection for UI and --status
     HotSheet/ProcessRunner.swift      Process seam (fakeable in tests)
@@ -162,6 +163,7 @@ macos/
     Review/ReviewSessionModel+HotSheet.swift  Open in Hot Sheet after filing: find the web client's ticket link off the main thread (HS2-ZEF6XD)
     Review/FiledHUD.swift             the transient HUD confirming a filing (Open in Hot Sheet, Copy Slug; HS2-ZYV3SC)
     Review/ReviewSessionModel+Project.swift  choosing the project in Submit Review (replaces a capture link's project, docs/07 §7.6)
+    Review/ProjectChangeMenu.swift    Submit Review's Change menu: recent projects, then Hot Sheet's (HS2-T32CZC)
     Review/ReviewSessionView.swift    capture list, title/summary, issues, project, ticket, progress, failure, success
     Review/ReviewDestinationView.swift  Ticket section: New ticket / Add to existing ticket, ticket field, lookup status (docs/07 §7.2.1); Ticket text: rendered preamble, click to edit (TicketTextBox, MarkdownPreview, §7.2.3)
     Review/HeadlessSubmit.swift       `--submit` mode with JSON output (docs/07 §7.8)

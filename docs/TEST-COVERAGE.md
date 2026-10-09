@@ -1881,3 +1881,14 @@ text stacked one word per line at 99 pt wide. The empty Draft Reviews window was
   opencode and others, keeps `.codex` under codex, and leaves Claude and unknown models as before.
   The budget matches Codex (2048×2048 → 1600×1600). The earlier expectation that opencode's
   `openai/gpt-6.1-sol` fell back to 2048 px is updated.
+
+## HS2-T32CZC: the Change menu also offers Hot Sheet's projects
+
+- **Unit** (`HotSheetProjectsTests`): parsing `checkout list` keeps project roots (standardized,
+  no repeats) and drops temporary folders, relative roots, and missing ones; unreadable output
+  gives none. `list` runs `checkout list` without the actor variables and gives none on failure.
+  The menu puts Hot Sheet's projects after the recent ones, by name, without the ones already
+  listed or gone, marks them `isFromHotSheet`, and titles name clashes across both groups by path.
+  The existing `RecentProjects.menu` tests pass unchanged.
+- **Not covered automatically:** the live menu's "Hot Sheet Projects" heading and the background
+  load, against a real `hotsheet-cli checkout list` (it lists 16 checkouts on the dev machine).

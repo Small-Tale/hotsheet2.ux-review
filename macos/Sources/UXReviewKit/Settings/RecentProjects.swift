@@ -48,6 +48,8 @@ public struct ProjectMenuItem: Equatable, Sendable {
     public var title: String
     /// The project the review files into now (shown checked).
     public var isCurrent: Bool
+    /// Offered because Hot Sheet knows it (a registered checkout), below the recent projects.
+    public var isFromHotSheet = false
 }
 
 public extension RecentProjects {
@@ -55,8 +57,11 @@ public extension RecentProjects {
     /// recent first, with the current project included (first when it isn't recent yet).
     /// **Choose Folder…** follows them.
     /// - Parameter abbreviate: shortens a path for display (`~/Code/app`).
+    /// - Parameter hotSheet: projects Hot Sheet knows (`HotSheetProjects`, `HS2-T32CZC`), listed
+    ///   after the recent ones by name, without the ones already listed or whose folder is gone.
     func menu(
         current: String?,
+        hotSheet: [String] = [],
         isDirectory: (String) -> Bool = RecentProjects.directoryExists,
         abbreviate: (String) -> String = { ($0 as NSString).abbreviatingWithTildeInPath }
     ) -> [ProjectMenuItem] {
@@ -66,10 +71,22 @@ public extension RecentProjects {
             list.paths.insert(current, at: 0)
         }
         let paths = list.paths.filter { $0 == current || isDirectory($0) }
-        let names = paths.map { URL(fileURLWithPath: $0).lastPathComponent }
-        return zip(paths, names).map { path, name in
+        let known = Set(paths)
+        let extra = hotSheet.map { URL(fileURLWithPath: $0).standardizedFileURL.path }
+            .filter { !known.contains($0) && isDirectory($0) }
+            .reduce(into: [String]()) { if !$0.contains($1) { $0.append($1) } }
+            .sorted {
+                URL(fileURLWithPath: $0).lastPathComponent
+                    .localizedStandardCompare(URL(fileURLWithPath: $1).lastPathComponent) == .orderedAscending
+            }
+        let all = paths + extra
+        let names = all.map { URL(fileURLWithPath: $0).lastPathComponent }
+        return zip(all, names).enumerated().map { index, entry in
+            let (path, name) = entry
             let clash = names.count(where: { $0 == name }) > 1 || name.isEmpty
-            return ProjectMenuItem(path: path, title: clash ? abbreviate(path) : name, isCurrent: path == current)
+            return ProjectMenuItem(
+                path: path, title: clash ? abbreviate(path) : name, isCurrent: path == current, isFromHotSheet: index >= paths.count
+            )
         }
     }
 }

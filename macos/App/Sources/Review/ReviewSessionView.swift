@@ -376,22 +376,7 @@ private struct ProjectRow: View {
                 }
             }
             Spacer(minLength: 8)
-            Menu("Change") {
-                // Recent projects first, the current one checked; Choose Folder… last (HS2-D1T46P).
-                let projects = model.projectMenu
-                ForEach(projects, id: \.path) { project in
-                    Toggle(isOn: Binding(
-                        get: { project.isCurrent },
-                        set: { _ in if !project.isCurrent { model.useProject(URL(fileURLWithPath: project.path, isDirectory: true)) } }
-                    )) {
-                        Text(project.title)
-                    }
-                    .help(Self.abbreviated(project.path))
-                }
-                if !projects.isEmpty { Divider() }
-                Button("Choose Folder…") { model.chooseProject() }
-            }
-            .fixedSize()
+            ProjectChangeMenu(model: model)
         }
     }
 

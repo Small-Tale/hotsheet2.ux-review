@@ -55,6 +55,8 @@ final class ReviewSessionModel: ObservableObject {
 
     private var scaleTask: Task<Void, Never>?
     @Published private(set) var recentProjects: [String] = []
+    /// The projects Hot Sheet knows (`HS2-T32CZC`), read once the window shows.
+    @Published var hotSheetProjects: [String] = []
     /// A problem outside the submission itself (a failed removal, an unreadable draft).
     @Published private(set) var notice: String?
 
@@ -403,7 +405,7 @@ extension AppSettings {
 extension ReviewSessionModel {
     /// The Change menu's projects (§7.6): recent ones first, the current one checked.
     var projectMenu: [ProjectMenuItem] {
-        RecentProjects(paths: recentProjects).menu(current: session.target.projectDirectory)
+        RecentProjects(paths: recentProjects).menu(current: session.target.projectDirectory, hotSheet: hotSheetProjects)
     }
 
     /// The AI size captures are filed at (§7.5.1): nil while Downscale for AI is off, or until

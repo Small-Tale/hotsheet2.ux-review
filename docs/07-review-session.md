@@ -357,6 +357,13 @@ longer has a project chooser). `UXReview --project <dir>` overrides it for one r
   recents were kept. Projects whose folders are gone are left out. Each shows its folder name,
   or its abbreviated path when two listed folders share a name; the full path is the item's
   tooltip.
+- **Hot Sheet Projects** (`HS2-T32CZC`, `HotSheetProjects`): after the recent ones, under that
+  heading, come the projects Hot Sheet itself knows that aren't already listed, sorted by name.
+  They are its registered checkouts from `hotsheet-cli checkout list`, the CLI being the source of
+  truth rather than Hot Sheet's private files. Folders that are gone, and checkouts under
+  temporary folders (`/tmp`, `/var/folders`), are left out. They are read once, in the
+  background, when the window shows; an old CLI without `checkout` adds none. Choosing one makes
+  it the project, as for a recent one.
 - A successful submission also records its project.
 - An unreadable value counts as an empty list.
 
