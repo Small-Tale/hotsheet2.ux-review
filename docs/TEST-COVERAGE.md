@@ -1824,3 +1824,10 @@ text stacked one word per line at 99 pt wide. The empty Draft Reviews window was
 - **Not covered automatically:** choosing the menu item in a live editor or Submit Review
   window (the action saves, then runs the same `DraftDiscarding.confirm`), and it being off in
   other windows and after filing.
+
+## HS2-WE6ST8: capture notes in Submit Review
+
+- **Unit** (`CaptureNotePreviewTests`): a note shows as one trimmed line (line breaks and runs of
+  spaces become one space), cut with "…" past the limit, and none when blank.
+- **Visual QA:** `session-ready` and the other `session-*` renders show capture 1's note under
+  its row. `session-existing-selection` shows it under the capture's checkbox. Inspected by hand.

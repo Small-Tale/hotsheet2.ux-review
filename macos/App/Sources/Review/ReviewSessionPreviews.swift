@@ -234,6 +234,8 @@ enum ReviewSessionPreviews {
         return try store.update(current.directory) { bundle in
             bundle.title = "Acme Mail settings polish"
             bundle.summary = "Spacing and wording issues on the Accounts page; the progress bar stalls at the end."
+            // HS2-WE6ST8: a capture note shows under its capture.
+            bundle.media[0].note = "The whole Accounts page feels cramped at this window size;\ngive the form more room."
             bundle.annotations = [
                 Annotation(id: "a1", mediaId: "m1", shape: rect(800, 1500), intents: [.bug], note: "Label is clipped"),
                 Annotation(id: "a2", mediaId: "m1", shape: rect(4000, 5000), intents: [.change], note: "Use sentence case"),

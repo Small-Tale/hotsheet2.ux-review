@@ -129,3 +129,17 @@ extension EncodingTests {
         }
     }
 }
+
+/// HS2-WE6ST8: a capture note as the Submit Review lists show it.
+struct CaptureNotePreviewTests {
+    @Test func captureNotesPreviewAsOneTrimmedLine() {
+        #expect(SubmissionPreview.notePreview(nil) == nil)
+        #expect(SubmissionPreview.notePreview(" \n\t ") == nil)
+        #expect(SubmissionPreview.notePreview("  Feels cramped.\n\nGive the   form room. ") == "Feels cramped. Give the form room.")
+        let long = String(repeating: "word ", count: 60)
+        let preview = SubmissionPreview.notePreview(long, limit: 40)
+        #expect(preview?.count == 40)
+        #expect(preview?.hasSuffix("…") == true)
+        #expect(SubmissionPreview.notePreview("exactly ten", limit: 11) == "exactly ten")
+    }
+}

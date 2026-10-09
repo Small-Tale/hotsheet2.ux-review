@@ -301,6 +301,14 @@ private struct CaptureRow: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(item.filename).font(.body.weight(.medium))
                 Text(details).font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                // The capture's note, so it can be checked before filing (HS2-WE6ST8).
+                if let captureNote = SubmissionPreview.notePreview(item.note) {
+                    Label(captureNote, systemImage: "note.text")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(2)
+                        .accessibilityLabel("Capture note: \(captureNote)")
+                }
                 if let note = filed?.leftOutNote {
                     Label(note, systemImage: "eye.slash")
                         .font(.caption)

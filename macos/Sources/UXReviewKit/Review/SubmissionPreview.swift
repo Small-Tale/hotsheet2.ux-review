@@ -44,6 +44,16 @@ public struct SubmissionPreview: Equatable, Sendable {
         }
     }
 
+    /// A capture note as the capture lists show it (`HS2-WE6ST8`): one line (line breaks and runs
+    /// of spaces become one space), trimmed, cut to `limit` characters with "…". Nil when blank.
+    public static func notePreview(_ note: String?, limit: Int = 160) -> String? {
+        let words = (note ?? "").split(whereSeparator: { $0.isWhitespace || $0.isNewline })
+        guard !words.isEmpty else { return nil }
+        let line = words.joined(separator: " ")
+        guard line.count > limit else { return line }
+        return String(line.prefix(limit - 1)).trimmingCharacters(in: .whitespaces) + "…"
+    }
+
     /// By media id, for every capture in the bundle.
     public var media: [String: Filed]
     /// Annotations filed in all.

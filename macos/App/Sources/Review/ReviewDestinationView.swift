@@ -120,6 +120,14 @@ private struct ReviewSelectionList: View {
                     Text(item.filename).font(.callout.weight(.medium))
                 }
                 .accessibilityIdentifier("selection-\(item.id)")
+                // The capture's note goes (or stays) with the capture (HS2-WE6ST8).
+                if let note = SubmissionPreview.notePreview(item.note) {
+                    Label(note, systemImage: "note.text")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                        .padding(.leading, 22)
+                }
                 ForEach(session.bundle.annotations.filter { $0.mediaId == item.id }, id: \.id) { annotation in
                     Toggle(isOn: Binding(
                         get: { session.selection.includes(annotation) },
