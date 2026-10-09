@@ -22,6 +22,28 @@ enum TestSupport {
         return url.resolvingSymlinksInPath()
     }
 
+    /// The plist file that would back a named defaults domain of the current user.
+    static func userPreferencesFile(forDomain domain: String) -> URL {
+        FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent("Library/Preferences/\(domain).plist")
+    }
+
+    /// Runs `body` with a real `UserDefaults` suite kept in a temporary folder, then removes the
+    /// folder. The suite name is an absolute path, so CFPreferences stores it in `<path>.plist`
+    /// rather than in ~/Library/Preferences. A named suite can't be cleaned up from inside the
+    /// test: `removePersistentDomain(forName:)` leaves an empty plist, and cfprefsd writes it
+    /// again after the test process exits even when the test deletes it, so every run used to
+    /// leak one `uxreview-tests-<UUID>` domain (HS2-1AD1FJ). Prefer `MemoryStore`; use this only
+    /// to test the real `UserDefaults` conformance.
+    static func withTemporaryDefaults<T>(_ body: (_ suite: String, _ defaults: UserDefaults) throws -> T) throws -> T {
+        let folder = try makeTempDirectory()
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let suite = folder.appendingPathComponent("defaults").path
+        let defaults = try #require(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        return try body(suite, defaults)
+    }
+
     static func image(_ id: String = "m1", filename: String = "shot.png") -> MediaItem {
         MediaItem(id: id, filename: filename, kind: .image, pixelWidth: 100, pixelHeight: 50, capturedAt: Date(timeIntervalSince1970: 0))
     }

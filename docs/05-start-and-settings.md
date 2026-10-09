@@ -214,7 +214,9 @@ Persistence: settings are saved as JSON under the defaults key `captureSettings`
 
 The project folder (`projectDirectory`) and the recently used project folders (`recentProjects`,
 [07-review-session.md](07-review-session.md) §7.6) live in the same defaults domain. The domain is the
-app's own (`com.smalltale.uxreview`), or the suite named by `UXREVIEW_DEFAULTS_SUITE` (tests).
+app's own (`com.smalltale.uxreview`), or the suite named by `UXREVIEW_DEFAULTS_SUITE` (tests). Tests
+pass an absolute path (`<dir>/defaults` → `<dir>/defaults.plist`), so a test suite lives in a
+temporary folder and never adds a domain to ~/Library/Preferences (HS2-1AD1FJ).
 
 ## 5.4 Not yet
 

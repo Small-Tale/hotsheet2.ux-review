@@ -187,9 +187,11 @@ run narration-screenshot 2 "${SYN[@]}" -- --capture screenshot --narration --dra
 ok "denied / not determined: exit 4 (no prompt); no microphone: exit 5; nothing written; plain video unaffected; screenshots reject --narration"
 
 echo "start a review: settings and global hotkeys (HS2-DR107C, HS2-SPFXPW)"
-SUITE="uxreview-e2e-$$"
+# The suite is an absolute path, so CFPreferences keeps it in $TMP/defaults.plist (removed with
+# $TMP) instead of a uxreview-e2e-<pid> domain in ~/Library/Preferences: a named domain's
+# empty plist outlives `defaults delete`, and every run used to leak one (HS2-1AD1FJ).
+SUITE="$TMP/defaults"
 SUITE_ENV=(UXREVIEW_DEFAULTS_SUITE="$SUITE")
-trap 'defaults delete "$SUITE" >/dev/null 2>&1 || true; rm -rf "$TMP"' EXIT
 
 run settings-default 0 "${SUITE_ENV[@]}" -- --settings
 [[ "$(json "$TMP/settings-default.json" j.settings.captureHotkey)" == "⌥⇧⌘U" ]] || die "settings: default hotkey"
@@ -1212,5 +1214,12 @@ TB="$TMP/previews/editor-toolbar.json"
 [[ "$(json "$TB" '[j.opened.selectedTool, j.opened.restoreHidden, j.cropped.selectedTool, j.cropped.restoreHidden, j.cropped.submit, j.submitted].join("|")')" == \
   "Select|true|Crop|false|Submit Review…|1" ]] || die "toolbar: states $(json "$TB" 'JSON.stringify(j)')"
 ok "the editor's native toolbar: tools on the right follow the keyboard, Restore Original after a crop, Submit Review… works"
+
+# HS2-1AD1FJ: the settings went to the suite file in $TMP, and `defaults domains` (the plists in
+# ~/Library/Preferences) does not list the run's suite.
+[[ -s "$SUITE.plist" ]] || die "cleanup: the defaults suite is not at $SUITE.plist"
+domains="$(defaults domains | tr ',' '\n')"
+if grep -q "$TMP" <<<"$domains"; then die "cleanup: defaults domains lists the run's suite"; fi
+ok "the run's defaults suite lives in its temporary folder: nothing left in ~/Library/Preferences"
 
 echo "app e2e: $pass checks passed"

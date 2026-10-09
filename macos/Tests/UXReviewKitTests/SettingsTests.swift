@@ -180,12 +180,18 @@ struct CaptureSettingsTests {
     }
 
     @Test func worksWithRealUserDefaults() throws {
-        let suite = "uxreview-tests-\(UUID().uuidString)"
-        let defaults = try #require(UserDefaults(suiteName: suite))
-        defer { defaults.removePersistentDomain(forName: suite) }
-        let settings = CaptureSettings(defaultRequest: CaptureRequest(target: .display), captureHotkey: Hotkey("⌃⌘9"))
-        try CaptureSettingsStore.save(settings, to: defaults)
-        #expect(CaptureSettingsStore.load(from: try #require(UserDefaults(suiteName: suite))) == settings)
+        let suite = try TestSupport.withTemporaryDefaults { suite, defaults in
+            let settings = CaptureSettings(defaultRequest: CaptureRequest(target: .display), captureHotkey: Hotkey("⌃⌘9"))
+            try CaptureSettingsStore.save(settings, to: defaults)
+            #expect(CaptureSettingsStore.load(from: try #require(UserDefaults(suiteName: suite))) == settings)
+            // HS2-1AD1FJ: the suite is a file in the test's temporary folder, not a domain in
+            // ~/Library/Preferences that outlives the run.
+            CFPreferencesAppSynchronize(suite as CFString)
+            #expect(FileManager.default.fileExists(atPath: suite + ".plist"))
+            #expect(!FileManager.default.fileExists(atPath: TestSupport.userPreferencesFile(forDomain: suite).path))
+            return suite
+        }
+        #expect(!FileManager.default.fileExists(atPath: suite + ".plist"), "the temporary folder is removed")
     }
 }
 

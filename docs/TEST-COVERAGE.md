@@ -132,7 +132,10 @@ Each feature gets both unit tests and end-to-end tests. Tests live in
   - save → load → change → disable → re-enable sequences
   - the exact stored JSON
   - partial, broken, or explicit-null values
-  - real `UserDefaults` suites
+  - real `UserDefaults` suites, through `TestSupport.withTemporaryDefaults`: the suite name is an
+    absolute path in a temporary folder, so its plist is written there and removed with the
+    folder, never to ~/Library/Preferences (HS2-1AD1FJ; a named suite's empty plist was written
+    again by cfprefsd after the test process exited, however the test cleaned up)
 - **Hotkey action** (`HotkeyActionTests`): the idle / counting-down / busy transition matrix.
 - **`--settings` parsing** (`SettingsCommandTests`): read-only, apply, `none`, and rejected
   values.
@@ -145,6 +148,9 @@ Each feature gets both unit tests and end-to-end tests. Tests live in
   - disabling the hotkey
   - an unusable hotkey is rejected with exit 2 and not saved
   - Settings window renders in both registration states (visual QA)
+  - the suite is `$TMP/defaults` (an absolute path), so it is removed with the run's temporary
+    folder; the run asserts its plist is there and `defaults domains` doesn't list it, so no
+    `uxreview-e2e-<pid>` domain is left in ~/Library/Preferences (HS2-1AD1FJ)
 - **Not covered automatically:** pressing the hotkey. Synthesizing a global key press needs
   Accessibility permission. Clicking menu items is also untested. Both are tracked in
   `HS2-HA9TW3`.
