@@ -64,5 +64,5 @@ for points in [16, 32, 128, 256, 512] {
 
 let contents: [String: Any] = ["images": images, "info": ["author": "xcode", "version": 1]]
 let json = try JSONSerialization.data(withJSONObject: contents, options: [.prettyPrinted, .sortedKeys])
-try json.write(to: setDir.appendingPathComponent("Contents.json"))
+try (json + Data("\n".utf8)).write(to: setDir.appendingPathComponent("Contents.json"))
 print("Wrote \(setDir.path)")
