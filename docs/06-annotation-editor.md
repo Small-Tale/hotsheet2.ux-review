@@ -287,6 +287,14 @@ keystroke updates the note (`HS2-XCJPTX`). The field is labeled **Note** (the ca
 §2.5). Chips show the annotation's *effective* intents. When the stored list is empty, the
 shape's default intent is shown as on, with a "default" hint.
 
+An on chip shows more than color (`HS2-0CZ5RR`). Its dot becomes a check in a circle of the
+intent's color, and its border is drawn in that color, thicker. An off chip shows a plain dot.
+Both marks take the same space, so choosing an intent doesn't reflow the chips. VoiceOver
+announces an on chip as selected. The intent colors are the canvas's colors, so they don't change
+here. Instead, a dot below WCAG's 3:1 against its chip gets a gray outline ring
+(`IntentPalette.dotNeedsOutline`). In light mode that is change, insert, move, and question; in
+dark mode every dot passes.
+
 Clicking a chip (`IntentToggle.clicked`, `HS2-JMPDDW`) depends on the modifier keys:
 
 - **A plain click selects just that intent.** Every other intent turns off. Clicking the only

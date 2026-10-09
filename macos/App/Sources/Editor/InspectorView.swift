@@ -238,50 +238,6 @@ struct TimeRangeEditor: View {
     }
 }
 
-/// One chip per intent. Effective intents are on; when the list is empty the shape's default
-/// shows as on with a "default" hint. A click selects just that intent; ⌘- or ⇧-click toggles it
-/// into a multiple selection (`IntentToggle.Click`, docs/06 §6.5). VoiceOver gets the toggle as a
-/// named action, since it can't hold a modifier.
-struct IntentChips: View {
-    let annotation: Annotation
-    let click: (Intent, IntentToggle.Click) -> Void
-
-    var body: some View {
-        let effective = Set(annotation.effectiveIntents)
-        FlowLayout(spacing: 6) {
-            ForEach(Intent.allCases, id: \.self) { intent in
-                let isOn = effective.contains(intent)
-                Button { click(intent, Self.click(NSEvent.modifierFlags)) } label: {
-                    HStack(spacing: 4) {
-                        Circle().fill(Color(cgColor: IntentPalette.color(intent))).frame(width: 8, height: 8)
-                        Text(intent.rawValue)
-                        if isOn, annotation.intents.isEmpty {
-                            Text("default").font(.caption2).foregroundStyle(.secondary)
-                        }
-                    }
-                    .font(.callout)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 3)
-                    .background(
-                        Capsule()
-                            .fill(isOn ? Color(cgColor: IntentPalette.color(intent, alpha: 0.22)) : Color.primary.opacity(0.05))
-                    )
-                    .overlay(Capsule().stroke(isOn ? Color(cgColor: IntentPalette.color(intent)) : Color.primary.opacity(0.15)))
-                }
-                .buttonStyle(.plain)
-                .help("\(intent.help). ⌘-click to add or remove it alongside other intents.")
-                .accessibilityAddTraits(isOn ? .isSelected : [])
-                .accessibilityAction(named: isOn ? "Remove from intents" : "Add to intents") { click(intent, .toggle) }
-            }
-        }
-    }
-
-    /// ⌘ or ⇧ held: toggle into a multiple selection; otherwise select just this intent.
-    static func click(_ flags: NSEvent.ModifierFlags) -> IntentToggle.Click {
-        IntentToggle.Click(command: flags.contains(.command), shift: flags.contains(.shift))
-    }
-}
-
 struct AnnotationList: View {
     @ObservedObject var model: EditorModel
 

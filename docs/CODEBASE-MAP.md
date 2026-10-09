@@ -93,6 +93,7 @@ macos/
     Editor/OriginalsIndex.swift       legacy originals/crops.json and its trust rules, read only to migrate older drafts (docs/06 §6.6)
     Editor/ImageCrop.swift            PixelRect snapping and even sides (video crops), annotation transform into a crop
     Editor/AnnotationRenderer.swift   CoreGraphics drawing of shapes, badges, handles, crop overlay; IntentPalette
+    Editor/IntentContrast.swift       WCAG contrast of intent colors on the inspector's chips (which dots get a ring)
     Editor/AnnotationRenderer+ArrowHeads.swift  each arrow end drawn in its ArrowHead style
     Editor/EditorSession.swift        editor + files: display images, video frames, frame rates (now or in the background), save + reload (follow added/removed media), edits.json, exact no-drift save
     Editor/InspectorNavigation.swift  the inspector's list → annotation page stack, derived from the selection (docs/06 §6.5.1)
@@ -139,6 +140,7 @@ macos/
     Editor/TimelineBar.swift          video timeline: play/pause, typed playhead, scrubber, range grips + trim handles, Trim Start/End; TimeField
     Editor/InspectorView.swift        navigation stack: capture note + annotation list → annotation page (back button, intents, note) (docs/06 §6.5.1)
     Editor/HeadlessAnnotate.swift     `--annotate` mode with JSON output
+    Editor/IntentChips.swift          the inspector's intent chips and their marks (dot / check circle, outline ring)
     Editor/NoteFields.swift           the Capture note field and the notes' Markdown tooltip
     Editor/EditorPreviews.swift       editor states + mock screenshots for --render-ui-previews
     Editor/EditorPreviews+Appearance.swift  editor-canvas-colors.json: the canvas surround sampled in light and dark

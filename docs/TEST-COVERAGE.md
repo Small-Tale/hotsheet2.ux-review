@@ -1688,3 +1688,14 @@ text stacked one word per line at 99 pt wide. The empty Draft Reviews window was
   longer depend on the Mac's own appearance.
 - **Not covered automatically:** switching appearance while the editor is open (the canvas
   redraws in `viewDidChangeEffectiveAppearance`).
+
+## HS2-0CZ5RR: intent chips don't rely on color
+
+- **Unit** (`IntentContrastTests`): the WCAG luminance and contrast math. On light chips exactly
+  change, insert, move, and question need the ring (question is the faintest, < 1.5:1). On dark
+  chips no dot needs it. In both appearances every dot, or its ring, meets 3:1.
+- **Visual QA:** `editor-window`, `editor-annotated`, `editor-annotated-dark`, and
+  `editor-intent-single` (`--render-ui-previews`), inspected by hand: on chips show a check circle
+  and a thicker border, and off dots show their ring where needed.
+- **Not covered automatically:** VoiceOver announcing "selected" (`.isSelected` trait); part of
+  `HS2-MVGVJ4`.
