@@ -1651,3 +1651,14 @@ text stacked one word per line at 99 pt wide. The empty Draft Reviews window was
 - **Visual QA:** `editor-window`, inspected by hand.
 - **Not covered automatically:** the Window menu and Mission Control names (both read
   `NSWindow.title`), and the proxy icon of a saved review (set by the same function).
+
+## HS2-56FCW3: the Submit Review… button in renders
+
+- **App end to end** (`scripts/app-e2e.sh`): `editor-toolbar.json` reports the item's style as
+  `prominent`, and the `NSToolbarButton` AppKit made for it as titled "Submit Review…", enabled,
+  visible, and inside an `NSGlassEffectView`.
+- **Known render limit:** Liquid Glass (toolbar platters, the prominent accent fill) is drawn by
+  the window server, so `cacheDisplay` can't capture it. In `editor-window.png` the button is a white
+  capsule with a white label. This comes from the offscreen render, not from the app.
+- **Not covered automatically:** the composited button in light/dark and active/inactive windows
+  (screen capture needs Screen Recording permission). Live check: `HS2-3AWMBZ`.

@@ -41,6 +41,7 @@ extension EditorPreviews {
         }
         settle()
         let opened = toolbar.describe()
+        let submitView = describeSubmitButton(in: window)
         // The rendered window: the theme frame holds the title bar and toolbar.
         var written: [URL] = []
         if let frame = window.contentView?.superview, let rep = frame.bitmapImageRepForCachingDisplay(in: frame.bounds) {
@@ -67,11 +68,32 @@ extension EditorPreviews {
                 "opened": opened, "cropped": cropped, "submitted": submitted,
                 "toolbarStyle": window.toolbarStyle == .unified ? "unified" : "other",
                 "titleVisible": window.titleVisibility == .visible,
+                "submitStyle": window.toolbar?.items.first { $0.itemIdentifier == EditorToolbar.submitReview }
+                    .map { $0.style == .prominent ? "prominent" : "plain" } ?? "",
+                "submitButton": submitView,
                 "title": window.title, "subtitle": window.subtitle, "proxyIcon": window.representedURL != nil,
             ],
             options: [.prettyPrinted, .sortedKeys]
         ).write(to: url)
         written.append(url)
         return written
+    }
+
+    /// The Submit Review… button AppKit made for the prominent item (`HS2-56FCW3`). Its accent
+    /// fill is Liquid Glass, which the compositor draws, so `cacheDisplay` leaves a white capsule
+    /// with a white label in editor-window.png; the button itself is checked here instead.
+    static func describeSubmitButton(in window: NSWindow) -> [String: Any] {
+        func button(titled title: String, in view: NSView) -> NSButton? {
+            if let button = view as? NSButton, button.title == title { return button }
+            return view.subviews.lazy.compactMap { button(titled: title, in: $0) }.first
+        }
+        let submitButton = window.contentView?.superview.flatMap { button(titled: "Submit Review…", in: $0) }
+        return [
+            "found": submitButton != nil, "enabled": submitButton?.isEnabled ?? false,
+            "visible": submitButton.map { !$0.isHiddenOrHasHiddenAncestor && $0.frame.width > 60 } ?? false,
+            "glass": submitButton.map { button in
+                sequence(first: button as NSView, next: \.superview).contains { $0 is NSGlassEffectView }
+            } ?? false,
+        ]
     }
 }

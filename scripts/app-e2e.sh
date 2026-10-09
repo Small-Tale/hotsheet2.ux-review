@@ -1295,6 +1295,11 @@ TB="$TMP/previews/editor-toolbar.json"
 [[ "$(json "$TB" '[j.opened.selectedTool, j.opened.restoreHidden, j.cropped.selectedTool, j.cropped.restoreHidden, j.cropped.submit, j.submitted].join("|")')" == \
   "Select|true|Crop|false|Submit Review…|1" ]] || die "toolbar: states $(json "$TB" 'JSON.stringify(j)')"
 ok "the editor's native toolbar: tools on the right follow the keyboard, Restore Original after a crop, Submit Review… works"
+# HS2-56FCW3: Submit Review… is a prominent item whose real button carries its label on glass. The
+# offscreen editor-window.png can't draw the glass fill (a white capsule there is expected).
+[[ "$(json "$TB" '[j.submitStyle, j.submitButton.found, j.submitButton.enabled, j.submitButton.visible, j.submitButton.glass].join("|")')" == \
+  "prominent|true|true|true|true" ]] || die "toolbar: Submit Review… button $(json "$TB" 'JSON.stringify([j.submitStyle, j.submitButton])')"
+ok "Submit Review… is the prominent toolbar button, labeled, enabled and visible"
 # HS2-3B3RB6: a document window is titled with the review's name alone, no "— Annotate"; the
 # untitled preview review keeps "Not saved" under it (the inspector's NavigationStack used to clear it).
 [[ "$(json "$TB" '[j.title, j.subtitle, j.proxyIcon].join("|")')" == "Acme Mail review|Not saved|false" ]] \
