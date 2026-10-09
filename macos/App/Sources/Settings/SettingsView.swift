@@ -22,6 +22,10 @@ struct SettingsView: View {
                 Text(defaultCaptureCaption)
                     .font(.caption)
                     .foregroundStyle(.secondary)
+                Toggle("Open the editor after each capture", isOn: binding(\.openEditorAfterCapture))
+                Text("Shows the new capture in the annotation editor right away. Off, captures collect in the review quietly.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
             Section("Video") {
                 Toggle("Record microphone narration", isOn: binding(\.narration))

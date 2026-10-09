@@ -22,6 +22,9 @@ public struct CaptureSettings: Codable, Equatable, Sendable {
     /// Whether images and videos are scaled down for the target project's AI tool when filed
     /// (on). The draft keeps full-size files. Spec: docs/07-review-session.md §7.5.1.
     public var downscaleForAI: Bool
+    /// Whether the annotation editor opens on each new capture (on, `HS2-WNZVXR`). Spec:
+    /// docs/04-capture.md §4.6.
+    public var openEditorAfterCapture: Bool
 
     public init(
         defaultRequest: CaptureRequest = CaptureRequest(kind: .screenshot, target: .region),
@@ -31,7 +34,8 @@ public struct CaptureSettings: Codable, Equatable, Sendable {
         narration: Bool = false,
         showPointerInRecordings: Bool = true,
         showClicksInRecordings: Bool = false,
-        downscaleForAI: Bool = true
+        downscaleForAI: Bool = true,
+        openEditorAfterCapture: Bool = true
     ) {
         self.defaultRequest = defaultRequest
         self.captureHotkey = captureHotkey
@@ -41,6 +45,7 @@ public struct CaptureSettings: Codable, Equatable, Sendable {
         self.showPointerInRecordings = showPointerInRecordings
         self.showClicksInRecordings = showClicksInRecordings
         self.downscaleForAI = downscaleForAI
+        self.openEditorAfterCapture = openEditorAfterCapture
     }
 
     /// How recordings show the pointer, per these settings.
@@ -84,7 +89,7 @@ public struct CaptureSettings: Codable, Equatable, Sendable {
 
     private enum CodingKeys: String, CodingKey {
         case defaultRequest, captureHotkey, recordHotkey, openReviewHotkey, narration
-        case showPointerInRecordings, showClicksInRecordings, downscaleForAI
+        case showPointerInRecordings, showClicksInRecordings, downscaleForAI, openEditorAfterCapture
     }
 
     /// Missing fields take their defaults, so older or partial settings still load. An explicit
@@ -108,6 +113,8 @@ public struct CaptureSettings: Codable, Equatable, Sendable {
         showClicksInRecordings = try container.decodeIfPresent(Bool.self, forKey: .showClicksInRecordings)
             ?? defaults.showClicksInRecordings
         downscaleForAI = try container.decodeIfPresent(Bool.self, forKey: .downscaleForAI) ?? defaults.downscaleForAI
+        openEditorAfterCapture = try container.decodeIfPresent(Bool.self, forKey: .openEditorAfterCapture)
+            ?? defaults.openEditorAfterCapture
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -120,6 +127,7 @@ public struct CaptureSettings: Codable, Equatable, Sendable {
         try container.encode(showPointerInRecordings, forKey: .showPointerInRecordings)
         try container.encode(showClicksInRecordings, forKey: .showClicksInRecordings)
         try container.encode(downscaleForAI, forKey: .downscaleForAI)
+        try container.encode(openEditorAfterCapture, forKey: .openEditorAfterCapture)
     }
 }
 

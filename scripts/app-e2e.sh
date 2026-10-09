@@ -920,6 +920,16 @@ run mremove-all 0 -- --annotate "$TMP/script-multi-remove-all.json" --drafts-dir
 [[ "$(json "$TMP/mremove-all.json" '`${j.currentMediaId}|${j.selectedMediaIds.length}`')" == "undefined|0" ]] || die "multi remove: all, editor"
 ok "⌘⌫ removes every selected capture (⇧-click range, ⌘-click out) at once, keeps unsaved work on the rest; removing all leaves the empty draft"
 
+echo "open the editor after each capture (HS2-WNZVXR)"
+run openeditor-default 0 "${SUITE_ENV[@]}" -- --settings
+[[ "$(json "$TMP/openeditor-default.json" j.settings.openEditorAfterCapture)" == true ]] || die "open editor: off by default"
+run openeditor-off 0 "${SUITE_ENV[@]}" -- --settings --set-open-editor off
+run openeditor-read 0 "${SUITE_ENV[@]}" -- --settings
+[[ "$(json "$TMP/openeditor-read.json" j.settings.openEditorAfterCapture)" == false ]] || die "open editor: setting not persisted"
+run openeditor-bad 2 "${SUITE_ENV[@]}" -- --settings --set-open-editor sometimes
+run openeditor-on 0 "${SUITE_ENV[@]}" -- --settings --set-open-editor on
+ok "Open the editor after each capture is on by default, persists when turned off, and rejects a bad value"
+
 echo "downscale for AI when filing (HS2-PT8PM6)"
 run downscale-default 0 "${SUITE_ENV[@]}" -- --settings
 [[ "$(json "$TMP/downscale-default.json" j.settings.downscaleForAI)" == true ]] || die "downscale: off by default"

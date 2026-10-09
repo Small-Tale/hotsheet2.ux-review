@@ -36,6 +36,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         }
         capture.narrationDefault = { [weak settings] in settings?.settings.narration ?? false }
         capture.recordingPointer = { [weak settings] in settings?.settings.recordingPointer ?? RecordingPointer() }
+        capture.opensEditorAfterCapture = { [weak settings] in settings?.settings.openEditorAfterCapture ?? true }
         self.capture = capture
         self.settings = settings
         statusItem = StatusItemController(

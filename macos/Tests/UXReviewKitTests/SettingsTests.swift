@@ -129,7 +129,7 @@ struct CaptureSettingsTests {
         let json = try #require(store.data(forKey: CaptureSettingsStore.key).flatMap { String(data: $0, encoding: .utf8) })
         #expect(
             json == #"{"captureHotkey":"⌥⇧⌘U","defaultRequest":{"delaySeconds":0,"kind":"screenshot","target":"region"},"#
-                + #""downscaleForAI":true,"narration":false,"openReviewHotkey":"⌥⇧⌘E","recordHotkey":"⌥⇧⌘V","#
+                + #""downscaleForAI":true,"narration":false,"openEditorAfterCapture":true,"openReviewHotkey":"⌥⇧⌘E","recordHotkey":"⌥⇧⌘V","#
                 + #""showClicksInRecordings":false,"showPointerInRecordings":true}"#
         )
     }
@@ -172,6 +172,10 @@ struct CaptureSettingsTests {
         (#"{"downscaleForAI":false}"#, CaptureSettings(downscaleForAI: false)),
         (#"{"downscaleForAI":null}"#, CaptureSettings()), // null → the default (on)
         (#"{"downscaleForAI":"off"}"#, CaptureSettings()), // wrong type → all defaults
+        // HS2-WNZVXR: settings saved before the editor-after-capture switch open the editor.
+        (#"{"narration":true}"#, CaptureSettings(narration: true, openEditorAfterCapture: true)),
+        (#"{"openEditorAfterCapture":false}"#, CaptureSettings(openEditorAfterCapture: false)),
+        (#"{"openEditorAfterCapture":null}"#, CaptureSettings()),
     ])
     func loadsPartialOrBrokenValues(json: String, expected: CaptureSettings) {
         let store = MemoryStore()
@@ -464,6 +468,23 @@ struct SettingsCommandTests {
         let store = MemoryStore()
         try CaptureSettingsStore.save(CaptureSettings(downscaleForAI: false), to: store)
         #expect(!CaptureSettingsStore.load(from: store).downscaleForAI)
+    }
+
+    /// HS2-WNZVXR: Open the editor after each capture, on by default, switched with `--set-open-editor`.
+    @Test func setsOpenEditorAfterCapture() throws {
+        #expect(CaptureSettings().openEditorAfterCapture)
+        let off = try #require(try SettingsCommand.parse(["--settings", "--set-open-editor", "off"]))
+        #expect(off.changesSomething && off.openEditor == false)
+        #expect(try off.apply(to: CaptureSettings()) == CaptureSettings(openEditorAfterCapture: false))
+        let turnOn = try #require(try SettingsCommand.parse(["--settings", "--set-open-editor", "ON"]))
+        #expect(try turnOn.apply(to: CaptureSettings(openEditorAfterCapture: false)) == CaptureSettings())
+        #expect(try SettingsCommand.parse(["--settings", "--set-narration", "on"])?.openEditor == nil)
+        #expect(throws: CommandLineError.invalidValue("--set-open-editor", "maybe")) {
+            try SettingsCommand.parse(["--settings", "--set-open-editor", "maybe"])
+        }
+        let store = MemoryStore()
+        try CaptureSettingsStore.save(CaptureSettings(openEditorAfterCapture: false), to: store)
+        #expect(!CaptureSettingsStore.load(from: store).openEditorAfterCapture)
     }
 
     /// `--submit --downscale on|off` overrides the setting for one submission.

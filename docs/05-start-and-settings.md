@@ -174,7 +174,8 @@ The Settings window (menu bar menu or app menu › Settings…, ⌘,) has four s
   This is what the Capture hotkey does. The Record video hotkey uses the same target and delay,
   and the menu bar menu's Capture Image and Capture Video use the target (§5.1). The menu bar
   menu's **Capture [Screen | Window | Region]** row changes the same target. The default is
-  Region with no delay.
+  Region with no delay. **Open the editor after each capture** (on, `HS2-WNZVXR`) shows each
+  new capture in the annotation editor right away ([04-capture.md](04-capture.md) §4.6).
 - **Video**:
   - **Record microphone narration**, the narration default for recordings (off). The menus'
     Narrate switch can change it for one recording. See [04-capture.md](04-capture.md)
@@ -201,14 +202,15 @@ The Settings window (menu bar menu or app menu › Settings…, ⌘,) has four s
 Persistence: settings are saved as JSON under the defaults key `captureSettings`:
 
 ```json
-{"captureHotkey":"⌥⇧⌘U","defaultRequest":{"delaySeconds":0,"kind":"screenshot","target":"region"},"downscaleForAI":true,"narration":false,"openReviewHotkey":"⌥⇧⌘E","recordHotkey":"⌥⇧⌘V","showClicksInRecordings":false,"showPointerInRecordings":true}
+{"captureHotkey":"⌥⇧⌘U","defaultRequest":{"delaySeconds":0,"kind":"screenshot","target":"region"},"downscaleForAI":true,"narration":false,"openEditorAfterCapture":true,"openReviewHotkey":"⌥⇧⌘E","recordHotkey":"⌥⇧⌘V","showClicksInRecordings":false,"showPointerInRecordings":true}
 ```
 
 - Missing fields take their defaults. Settings saved before `recordHotkey` existed get ⌥⇧⌘V,
   settings saved before `openReviewHotkey` existed get ⌥⇧⌘E,
   settings saved before `narration` existed record without narration, and settings saved
   before `showPointerInRecordings` / `showClicksInRecordings` existed show the pointer but not
-  clicks, and settings saved before `downscaleForAI` existed downscale.
+  clicks, settings saved before `downscaleForAI` existed downscale, and settings saved before
+  `openEditorAfterCapture` existed open the editor after each capture.
 - An explicit `null` for `captureHotkey` or `recordHotkey` means that shortcut is disabled.
 - An unreadable value falls back to all defaults.
 
@@ -228,7 +230,7 @@ temporary folder and never adds a domain to ~/Library/Preferences (HS2-1AD1FJ).
 UXReview --settings [--set-hotkey ⌥⇧⌘U|none] [--set-record-hotkey ⌥⇧⌘V|none]
                     [--set-open-hotkey ⌥⇧⌘E|none] [--set-target display|window|region] [--set-delay N]
                     [--set-narration on|off] [--set-show-pointer on|off] [--set-show-clicks on|off]
-                    [--set-downscale on|off]
+                    [--set-downscale on|off] [--set-open-editor on|off]
 ```
 
 This mode applies and saves the changes, registers all three hotkeys exactly as the app would,

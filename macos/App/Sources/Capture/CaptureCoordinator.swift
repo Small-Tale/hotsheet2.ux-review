@@ -30,6 +30,8 @@ final class CaptureCoordinator: ObservableObject {
     var narrationDefault: @MainActor () -> Bool = { false }
     /// How recordings show the pointer (`CaptureSettings.recordingPointer`).
     var recordingPointer: @MainActor () -> RecordingPointer = { RecordingPointer() }
+    /// Settings › Open the editor after each capture (`HS2-WNZVXR`).
+    var opensEditorAfterCapture: @MainActor () -> Bool = { true }
 
     /// Whether the next recording will include narration.
     var narratesNextRecording: Bool { narrationChoice ?? narrationDefault() }
@@ -259,6 +261,15 @@ final class CaptureCoordinator: ObservableObject {
         if let narration { subtitle = "\(narration) · " + subtitle }
         if let duration = outcome.media.durationMs { subtitle = "\(Self.clock(duration)) · " + subtitle }
         hud.flash("Saved \(outcome.media.filename)", subtitle: subtitle)
+        // The editor opens on the new capture (or an open editor switches to it), so it can be
+        // annotated right away (HS2-WNZVXR, docs/04 §4.6).
+        if opensEditorAfterCapture() {
+            do {
+                try EditorWindowController.show(directory: outcome.draft.directory, store: store, mediaId: outcome.media.id)
+            } catch {
+                report(.failed(String(describing: error)))
+            }
+        }
     }
 
     private func fail(_ error: Error) {

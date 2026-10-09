@@ -170,6 +170,10 @@ Drafts/
 
 - **First capture**: creates a draft. Its title is "<App> review", or "UX review" when the app
   is unknown.
+- **After a capture** (interactive, not headless), the annotation editor opens on the new
+  capture, or an open editor on that review switches to it, so it can be annotated right away
+  (`HS2-WNZVXR`). Settings › Default capture › **Open the editor after each capture** (on by
+  default) turns this off; captures then collect quietly and only the "Saved" HUD shows.
 - **Later captures**: append to the current draft as `capture-N.<ext>` (with media ids `mN`).
   Numbers only go up: a removed capture's file name and id are never reused (docs/07 §7.2).
 - **New Review** (File menu, ⌘N, `HS2-80CTK8`): creates a new, empty draft and makes it current,

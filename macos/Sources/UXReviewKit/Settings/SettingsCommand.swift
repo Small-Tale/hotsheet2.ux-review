@@ -5,7 +5,7 @@ import Foundation
 ///     UXReview --settings [--set-hotkey ⌥⇧⌘U|none] [--set-record-hotkey ⌥⇧⌘V|none]
 ///                         [--set-open-hotkey ⌥⇧⌘E|none] [--set-target display|window|region] [--set-delay N]
 ///                         [--set-narration on|off] [--set-show-pointer on|off] [--set-show-clicks on|off]
-///                         [--set-downscale on|off]
+///                         [--set-downscale on|off] [--set-open-editor on|off]
 ///
 /// Applies the changes (if any), saves them, registers the hotkeys, and prints the result.
 /// Spec: docs/05-start-and-settings.md §5.5.
@@ -26,6 +26,8 @@ public struct SettingsCommand: Equatable, Sendable {
     public var showClicks: Bool?
     /// Scales filed images and videos down for the target project's AI tool.
     public var downscale: Bool?
+    /// Opens the annotation editor after each capture.
+    public var openEditor: Bool?
 
     public init(
         hotkey: Hotkey?? = nil,
@@ -36,7 +38,8 @@ public struct SettingsCommand: Equatable, Sendable {
         narration: Bool? = nil,
         showPointer: Bool? = nil,
         showClicks: Bool? = nil,
-        downscale: Bool? = nil
+        downscale: Bool? = nil,
+        openEditor: Bool? = nil
     ) {
         self.hotkey = hotkey
         self.recordHotkey = recordHotkey
@@ -47,11 +50,12 @@ public struct SettingsCommand: Equatable, Sendable {
         self.showPointer = showPointer
         self.showClicks = showClicks
         self.downscale = downscale
+        self.openEditor = openEditor
     }
 
     public var changesSomething: Bool {
         hotkey != nil || recordHotkey != nil || openReviewHotkey != nil || target != nil || delaySeconds != nil
-            || narration != nil || showPointer != nil || showClicks != nil || downscale != nil
+            || narration != nil || showPointer != nil || showClicks != nil || downscale != nil || openEditor != nil
     }
 
     static let hotkeyFlags: [(HotkeySlot, String)] = [
@@ -89,6 +93,7 @@ public struct SettingsCommand: Equatable, Sendable {
         command.showPointer = try parseSwitch(values, flag: "--set-show-pointer")
         command.showClicks = try parseSwitch(values, flag: "--set-show-clicks")
         command.downscale = try parseSwitch(values, flag: "--set-downscale")
+        command.openEditor = try parseSwitch(values, flag: "--set-open-editor")
         return command
     }
 
@@ -125,6 +130,7 @@ public struct SettingsCommand: Equatable, Sendable {
         if let showPointer { settings.showPointerInRecordings = showPointer }
         if let showClicks { settings.showClicksInRecordings = showClicks }
         if let downscale { settings.downscaleForAI = downscale }
+        if let openEditor { settings.openEditorAfterCapture = openEditor }
         for (slot, flag) in Self.hotkeyFlags where hotkeyChange(slot) != nil {
             if let chosen = settings[slot], let problem = settings.problem(with: chosen, for: slot) {
                 throw CommandLineError.invalidValue(flag, "\(chosen.display): \(problem)")

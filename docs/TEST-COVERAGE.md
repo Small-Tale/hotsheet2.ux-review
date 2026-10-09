@@ -1620,3 +1620,13 @@ text stacked one word per line at 99 pt wide. The empty Draft Reviews window was
 - **Visual QA:** `editor-capture-note` and `editor-empty` (the empty field with its placeholder), inspected by hand.
 - **Not covered automatically:** typing into the live field (it uses the same model call the script op uses).
 
+## HS2-WNZVXR: open the editor after each capture
+
+- **Unit** (`SettingsTests`): on by default; stored JSON includes it; older settings without
+  it, and `null`, read as on; `false` reads back; `--set-open-editor on|off` (any case) applies,
+  a bad value is rejected, other flags leave it alone.
+- **App end to end:** `--settings` reports it on by default, `--set-open-editor off` persists,
+  a bad value exits 2.
+- **Not covered automatically:** the editor opening after a live capture (the coordinator calls
+  the tested `EditorWindowController.show(directory:store:mediaId:)` when the setting is on;
+  headless captures never open windows). Live check: `HS2-MCJWZ6`.
