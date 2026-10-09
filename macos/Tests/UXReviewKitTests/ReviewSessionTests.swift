@@ -219,7 +219,7 @@ struct ReviewSessionTests {
         ])
         #expect(issues.map { $0.message(in: bundle) } == [
             "Give the review a title.",
-            "capture-2.mov is missing from the draft folder. Remove it from the review.",
+            "capture-2.mov is missing from the draft folder. Remove it in the editor (Edit › Remove Capture from Review…).",
             "Annotation #1 lies outside its capture.",
             "Annotation #2 runs past the end of its video.",
             "Annotation #3 is on a capture that is no longer in the review.",

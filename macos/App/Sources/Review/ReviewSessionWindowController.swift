@@ -73,15 +73,6 @@ final class ReviewSessionWindowController: NSWindowController, NSWindowDelegate 
         let store = model.store
         window.contentView = NSHostingView(rootView: ReviewSessionView(
             model: model,
-            annotate: { [weak model] mediaId in
-                guard let model else { return }
-                model.saveFields()
-                do {
-                    try EditorWindowController.show(directory: model.directory, store: store, mediaId: mediaId)
-                } catch {
-                    NSSound.beep()
-                }
-            },
             done: { [weak window] in window?.close() }
         ))
         window.delegate = self

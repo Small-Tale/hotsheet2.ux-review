@@ -1951,3 +1951,14 @@ text stacked one word per line at 99 pt wide. The empty Draft Reviews window was
   `time` script op).
 - **Not covered automatically:** clicking the label, and Return / Esc / clicking away in a live
   window (the field reports losing focus through `onEndEditing`).
+
+## HS2-55N4BN: Submit Review's captures are a grid of media
+
+- **Unit** (`ReviewSessionTests`): the missing-file issue now says to remove the capture in the
+  editor (Edit › Remove Capture from Review…).
+- **Visual QA:** `session-ready` (the grid with annotation badges and a video's play badge),
+  `session-issues` (orange badges and borders, and the problems listed under the grid), and
+  `session-edited` (what a crop or trim leaves out, under the grid), inspected by hand.
+- Removing captures stays covered in the editor (`EditorSessionRemovalTests`, the app-e2e ⌘⌫
+  checks). The window's own remove action and its Annotate buttons are gone.
+- **Not covered automatically:** the tiles' tooltips in a live window.

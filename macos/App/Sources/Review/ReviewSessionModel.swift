@@ -286,21 +286,6 @@ final class ReviewSessionModel: ObservableObject {
         }
     }
 
-    /// Removes a capture (its file and annotations) from the review. An open editor on the draft
-    /// stays open and drops the capture when it hears about the change (docs/06 §6.7).
-    func remove(mediaId: String) {
-        guard session.isEditable else { return }
-        do {
-            try store.removeMedia(mediaId, from: directory)
-            thumbnails[mediaId] = nil
-            thumbnailKeys[mediaId] = nil
-            NotificationCenter.default.post(name: .reviewDraftChanged, object: directory)
-            reload()
-        } catch {
-            notice = "Couldn't remove the capture: \(ReviewSubmitter.describe(error))"
-        }
-    }
-
     // MARK: Submitting
 
     /// Files the review. Does nothing unless the session can submit; the fields, the capture

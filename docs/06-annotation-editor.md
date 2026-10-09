@@ -540,8 +540,9 @@ from this review?", naming how many annotations go with them), because it can't 
 3. catches up, so the editor shows a neighboring capture, or the empty state after the last one.
    If a removal fails partway, the editor still catches up with what was removed.
 
-An open Submit Review window refreshes. The Submit Review window's trash button
-does the same from there ([07-review-session.md](07-review-session.md) §7.2).
+An open Submit Review window refreshes. The editor is the only place to remove a capture: the
+Submit Review window shows the captures as a grid with no controls (`HS2-55N4BN`,
+[07-review-session.md](07-review-session.md) §7.2).
 
 ### 6.7.2 Selecting several captures
 

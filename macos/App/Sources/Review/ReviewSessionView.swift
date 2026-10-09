@@ -5,10 +5,7 @@ import UXReviewKit
 /// blocks submitting, and the submission's progress and result. Spec: docs/07-review-session.md §7.2.
 struct ReviewSessionView: View {
     @ObservedObject var model: ReviewSessionModel
-    var annotate: (String?) -> Void = { _ in }
     var done: () -> Void = {}
-
-    @State private var pendingRemoval: MediaItem?
 
     /// The form's minimum window size. A filed review keeps the width only, so its window can
     /// shrink around the success message (`HS2-J2BE94`). Without a minimum width, SwiftUI
@@ -30,20 +27,6 @@ struct ReviewSessionView: View {
                 footer
             }
             .frame(minWidth: Self.minimumSize.width, minHeight: Self.minimumSize.height)
-            .confirmationDialog(
-                "Remove \(pendingRemoval?.filename ?? "") from this review?",
-                isPresented: Binding(get: { pendingRemoval != nil }, set: { if !$0 { pendingRemoval = nil } }),
-                presenting: pendingRemoval
-            ) { item in
-                Button("Remove Capture", role: .destructive) { model.remove(mediaId: item.id) }
-                Button("Cancel", role: .cancel) {}
-            } message: { item in
-                let count = model.session.annotationCount(item.id)
-                Text(
-                    count == 0 ? "The file is deleted from the draft." :
-                        "The file and its \(count) annotation\(count == 1 ? "" : "s") are deleted from the draft."
-                )
-            }
         }
     }
 
@@ -115,26 +98,12 @@ struct ReviewSessionView: View {
                     Text("No captures yet. Take a screenshot or record a video from the menu bar.")
                         .foregroundStyle(.secondary)
                 }
-                ForEach(model.session.bundle.media, id: \.id) { item in
-                    CaptureRow(
-                        item: item,
-                        number: (model.session.bundle.media.firstIndex(of: item) ?? 0) + 1,
-                        filed: model.preview.media[item.id],
-                        thumbnail: model.thumbnails[item.id],
-                        problem: problem(for: item),
-                        editable: editable,
-                        annotate: { annotate(item.id) },
-                        remove: { pendingRemoval = item }
-                    )
+                if !model.session.bundle.media.isEmpty {
+                    // A grid of the media, nothing to manipulate (HS2-55N4BN).
+                    CaptureGrid(model: model, problem: problem(for:))
                 }
             } header: {
-                HStack {
-                    Text("Captures (\(model.session.bundle.media.count))")
-                    Spacer()
-                    Button("Annotate…") { annotate(nil) }
-                        .controlSize(.small)
-                        .disabled(!editable || model.session.bundle.media.isEmpty)
-                }
+                Text("Captures (\(model.session.bundle.media.count))")
             }
 
             Section {
@@ -262,94 +231,6 @@ private struct IssueLabel: View {
         } icon: {
             Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.orange)
         }
-    }
-}
-
-private struct CaptureRow: View {
-    let item: MediaItem
-    let number: Int
-    /// The capture as it will be filed (nil before the preview knows it: shown as the draft file).
-    let filed: SubmissionPreview.Filed?
-    let thumbnail: NSImage?
-    let problem: String?
-    let editable: Bool
-    let annotate: () -> Void
-    let remove: () -> Void
-
-    var body: some View {
-        HStack(spacing: 12) {
-            ZStack {
-                RoundedRectangle(cornerRadius: 4).fill(Color.black.opacity(0.85))
-                if let thumbnail {
-                    Image(nsImage: thumbnail).resizable().aspectRatio(contentMode: .fit)
-                } else {
-                    Image(systemName: item.kind == .video ? "film" : "photo").foregroundStyle(.secondary)
-                }
-                if item.kind == .video {
-                    Image(systemName: "play.fill")
-                        .font(.system(size: 9))
-                        .foregroundStyle(.white)
-                        .padding(3)
-                        .background(Circle().fill(.black.opacity(0.6)))
-                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
-                        .padding(3)
-                }
-            }
-            .frame(width: 72, height: 46)
-            .clipShape(RoundedRectangle(cornerRadius: 4))
-
-            VStack(alignment: .leading, spacing: 2) {
-                Text(item.filename).font(.body.weight(.medium))
-                Text(details).font(.caption).foregroundStyle(.secondary).lineLimit(1)
-                // The capture's note, so it can be checked before filing (HS2-WE6ST8).
-                if let captureNote = SubmissionPreview.notePreview(item.note) {
-                    Label(captureNote, systemImage: "note.text")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(2)
-                        .accessibilityLabel("Capture note: \(captureNote)")
-                }
-                if let note = filed?.leftOutNote {
-                    Label(note, systemImage: "eye.slash")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(2)
-                }
-                if let problem {
-                    Label(problem, systemImage: "exclamationmark.triangle.fill")
-                        .font(.caption)
-                        .foregroundStyle(.orange)
-                        .lineLimit(2)
-                }
-            }
-            Spacer(minLength: 8)
-            Button("Annotate", action: annotate)
-                .controlSize(.small)
-                .disabled(!editable)
-            Button(action: remove) {
-                Image(systemName: "trash")
-            }
-            .buttonStyle(.borderless)
-            .help("Remove \(item.filename) from the review")
-            .accessibilityLabel("Remove \(item.filename)")
-            .disabled(!editable)
-        }
-        .padding(.vertical, 2)
-        .accessibilityElement(children: .contain)
-        .accessibilityLabel("Capture \(number), \(item.filename)")
-    }
-
-    /// Size, length, and annotation count as filed: "cropped" / "trimmed" when an edit applies,
-    /// "scaled for Claude" when the capture is downscaled for AI.
-    private var details: String {
-        var parts = [filed?.sizeText ?? "\(item.pixelWidth)×\(item.pixelHeight)"]
-        if let duration = filed?.durationMs ?? item.durationMs {
-            parts.append(TimeFormat.clock(duration) + (filed?.trim == nil ? "" : " trimmed"))
-        }
-        let annotations = filed?.annotationCount ?? 0
-        parts.append(annotations == 0 ? "no annotations" : "\(annotations) annotation\(annotations == 1 ? "" : "s")")
-        if let app = item.context?.appName { parts.append(app) }
-        return parts.joined(separator: " · ")
     }
 }
 

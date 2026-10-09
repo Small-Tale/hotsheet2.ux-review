@@ -37,7 +37,10 @@ public enum SessionIssue: Equatable, Sendable {
         switch self {
         case .noCaptures: "Add at least one capture."
         case .blankTitle: "Give the review a title."
-        case let .missingFile(_, filename): "\(filename) is missing from the draft folder. Remove it from the review."
+        case let .missingFile(
+            _,
+            filename
+        ): "\(filename) is missing from the draft folder. Remove it in the editor (Edit › Remove Capture from Review…)."
         case let .hotSheet(problem): problem
         case let .bundle(issue): Self.message(for: issue, in: bundle)
         case let .ticket(issue): issue.message
