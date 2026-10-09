@@ -1941,3 +1941,13 @@ text stacked one word per line at 99 pt wide. The empty Draft Reviews window was
   (the filmstrip dimmed outside the yellow range), inspected by hand.
 - **Not covered automatically:** the background load and reload in a live window (previews load
   synchronously with `loadFilmstripNow`).
+
+## HS2-8TRCJ6: the playhead time is a label until clicked
+
+- **Visual QA:** `editor-video-time-label` and `editor-video-time-editing`
+  (`--render-ui-previews`, the timeline bar alone) show the time as a label and as a field,
+  inspected by hand. `scripts/app-e2e.sh` requires both.
+- Typing a time still goes through `TimeFormat.parse` and `movePlayhead` (`VideoTimeTests`, the
+  `time` script op).
+- **Not covered automatically:** clicking the label, and Return / Esc / clicking away in a live
+  window (the field reports losing focus through `onEndEditing`).

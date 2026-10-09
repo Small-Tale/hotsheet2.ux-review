@@ -62,6 +62,7 @@ extension EditorPreviews {
         written.append(layout)
         written += try renderTimelineDrags(store: store, draft: draft, steps: steps, to: directory)
         written.append(try renderFrameStep(store: store, draft: draft, steps: steps, to: directory))
+        written += try renderPlayheadTime(store: store, draft: draft, steps: steps, to: directory)
         // Last, because its autosave writes the scripted annotations into the shared draft.
         written.append(try renderPlaying(store: store, draft: draft, steps: steps, to: directory))
         return written
@@ -90,6 +91,22 @@ extension EditorPreviews {
             return try snapshot(
                 EditorView(model: dragging),
                 size: CGSize(width: 1240, height: 800),
+                to: directory.appendingPathComponent("\(name).png")
+            )
+        }
+    }
+
+    /// HS2-8TRCJ6: the timeline bar with the playhead time as a label, and after a click as a field.
+    private static func renderPlayheadTime(
+        store: ReviewDraftStore, draft: ReviewDraft, steps: [EditorScript.Step], to directory: URL
+    ) throws -> [URL] {
+        let model = try EditorModel(session: EditorSession(store: store, directory: draft.directory))
+        steps.forEach { apply($0, to: model) }
+        model.loadFilmstripNow(count: 12)
+        defer { model.cancelAutosave() }
+        return try [("editor-video-time-label", false), ("editor-video-time-editing", true)].map { name, editing in
+            try snapshot(
+                TimelineBar(model: model, startsEditingTime: editing), size: CGSize(width: 900, height: 120),
                 to: directory.appendingPathComponent("\(name).png")
             )
         }

@@ -8,6 +8,8 @@ import UXReviewKit
 /// Spec: docs/06-annotation-editor.md §6.10.
 struct TimelineBar: View {
     @ObservedObject var model: EditorModel
+    /// Previews draw the playhead time as a field.
+    var startsEditingTime = false
 
     var body: some View {
         let editor = model.editor
@@ -16,10 +18,7 @@ struct TimelineBar: View {
             HStack(spacing: 8) {
                 // No step buttons (HS2-QXNXHS): ← / → step a frame, `,` / `.` 0.1 s (⇧: 1 s).
                 HStack(spacing: 4) {
-                    TimeField(label: "Playhead time", millis: editor.currentTimeMs) { millis in
-                        model.mutate { $0.movePlayhead(to: millis) }
-                    }
-                    .help("Type a time to move the playhead, for example 1.5 or 0:01.50")
+                    PlayheadTime(model: model, editing: startsEditingTime)
                     // Never wrapped: in a narrow window the trim buttons give way first (HS2-XSXV5E).
                     Text("/ \(TimeFormat.clock(duration))")
                         .font(.callout.monospacedDigit())
@@ -84,6 +83,44 @@ struct PlayButton: View {
         .buttonStyle(.plain)
         .help(model.isPlaying ? "Pause (K)" : "Play (K)")
         .accessibilityLabel(model.isPlaying ? "Pause" : "Play")
+    }
+}
+
+/// The playhead time (`HS2-8TRCJ6`): a label until clicked, then a field to type a time in; it
+/// turns back into the label on Return (moving the playhead there), Esc, or losing focus.
+struct PlayheadTime: View {
+    @ObservedObject var model: EditorModel
+    @State private var editing: Bool
+
+    init(model: EditorModel, editing: Bool = false) {
+        self.model = model
+        _editing = State(initialValue: editing)
+    }
+
+    var body: some View {
+        let millis = model.editor.currentTimeMs
+        if editing {
+            TimeField(
+                label: "Playhead time", millis: millis, autofocus: true,
+                onEndEditing: { editing = false },
+                commit: { typed in model.mutate { $0.movePlayhead(to: typed) } }
+            )
+            .help("Type a time, for example 1.5 or 0:01.50, then Return; Esc cancels")
+        } else {
+            Button { editing = true } label: {
+                Text(TimeFormat.clock(millis))
+                    .font(.callout.monospacedDigit())
+                    .foregroundStyle(.primary)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .help("Click to type a time")
+            .accessibilityLabel("Playhead time")
+            .accessibilityValue(TimeFormat.clock(millis))
+            .accessibilityHint("Edits the time to move the playhead to")
+        }
     }
 }
 
@@ -335,6 +372,10 @@ func focusEditorCanvas() {
 struct TimeField: View {
     let label: String
     let millis: Int
+    /// Takes focus as it appears (the playhead time's field, `HS2-8TRCJ6`).
+    var autofocus = false
+    /// Called when the field loses focus, after Return, Esc, or a click elsewhere.
+    var onEndEditing: () -> Void = {}
     let commit: (Int) -> Void
     @State private var text = ""
     @FocusState private var focused: Bool
@@ -356,7 +397,16 @@ struct TimeField: View {
             .frame(width: 72)
             .focused($focused)
             .accessibilityLabel(label)
-            .onAppear { text = TimeFormat.clock(millis) }
+            .onAppear {
+                text = TimeFormat.clock(millis)
+                if autofocus { DispatchQueue.main.async { focused = true } }
+            }
+            .onExitCommand {
+                // Esc: back to the time as it is.
+                text = TimeFormat.clock(millis)
+                focused = false
+                focusEditorCanvas()
+            }
             .onDisappear { if focused { Self.focusedUnedited = false } }
             .onChange(of: millis) { old, new in
                 // An unedited field follows the time even while focused.
@@ -364,7 +414,10 @@ struct TimeField: View {
                 reportEditing()
             }
             .onChange(of: focused) {
-                if !focused { text = TimeFormat.clock(millis) }
+                if !focused {
+                    text = TimeFormat.clock(millis)
+                    onEndEditing()
+                }
                 reportEditing()
             }
             .onChange(of: text) { reportEditing() }
