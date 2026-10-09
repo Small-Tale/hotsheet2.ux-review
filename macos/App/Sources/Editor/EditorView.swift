@@ -264,13 +264,16 @@ struct MediaStrip: View {
 }
 
 extension EditorTool {
+    /// The tool's tooltip: its name and shortcut, such as "Rectangle (R)".
+    var toolTip: String { "\(label) (\(String(shortcut).uppercased()))" }
+
     var symbol: String {
         switch self {
         case .select: "cursorarrow"
         case .rect: "rectangle"
         case .freehand: "scribble"
         case .arrow: "arrow.up.right"
-        case .insertion: "control"
+        case .insertion: "text.insert"
         case .strike: "xmark.rectangle"
         case .crop: "crop"
         }

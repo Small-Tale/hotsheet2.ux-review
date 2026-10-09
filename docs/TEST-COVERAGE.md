@@ -1662,3 +1662,15 @@ text stacked one word per line at 99 pt wide. The empty Draft Reviews window was
   capsule with a white label. This comes from the offscreen render, not from the app.
 - **Not covered automatically:** the composited button in light/dark and active/inactive windows
   (screen capture needs Screen Recording permission). Live check: `HS2-3AWMBZ`.
+
+## HS2-YE2X53: the tool picker as one capsule
+
+- **App end to end** (`scripts/app-e2e.sh`): `editor-toolbar.json` reports that the tools are one
+  item view (a row of buttons, not a segmented group with dividers), that Insertion's symbol is
+  `text.insert`, and that exactly one tool shows selected after opening (Select) and after C (Crop).
+  It also checks that a real button click chooses Rectangle and a second click keeps it chosen
+  (the model's tool too), and that the overflow **Tools** menu lists all seven tools. The
+  tooltips `Select (V)` … `Crop (C)` are asserted as before.
+- **Visual QA:** `editor-window` (`--render-ui-previews`), inspected by hand.
+- **Not covered automatically:** hover borders and the overflow menu in a narrow live window.
+  VoiceOver reading each button's label is part of `HS2-MVGVJ4`.

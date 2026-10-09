@@ -3,7 +3,8 @@ import Combine
 import UXReviewKit
 
 /// The editor window's native toolbar (`HS2-WHP4V1`): a unified title bar with the window title
-/// on the left and, at the trailing end, the tool picker as one select-one group, **Restore
+/// on the left and, at the trailing end, the tool picker as one select-one group (one glass
+/// capsule of icon buttons without inner dividers, like Preview's markup tools, `HS2-YE2X53`), **Restore
 /// Original** (only while the capture is cropped or the video trimmed), and **Submit Review…**
 /// as the prominent action. macOS 26 draws the items as Liquid Glass. Spec: docs/06 §6.1.
 @MainActor
@@ -15,7 +16,8 @@ final class EditorToolbar: NSObject, NSToolbarDelegate {
     let toolbar = NSToolbar(identifier: "UXReviewEditor")
     private let model: EditorModel
     private let submit: () -> Void
-    private var toolGroup: NSToolbarItemGroup?
+    private var toolButtons: [NSButton] = []
+    private var toolMenu: NSMenu?
     private var restoreItem: NSToolbarItem?
     private var changes: AnyCancellable?
 
@@ -55,21 +57,7 @@ final class EditorToolbar: NSObject, NSToolbarDelegate {
     ) -> NSToolbarItem? {
         switch identifier {
         case Self.tools:
-            let tools = EditorTool.allCases
-            let group = NSToolbarItemGroup(
-                itemIdentifier: identifier,
-                images: tools.map { NSImage(systemSymbolName: $0.symbol, accessibilityDescription: $0.label) ?? NSImage() },
-                selectionMode: .selectOne,
-                labels: tools.map(\.label),
-                target: self,
-                action: #selector(chooseTool(_:))
-            )
-            group.label = "Tools"
-            for (item, tool) in zip(group.subitems, tools) {
-                item.toolTip = "\(tool.label) (\(String(tool.shortcut).uppercased()))"
-            }
-            toolGroup = group
-            return group
+            return makeToolsItem(identifier)
         case Self.restoreOriginal:
             let item = NSToolbarItem(itemIdentifier: identifier)
             item.label = "Restore Original"
@@ -92,12 +80,55 @@ final class EditorToolbar: NSObject, NSToolbarDelegate {
         }
     }
 
+    /// The tool picker: one item whose view is a row of toggle buttons, so the toolbar draws it as
+    /// a single glass capsule with no dividers (a select-one `NSToolbarItemGroup` is drawn as a
+    /// segmented control with a divider between every tool). When the toolbar overflows, the
+    /// tools show as a Tools menu.
+    private func makeToolsItem(_ identifier: NSToolbarItem.Identifier) -> NSToolbarItem {
+        let tools = EditorTool.allCases
+        toolButtons = tools.enumerated().map { index, tool in
+            let image = NSImage(systemSymbolName: tool.symbol, accessibilityDescription: tool.label) ?? NSImage()
+            let button = NSButton(image: image, target: self, action: #selector(chooseTool(_:)))
+            button.setButtonType(.pushOnPushOff)
+            button.bezelStyle = .toolbar
+            button.showsBorderOnlyWhileMouseInside = true
+            button.tag = index
+            button.toolTip = tool.toolTip
+            button.setAccessibilityLabel(tool.label)
+            button.setAccessibilityHelp(tool.toolTip)
+            return button
+        }
+        let stack = NSStackView(views: toolButtons)
+        stack.spacing = 4
+        stack.setAccessibilityElement(true)
+        stack.setAccessibilityRole(.group)
+        stack.setAccessibilityLabel("Tools")
+        let menu = NSMenu(title: "Tools")
+        for (index, tool) in tools.enumerated() {
+            let item = NSMenuItem(title: tool.label, action: #selector(chooseTool(_:)), keyEquivalent: "")
+            item.target = self
+            item.tag = index
+            menu.addItem(item)
+        }
+        toolMenu = menu
+        let form = NSMenuItem(title: "Tools", action: nil, keyEquivalent: "")
+        form.submenu = menu
+        let item = NSToolbarItem(itemIdentifier: identifier)
+        item.label = "Tools"
+        item.view = stack
+        item.menuFormRepresentation = form
+        return item
+    }
+
     /// Shows the current tool as selected, and Restore Original only when there is something to
     /// restore.
     func update() {
-        if let group = toolGroup, let index = EditorTool.allCases.firstIndex(of: model.editor.tool),
-           group.selectedIndex != index {
-            group.selectedIndex = index
+        let current = EditorTool.allCases.firstIndex(of: model.editor.tool)
+        for button in toolButtons {
+            button.state = button.tag == current ? .on : .off
+        }
+        for item in toolMenu?.items ?? [] {
+            item.state = item.tag == current ? .on : .off
         }
         if let item = restoreItem {
             let video = model.editor.currentMedia?.kind == .video
@@ -108,10 +139,18 @@ final class EditorToolbar: NSObject, NSToolbarDelegate {
         }
     }
 
-    @objc private func chooseTool(_ sender: NSToolbarItemGroup) {
+    /// A tool button or Tools menu item; its tag is the tool's index. Choosing the current tool
+    /// again keeps it selected (the button's own toggle is undone by `update`).
+    @objc private func chooseTool(_ sender: Any?) {
         let tools = EditorTool.allCases
-        guard tools.indices.contains(sender.selectedIndex) else { return }
-        model.mutate { $0.setTool(tools[sender.selectedIndex]) }
+        guard let tag = (sender as? NSButton)?.tag ?? (sender as? NSMenuItem)?.tag, tools.indices.contains(tag) else { return }
+        model.mutate { $0.setTool(tools[tag]) }
+        update()
+    }
+
+    /// Clicks the tool button for `tool`, as a mouse click does, for `--render-ui-previews`.
+    func clickToolButton(_ tool: EditorTool) {
+        toolButtons.first { $0.tag == EditorTool.allCases.firstIndex(of: tool) }?.performClick(nil)
     }
 
     @objc private func restoreOriginal(_: Any?) {
@@ -126,10 +165,13 @@ final class EditorToolbar: NSObject, NSToolbarDelegate {
     func describe() -> [String: Any] {
         [
             "identifiers": toolbar.items.map(\.itemIdentifier.rawValue),
-            "tools": toolGroup?.subitems.map(\.label) ?? [],
-            "toolTips": toolGroup?.subitems.map { $0.toolTip ?? "" } ?? [],
-            "selectedTool": toolGroup
-                .map { $0.subitems.indices.contains($0.selectedIndex) ? $0.subitems[$0.selectedIndex].label : "" } ?? "",
+            "tools": toolButtons.map { $0.accessibilityLabel() ?? "" },
+            "toolTips": toolButtons.map { $0.toolTip ?? "" },
+            "toolSymbols": EditorTool.allCases.map(\.symbol),
+            "toolsAreOneView": toolbar.items.first { $0.itemIdentifier == Self.tools }?.view is NSStackView,
+            "selectedTools": toolButtons.filter { $0.state == .on }.map { $0.accessibilityLabel() ?? "" },
+            "selectedTool": toolButtons.first { $0.state == .on }?.accessibilityLabel() ?? "",
+            "menuTools": toolMenu?.items.map(\.title) ?? [],
             "restoreHidden": restoreItem?.isHidden ?? true,
             "submit": toolbar.items.first { $0.itemIdentifier == Self.submitReview }?.title ?? "",
         ]

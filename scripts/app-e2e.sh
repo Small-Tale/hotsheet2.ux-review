@@ -1295,6 +1295,13 @@ TB="$TMP/previews/editor-toolbar.json"
 [[ "$(json "$TB" '[j.opened.selectedTool, j.opened.restoreHidden, j.cropped.selectedTool, j.cropped.restoreHidden, j.cropped.submit, j.submitted].join("|")')" == \
   "Select|true|Crop|false|Submit Review…|1" ]] || die "toolbar: states $(json "$TB" 'JSON.stringify(j)')"
 ok "the editor's native toolbar: tools on the right follow the keyboard, Restore Original after a crop, Submit Review… works"
+# HS2-YE2X53: the tools are one view of buttons (one capsule, no segment dividers), insertion uses
+# text.insert, exactly one tool shows selected, a click chooses a tool, a second click keeps it, and
+# the overflow Tools menu lists every tool.
+[[ "$(json "$TB" '[j.opened.toolsAreOneView, j.opened.toolSymbols[4], j.opened.selectedTools.join(), j.cropped.selectedTools.join(), j.clicked.selectedTools.join(), j.clickedAgain.selectedTools.join(), j.toolAfterClicks, j.opened.menuTools.join()].join("|")')" == \
+  "true|text.insert|Select|Crop|Rectangle|Rectangle|Rectangle|Select,Rectangle,Freehand,Arrow,Insertion,Strike,Crop" ]] \
+  || die "toolbar: tool buttons $(json "$TB" 'JSON.stringify([j.opened, j.clicked, j.clickedAgain, j.toolAfterClicks])')"
+ok "the tools are one capsule of buttons: one selected, clicks choose, the overflow menu lists them"
 # HS2-56FCW3: Submit Review… is a prominent item whose real button carries its label on glass. The
 # offscreen editor-window.png can't draw the glass fill (a white capsule there is expected).
 [[ "$(json "$TB" '[j.submitStyle, j.submitButton.found, j.submitButton.enabled, j.submitButton.visible, j.submitButton.glass].join("|")')" == \

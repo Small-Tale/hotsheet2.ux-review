@@ -57,6 +57,7 @@ extension EditorPreviews {
         apply(.crop(CGRect(x: 220, y: 90, width: 1180, height: 560)), to: model)
         settle { toolbar.describe()["restoreHidden"] as? Bool == false }
         let cropped = toolbar.describe()
+        let clicks = clickRectangleTwice(toolbar)
         if let submit = window.toolbar?.items.first(where: { $0.itemIdentifier == EditorToolbar.submitReview }),
            let action = submit.action {
             NSApp.sendAction(action, to: submit.target, from: submit)
@@ -66,6 +67,7 @@ extension EditorPreviews {
         try JSONSerialization.data(
             withJSONObject: [
                 "opened": opened, "cropped": cropped, "submitted": submitted,
+                "clicked": clicks.clicked, "clickedAgain": clicks.again, "toolAfterClicks": model.editor.tool.label,
                 "toolbarStyle": window.toolbarStyle == .unified ? "unified" : "other",
                 "titleVisible": window.titleVisibility == .visible,
                 "submitStyle": window.toolbar?.items.first { $0.itemIdentifier == EditorToolbar.submitReview }
@@ -77,6 +79,14 @@ extension EditorPreviews {
         ).write(to: url)
         written.append(url)
         return written
+    }
+
+    /// A click on the Rectangle button chooses it; a second click keeps it chosen (`HS2-YE2X53`).
+    static func clickRectangleTwice(_ toolbar: EditorToolbar) -> (clicked: [String: Any], again: [String: Any]) {
+        toolbar.clickToolButton(.rect)
+        let clicked = toolbar.describe()
+        toolbar.clickToolButton(.rect)
+        return (clicked, toolbar.describe())
     }
 
     /// The Submit Review… button AppKit made for the prominent item (`HS2-56FCW3`). Its accent
