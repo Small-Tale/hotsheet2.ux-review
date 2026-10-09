@@ -132,22 +132,10 @@ public struct DraftTicketText: Codable, Equatable, Sendable {
 
     public var newTicket: String?
     public var existingTicket: String?
-    /// The new ticket's title as the reviewer typed it (`HS2-CR8M4X`, docs/07 §7.2.1); nil files
-    /// with the standard "UX review: <review title>".
-    public var newTicketTitle: String?
 
-    public init(newTicket: String? = nil, existingTicket: String? = nil, newTicketTitle: String? = nil) {
+    public init(newTicket: String? = nil, existingTicket: String? = nil) {
         self.newTicket = newTicket
         self.existingTicket = existingTicket
-        self.newTicketTitle = newTicketTitle
-    }
-
-    /// `text` as a ticket title: one line, trimmed; nil when blank or the same as `standard`
-    /// (the standard title then follows later edits of the review's title).
-    public static func ticketTitle(_ text: String?, standard: String) -> String? {
-        let line = (text ?? "").components(separatedBy: .newlines)
-            .map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }.joined(separator: " ")
-        return line.isEmpty || line == standard ? nil : line
     }
 
     /// The edited template for `mode`, or nil for the standard one.
@@ -174,7 +162,7 @@ public struct DraftTicketText: Codable, Equatable, Sendable {
         self[mode] ?? TicketPreamble.standard(mode)
     }
 
-    public var isStandard: Bool { newTicket == nil && existingTicket == nil && newTicketTitle == nil }
+    public var isStandard: Bool { newTicket == nil && existingTicket == nil }
 
     public static func load(from directory: URL) -> DraftTicketText {
         let url = directory.appendingPathComponent(filename)
@@ -184,7 +172,7 @@ public struct DraftTicketText: Codable, Equatable, Sendable {
         return text
     }
 
-    /// Writes the file, or removes it when both preambles and the title are standard.
+    /// Writes the file, or removes it when both preambles are standard.
     public func save(to directory: URL) throws {
         let url = directory.appendingPathComponent(Self.filename)
         if isStandard {

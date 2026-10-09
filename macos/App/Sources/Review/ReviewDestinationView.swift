@@ -25,7 +25,6 @@ struct ReviewDestinationRows: View {
         .accessibilityIdentifier("session-destination")
 
         if session.destination == .newTicket {
-            TicketTitleField(model: model)
             Text("Files a new intake ticket. An AI working it splits it into one ticket per change.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
@@ -156,27 +155,6 @@ private struct ReviewSelectionList: View {
         let note = annotation.note.trimmingCharacters(in: .whitespacesAndNewlines)
         parts.append(note.isEmpty ? "no note" : note.replacingOccurrences(of: "\n", with: " "))
         return parts.joined(separator: " · ")
-    }
-}
-
-/// The new ticket's title (`HS2-CR8M4X`, §7.2.1). Blank files the standard "UX review: <title>",
-/// shown as the prompt. The field keeps what is typed (spaces included) and saves it as it
-/// changes; the saved title is that text trimmed to one line.
-struct TicketTitleField: View {
-    @ObservedObject var model: ReviewSessionModel
-    @State private var text: String
-
-    init(model: ReviewSessionModel) {
-        self.model = model
-        _text = State(initialValue: model.ticketText.newTicketTitle ?? "")
-    }
-
-    var body: some View {
-        TextField("Ticket title", text: $text, prompt: Text(model.standardTicketTitle))
-            .disabled(!model.session.isEditable)
-            .onChange(of: text) { _, new in model.setTicketTitle(new) }
-            .help("The new ticket's title. Leave it blank for “\(model.standardTicketTitle)”.")
-            .accessibilityIdentifier("session-ticket-title")
     }
 }
 
@@ -322,5 +300,25 @@ struct MarkdownPreview: View {
             attributed[run.range].font = .system(.callout, design: .monospaced)
         }
         return Text(attributed)
+    }
+}
+
+/// The review's one title (`HS2-025XNF`, §7.2): a full-width bordered field, so it reads as
+/// editable, with a hint that it is the new ticket's title (or heads the existing ticket's note).
+struct ReviewTitleField: View {
+    @ObservedObject var model: ReviewSessionModel
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("Title")
+            TextField("Title", text: $model.title, prompt: Text("What was reviewed"))
+                .textFieldStyle(.roundedBorder)
+                .labelsHidden()
+                .accessibilityLabel("Title")
+                .accessibilityIdentifier("session-title")
+            Text(model.session.destination == .newTicket ? "Also the new ticket's title." : "Heads the note added to the ticket.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
     }
 }

@@ -35,9 +35,9 @@ The extra locations matter because GUI apps launched from Finder get a minimal `
    check fails.
 2. Writes `review.json` into the media directory.
 3. Runs `hotsheet-cli -C <store> new --actor-role=human --actor-id=ux-review --title=… --category=task --details=… --tag=ux-review`,
-   then parses `Created <SLUG>` from its output. The title is "UX review: <review title>", or the
-   reviewer's own ticket title when one was typed (`HS2-CR8M4X`,
-   [07-review-session.md](07-review-session.md) §7.2).
+   then parses `Created <SLUG>` from its output.
+   The title is the review's title as typed (`HS2-025XNF`; the `ux-review` tag marks intake
+   tickets).
 4. Runs `hotsheet-cli -C <store> attach --actor-role=human --actor-id=ux-review <SLUG> --batch-id=batch-uxreview-<uuid> --batch-label=UX review capture --purpose=problem_evidence -- <media…> review.json`.
    This attaches everything as **one durable batch**. UX Review picks the batch id, so a resumed
    attach can join the same batch (below).
@@ -72,7 +72,7 @@ Hot Sheet's gallery. The regions are fully described in the ticket body and in `
 
 ## 3.3 Intake ticket body
 
-The ticket is titled `UX review: <title>`, has category `task`, and carries the tag `ux-review`.
+The ticket is titled with the review's title as typed (`HS2-025XNF`), has category `task`, and carries the tag `ux-review`.
 `TicketComposer` builds the Markdown body:
 
 1. **Instructions for the AI processing this ticket**. Don't implement the ticket directly. Read

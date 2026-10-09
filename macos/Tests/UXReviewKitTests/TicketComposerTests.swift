@@ -5,7 +5,7 @@ import Testing
 struct TicketComposerTests {
     @Test func composesIntakeTicketForExample() throws {
         let composed = try TicketComposer.compose(TestSupport.exampleBundle())
-        #expect(composed.ticket.title == "UX review: Settings window polish")
+        #expect(composed.ticket.title == "Settings window polish")
         #expect(composed.ticket.category == "task")
         #expect(composed.ticket.tags == ["ux-review"])
         #expect(composed.bundleFilename == "review.json")

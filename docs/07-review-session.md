@@ -28,9 +28,9 @@ Reviews window (§7.9) opens it on any other draft.
 | Area | Contents |
 | --- | --- |
 | Hot Sheet project | First, so where the review goes is chosen before anything else (`HS2-8HMGTD`). The target project's name and the store it files into, or the problem (§7.6). **Change** lists recent projects (the current one checked), then **Choose Folder…** |
-| Review | **Title** (required) and **Summary** (Markdown, optional). Typing is saved into the draft's `review.json` half a second after it stops. "Give the review a title." shows under a blank title |
+| Review | **Title** (required) and **Summary** (Markdown, optional). The Title is a full-width bordered field with a hint under it. It is the one title (`HS2-025XNF`): a new ticket is filed under it exactly as typed (trimmed). Added to an existing ticket, it heads the note ("UX review: <title>"). Typing is saved into the draft's `review.json` half a second after it stops. "Give the review a title." shows under a blank title |
 | Captures (N) | One row per capture in review order, **as it will be filed** (`SubmissionPreview`, `HS2-64P9DT`): thumbnail (the cropped part of a cropped image; a movie's frame at its trim start, cut to its crop, with a play badge), file name, pixel size as filed ("cropped" after a crop of an image or movie; "scaled for Claude" when it is downscaled for AI, as in "2576×1449 scaled for Claude", §7.5.1), duration ("trimmed" after a trim), the number of annotations filed with it, and source app. When a crop or trim leaves annotations out, a line says so, such as "2 annotations outside the crop will be left out" ("the crop or trim" for a movie with both). Nothing is cropped or trimmed until submitting (§7.5); the preview reads `edits.json`. A capture with a problem shows it in orange under its details (§7.3). **Annotate** opens the editor on that capture; **Annotate…** in the header opens it on the first. The trash button removes the capture after a confirmation |
-| Ticket | **Submit as** **New ticket** (the default) or **Add to existing ticket**. For a new ticket, **Ticket title** (`HS2-CR8M4X`): blank files the standard "UX review: <title>", which shows as its prompt and follows the review's title; typed text is saved with the review (`ticket-text.json`), one line, trimmed. For an existing ticket, the ticket field and its lookup (§7.2.1). Then **Ticket text**, the preamble for the chosen destination (§7.2.3) |
+| Ticket | **Submit as** **New ticket** (the default) or **Add to existing ticket**, and for the latter the ticket field and its lookup (§7.2.1). Then **Ticket text**, the preamble for the chosen destination (§7.2.3) |
 | Before submitting | Only when the review has a problem that belongs to no field or capture (an unsupported format, duplicate ids); shown above every other section |
 | Footer | **Discard Review…** (§7.9; disabled while submitting), the counts as filed ("3 captures · 4 annotations", plus "(2 left out)" when a crop or trim leaves some out), the only remaining problem, or "N things to fix before submitting"; progress while submitting; the failure (§7.5); and **Submit to Hot Sheet** (default button, Return), which reads **Try Again** after a failure |
 
@@ -369,7 +369,7 @@ ticket again.
 
 ```
 UXReview --submit [--drafts-dir DIR] [--draft NAME] [--project DIR] [--title T] [--summary S] [--to-ticket REF [--exclude IDS]]
-                  [--ticket-title T] [--downscale on|off]
+                  [--downscale on|off]
 ```
 
 Files the current draft (or the draft named by `--draft`) through the same `ReviewSession`
@@ -379,9 +379,7 @@ replace the draft's own before checking. `--to-ticket` adds the review to that e
 before checking, so an unknown ticket is an `invalidReview` issue. `--exclude m2,a3` (with
 `--to-ticket` only) leaves those captures and annotations out (§7.2.2); an id that is neither is
 `invalidArguments`, and excluding every capture is an `invalidReview` issue. `--downscale on|off`
-replaces the Downscale for AI setting for this submission (§7.5.1). `--ticket-title T` files the
-new ticket under that title, saved with the draft like one typed in the window (`HS2-CR8M4X`). It
-can't go with `--to-ticket` (`invalidArguments`).
+replaces the Downscale for AI setting for this submission (§7.5.1).
 
 - On success: `status: "submitted"`, `slug`, `ticketFile`, `storePath`, `title`, `mediaCount`,
   `annotationCount`, `draftDirectory`, `draftRemoved`, `addedToExistingTicket`, and `ticketTitle`

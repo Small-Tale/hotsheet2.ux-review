@@ -81,8 +81,7 @@ struct ReviewSessionView: View {
             .disabled(!editable)
 
             Section {
-                TextField("Title", text: $model.title, prompt: Text("What was reviewed"))
-                    .accessibilityIdentifier("session-title")
+                ReviewTitleField(model: model)
                 if model.session.issues.contains(.blankTitle) {
                     IssueLabel(text: SessionIssue.blankTitle.message(in: model.session.bundle))
                         .font(.caption)

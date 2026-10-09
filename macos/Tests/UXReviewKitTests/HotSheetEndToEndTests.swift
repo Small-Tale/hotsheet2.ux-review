@@ -50,9 +50,7 @@ struct HotSheetEndToEndTests {
         try #require(show.exitCode == 0, "show failed: \(show.stderr)")
         let ticket = show.stdout
         #expect(
-            ticket.contains("title: 'UX review: Settings window polish'") || ticket
-                .contains("title: \"UX review: Settings window polish\"")
-                || ticket.contains("title: UX review: Settings window polish")
+            ticket.contains("title: Settings window polish") || ticket.contains("title: 'Settings window polish'")
         )
         #expect(ticket.contains("category: task"))
         #expect(ticket.contains("- ux-review"))
@@ -143,7 +141,7 @@ struct HotSheetEndToEndTests {
         for name in ["capture-1.png", "capture-2.mov", "capture-3.png", "review.json"] {
             #expect(show.stdout.contains("filename: \(name)"))
         }
-        #expect(show.stdout.contains("UX review: Checkout flow"))
+        #expect(show.stdout.contains("title: Checkout flow"))
         #expect(show.stdout.contains("Three captures from the checkout."))
         #expect(show.stdout.contains("### #2 · insert · `attachment:capture-2.mov`"))
         #expect(show.stdout.contains("`attachment:capture-2.mov` (video, 640×400, 0:02.000, with audio)"))

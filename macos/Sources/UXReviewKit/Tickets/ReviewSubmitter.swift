@@ -137,7 +137,7 @@ public struct ReviewSubmitter: Sendable {
             throw ReviewSubmissionError.missingMedia(file.lastPathComponent)
         }
 
-        let composed = TicketComposer.compose(bundle, preamble: ticketText.newTicket, title: ticketText.newTicketTitle)
+        let composed = TicketComposer.compose(bundle, preamble: ticketText.newTicket)
         let bundleFile = mediaDirectory.appendingPathComponent(composed.bundleFilename)
         try ReviewBundle.makeEncoder().encode(bundle).write(to: bundleFile, options: .atomic)
         return (composed, mediaFiles + [bundleFile])

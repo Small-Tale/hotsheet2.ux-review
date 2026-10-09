@@ -651,7 +651,8 @@ run submit-blank 2 -- --submit "${SUB[@]}" --title " "
 [[ "$(json "$TMP/submit-blank.json" j.error)" == invalidReview ]] || die "submit: blank title error"
 [[ "$(json "$TMP/submit-blank.json" 'j.issues.join("|")')" == "Give the review a title." ]] || die "submit: issues $(json "$TMP/submit-blank.json" 'j.issues.join("|")')"
 [[ -f "$sdraft/review.json" && "$(json "$sdraft/review.json" j.media.length)" == 2 ]] || die "submit: a refused submit changed the draft"
-[[ -z "$(hs -C "$TMP/subproj.hs2" ls 2>/dev/null | grep 'UX review' || true)" ]] || die "submit: a refused submit created a ticket"
+# Intake tickets carry the ux-review tag (their title is the review's own, HS2-025XNF).
+[[ -z "$(hs -C "$TMP/subproj.hs2" ls --tag ux-review 2>/dev/null | grep 'HS-' || true)" ]] || die "submit: a refused submit created a ticket"
 ok "no Hot Sheet store: exit 3; blank title: exit 2 with the issue; the draft is kept and no ticket exists"
 
 # A CLI that creates the ticket but fails the first attach: the draft is kept with the ticket
@@ -690,13 +691,13 @@ web_url="$(json "$TMP/hshome/client.json" j.url)"
 [[ ! -e "$sdraft" ]] || die "submit: the submitted draft was not deleted"
 [[ -f "$(json "$TMP/submit.json" j.ticketFile)" ]] || die "submit: no ticket file"
 hs -C "$TMP/subproj.hs2" show "$slug" >"$TMP/submitted-ticket.md"
-for needle in "UX review: Checkout flow" "Two captures from checkout." "filename: capture-1.png" "filename: capture-2.mov" \
+for needle in "title: Checkout flow" "Two captures from checkout." "filename: capture-1.png" "filename: capture-2.mov" \
   "filename: review.json" "batch_label: UX review capture" "### #2 · insert · \`attachment:capture-2.mov\`" \
   ", with audio)" "usually the reviewer's spoken narration"; do
   grep -qF "$needle" "$TMP/submitted-ticket.md" || die "submit: ticket lacks '$needle'"
 done
 grep -q "filename: submission.json" "$TMP/submitted-ticket.md" && die "submit: the pending record was attached"
-[[ "$(hs -C "$TMP/subproj.hs2" ls 2>/dev/null | grep -c 'UX review')" == 1 ]] || die "submit: expected exactly one intake ticket"
+[[ "$(hs -C "$TMP/subproj.hs2" ls --tag ux-review 2>/dev/null | grep -c 'HS-')" == 1 ]] || die "submit: expected exactly one intake ticket"
 run submit-again 2 -- --submit "${SUB[@]}"
 [[ "$(json "$TMP/submit-again.json" j.error)" == noDraft ]] || die "submit: the filed draft is still current"
 grep -F "\`attachment:capture-2.mov\` (video," "$TMP/submitted-ticket.md" | grep -qF "with audio)" \
@@ -886,19 +887,14 @@ done
 [[ -e "$learlier" ]] || die "link: the other review was removed"
 ok "a review a capture link started files to the link's project and ticket by default"
 
-echo "review session: the new ticket's title (HS2-CR8M4X)"
+echo "review session: one title (HS2-025XNF)"
 TDRAFTS="$TMP/title-drafts"
-TSUB=(--drafts-dir "$TDRAFTS" --project "$TMP/subproj")
 run title-shot 0 "${SYN[@]}" -- --capture screenshot --target region --rect 100,100,300,200 --drafts-dir "$TDRAFTS"
-tdraft="$(json "$TMP/title-shot.json" j.draftDirectory)"
-run title-with-existing 2 -- --submit "${TSUB[@]}" --ticket-title "Nope" --to-ticket "$existing"
-[[ "$(json "$TMP/title-with-existing.json" j.error)" == invalidArguments && -e "$tdraft" ]] || die "ticket title: --to-ticket combination"
-run title-submit 0 -- --submit "${TSUB[@]}" --title "Checkout" --ticket-title "  Checkout: clipped labels "
-tslug="$(json "$TMP/title-submit.json" j.slug)"
-hs -C "$TMP/subproj.hs2" show "$tslug" >"$TMP/title-ticket.md"
+run title-submit 0 -- --submit --drafts-dir "$TDRAFTS" --project "$TMP/subproj" --title "  Checkout: clipped labels "
+hs -C "$TMP/subproj.hs2" show "$(json "$TMP/title-submit.json" j.slug)" >"$TMP/title-ticket.md"
 [[ "$(grep '^title:' "$TMP/title-ticket.md" | head -1)" == "title: 'Checkout: clipped labels'" ]] \
-  || die "ticket title: $(grep '^title:' "$TMP/title-ticket.md")"
-ok "--ticket-title files the new ticket under the typed title (trimmed); it can't go with --to-ticket"
+  || die "title: $(grep '^title:' "$TMP/title-ticket.md")"
+ok "the review's title is the new ticket's title, exactly as typed (trimmed)"
 
 # HS2-2QP0GM: a capture removed by the review session leaves an open editor consistent.
 RDRAFTS="$TMP/remove-drafts"

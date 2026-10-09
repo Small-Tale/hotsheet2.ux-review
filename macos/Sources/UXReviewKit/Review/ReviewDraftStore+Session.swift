@@ -142,19 +142,6 @@ public extension ReviewDraftStore {
         return text
     }
 
-    /// Saves the new ticket's title the reviewer typed (`HS2-CR8M4X`, docs/07 §7.2.1). Blank, or
-    /// the standard title for the review's current title, goes back to the standard one.
-    @discardableResult
-    func setTicketTitle(_ title: String?, in directory: URL) throws -> DraftTicketText {
-        lock.lock()
-        defer { lock.unlock() }
-        var text = DraftTicketText.load(from: directory)
-        let standard = try TicketComposer.standardTitle(read(directory).bundle)
-        text.newTicketTitle = DraftTicketText.ticketTitle(title, standard: standard)
-        try text.save(to: directory)
-        return text
-    }
-
     /// The half-finished submission recorded for this draft, if any (unreadable records are ignored).
     func pendingSubmission(in directory: URL) -> PendingSubmission? {
         let url = directory.appendingPathComponent(Self.pendingSubmissionFilename)

@@ -91,8 +91,7 @@ enum ReviewSessionPreviews {
     }
 
     /// The Ticket section's preamble (§7.2.3): rendered with values for each destination, an
-    /// edited one (with a typed ticket title, §7.2.1), and the template being edited (placeholders
-    /// as typed).
+    /// edited one, and the template being edited (placeholders as typed).
     private static func renderTicketText(
         _ draft: ReviewDraft, store: ReviewDraftStore, model: (ReviewDraft) -> ReviewSessionModel, to directory: URL
     ) throws -> [URL] {
@@ -118,12 +117,7 @@ enum ReviewSessionPreviews {
                 + "1. Keep the captures ({{media}}).\n2. Tag every ticket `settings`.",
             for: .newTicket, in: draft.directory
         )
-        // HS2-CR8M4X: a ticket title typed for the new ticket (the other renders show the prompt).
-        try store.setTicketTitle("Accounts settings: fix clipped labels", in: draft.directory)
-        defer {
-            _ = try? store.setTicketText(nil, for: .newTicket, in: draft.directory)
-            _ = try? store.setTicketTitle(nil, in: draft.directory)
-        }
+        defer { _ = try? store.setTicketText(nil, for: .newTicket, in: draft.directory) }
         let edited = model(draft)
         written.append(try snapshot(
             ReviewSessionView(model: edited),

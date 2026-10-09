@@ -64,7 +64,7 @@ struct DraftSubmitterTests {
             ticket: CreatedTicket(slug: "HS-TEST01"), title: "Checkout polish", mediaCount: 3, annotationCount: 3,
             storePath: "/stores/a.hs2", submittedAt: Date(timeIntervalSince1970: 5000), draftRemoved: true
         ))
-        #expect(fixture.client.created.map(\.title) == ["UX review: Checkout polish"])
+        #expect(fixture.client.created.map(\.title) == ["Checkout polish"])
         #expect(fixture.client.created.first?.details.contains("Overall notes") == true)
         let batch = try #require(fixture.client.attached.first)
         #expect(batch.files.map(\.lastPathComponent) == ["capture-1.png", "capture-2.mov", "capture-3.png", "review.json"])
