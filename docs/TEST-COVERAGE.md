@@ -1720,3 +1720,12 @@ text stacked one word per line at 99 pt wide. The empty Draft Reviews window was
 - **Not covered automatically:** real pointer hover and Full Keyboard Access focus revealing the
   ✕, and VoiceOver's Remove action (`HS2-MVGVJ4`). Removal itself is covered by the
   `HS2-SSM1E7` tests.
+
+## HS2-XSXV5E: the timeline bar in a narrow window
+
+- **App end to end** (`scripts/app-e2e.sh`): `editor-video-layout.json` records the canvas height
+  in each video render. The 900 × 560 `editor-video-narrow` canvas is exactly 240 points shorter
+  than the 1240 × 800 one, so the timeline bar kept its height. Before the fix, "/ 0:03.00" wrapped
+  a character per line and grew the bar.
+- **Visual QA:** `editor-video-narrow` (Trim Start / Trim End as icons, the duration on one line)
+  and `editor-video-timeline` (titles shown), inspected by hand.

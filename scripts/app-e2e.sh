@@ -1295,6 +1295,12 @@ TB="$TMP/previews/editor-toolbar.json"
 [[ "$(json "$TB" '[j.opened.selectedTool, j.opened.restoreHidden, j.cropped.selectedTool, j.cropped.restoreHidden, j.cropped.submit, j.submitted].join("|")')" == \
   "Select|true|Crop|false|Submit Review…|1" ]] || die "toolbar: states $(json "$TB" 'JSON.stringify(j)')"
 ok "the editor's native toolbar: tools on the right follow the keyboard, Restore Original after a crop, Submit Review… works"
+# HS2-XSXV5E: the timeline bar keeps one height in a narrow window (the total duration once
+# wrapped a character per line): the canvas takes all 240 points the 900 x 560 window loses.
+VL="$TMP/previews/editor-video-layout.json"
+[[ "$(json "$VL" 'j["editor-video-timeline"] - j["editor-video-narrow"]')" == "240" ]] \
+  || die "video layout: $(json "$VL" 'JSON.stringify(j)')"
+ok "the video timeline bar keeps its height in a narrow window"
 # HS2-JMCM6S: the canvas surround follows the appearance: a light gray in light mode (not the old
 # fixed dark slab), near-black in dark mode, neutral in both.
 CC="$TMP/previews/editor-canvas-colors.json"

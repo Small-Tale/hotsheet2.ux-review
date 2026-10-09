@@ -31,21 +31,19 @@ struct TimelineBar: View {
                         model.mutate { $0.movePlayhead(to: millis) }
                     }
                     .help("Type a time to move the playhead, for example 1.5 or 0:01.50")
+                    // Never wrapped: in a narrow window the trim buttons give way first (HS2-XSXV5E).
                     Text("/ \(TimeFormat.clock(duration))")
                         .font(.callout.monospacedDigit())
                         .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                        .fixedSize()
                 }
                 Spacer(minLength: 8)
-                Button { model.mutate { _ = $0.trimStartToPlayhead() } } label: {
-                    Label("Trim Start", systemImage: "arrow.right.to.line")
+                // With their labels when they fit, else as icons (with the same help and labels).
+                ViewThatFits(in: .horizontal) {
+                    trimButtons(labeled: true)
+                    trimButtons(labeled: false)
                 }
-                .help("Cut everything before the playhead (or drag the clip's left handle)")
-                .disabled(editor.currentTimeMs <= 0 || duration - editor.currentTimeMs < AnnotationEditor.minimumTrimMs)
-                Button { model.mutate { _ = $0.trimEndToPlayhead() } } label: {
-                    Label("Trim End", systemImage: "arrow.left.to.line")
-                }
-                .help("Cut everything after the playhead (or drag the clip's right handle)")
-                .disabled(editor.currentTimeMs >= duration || editor.currentTimeMs < AnnotationEditor.minimumTrimMs)
             }
             .buttonStyle(.borderless)
             TimelineTrack(model: model, duration: duration)
@@ -53,6 +51,39 @@ struct TimelineBar: View {
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
+    }
+
+    private func trimButtons(labeled: Bool) -> some View {
+        let editor = model.editor
+        let duration = editor.currentDurationMs ?? 0
+        return HStack(spacing: 8) {
+            Button { model.mutate { _ = $0.trimStartToPlayhead() } } label: {
+                Label("Trim Start", systemImage: "arrow.right.to.line").labelStyle(TrimLabelStyle(labeled: labeled))
+            }
+            .help("Cut everything before the playhead (or drag the clip's left handle)")
+            .accessibilityLabel("Trim Start")
+            .disabled(editor.currentTimeMs <= 0 || duration - editor.currentTimeMs < AnnotationEditor.minimumTrimMs)
+            Button { model.mutate { _ = $0.trimEndToPlayhead() } } label: {
+                Label("Trim End", systemImage: "arrow.left.to.line").labelStyle(TrimLabelStyle(labeled: labeled))
+            }
+            .help("Cut everything after the playhead (or drag the clip's right handle)")
+            .accessibilityLabel("Trim End")
+            .disabled(editor.currentTimeMs >= duration || editor.currentTimeMs < AnnotationEditor.minimumTrimMs)
+        }
+        .fixedSize()
+    }
+}
+
+/// Title and icon, or the icon alone when the timeline bar is narrow.
+private struct TrimLabelStyle: LabelStyle {
+    let labeled: Bool
+
+    func makeBody(configuration: Configuration) -> some View {
+        if labeled {
+            HStack(spacing: 4) { configuration.icon; configuration.title }
+        } else {
+            configuration.icon
+        }
     }
 }
 

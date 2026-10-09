@@ -144,6 +144,7 @@ macos/
     Editor/NoteFields.swift           the Capture note field and the notes' Markdown tooltip
     Editor/EditorPreviews.swift       editor states + mock screenshots for --render-ui-previews
     Editor/EditorPreviews+Appearance.swift  editor-canvas-colors.json: the canvas surround sampled in light and dark
+    Editor/EditorPreviews+Video.swift  the video editor's preview states; editor-video-layout.json (canvas heights)
     Editor/EditorPreviews+Crop.swift  the Crop tool's preview states (image and video crops)
     Editor/EditorPreviews+ArrowHeads.swift  every head style and a selected span (editor-arrow-heads)
     Editor/EditorPreviews+Toolbar.swift  the real toolbar on a titled window: editor-toolbar.json, editor-window.png
