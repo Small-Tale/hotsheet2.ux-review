@@ -3,8 +3,7 @@
 Status: implemented on macOS (`HS2-9H7WZ8`). Freehand smoothing is `HS2-5N1GFW`. Zoom/pan is
 `HS2-9Y9DDY`. Video trim and annotation time ranges are `HS2-GBM8JN` (§6.10). Arrow-key frame steps are
 `HS2-8FTZ09` (§6.4, §6.10); since `HS2-BADS0F` every movie, variable-frame-rate ones included,
-steps on a uniform grid at its expected frame rate (§6.10). The timeline step buttons and
-`,` / `.` keep 0.1 s steps (`HS2-JP7Z4W`, §6.10). The Crop tool shows the original and adjusts one
+steps on a uniform grid at its expected frame rate (§6.10). `,` / `.` keep 0.1 s steps (`HS2-JP7Z4W`, §6.10). The Crop tool shows the original and adjusts one
 crop rectangle (`HS2-4N722Z`, §6.6); videos crop with the same tool (`HS2-M03YP2`, §6.6).
 
 The editor marks up the captures of a draft review ([04-capture.md](04-capture.md) §4.6). It
@@ -48,7 +47,7 @@ UX Review** (or a click on the Dock icon) opens it on the current draft
 | Media strip (left, whenever the review has a capture) | Thumbnails (with the current crop) plus a count badge of annotations on each. Click one to show it; ⌘-click and ⇧-click select several (§6.7.2). The whole thumbnail cell (image, filename, and the space around them) takes the click, and only that cell: a capture of any shape, such as a tall portrait window, never takes clicks meant for its neighbors (`HS2-QXJZJ9`). Videos are marked. The shown thumbnail has a ✕ button while the pointer is over it (§6.7.1), and every thumbnail a **Remove from Review…** context menu item (§6.7.1). **Resizable** (`HS2-AH6HW4`): drag the line between the strip and the canvas (96–320 pt, 112 standard); thumbnails grow with it, the width is kept across windows and launches, a double-click on the line restores the standard width, and VoiceOver adjusts it in 16 pt steps. In a window too narrow for the saved width, the strip gives way (never below 96 pt) so the canvas keeps its 420 pt minimum and the 300 pt inspector stays inside the window; the saved width comes back as the window widens (`HS2-RZVDEQ`) |
 | Canvas | The current capture fitted to the view (at most 2×) or zoomed (§6.2.1), on a neutral surround that follows the appearance (light gray in light mode, near-black in dark mode, as in Preview; a soft shadow and hairline keep a white screenshot's edge visible, `HS2-JMCM6S`), with annotations drawn on top. A video shows the frame at the playhead |
 | Toasts (top of the canvas) | No status line (`HS2-KJCJWX`). The editor's messages (crop and trim results and hints) show as a toast that fades after 4 seconds; a save error shows as a toast with a warning sign that stays until saving works again. Saving itself (autosave, ⌘S) shows nothing (`EditorToast`, `ToastPresenter`) |
-| Timeline (under the canvas, videos only) | Play/pause, frame step, playhead time with the total duration (always one line), **Trim Start** / **Trim End** (icons only when the window is too narrow for their titles, with the same tooltips and VoiceOver labels, `HS2-XSXV5E`), and the scrubber with each annotation's time range (§6.10) |
+| Timeline (under the canvas, videos only) | Play/pause, playhead time with the total duration (always one line), **Trim Start** / **Trim End** (icons only when the window is too narrow for their titles, with the same tooltips and VoiceOver labels, `HS2-XSXV5E`), and the scrubber with each annotation's time range (§6.10) |
 | Inspector (right) | A navigation stack (§6.5.1, `HS2-4R84WH`). Its root has the **Capture note** for the capture on the canvas (§6.5.2), then lists every annotation on this capture in review order: number, shape, intents, time range (videos), and note preview. Clicking a row (or selecting the annotation on the canvas) pushes that annotation's page: a **‹ Annotations** back button, then its number, shape, intents, shape options, time (videos, §6.10), and Markdown note, with Duplicate and Delete buttons |
 
 Videos can be trimmed and their annotations given time ranges (§6.10), and cropped like images
@@ -236,7 +235,7 @@ So a small box drawn inside a big one stays selectable.
 | ⌘S | Save now |
 | ⌘+ / ⌘- / ⌘9 / ⌘0, Space-drag | Zoom in / out / to fit / actual size (View menu), pan (§6.2.1) |
 | K | Videos: play / pause (§6.10) |
-| , / . (⇧: 1 s) | Videos: step the playhead back / forward 0.1 s, like the timeline's step buttons, whatever the frame rate (§6.10) |
+| , / . (⇧: 1 s) | Videos: step the playhead back / forward 0.1 s, whatever the frame rate (§6.10). The timeline has no step buttons (`HS2-QXNXHS`); stepping is on the keyboard |
 | Home / End | Videos: move the playhead to the start / end |
 
 **Arrow keys** (`HS2-8FTZ09`). ← / → act on what the reviewer used last, the canvas or the
@@ -704,7 +703,7 @@ the clip, and the clip itself can be trimmed.
 
 **Playhead.** The canvas shows the frame at the playhead.
 
-- **Moving it:** click or drag the scrubber; the step buttons or `,` / `.` step 0.1 s (⇧: 1 s);
+- **Moving it:** click or drag the scrubber; `,` / `.` step 0.1 s (⇧: 1 s);
   ← / → step one frame (⇧: 10) once the scrubber is the last-used target (§6.4);
   Home / End jump to the ends. See **Time steps and frame steps** below for why there are two. The time reads `0:01.50 / 0:03.00`, and the playhead time is a
   field: type a time and press Return to move there (see **Typing times** below).
@@ -717,7 +716,7 @@ the clip, and the clip itself can be trimmed.
 
 | Control | Step (⇧) | Moves | Unit |
 | --- | --- | --- | --- |
-| Timeline step buttons, `,` / `.` | 0.1 s (1 s) | the playhead | time, the same on every movie |
+| `,` / `.` | 0.1 s (1 s) | the playhead | time, the same on every movie |
 | ← / → | 1 frame (10 frames) | the last-used timeline target: playhead, trim end, or range end (§6.4) | the movie's expected frame rate (below) |
 
 - **Why both:** 0.1 s is a coarse step to skim a clip at a predictable pace, whatever its frame

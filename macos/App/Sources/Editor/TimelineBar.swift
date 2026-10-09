@@ -3,7 +3,7 @@ import SwiftUI
 import UXReviewKit
 
 /// Under the canvas for videos: play/pause, the playhead scrubber, the time ranges of the current
-/// video's annotations, frame stepping, and trimming at the playhead. The selected range's ends
+/// video's annotations, and trimming at the playhead. Stepping is on the keyboard. The selected range's ends
 /// and the clip's trim handles can be dragged on the track, and the playhead time can be typed.
 /// Spec: docs/06-annotation-editor.md §6.10.
 struct TimelineBar: View {
@@ -20,12 +20,7 @@ struct TimelineBar: View {
                 }
                 .help(model.isPlaying ? "Pause (K)" : "Play (K)")
                 .accessibilityLabel(model.isPlaying ? "Pause" : "Play")
-                Button { model.mutate { $0.stepTime(forward: false) } } label: { Image(systemName: "backward.frame") }
-                    .help("Step back 0.1 s (,  ⇧: 1 s). ← steps one frame")
-                    .accessibilityLabel("Step back")
-                Button { model.mutate { $0.stepTime(forward: true) } } label: { Image(systemName: "forward.frame") }
-                    .help("Step forward 0.1 s (.  ⇧: 1 s). → steps one frame")
-                    .accessibilityLabel("Step forward")
+                // No step buttons (HS2-QXNXHS): ← / → step a frame, `,` / `.` 0.1 s (⇧: 1 s).
                 HStack(spacing: 4) {
                     TimeField(label: "Playhead time", millis: editor.currentTimeMs) { millis in
                         model.mutate { $0.movePlayhead(to: millis) }

@@ -1892,3 +1892,10 @@ text stacked one word per line at 99 pt wide. The empty Draft Reviews window was
   The existing `RecentProjects.menu` tests pass unchanged.
 - **Not covered automatically:** the live menu's "Hot Sheet Projects" heading and the background
   load, against a real `hotsheet-cli checkout list` (it lists 16 checkouts on the dev machine).
+
+## HS2-QXNXHS: no frame-step buttons on the timeline
+
+- **Visual QA:** `editor-video-timeline` and `editor-video-narrow` show play, the playhead time,
+  and Trim with no ◁| / |▷ buttons, inspected by hand.
+- Stepping is unchanged on the keyboard, still covered by the frame-step tests (`HS2-8FTZ09`,
+  `HS2-BADS0F`: `FrameStepTests` and the app-e2e frame steps).
