@@ -61,6 +61,9 @@ macos/
     Review/DraftNumbering.swift       numbering.json: highest capture-N / mN used, so removed captures' names and ids are never reused (docs/07 §7.2)
     Review/ReviewDraftStore+Session.swift  title/summary, remove a capture, submission.json (created ticket, attached names, or a partial attach), delete after submit (docs/07 §7.5)
     Review/ReviewDraftStore+Drafts.swift   list every draft (DraftSummary), discard to the Trash (DraftTrash) or delete immediately, draft-folder safety check (docs/07 §7.9)
+    Review/ReviewDraftStore+Documents.swift  reviews as .uxreview documents: open, makeCurrent, save (move), saveCopy (Save As), duplicate (docs/07 §7.9)
+    Review/RecentReviews.swift        File › Open Recent: recent reviews (at most 10) + persistence, titled entries (docs/07 §7.9)
+    Review/ReviewDocumentCommand.swift  `--open-review` / `--save-review` / `--duplicate-review` parsing (docs/07 §7.10)
     Review/DraftsCommand.swift        `--drafts` / `--discard-draft [--delete]` parsing (docs/07 §7.10)
     Review/SubmitCommand.swift        `--submit` parsing (`--to-ticket`, `--exclude`, `--downscale`), MediaThumbnail (capture list previews: the crop, or the frame at the trim start)
     Settings/Hotkey.swift             global hotkey model: parse/display, Carbon codes (docs/05 §5.2)
@@ -147,10 +150,9 @@ macos/
     Review/HeadlessSubmit.swift       `--submit` mode with JSON output (docs/07 §7.8)
     Review/ReviewSessionPreviews.swift  session states for --render-ui-previews
     Review/ReviewSessionPreviews+Downscale.swift  Downscale for AI wiring probe: Settings toggle → captureSettingsChanged → open session's filed sizes (session-downscale-wiring.json)
-    Review/DraftsWindowController.swift  Draft Reviews window (one) + DraftsModel: list, open, annotate, reveal, discard (docs/07 §7.9)
-    Review/DraftsView.swift           draft rows (title, Current badge, counts, date, problems) and their buttons; empty state
     Review/DraftDiscarding.swift      discard confirmation, close the draft's editor + session windows, move to the Trash; Delete Immediately confirmation when the Trash refuses
+    Review/ReviewDocuments.swift      File › Open…, Open Recent (RecentReviewsMenu in MainMenu.swift), Save…: panels, recents, windows following a moved review (docs/07 §7.9)
+    Review/HeadlessReviewDocuments.swift  `--open-review` / `--save-review` / `--duplicate-review` modes with JSON output (docs/07 §7.10)
     Review/HeadlessDrafts.swift       `--drafts` / `--discard-draft` modes with JSON output (docs/07 §7.10)
-    Review/DraftsPreviews.swift       Draft Reviews window states + the Delete Immediately alert for --render-ui-previews
 linux/, windows/               future native variants (README placeholders)
 ```

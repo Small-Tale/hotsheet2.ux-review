@@ -38,17 +38,21 @@ enum MainMenu {
 
     private static func fileMenu() -> NSMenu {
         let menu = NSMenu(title: "File")
+        // Reviews are `.uxreview` documents (HS2-BKWZ5N, docs/05 §5.1.1, docs/07 §7.9).
         menu.addItem(withTitle: "New Review", action: #selector(AppDelegate.newReview(_:)), keyEquivalent: "n")
-        menu.addItem(withTitle: "Add Media…", action: #selector(AppDelegate.addMedia(_:)), keyEquivalent: "o")
-        menu.addItem(withTitle: "Draft Reviews…", action: #selector(AppDelegate.showDraftReviews(_:)), keyEquivalent: "o")
-            .keyEquivalentModifierMask = [.command, .shift]
+        menu.addItem(withTitle: "Open…", action: #selector(AppDelegate.openReviewDocument(_:)), keyEquivalent: "o")
+        let recent = menu.addItem(withTitle: "Open Recent", action: nil, keyEquivalent: "")
+        recent.submenu = NSMenu(title: "Open Recent")
+        recent.submenu?.delegate = RecentReviewsMenu.shared
         menu.addItem(.separator())
-        menu.addItem(withTitle: "Save", action: #selector(AnnotationCanvasView.saveDocument(_:)), keyEquivalent: "s")
+        menu.addItem(withTitle: "Close", action: #selector(NSWindow.performClose(_:)), keyEquivalent: "w")
+        menu.addItem(withTitle: "Save…", action: #selector(AnnotationCanvasView.saveDocument(_:)), keyEquivalent: "s")
+        menu.addItem(.separator())
+        menu.addItem(withTitle: "Add Media…", action: #selector(AppDelegate.addMedia(_:)), keyEquivalent: "o")
+            .keyEquivalentModifierMask = [.command, .shift]
         // Disabled in a Submit Review window, so ⌘↩ reaches its Submit button instead.
         menu.addItem(withTitle: "Submit Review…", action: #selector(AppDelegate.submitReview(_:)), keyEquivalent: "\r")
         menu.addItem(withTitle: "Show Review in Finder", action: #selector(AppDelegate.revealReview(_:)), keyEquivalent: "")
-        menu.addItem(.separator())
-        menu.addItem(withTitle: "Close Window", action: #selector(NSWindow.performClose(_:)), keyEquivalent: "w")
         return menu
     }
 
@@ -100,9 +104,20 @@ enum MainMenu {
         menu.addItem(withTitle: "Minimize", action: #selector(NSWindow.performMiniaturize(_:)), keyEquivalent: "m")
         menu.addItem(withTitle: "Zoom", action: #selector(NSWindow.performZoom(_:)), keyEquivalent: "")
         menu.addItem(.separator())
-        menu.addItem(withTitle: "Draft Reviews…", action: #selector(AppDelegate.showDraftReviews(_:)), keyEquivalent: "")
-        menu.addItem(.separator())
         menu.addItem(withTitle: "Bring All to Front", action: #selector(NSApplication.arrangeInFront(_:)), keyEquivalent: "")
         return menu
+    }
+}
+
+/// Fills File › Open Recent each time it opens, from the reviews that still exist.
+@MainActor
+final class RecentReviewsMenu: NSObject, NSMenuDelegate {
+    static let shared = RecentReviewsMenu()
+    /// The store the titles are read from; set at launch.
+    var store: ReviewDraftStore?
+
+    func menuNeedsUpdate(_ menu: NSMenu) {
+        guard let store else { return }
+        ReviewDocuments.fillRecentMenu(menu, store: store)
     }
 }

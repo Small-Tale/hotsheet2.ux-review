@@ -91,9 +91,9 @@ struct DraftListingTests {
         try fixture.touch(second, 6000)
 
         let drafts = try fixture.store.listDrafts()
-        #expect(drafts.map(\.name) == ["draft-2", "draft-1"])
+        #expect(drafts.map(\.name) == ["draft-2.uxreview", "draft-1.uxreview"])
         #expect(drafts[0] == DraftSummary(
-            directory: fixture.root.appendingPathComponent("draft-2", isDirectory: true),
+            directory: fixture.root.appendingPathComponent("draft-2.uxreview", isDirectory: true),
             title: "Safari review", captureCount: 1, annotationCount: 0,
             createdAt: Date(timeIntervalSince1970: 1000), modifiedAt: Date(timeIntervalSince1970: 6000), isCurrent: true
         ))
@@ -102,7 +102,7 @@ struct DraftListingTests {
 
         // Editing the older draft moves it to the top; which one is current doesn't change.
         try fixture.touch(first, 7000)
-        #expect(try fixture.store.listDrafts().map { "\($0.name):\($0.isCurrent)" } == ["draft-1:false", "draft-2:true"])
+        #expect(try fixture.store.listDrafts().map { "\($0.name):\($0.isCurrent)" } == ["draft-1.uxreview:false", "draft-2.uxreview:true"])
     }
 
     @Test func equalDatesSortByNameNewestFirst() throws {
@@ -112,7 +112,7 @@ struct DraftListingTests {
         let second = try fixture.capture()
         try fixture.touch(first, 5000)
         try fixture.touch(second, 5000)
-        #expect(try fixture.store.listDrafts().map(\.name) == ["draft-2", "draft-1"])
+        #expect(try fixture.store.listDrafts().map(\.name) == ["draft-2.uxreview", "draft-1.uxreview"])
     }
 
     @Test func unreadableDraftsAreListedWithAnIssueAndClutterIsSkipped() throws {
@@ -134,14 +134,14 @@ struct DraftListingTests {
         try fileManager.createSymbolicLink(at: fixture.root.appendingPathComponent("link"), withDestinationURL: outside)
 
         let drafts = try fixture.store.listDrafts()
-        #expect(Set(drafts.map(\.name)) == ["draft-1", "corrupt", "empty"])
-        #expect(drafts.first?.name == "draft-1")
+        #expect(Set(drafts.map(\.name)) == ["draft-1.uxreview", "corrupt", "empty"])
+        #expect(drafts.first?.name == "draft-1.uxreview")
         let byName = Dictionary(uniqueKeysWithValues: drafts.map { ($0.name, $0) })
         #expect(byName["corrupt"]?.issue == "review.json can't be read.")
         #expect(byName["corrupt"]?.title == "corrupt")
         #expect(byName["empty"]?.issue == "review.json is missing.")
         #expect(byName["empty"]?.isReadable == false)
-        #expect(byName["draft-1"]?.isReadable == true)
+        #expect(byName["draft-1.uxreview"]?.isReadable == true)
     }
 
     @Test func aCorruptCurrentDraftIsStillMarkedCurrent() throws {
@@ -170,7 +170,7 @@ struct DraftListingTests {
         try fixture.store.startNew()
         let current = try fixture.capture()
         let listed = try fixture.store.listDrafts()
-        #expect(try fixture.store.summary(of: old.directory) == listed.first { $0.name == "draft-1" })
+        #expect(try fixture.store.summary(of: old.directory) == listed.first { $0.name == "draft-1.uxreview" })
         #expect(try fixture.store.summary(of: current.directory).isCurrent)
         #expect(throws: ReviewDraftError.outsideDrafts(fixture.root)) { try fixture.store.summary(of: fixture.root) }
         try fixture.store.discard(old.directory)
@@ -184,17 +184,17 @@ struct DraftListingTests {
         let draft = try fixture.capture(2)
         let result = try fixture.store.discard(draft.directory)
         #expect(result.wasCurrent)
-        #expect(result.trashedTo == fixture.trashFolder.appendingPathComponent("draft-1", isDirectory: true))
+        #expect(result.trashedTo == fixture.trashFolder.appendingPathComponent("draft-1.uxreview", isDirectory: true))
         #expect(!fixture.exists(draft.directory))
-        #expect(fixture.exists(fixture.trashFolder.appendingPathComponent("draft-1/capture-2.png")))
+        #expect(fixture.exists(fixture.trashFolder.appendingPathComponent("draft-1.uxreview/capture-2.png")))
         #expect(!fixture.exists(fixture.root.appendingPathComponent("current")))
         #expect(try fixture.store.current() == nil)
         #expect(try fixture.store.listDrafts().isEmpty)
 
         let next = try fixture.capture()
-        #expect(next.directory.lastPathComponent == "draft-2")
+        #expect(next.directory.lastPathComponent == "draft-2.uxreview")
         #expect(next.bundle.media.map(\.filename) == ["capture-1.png"])
-        #expect(try fixture.store.listDrafts().map(\.name) == ["draft-2"])
+        #expect(try fixture.store.listDrafts().map(\.name) == ["draft-2.uxreview"])
     }
 
     @Test func discardingAnOlderDraftKeepsTheCurrentOne() throws {
@@ -205,7 +205,7 @@ struct DraftListingTests {
         let result = try fixture.store.discard(old.directory)
         #expect(!result.wasCurrent)
         #expect(try fixture.store.current()?.directory == current.directory)
-        #expect(try fixture.store.listDrafts().map(\.name) == ["draft-2"])
+        #expect(try fixture.store.listDrafts().map(\.name) == ["draft-2.uxreview"])
         // The next capture still goes to the current draft.
         #expect(try fixture.capture().directory == current.directory)
     }
@@ -219,18 +219,18 @@ struct DraftListingTests {
         #expect(throws: ReviewDraftError.noSuchDraft(old.directory)) { try fixture.store.discard(old.directory) }
         #expect(try fixture.store.current()?.directory == current.directory)
         let trashed = try FileManager.default.contentsOfDirectory(atPath: fixture.trashFolder.path)
-        #expect(trashed == ["draft-1"])
+        #expect(trashed == ["draft-1.uxreview"])
     }
 
     @Test func aDraftWithTheSameNameAsOneInTheTrashGetsAFreshName() throws {
         let fixture = try Fixture()
         let draft = try fixture.capture()
         try FileManager.default.createDirectory(
-            at: fixture.trashFolder.appendingPathComponent("draft-1"),
+            at: fixture.trashFolder.appendingPathComponent("draft-1.uxreview"),
             withIntermediateDirectories: true
         )
         let result = try fixture.store.discard(draft.directory)
-        #expect(result.trashedTo?.lastPathComponent == "draft-1 2")
+        #expect(result.trashedTo?.lastPathComponent == "draft-1.uxreview 2")
     }
 
     @Test func unreadableDraftsCanBeDiscarded() throws {
@@ -303,7 +303,7 @@ struct DraftListingTests {
     @Test func aRelativeOrUnstandardizedPathToADraftWorks() throws {
         let fixture = try Fixture()
         let draft = try fixture.capture()
-        let messy = fixture.root.appendingPathComponent("sub/../draft-1/")
+        let messy = fixture.root.appendingPathComponent("sub/../draft-1.uxreview/")
         #expect(try fixture.store.discard(messy).wasCurrent)
         #expect(!fixture.exists(draft.directory))
     }

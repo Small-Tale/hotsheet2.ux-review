@@ -63,7 +63,7 @@ enum UIPreviews {
         written += try renderMenus(to: directory)
         written += try EditorPreviews.render(to: directory)
         written += try ReviewSessionPreviews.render(to: directory)
-        written += try DraftsPreviews.render(to: directory)
+        written += try DiscardPreviews.render(to: directory)
         return written
     }
 

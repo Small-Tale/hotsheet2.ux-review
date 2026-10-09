@@ -482,7 +482,7 @@ from this review?", naming how many annotations go with them), because it can't 
 3. catches up, so the editor shows a neighboring capture, or the empty state after the last one.
    If a removal fails partway, the editor still catches up with what was removed.
 
-Open Submit Review and Draft Reviews windows refresh. The Submit Review window's trash button
+An open Submit Review window refreshes. The Submit Review window's trash button
 does the same from there ([07-review-session.md](07-review-session.md) §7.2).
 
 ### 6.7.2 Selecting several captures

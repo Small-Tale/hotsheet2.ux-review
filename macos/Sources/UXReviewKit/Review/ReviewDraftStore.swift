@@ -54,6 +54,8 @@ public enum ReviewDraftError: Error, Equatable, CustomStringConvertible {
     case noSuchDraft(URL)
     case trashFailed(URL, String)
     case deleteFailed(URL, String)
+    /// Saving would replace something already there (`HS2-BKWZ5N`).
+    case destinationExists(URL)
 
     /// The Trash refused the draft, so it can be offered for immediate deletion instead
     /// (docs/07 §7.9).
@@ -73,6 +75,7 @@ public enum ReviewDraftError: Error, Equatable, CustomStringConvertible {
         case let .noSuchDraft(url): "There is no draft review at \(url.path)."
         case let .trashFailed(url, reason): "\(url.lastPathComponent) couldn't be moved to the Trash: \(reason)"
         case let .deleteFailed(url, reason): "\(url.lastPathComponent) couldn't be deleted: \(reason)"
+        case let .destinationExists(url): "\(url.lastPathComponent) already exists."
         }
     }
 }
@@ -85,6 +88,10 @@ public enum ReviewDraftError: Error, Equatable, CustomStringConvertible {
 public final class ReviewDraftStore: @unchecked Sendable {
     public static let bundleFilename = "review.json"
     static let currentPointerFilename = "current"
+    /// A review on disk is a `.uxreview` package (`HS2-BKWZ5N`, docs/04 §4.6): untitled ones in
+    /// the drafts root, saved ones wherever the reviewer put them. Drafts made before keep their
+    /// plain folder names.
+    public static let packageExtension = "uxreview"
 
     public let root: URL
     /// Where `discard` puts a draft: the Trash, or a folder (tests). Spec: docs/07 §7.9.
@@ -148,7 +155,7 @@ public final class ReviewDraftStore: @unchecked Sendable {
         defer { lock.unlock() }
         let draft = try createDraft(context: CaptureContext())
         try write(draft.bundle, to: draft.bundleURL)
-        try Data(draft.directory.lastPathComponent.utf8).write(to: pointerURL, options: .atomic)
+        try writePointer(to: draft.directory)
         return draft
     }
 
@@ -193,7 +200,7 @@ public final class ReviewDraftStore: @unchecked Sendable {
         }
         draft.bundle = bundle
         if directory == nil {
-            try Data(draft.directory.lastPathComponent.utf8).write(to: pointerURL, options: .atomic)
+            try writePointer(to: draft.directory)
         }
         return (draft, item)
     }
@@ -229,10 +236,7 @@ public final class ReviewDraftStore: @unchecked Sendable {
     }
 
     func loadCurrent() throws -> ReviewDraft? {
-        guard let name = try? String(contentsOf: pointerURL, encoding: .utf8)
-            .trimmingCharacters(in: .whitespacesAndNewlines), !name.isEmpty, !name.contains("/")
-        else { return nil }
-        let directory = root.appendingPathComponent(name, isDirectory: true)
+        guard let directory = pointedDirectory() else { return nil }
         let bundleURL = directory.appendingPathComponent(Self.bundleFilename)
         guard FileManager.default.fileExists(atPath: bundleURL.path) else { return nil }
         return try read(directory)
@@ -240,11 +244,35 @@ public final class ReviewDraftStore: @unchecked Sendable {
 
     private func createDraft(context: CaptureContext) throws -> ReviewDraft {
         let id = makeID()
-        let directory = root.appendingPathComponent(id, isDirectory: true)
+        let directory = root.appendingPathComponent("\(id).\(Self.packageExtension)", isDirectory: true)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         let title = context.appName.map { "\($0) review" } ?? "UX review"
         let bundle = ReviewBundle(id: id, title: title, createdAt: now(), context: context, media: [], annotations: [])
         return ReviewDraft(directory: directory, bundle: bundle)
+    }
+
+    /// The folder the `current` pointer names: a name directly inside the root, or the absolute
+    /// path of a saved review elsewhere (`HS2-BKWZ5N`). Nil when there is none or it is malformed.
+    func pointedDirectory() -> URL? {
+        guard let value = try? String(contentsOf: pointerURL, encoding: .utf8)
+            .trimmingCharacters(in: .whitespacesAndNewlines), !value.isEmpty
+        else { return nil }
+        if value.hasPrefix("/") {
+            let url = URL(fileURLWithPath: value, isDirectory: true).standardizedFileURL
+            return url.pathExtension == Self.packageExtension ? url : nil
+        }
+        guard !value.contains("/") else { return nil }
+        return root.appendingPathComponent(value, isDirectory: true)
+    }
+
+    /// Makes `directory` current: by name when it is directly inside the root, else by path.
+    func writePointer(to directory: URL) throws {
+        let standardized = directory.standardizedFileURL
+        let inRoot = standardized.deletingLastPathComponent().resolvingSymlinksInPath().path
+            == root.standardizedFileURL.resolvingSymlinksInPath().path
+        let value = inRoot ? standardized.lastPathComponent : standardized.path
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        try Data(value.utf8).write(to: pointerURL, options: .atomic)
     }
 
     func write(_ bundle: ReviewBundle, to url: URL) throws {

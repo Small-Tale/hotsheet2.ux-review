@@ -1,6 +1,6 @@
 import Foundation
 
-/// One draft review on disk, as the Draft Reviews window and `--drafts` list it.
+/// One draft review on disk, as `--drafts` lists it.
 /// Spec: docs/07-review-session.md §7.9.
 public struct DraftSummary: Equatable, Sendable, Identifiable {
     public var directory: URL
@@ -141,7 +141,7 @@ public extension ReviewDraftStore {
     /// changes: the draft is never deleted outright unless `deleteImmediately` asks for it.
     ///
     /// With `deleteImmediately`, the folder is removed for good instead, without trying the
-    /// Trash. The Draft Reviews window offers that only after the Trash refused and the
+    /// Trash. The Submit Review window offers that only after the Trash refused and the
     /// reviewer confirmed a second time; `--discard-draft … --delete` asks for it directly
     /// (docs/07 §7.9, §7.10). The same folders are refused. If removal fails part-way, whatever
     /// is left stays in place and the pointer is kept.
@@ -154,7 +154,7 @@ public extension ReviewDraftStore {
         guard FileManager.default.fileExists(atPath: target.path, isDirectory: &isDirectory), isDirectory.boolValue else {
             throw ReviewDraftError.noSuchDraft(directory)
         }
-        let wasCurrent = currentDirectoryPath() == target.path
+        let wasCurrent = currentDirectoryPath() == target.resolvingSymlinksInPath().path
         var trashedTo: URL?
         if deleteImmediately {
             do {
@@ -204,9 +204,11 @@ public extension ReviewDraftStore {
 
 extension ReviewDraftStore {
     /// `directory` as a draft folder directly inside the root (with the root's symbolic links
-    /// resolved), or `outsideDrafts`.
+    /// resolved), or a saved `.uxreview` package elsewhere that holds a review.json; else
+    /// `outsideDrafts`.
     func draftDirectory(_ directory: URL) throws -> URL {
         let standardized = directory.standardizedFileURL
+        if let saved = savedPackage(standardized) { return saved }
         let name = standardized.lastPathComponent
         let parent = standardized.deletingLastPathComponent().resolvingSymlinksInPath()
         let base = root.standardizedFileURL.resolvingSymlinksInPath()
@@ -220,9 +222,23 @@ extension ReviewDraftStore {
 
     /// The resolved path of the folder the `current` pointer names, whether or not it reads.
     func currentDirectoryPath() -> String? {
-        guard let name = try? String(contentsOf: pointerURL, encoding: .utf8)
-            .trimmingCharacters(in: .whitespacesAndNewlines), !name.isEmpty, !name.contains("/")
+        pointedDirectory()?.standardizedFileURL.resolvingSymlinksInPath().path
+    }
+
+    /// `directory` when it is a saved review: a `.uxreview` package outside the drafts root (not a
+    /// symbolic link) with a review.json. Nil otherwise.
+    func savedPackage(_ directory: URL) -> URL? {
+        guard directory.pathExtension == Self.packageExtension, !isInRoot(directory) else { return nil }
+        let type = (try? FileManager.default.attributesOfItem(atPath: directory.path))?[.type] as? FileAttributeType
+        guard type == .typeDirectory,
+              FileManager.default.fileExists(atPath: directory.appendingPathComponent(Self.bundleFilename).path)
         else { return nil }
-        return root.appendingPathComponent(name, isDirectory: true).standardizedFileURL.resolvingSymlinksInPath().path
+        return directory
+    }
+
+    /// True when `directory` sits directly inside the drafts root: an untitled review.
+    func isInRoot(_ directory: URL) -> Bool {
+        directory.standardizedFileURL.deletingLastPathComponent().resolvingSymlinksInPath().path
+            == root.standardizedFileURL.resolvingSymlinksInPath().path
     }
 }

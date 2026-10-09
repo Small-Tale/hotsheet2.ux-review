@@ -34,7 +34,8 @@ enum UXReviewMain {
         // Headless modes used by scripts/app-e2e.sh: run once, print a JSON result, and exit.
         // Synchronous: --settings (apply/print settings, check the hotkey), --annotate (run an
         // editing script on a draft), --submit (file a draft in Hot Sheet, docs/07 §7.8),
-        // --discard-draft / --drafts (discard one draft, list them all, docs/07 §7.10).
+        // --discard-draft / --drafts (discard one draft, list them all, docs/07 §7.10),
+        // --open-review / --save-review / --duplicate-review (reviews as documents).
         let arguments = Array(CommandLine.arguments.dropFirst())
         let synchronous: [(String, @MainActor @Sendable ([String]) -> Int32)] = [
             ("--settings", HeadlessSettings.run(arguments:)),
@@ -42,6 +43,10 @@ enum UXReviewMain {
             ("--submit", HeadlessSubmit.run(arguments:)),
             ("--discard-draft", HeadlessDrafts.run(arguments:)),
             ("--drafts", HeadlessDrafts.run(arguments:)),
+            // Reviews as documents (HS2-BKWZ5N, HS2-0D87NR).
+            ("--open-review", HeadlessReviewDocuments.run(arguments:)),
+            ("--save-review", HeadlessReviewDocuments.run(arguments:)),
+            ("--duplicate-review", HeadlessReviewDocuments.run(arguments:)),
         ]
         for (flag, run) in synchronous where CommandLine.arguments.contains(flag) {
             startHeadless()

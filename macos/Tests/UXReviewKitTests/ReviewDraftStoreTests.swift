@@ -47,7 +47,7 @@ struct ReviewDraftStoreTests {
         }
 
         func bundleOnDisk(_ id: String) throws -> ReviewBundle {
-            let url = root.appendingPathComponent(id).appendingPathComponent("review.json")
+            let url = root.appendingPathComponent("\(id).uxreview").appendingPathComponent("review.json")
             return try ReviewBundle.makeDecoder().decode(ReviewBundle.self, from: Data(contentsOf: url))
         }
     }
@@ -64,7 +64,7 @@ struct ReviewDraftStoreTests {
         let capture = try fixture.capture()
         let (draft, media) = try fixture.store.add(capture)
 
-        #expect(draft.directory.lastPathComponent == "draft-a")
+        #expect(draft.directory.lastPathComponent == "draft-a.uxreview")
         #expect(media == MediaItem(
             id: "m1", filename: "capture-1.png", kind: .image, pixelWidth: 200, pixelHeight: 100,
             capturedAt: Date(timeIntervalSince1970: 2000), context: CaptureContext(appName: "Safari")
@@ -86,7 +86,7 @@ struct ReviewDraftStoreTests {
         try fixture.store.add(fixture.capture("one.png"))
         let (draft, media) = try fixture.store.add(fixture.capture("two.MOV", kind: .video, context: CaptureContext(appName: "Notes")))
 
-        #expect(draft.directory.lastPathComponent == "draft-a")
+        #expect(draft.directory.lastPathComponent == "draft-a.uxreview")
         #expect(media.id == "m2")
         #expect(media.filename == "capture-2.mov")
         #expect(media.durationMs == 1500)
@@ -118,14 +118,14 @@ struct ReviewDraftStoreTests {
         #expect(try fixture.store.current() == nil)
 
         let (draft, media) = try fixture.store.add(fixture.capture("two.png"))
-        #expect(draft.directory.lastPathComponent == "draft-b")
+        #expect(draft.directory.lastPathComponent == "draft-b.uxreview")
         #expect(media.filename == "capture-1.png")
         #expect(try fixture.bundleOnDisk("draft-a").media.count == 1)
 
         // start-new twice in a row, then refill.
         try fixture.store.startNew()
         try fixture.store.startNew()
-        #expect(try fixture.store.add(fixture.capture("three.png")).draft.directory.lastPathComponent == "draft-c")
+        #expect(try fixture.store.add(fixture.capture("three.png")).draft.directory.lastPathComponent == "draft-c.uxreview")
     }
 
     @Test func aStalePointerStartsANewDraft() throws {
@@ -133,7 +133,7 @@ struct ReviewDraftStoreTests {
         let first = try fixture.store.add(fixture.capture()).draft
         try FileManager.default.removeItem(at: first.directory)
         #expect(try fixture.store.current() == nil)
-        #expect(try fixture.store.add(fixture.capture("again.png")).draft.directory.lastPathComponent == "draft-b")
+        #expect(try fixture.store.add(fixture.capture("again.png")).draft.directory.lastPathComponent == "draft-b.uxreview")
     }
 
     @Test func pointerCannotEscapeTheRoot() throws {

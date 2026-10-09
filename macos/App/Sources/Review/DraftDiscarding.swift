@@ -1,7 +1,7 @@
 import AppKit
 import UXReviewKit
 
-/// Discarding a draft review from the Draft Reviews window or the session window: a
+/// Discarding a review from the Submit Review window: a
 /// confirmation, then the draft's editor and session windows close (saving into the draft),
 /// and the folder moves to the Trash. When the Trash refuses, a second, destructive
 /// confirmation offers to delete it immediately. Spec: docs/07-review-session.md §7.9.

@@ -248,7 +248,7 @@ public enum AppMenus {
 }
 
 /// Whether UX Review shows a Dock icon and app menu bar: only while one of its windows
-/// (editor, Submit Review, Draft Reviews, Settings) is open, minimized ones included. Capture
+/// (editor, Submit Review, Settings) is open, minimized ones included. Capture
 /// overlays, HUDs, and alerts don't count. Spec: docs/05-start-and-settings.md §5.1.1.
 public struct WindowPresence: Equatable, Sendable {
     public enum Policy: Equatable, Sendable {

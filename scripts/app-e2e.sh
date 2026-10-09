@@ -588,7 +588,7 @@ echo "open media from Finder and editor drops (HS2-H1RNGK)"
 PLIST="$(dirname "$APP_BIN")/../Info.plist"
 [[ "$(plutil -extract CFBundleDocumentTypes json -o - "$PLIST" | node -e 'const t = JSON.parse(require("fs").readFileSync(0, "utf8"));
   console.log(t.map(d => `${d.LSItemContentTypes.join("+")}:${d.CFBundleTypeRole}:${d.LSHandlerRank}`).join(","))')" == \
-  "public.image:Viewer:Alternate,public.movie:Viewer:Alternate" ]] || die "open: Info.plist document types"
+  "com.smalltale.uxreview.review:Editor:Owner,public.image:Viewer:Alternate,public.movie:Viewer:Alternate" ]] || die "open: Info.plist document types"
 ok "Info.plist offers UX Review as an alternate viewer for images and movies (Finder Open With)"
 ODRAFTS="$TMP/open-drafts"
 run open 0 -- --open-media "$TMP/media/Screenshot 1.png" "$TMP/media/photo.jpg" "$TMP/media/Screenshot 1.png" --drafts-dir "$ODRAFTS"
@@ -1042,6 +1042,48 @@ downscale_case setting-off 3840x2400 "${SUITE_ENV[@]}" HOTSHEET_CLI="$TMP/ai-cli
 ok "with --downscale off, or the setting off, the full-size file is filed"
 run downscale-on 0 "${SUITE_ENV[@]}" -- --settings --set-downscale on
 
+echo "reviews as documents (HS2-BKWZ5N, HS2-0D87NR)"
+PLIST="$(dirname "$(dirname "$APP_BIN")")/Info.plist"
+[[ "$(plutil -extract UTExportedTypeDeclarations.0.UTTypeIdentifier raw "$PLIST")" == com.smalltale.uxreview.review ]] || die "documents: no exported UTI"
+[[ "$(plutil -extract UTExportedTypeDeclarations json -o - "$PLIST" | node -e 'const t = JSON.parse(require("fs").readFileSync(0, "utf8"))[0];
+  console.log(t.UTTypeTagSpecification["public.filename-extension"].join() + "|" + t.UTTypeConformsTo.join())')" == "uxreview|com.apple.package,public.composite-content" ]] \
+  || die "documents: UTI extension"
+[[ "$(plutil -extract CFBundleDocumentTypes.0.LSTypeIsPackage raw "$PLIST")/$(plutil -extract CFBundleDocumentTypes.0.CFBundleTypeRole raw "$PLIST")" == true/Editor ]] \
+  || die "documents: the document type is not an editable package"
+DOCS="$TMP/doc-drafts"; SAVED="$TMP/My Reviews"
+DOCTRASH=(UXREVIEW_TRASH_DIR="$TMP/doc-trash")
+run doc-first 0 "${SYN[@]}" -- --capture screenshot --target region --rect 0,0,200,100 --drafts-dir "$DOCS"
+untitled="$(json "$TMP/doc-first.json" j.draftDirectory)"
+[[ "$untitled" == "$DOCS/"*.uxreview ]] || die "documents: a new review is not an untitled .uxreview package ($untitled)"
+run doc-save 0 -- --save-review "$untitled" --to "$SAVED/Checkout" --drafts-dir "$DOCS"
+saved="$(json "$TMP/doc-save.json" j.draftDirectory)"
+[[ "$saved" == "$SAVED/Checkout.uxreview" && ! -e "$untitled" ]] || die "documents: save did not move it ($saved)"
+[[ "$(json "$TMP/doc-save.json" '`${j.status}/${j.isUntitled}/${j.isCurrent}`')" == saved/false/true ]] || die "documents: save result $(cat "$TMP/doc-save.json")"
+[[ "$(cat "$DOCS/current")" == "$saved" ]] || die "documents: the current pointer does not follow the saved review"
+run doc-capture 0 "${SYN[@]}" -- --capture screenshot --target region --rect 0,0,200,100 --drafts-dir "$DOCS"
+[[ "$(json "$TMP/doc-capture.json" j.draftDirectory)" == "$saved" && -f "$saved/capture-2.png" ]] || die "documents: the next capture did not go into the saved review"
+ok "a new review is an untitled .uxreview package; Save moves it anywhere, it stays current, and the next capture goes into it"
+
+run doc-exists 4 -- --save-review "$saved" --to "$SAVED/Checkout.uxreview" --copy --drafts-dir "$DOCS"
+[[ "$(json "$TMP/doc-exists.json" j.error)" == destinationExists ]] || die "documents: saving over an existing review without --replace"
+run doc-copy 0 -- --save-review "$saved" --to "$SAVED/Checkout 2" --copy --drafts-dir "$DOCS"
+copy="$(json "$TMP/doc-copy.json" j.draftDirectory)"
+[[ "$(json "$TMP/doc-copy.json" '`${j.status}/${j.captureCount}/${j.isCurrent}`')" == copied/2/false && -d "$saved" ]] || die "documents: Save As copy $(cat "$TMP/doc-copy.json")"
+[[ "$(json "$copy/review.json" j.id)" != "$(json "$saved/review.json" j.id)" ]] || die "documents: the copy reuses the original's id"
+validate_bundle "$copy/review.json"
+run doc-dup 0 -- --duplicate-review "$saved" --drafts-dir "$DOCS"
+[[ "$(json "$TMP/doc-dup.json" '`${j.status}/${j.isUntitled}/${j.title}`')" == "duplicated/true/$(json "$saved/review.json" j.title) copy" ]] || die "documents: duplicate $(cat "$TMP/doc-dup.json")"
+run doc-open 0 -- --open-review "$copy" --drafts-dir "$DOCS"
+[[ "$(cat "$DOCS/current")" == "$copy" ]] || die "documents: --open-review did not make it current"
+: >"$TMP/not-a-review.uxreview"
+run doc-open-bad 2 -- --open-review "$TMP/not-a-review.uxreview" --drafts-dir "$DOCS"
+[[ "$(cat "$DOCS/current")" == "$copy" ]] || die "documents: a failed open changed the current review"
+ok "Save As writes a separate copy (an existing name needs --replace: exit 4), Duplicate makes an untitled copy, Open makes a review current; a non-review: exit 2"
+
+run doc-discard 0 "${DOCTRASH[@]}" -- --discard-draft "$copy" --drafts-dir "$DOCS"
+[[ ! -e "$copy" && -f "$TMP/doc-trash/Checkout 2.uxreview/review.json" && ! -e "$DOCS/current" ]] || die "documents: discarding a saved review"
+ok "discarding a saved review moves the package to the Trash and ends it as the current review"
+
 echo "draft reviews: list and discard (HS2-WE30PY)"
 DDRAFTS="$TMP/list-drafts"
 TRASH=(UXREVIEW_TRASH_DIR="$TMP/trash")
@@ -1121,7 +1163,7 @@ for name in overlay-region-hint overlay-window-hint overlay-region-selection ove
   session-ready session-narrow session-edited session-ticket-text-new session-ticket-text-existing session-ticket-text-edited session-ticket-text-editing session-ticket-text-narrow session-submitting session-failed session-submitted session-submitted-hotsheet session-submitted-fitted session-issues session-empty \
   session-existing-looking session-existing-found session-existing-narrow session-existing-not-found session-existing-closed \
   session-existing-failed session-existing-submitted session-existing-selection session-existing-abandoned \
-  drafts-list drafts-narrow drafts-empty drafts-delete-immediately drafts-window-empty drafts-window-list; do
+  drafts-delete-immediately; do
   [[ -s "$TMP/previews/$name.png" ]] || die "previews: $name.png missing"
 done
 ok "UI renders offscreen (picker overlays, recording dim, HUDs, Settings window, status bar icon, annotation editor, review session, draft reviews)"
@@ -1158,7 +1200,8 @@ PICKED='j.statusMenuAfterPicking'
 [[ "$(json "$MENUS" 'j.mainMenu.find(m => m.title == "View").submenu.map(i => i.title + "[" + i.shortcut + "]" + i.action).join("|")')" == \
   "Actual Size[⌘0]zoomToActualSize:|Zoom to Fit[⌘9]zoomToFit:|Zoom In[⌘+]zoomIn:|Zoom In[⌘=]zoomIn:|Zoom Out[⌘-]zoomOut:" ]] \
   || die "menus: View menu $(json "$MENUS" 'JSON.stringify(j.mainMenu.find(m => m.title == "View"))')"
-[[ "$(json "$MENUS" "($TITLES)(j.mainMenu[1].submenu)")" == "New Review[⌘N]|Add Media…[⌘O]|Draft Reviews…[⇧⌘O]|-|Save[⌘S]|Submit Review…[⌘↩]|Show Review in Finder|-|Close Window[⌘W]" ]] \
+# HS2-BKWZ5N: reviews are documents: Open…, Open Recent, Close, Save; no Draft Reviews.
+[[ "$(json "$MENUS" "($TITLES)(j.mainMenu[1].submenu)")" == "New Review[⌘N]|Open…[⌘O]|Open Recent|-|Close[⌘W]|Save…[⌘S]|-|Add Media…[⇧⌘O]|Submit Review…[⌘↩]|Show Review in Finder" ]] \
   || die "menus: File $(json "$MENUS" "($TITLES)(j.mainMenu[1].submenu)")"
 # HS2-0TQ6RP: Edit ends with the confirmed remove (no shortcut) and the immediate one on ⌘⌫.
 [[ "$(json "$MENUS" "($TITLES)(j.mainMenu[2].submenu.slice(-2))")" == "Remove Capture from Review…|Remove Capture Now[⌘⌫]" ]] \
@@ -1196,12 +1239,10 @@ ok "a filed review's Submit Review window shrinks around the success message, to
 # view's, measured at its minimum width (before the fix: 1663 pt for empty Draft Reviews, 2026 pt
 # for a filed Submit Review).
 SIZE='w => w.width + "x" + w.height + " min " + w.minWidth + "x" + w.minHeight'
-[[ "$(json "$TMP/previews/drafts-window.json" "[j.empty, j.list].map($SIZE).join()")" == "640x460 min 560x320,640x460 min 560x320" ]] \
-  || die "drafts window size $(json "$TMP/previews/drafts-window.json" 'JSON.stringify(j)')"
 [[ "$(json "$FIT" "($SIZE)(j.form)")" == "640x680 min 520x480" ]] || die "session form window size $(json "$FIT" 'JSON.stringify(j.form)')"
 [[ "$(json "$TMP/previews/editor-window.json" "j.width + \"|\" + (j.height >= 800 && j.height <= 860) + \"|\" + j.minWidth + \"x\" + j.minHeight")" == "1240|true|900x560" ]] \
   || die "editor window size $(json "$TMP/previews/editor-window.json" 'JSON.stringify(j)')"
-ok "Draft Reviews (empty and listing), Submit Review, and the editor keep their window size and minimum after SwiftUI layout"
+ok "Submit Review and the editor keep their window size and minimum after SwiftUI layout"
 
 # HS2-WHP4V1: the editor window's native toolbar: unified, title shown, tools on the right as one
 # group that follows keyboard tool changes, Restore Original only after a crop, Submit Review… works.

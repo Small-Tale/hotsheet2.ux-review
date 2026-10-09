@@ -58,7 +58,7 @@ adds a checkmark column that would move the titles.
 ### 5.1.1 UX Review windows, Dock icon, and app menu bar
 
 UX Review runs as a menu bar app with no Dock icon. While any of its windows is open (a UX
-Review editor window, a Submit Review window, Draft Reviews, or Settings, minimized ones
+Review editor window, a Submit Review window, or Settings, minimized ones
 included), it becomes a regular app: it has a **Dock icon**, appears in **⌘-Tab**, accepts
 files **dropped on its Dock icon** (like Finder Open With, [04-capture.md](04-capture.md)
 §4.12.1), and shows its **app menu bar**. When the last of those windows closes, it goes back to
@@ -66,12 +66,12 @@ the menu bar only. Capture overlays, HUDs, and alerts don't count (`WindowPresen
 the Dock icon with no window showing does what **Open UX Review** does.
 
 Opening or bringing forward any of these windows (Open UX Review, its global shortcut, a capture,
-Submit Review…, Draft Reviews…, Settings…) puts it **in front of every other app's windows** and
+Submit Review…, Settings…) puts it **in front of every other app's windows** and
 makes UX Review the active app (`HS2-SZ6T9T`, `DockPresence.present`). macOS activation is
 cooperative, so a request from the menu bar menu can be refused or land late; the window is
 therefore ordered front regardless, and activation is asked again once the run loop turns.
 
-**Window sizes** (`HS2-VX8T5A`). The editor, Submit Review, and Draft Reviews windows remember
+**Window sizes** (`HS2-VX8T5A`). The editor and Submit Review windows remember
 their size and position. They open at 1240 × 800, 640 × 680, and 640 × 460 pt, and can't be made
 smaller than 900 × 560, 520 × 480 (a filed review: 520 wide, see
 [07-review-session.md](07-review-session.md) §7.2), and 560 × 320. Each window's minimum comes
@@ -88,16 +88,16 @@ until closed. The app menu bar:
 | Menu | Items |
 | --- | --- |
 | **UX Review** | About UX Review (the standard About panel, titled with the full name Hot Sheet 2 UX Review; docs/00 §0.0); Settings… (⌘,); Hide (⌘H), Hide Others (⌥⌘H), Show All; Quit (⌘Q) |
-| **File** | **New Review** (⌘N): a new empty draft becomes current and opens in its own window; the previous draft stays as it is. **Add Media…** (⌘O): images or movies for the front window's draft ([04-capture.md](04-capture.md) §4.12). **Draft Reviews…** (⇧⌘O, [07-review-session.md](07-review-session.md) §7.9). Save (⌘S). **Submit Review…** (⌘↩, [07-review-session.md](07-review-session.md) §7.1). **Show Review in Finder**. Close Window (⌘W) |
+| **File** | **New Review** (⌘N): a new empty draft becomes current and opens in its own window; the previous draft stays as it is. **Open…** (⌘O) and **Open Recent** ▸: `.uxreview` documents ([07-review-session.md](07-review-session.md) §7.9). **Close** (⌘W). **Save…** / **Save** (⌘S): asks where for an untitled review, else saves in place. **Add Media…** (⇧⌘O): images or movies for the front window's draft ([04-capture.md](04-capture.md) §4.12). **Submit Review…** (⌘↩, [07-review-session.md](07-review-session.md) §7.1). **Show Review in Finder** |
 | **Edit** | Undo (⌘Z), Redo (⇧⌘Z), Cut, Copy, Paste, Select All, Duplicate (⌘D), Remove Capture from Review… (asks first), Remove Capture Now (⌘⌫, no confirmation; both act on the media strip selection, [06-annotation-editor.md](06-annotation-editor.md) §6.7.1–§6.7.2) |
 | **View** | Actual Size (⌘0), Zoom to Fit (⌘9), Zoom In (⌘+ or ⌘=), Zoom Out (⌘-) for the editor window's canvas; disabled when no editor window with a capture is key (`HS2-8QBS4V`, [06-annotation-editor.md](06-annotation-editor.md) §6.2.1) |
-| **Window** | Minimize (⌘M), Zoom, Draft Reviews…, Bring All to Front, and the open windows |
+| **Window** | Minimize (⌘M), Zoom, Bring All to Front, and the open windows |
 
 There is no Capture menu (`HS2-3239JD`): capturing starts from the menu bar menu (§5.1) and the
 global shortcuts (§5.2), which work whether or not a UX Review window is open.
 
 File menu items act on the front window's draft: an editor or Submit Review window answers for
-its own draft. With another window in front (Draft Reviews, Settings), they act on the current
+its own draft. With another window in front (Settings), they act on the current
 draft. In a Submit Review window, **Submit Review…** is disabled so ⌘↩ reaches the window's own
 Submit button.
 

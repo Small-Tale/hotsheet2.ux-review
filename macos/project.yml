@@ -32,7 +32,19 @@ targets:
         NSHumanReadableCopyright: Copyright © 2026 Small Tale Inc.
         # Finder "Open With" and drops on the app icon for images and movies (docs/04 §4.12.1).
         # Alternate rank: offered, never the default app for these files.
+        # A review is a `.uxreview` package (HS2-BKWZ5N, docs/07 §7.9).
+        UTExportedTypeDeclarations:
+          - UTTypeIdentifier: com.smalltale.uxreview.review
+            UTTypeDescription: UX Review
+            UTTypeConformsTo: [com.apple.package, public.composite-content]
+            UTTypeTagSpecification:
+              public.filename-extension: [uxreview]
         CFBundleDocumentTypes:
+          - CFBundleTypeName: UX Review
+            CFBundleTypeRole: Editor
+            LSHandlerRank: Owner
+            LSTypeIsPackage: true
+            LSItemContentTypes: [com.smalltale.uxreview.review]
           - CFBundleTypeName: Image
             CFBundleTypeRole: Viewer
             LSHandlerRank: Alternate

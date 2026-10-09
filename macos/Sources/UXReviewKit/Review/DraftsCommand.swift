@@ -40,6 +40,12 @@ public enum DraftsCommand: Equatable, Sendable {
     public func target(in root: URL) -> URL? {
         guard case let .discard(draft, _, _) = self else { return nil }
         if draft.contains("/") { return URL(fileURLWithPath: draft, isDirectory: true) }
-        return root.appendingPathComponent(draft, isDirectory: true)
+        let named = root.appendingPathComponent(draft, isDirectory: true)
+        // A draft's name without its `.uxreview` extension finds it too (HS2-BKWZ5N).
+        let package = root.appendingPathComponent("\(draft).\(ReviewDraftStore.packageExtension)", isDirectory: true)
+        if !FileManager.default.fileExists(atPath: named.path), FileManager.default.fileExists(atPath: package.path) {
+            return package
+        }
+        return named
     }
 }

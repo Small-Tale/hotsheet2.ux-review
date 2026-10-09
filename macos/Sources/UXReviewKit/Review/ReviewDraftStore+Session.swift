@@ -162,18 +162,23 @@ public extension ReviewDraftStore {
         return current.directory.standardizedFileURL.path == directory.standardizedFileURL.path
     }
 
-    /// Deletes a submitted draft: its media now lives in Hot Sheet. When it is the current
-    /// draft, the pointer is removed too, so the next capture starts a new review. Refuses any
-    /// directory that is not directly inside the drafts root.
+    /// Removes a submitted draft: its media now lives in Hot Sheet. An untitled draft is deleted;
+    /// a saved review (`HS2-BKWZ5N`) is moved to the Trash instead, so a file the reviewer chose
+    /// a place for is never deleted outright. When it is the current draft, the pointer is
+    /// removed too, so the next capture starts a new review. Refuses any directory that is not
+    /// a draft or a saved review.
     func removeSubmitted(_ directory: URL) throws {
         lock.lock()
         defer { lock.unlock() }
         let target = try draftDirectory(directory)
-        if currentDirectoryPath() == target.path {
+        if currentDirectoryPath() == target.resolvingSymlinksInPath().path {
             try FileManager.default.removeItem(at: pointerURL)
         }
-        if FileManager.default.fileExists(atPath: target.path) {
+        guard FileManager.default.fileExists(atPath: target.path) else { return }
+        if isInRoot(target) {
             try FileManager.default.removeItem(at: target)
+        } else {
+            _ = try trash.move(target)
         }
     }
 }

@@ -25,7 +25,14 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
         let session = try EditorSession(store: store, directory: directory, mediaId: mediaId, frameRateLoading: .inBackground)
         let controller = EditorWindowController(model: EditorModel(session: session))
         open[key] = controller
+        // Every review opened in the editor goes first in File › Open Recent (HS2-BKWZ5N).
+        ReviewDocuments.note(directory)
         controller.present()
+    }
+
+    /// The capture the editor on `directory` shows, if one is open.
+    static func currentMediaId(directory: URL) -> String? {
+        open[directory.standardizedFileURL]?.model.editor.currentMediaId
     }
 
     /// Brings every open editor window forward; false when none is open.
@@ -54,6 +61,12 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
             defer: false
         )
         window.title = "\(model.editor.bundle.title) — Annotate"
+        // A saved review shows its document proxy icon; an untitled one says so (HS2-BKWZ5N).
+        if model.session.store.isUntitled(model.session.directory) {
+            window.subtitle = "Not saved"
+        } else {
+            window.representedURL = model.session.directory
+        }
         let content = EditorHostingView(rootView: EditorView(model: model))
         window.contentView = content
         window.contentMinSize = CGSize(width: 900, height: 560)
@@ -115,7 +128,11 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
     @objc func undo(_: Any?) { model.mutate { $0.undo() } }
     @objc func redo(_: Any?) { model.mutate { $0.redo() } }
     @objc func duplicate(_: Any?) { model.mutate { _ = $0.duplicateSelection() } }
-    @objc func saveDocument(_: Any?) { model.save() }
+    /// File › Save: writes the editor's changes, then an untitled review asks where to save it.
+    @objc func saveDocument(_: Any?) {
+        model.save()
+        ReviewDocuments.save(model.session.directory, store: model.session.store, window: window)
+    }
 
     // MARK: View menu (`HS2-8QBS4V`)
 
@@ -195,6 +212,9 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
         case #selector(undo(_:)): model.editor.canUndo
         case #selector(redo(_:)): model.editor.canRedo
         case #selector(duplicate(_:)): model.editor.selection != nil
+        case #selector(saveDocument(_:)):
+            // "Save…" asks where (an untitled review); "Save" saves in place (HS2-BKWZ5N).
+            retitleAlways(item, model.session.store.isUntitled(model.session.directory) ? "Save…" : "Save")
         case #selector(zoomToActualSize(_:)), #selector(zoomToFit(_:)), #selector(zoomIn(_:)), #selector(zoomOut(_:)):
             model.editor.currentMedia != nil
         case #selector(removeCapture(_:)):
@@ -204,6 +224,11 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
             retitle(item, "\(CaptureRemovalPrompt.title(count: max(selectedItems.count, 1))) Now") && !(window?.firstResponder is NSText)
         default: true
         }
+    }
+
+    private func retitleAlways(_ item: NSMenuItem, _ title: String) -> Bool {
+        item.title = title
+        return true
     }
 
     /// Names the selection's size in a remove item's title; true when there is something to remove.

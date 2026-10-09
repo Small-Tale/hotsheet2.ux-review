@@ -31,7 +31,7 @@ listing each preset for each target. See [05-start-and-settings.md](05-start-and
 
 The region and window overlays never activate UX Review. They are non-activating panels that
 still take the keyboard, so Esc works, while every app's windows stay in the order the
-reviewer sees. In particular UX Review's own windows (editor, Submit Review, Draft Reviews,
+reviewer sees. In particular UX Review's own windows (editor, Submit Review,
 Settings) are not raised over the app being reviewed (HS2-AR8Q2G).
 
 - **Display**: no UI. The display under the pointer is captured.
@@ -60,7 +60,7 @@ Settings) are not raised over the app being reviewed (HS2-AR8Q2G).
     through the window its event belongs to, not the overlay view receiving it, so hovering on
     any display highlights the window a click there would pick (`RegionGeometry.globalPoint`,
     `HS2-DX2D41`).
-  - UX Review's own windows (editor, Submit Review, Draft Reviews, Settings) can be picked like
+  - UX Review's own windows (editor, Submit Review, Settings) can be picked like
     any other app's, so a review can be about UX Review itself (`HS2-E14X2P`). Its label reads
     "UX Review · <title>". Only *capture chrome* is skipped (the picker overlays, the countdown
     and saved HUD, the recording dim, `CaptureChrome`): it is never highlighted and never hides
@@ -158,8 +158,8 @@ location):
 
 ```
 Drafts/
-  current                   name of the current draft directory
-  20261007-031500-4F2A9C/
+  current                   the current review: a package name here, or a saved review's absolute path
+  20261007-031500-4F2A9C.uxreview/
     review.json             uxreview/bundle/v1 bundle, media appended per capture
     capture-1.png
     capture-2.png
@@ -174,10 +174,15 @@ Drafts/
   Numbers only go up: a removed capture's file name and id are never reused (docs/07 §7.2).
 - **New Review** (File menu, ⌘N, `HS2-80CTK8`): creates a new, empty draft and makes it current,
   so the next captures go into it. Old drafts stay on disk. (`ReviewDraftStore.startNew()`,
-  which only ends the current draft, remains for scripts and tests.) **Draft Reviews…** lists them so they can be reopened, submitted,
-  or discarded (moved to the Trash) ([07-review-session.md](07-review-session.md) §7.9).
+  which only ends the current draft, remains for scripts and tests.) Reviews are `.uxreview`
+  documents: untitled ones are packages in the drafts folder; File › Open Recent and Open…
+  reopen them, and Save moves one anywhere ([07-review-session.md](07-review-session.md) §7.9).
+  Drafts made before `HS2-BKWZ5N` keep their plain folder names and still work.
+- **A saved review** can be current too: the `current` pointer then holds its absolute path, and
+  captures go into it where it is.
 - **Pointer problems**: if the `current` pointer is stale (its directory is gone), the next
-  capture starts a new draft. A pointer that tries to leave the drafts directory is ignored.
+  capture starts a new draft. A relative pointer that tries to leave the drafts directory, or an
+  absolute one that isn't a `.uxreview` package, is ignored.
 - **Failures**: a failed add leaves the draft unchanged and keeps the captured file.
 - **Corrupt draft**: a draft whose `review.json` is corrupt is reported, not overwritten.
 - **Editing**: the annotation editor saves with `ReviewDraftStore.update`, which re-reads and

@@ -843,7 +843,7 @@ with a uniform grid at the movie's expected rate.
   afterwards; drafts are listed.
 - **App end to end** (`scripts/app-e2e.sh`): `menus.json` from the real app checks the menu bar
   menu (idle and recording), the app menu bar's menus, and File › New Review
-  ⌘N, Add Media… ⌘O, Draft Reviews… ⇧⌘O, Submit Review… ⌘↩.
+  ⌘N, Open… ⌘O, Open Recent, Close ⌘W, Save… ⌘S, Add Media… ⇧⌘O, Submit Review… ⌘↩ (HS2-BKWZ5N).
 - **Visual QA:** `editor-no-media` (empty New Review window: placeholder and inspector hint),
   `menu-delay-row-light/-dark` (the Delay row, `HS2-WC6JSH`), and the editor tool bar with **Add
   Media…** at 900 pt (`editor-narrow`), all inspected by hand.
@@ -1534,3 +1534,27 @@ text stacked one word per line at 99 pt wide. The empty Draft Reviews window was
   The three states are also rendered (`session-downscale-opened`, `-off`, `-on-again`) for visual QA.
 - **Not covered automatically:** clicking the toggle in a live Settings window (the probe drives the
   same binding).
+
+## HS2-BKWZ5N: reviews as .uxreview documents
+
+- **Unit** (`ReviewDocumentTests`, `RecentReviewsTests`, `ReviewDocumentCommandTests`):
+  - new reviews are untitled `.uxreview` packages and the pointer names them;
+  - Save moves a review anywhere (adding the extension); it stays current via an absolute pointer and the next capture goes into it; saving in place is a no-op; a non-current review's save leaves the current one alone;
+  - an existing destination is refused, or with `replacing` moved to the Trash;
+  - a pending submission moves with Save but never into copies (`submission.json`, `.submission/`);
+  - Save As and Duplicate give fresh ids, the original is untouched, Duplicate is untitled and titled "… copy";
+  - Open reads a package anywhere; makeCurrent refuses a non-review without changing the pointer;
+  - filing removes an untitled review and trashes a saved one; discarding a saved one trashes it;
+  - only real packages outside the drafts folder are accepted (plain folders, empty packages, and links are refused); malformed pointers are ignored;
+  - a whole life cycle across the operations;
+  - the recent list notes, caps, dedupes, moves, removes, clears, persists, and titles entries (repeats told apart, missing ones skipped);
+  - command parsing and name resolution with or without the extension.
+- **Existing tests** (`ReviewDraftStoreTests`, `DraftListingTests`) now expect `.uxreview` folder names.
+- **App end to end** (`scripts/app-e2e.sh`, "reviews as documents"):
+  - the built app's Info.plist exports the UTI and declares an editable package document type;
+  - a capture makes an untitled package; `--save-review` moves it and the pointer and the next capture follow;
+  - `--copy` writes a separate copy with its own id (validated with ajv), and an existing name exits 4 without `--replace`;
+  - `--duplicate-review` makes an untitled "… copy"; `--open-review` makes a review current, and a non-review exits 2 without changing it;
+  - discarding a saved review trashes the package;
+  - the File menu dump matches the new File menu.
+- **Not covered automatically:** the save and open panels, the Open Recent submenu filled live, Finder opening a `.uxreview`, and the editor reopening after Save (live check `HS2-WXZVDJ`).

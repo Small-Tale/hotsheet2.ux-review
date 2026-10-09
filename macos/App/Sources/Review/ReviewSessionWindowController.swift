@@ -54,6 +54,9 @@ final class ReviewSessionWindowController: NSWindowController, NSWindowDelegate 
         open[directory.standardizedFileURL]?.window?.close()
     }
 
+    /// True while a session window shows the review in `directory`.
+    static func isOpen(directory: URL) -> Bool { open[directory.standardizedFileURL] != nil }
+
     init(model: ReviewSessionModel) {
         self.model = model
         let window = NSWindow(

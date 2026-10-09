@@ -319,9 +319,8 @@ one `attach` batch of the media plus `review.json`, then one note.
   have this review." **Move HS-… to Hot Sheet's Trash…** asks first, then sets its status to
   `deleted` (`hotsheet-cli edit --status=deleted`; Hot Sheet can restore it). Nothing is deleted
   without that click; `--submit` only reports it.
-- The Draft Reviews row reads "Media attached to HS-…; the review note isn't added yet" (or,
-  part-way, "Some media attached to HS-…; the rest and the review note aren't added yet"), and
-  Discard says the media stays attached. Opening the session on such a draft selects **Add to
+- `--drafts` reports it (`pendingNoteOnly`, `pendingPartlyAttached`), and Discard says the
+  media stays attached. Opening the session on such a draft selects **Add to
   existing ticket** with that ticket.
 - Re-submitting with the same media but changed crops or trims after a partial attach keeps the
   files already attached: the retry only sends the rest.
@@ -408,34 +407,37 @@ sizes, with even sides for the movie), Codex (1996×1248, the patch budget), ope
 `review.json` sizes match, and that the annotations are the draft's. With `--downscale off`, or
 the setting off, the full 3840×2400 file is filed.
 
-## 7.9 Draft reviews
+## 7.9 Reviews as documents
 
-**Draft Reviews…** (File or Window menu, ⇧⌘O, docs/05 §5.1.1) opens one **Draft Reviews** window
-listing every draft review on disk ([04-capture.md](04-capture.md) §4.6): the current one, the
-ones set aside with **New Review** (⌘N), one whose ticket was created but whose media wasn't attached (§7.5), and
-one whose folder could not be deleted after submitting (`draftRemoved: false`).
+A review is a macOS document, a `.uxreview` package (`HS2-BKWZ5N`): the folder with
+`review.json`, the captures, `edits.json`, and so on ([04-capture.md](04-capture.md) §4.6).
+UX Review exports the type `com.smalltale.uxreview.review` (a package) and is its owner, so Finder
+shows reviews as documents and opens them in UX Review. Drafts made before keep their plain folder
+names and still open.
 
-- **Order:** most recently edited first (review.json's modification date, or the folder's when
-  review.json is missing). Equal dates sort by folder name in reverse (draft ids start with their date).
-- **Each row:** the title, a **Current** badge for the draft new captures go to, the capture and
-  annotation counts, and when it was last edited. In orange: "HS-… was created; its media isn't
-  attached yet" (or "…; only some of its media is attached") for a pending submission, the
-  existing-ticket texts of §7.5, or "Can't be opened: review.json is missing." /
-  "… can't be read." for a broken draft. A broken draft is titled by its folder name.
-- **Open Session:** the Submit Review window on that draft (one window per draft, §7.1).
-  Submitting it never changes which draft is current unless it *was* current (§7.5).
-- **Annotate:** the annotation editor on that draft. Disabled with no captures.
-- **Show in Finder** (folder button) reveals the draft folder; **Show Drafts Folder** in the
-  footer reveals the drafts folder.
-- **Discard** (trash button) asks first. Open Session and Annotate are disabled for a broken
-  draft, but Show in Finder and Discard still work.
-- Not listed: hidden entries, the `current` pointer, plain files, and symbolic links.
-- The list re-reads when a draft changes (a capture, a removal, a submission, a discard, Start
-  New Review) and whenever the window comes to the front.
-- With no drafts, the window says "No Draft Reviews" and explains where drafts come from.
+- **Untitled reviews** live in the drafts folder and save themselves as you work, as before. The
+  editor window's subtitle says "Not saved".
+- **File › Save…** (⌘S) on an untitled review asks where to save it, then moves it there
+  (`ReviewDraftStore.save`). Its open editor (and Submit Review window) reopen on the moved review
+  at the same capture. If it was the current review, it stays current: the `current` pointer then
+  holds its absolute path, and new captures go into it where it is. A half-filed submission (§7.5)
+  moves with it. Replacing an existing item (the save panel asks) moves that item to the Trash.
+- **A saved review** keeps saving in place. The item reads **Save**, and the editor window shows
+  the document's proxy icon (its `representedURL`).
+- **File › Open…** (⌘O) opens `.uxreview` documents, several at once. Opening one from Finder or
+  the Dock does the same. A package without a readable `review.json` gets "Couldn't open …".
+- **File › Open Recent** lists the last 10 reviews opened in the editor (or saved, or copied), most
+  recent first, by title. A repeated title adds where it is ("— Not saved", or its folder). Reviews
+  that no longer exist are left out. **Clear Menu** empties the list; it deletes nothing. The list
+  is kept in the app's defaults as `recentReviews` (`RecentReviews`). Saving a review moves its
+  entry to the new path.
+- The **Draft Reviews** window is gone; Open Recent, Open…, and the drafts folder replace it.
+  `--drafts` and `--discard-draft` (§7.10) remain for scripts.
+- **After filing**, a review goes away as before (§7.5): an untitled one is deleted, and a saved
+  one moves to the Trash instead, so a file kept somewhere the reviewer chose is never deleted
+  outright.
 
-**Discarding** (the Draft Reviews window's trash button, or **Discard Review…** in the Submit
-Review window):
+**Discarding** (**Discard Review…** in the Submit Review window, or `--discard-draft`):
 
 1. A confirmation names the review and says its captures and annotations go to the Trash with
    the folder. When a ticket was already created (§7.5), it adds that discarding doesn't delete
@@ -458,9 +460,9 @@ Review window):
    removed stays in the drafts folder and is listed (as a broken draft once its review.json is
    gone), so it can be discarded again.
 
-Only a folder directly inside the drafts folder can be discarded. The drafts folder itself,
-`current`, hidden names, nested folders, symbolic links, and paths outside are refused
-(`outsideDrafts`). A folder that is already gone is `noSuchDraft`. A submitted draft is deleted
+Only a folder directly inside the drafts folder, or a saved `.uxreview` package (not a link) that
+holds a `review.json`, can be discarded. The drafts folder itself, `current`, hidden names, nested
+folders, symbolic links, and other paths outside are refused (`outsideDrafts`). A folder that is already gone is `noSuchDraft`. A submitted draft is deleted
 rather than trashed (§7.5): its media now lives in Hot Sheet.
 
 `UXREVIEW_TRASH_DIR`, when set, makes discarded drafts move into that folder instead of the
@@ -480,7 +482,7 @@ UXReview --discard-draft NAME|PATH [--delete] [--drafts-dir DIR]
 `issue` when they apply. A missing drafts folder lists nothing.
 
 `--discard-draft` discards one draft as in §7.9. The value is a folder name in the drafts
-folder, or a path when it contains a `/`. On success it prints `status: "discarded"`,
+folder (with or without `.uxreview`), or a path when it contains a `/`. On success it prints `status: "discarded"`,
 `draftDirectory`, `trashedTo`, and `wasCurrent`. With `--delete`, it deletes the draft
 immediately instead of trying the Trash, which can't be undone, and prints `status: "deleted"`
 without `trashedTo`; the same folders are refused. `--delete` without `--discard-draft` is
@@ -492,6 +494,20 @@ without `trashedTo`; the same folders are refused. `--delete` without `--discard
 | 2 | `invalidArguments`, `noDraft` | A missing value, or no such draft folder |
 | 5 | `listFailed`, `discardFailed` | The drafts folder couldn't be read, or the Trash refused (or, with `--delete`, the deletion failed); the draft is kept |
 | 6 | `outsideDrafts` | Not a draft folder directly inside the drafts folder (§7.9); nothing moves |
+
+**Documents** (`HS2-BKWZ5N`, `HS2-0D87NR`):
+
+```
+UXReview --open-review PATH [--drafts-dir DIR]
+UXReview --save-review NAME|PATH --to PATH [--copy] [--replace] [--drafts-dir DIR]
+UXReview --duplicate-review NAME|PATH [--drafts-dir DIR]
+```
+
+`--open-review` makes the review current; `--save-review` moves it (Save), or with `--copy`
+writes a copy (Save As…); `--duplicate-review` makes an untitled copy (Duplicate). Each prints
+`status` (`opened`, `saved`, `copied`, `duplicated`), `draftDirectory` (the result), `title`,
+`isUntitled`, `isCurrent`, and `captureCount`. Exit codes: 2 (`invalidArguments`, `noReview`), 4
+(`destinationExists`: something is already there and `--replace` wasn't given), 5 (`failed`).
 
 `scripts/app-e2e.sh` lists four drafts (two set aside with `--new-review`, a broken one, and
 clutter that must not be listed), discards an older draft and then the current one into

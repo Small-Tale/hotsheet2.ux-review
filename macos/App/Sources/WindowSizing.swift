@@ -2,13 +2,13 @@ import AppKit
 import SwiftUI
 import UXReviewKit
 
-/// Saved frames for UX Review's resizable SwiftUI windows: Draft Reviews, Submit Review, and the
+/// Saved frames for UX Review's resizable SwiftUI windows: Submit Review and the
 /// editor (`HS2-VX8T5A`). Spec: docs/05-start-and-settings.md §5.1.1.
 ///
 /// Their minimum size comes from SwiftUI: an `NSHostingView` sets the window's minimum to its
 /// root view's, and SwiftUI measures the minimum height at the minimum width. Each root view
 /// therefore states a minimum width (and height) with `.frame(minWidth:minHeight:)`. Without one,
-/// wrapping text stacks one word per line at a 99 pt width, which forced the empty Draft Reviews
+/// wrapping text stacks one word per line at a 99 pt width, which forced the (since removed) empty Draft Reviews
 /// window to 1766 pt and a filed review's Submit Review window past 2000 pt.
 @MainActor
 enum WindowSizing {

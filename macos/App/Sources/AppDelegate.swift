@@ -2,7 +2,7 @@ import AppKit
 import UXReviewKit
 
 /// The app: a menu bar icon (`StatusItemController`) that captures, plus UX Review windows
-/// (editor, Submit Review, Draft Reviews, Settings). While one of those is open the app shows a
+/// (editor, Submit Review, Settings). While one of those is open the app shows a
 /// Dock icon and its menu bar (`DockPresence`, `MainMenu`). Spec: docs/05-start-and-settings.md §5.1.
 ///
 /// It is also the end of the responder chain: File menu actions that no window answers act on
@@ -19,6 +19,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
     private var statusItem: StatusItemController?
     private var batch = OpenBatch()
     private var waiting = false
+    /// Reviews opened from Finder before launch finished.
+    private var pendingReviews: [URL] = []
 
     func applicationDidFinishLaunching(_: Notification) {
         let capture = CaptureCoordinator()
@@ -41,6 +43,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
             state: { [weak self] in self?.menuState() ?? MenuState() },
             perform: { [weak self] in self?.perform($0) }
         )
+        RecentReviewsMenu.shared.store = capture.store
         MainMenu.install()
         flushIfReady()
     }
@@ -91,7 +94,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
     // MARK: Opening files from Finder
 
     func application(_: NSApplication, open urls: [URL]) {
-        guard batch.add(urls) else { return }
+        // `.uxreview` documents open in the editor; images and movies import (HS2-BKWZ5N).
+        let reviews = urls.filter { $0.pathExtension == ReviewDraftStore.packageExtension }
+        if let store = capture?.store {
+            for url in reviews {
+                ReviewDocuments.open(url, store: store)
+            }
+        } else {
+            pendingReviews += reviews
+        }
+        let media = urls.filter { $0.pathExtension != ReviewDraftStore.packageExtension }
+        guard !media.isEmpty, batch.add(media) else { return }
         waiting = true
         Task {
             try? await Task.sleep(for: Self.batchDelay)
@@ -102,6 +115,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
 
     /// URLs that arrive before launch finishes wait in the batch.
     private func flushIfReady() {
+        if let store = capture?.store, !pendingReviews.isEmpty {
+            pendingReviews.forEach { ReviewDocuments.open($0, store: store) }
+            pendingReviews = []
+        }
         guard !waiting, let capture, !batch.pending.isEmpty else { return }
         capture.openMedia(batch.flush())
     }
@@ -117,9 +134,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
     @objc func openSettings(_: Any?) { perform(.openSettings) }
     @objc func newReview(_: Any?) { capture?.newReview() }
     @objc func addMedia(_: Any?) { capture?.openMediaForAnnotation() }
-    @objc func showDraftReviews(_: Any?) {
-        if let store = capture?.store { DraftsWindowController.show(store: store) }
+    @objc func openReviewDocument(_: Any?) {
+        if let store = capture?.store { ReviewDocuments.runOpenPanel(store: store) }
     }
+
+    @objc func openRecentReview(_ sender: NSMenuItem) {
+        guard let store = capture?.store, let url = sender.representedObject as? URL else { return }
+        ReviewDocuments.open(url, store: store)
+    }
+
+    @objc func clearRecentReviews(_: Any?) { ReviewDocuments.clearRecent() }
 
     @objc func submitReview(_: Any?) {
         if let store = capture?.store { ReviewSessionWindowController.showCurrent(store: store) }
