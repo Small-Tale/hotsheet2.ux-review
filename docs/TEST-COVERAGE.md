@@ -1862,3 +1862,13 @@ text stacked one word per line at 99 pt wide. The empty Draft Reviews window was
 - **Visual QA:** the three HUD renders, inspected by hand.
 - **Not covered automatically:** the live window closing and the HUD fading, pausing on hover, and
   its buttons. Added to the live check `HS2-K4KHR3`.
+
+## HS2-VFKKZR: hotkey checks survive overlapping app-e2e runs
+
+- `scripts/app-e2e.sh` holds a per-user lock (`$TMPDIR/uxreview-e2e-hotkeys.lock`) around every
+  check that registers the global hotkeys. A second run waits for it (up to 3 minutes), takes
+  over a lock whose run is gone, fails at once when the lock can't be created, and releases it
+  only if it owns it. The running app also gets 20 s, not 10 s, to come up and hold the keys.
+- **Checked by an ad-hoc harness** (not in the repo): a free lock taken and released, a stale lock
+  (dead pid) taken over, a live holder waited for (about 1.3 s), a non-owner unable to release it,
+  and a missing folder failing at once.

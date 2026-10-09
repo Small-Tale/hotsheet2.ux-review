@@ -231,6 +231,27 @@ run pointer-reset 0 "${SUITE_ENV[@]}" -- --settings --set-show-pointer on --set-
   || die "pointer: settings not turned back"
 ok "recordings show the pointer and no clicks by default; both settings persist, reach headless recordings, and reject bad values"
 
+# Global hotkeys are system-wide, so two app-e2e runs at once (other worktrees, HS2-VFKKZR) would
+# fight over these. The hotkey checks hold a per-user lock: a run waits for another to finish
+# (up to 3 minutes), and a lock whose run is gone is taken over.
+HOTKEY_LOCK="${TMPDIR:-/tmp}/uxreview-e2e-hotkeys.lock"
+take_hotkey_lock() {
+  local waited=0
+  until mkdir "$HOTKEY_LOCK" 2>/dev/null; do
+    # mkdir failed for another reason than the lock being held (a missing or read-only folder).
+    [[ -d "$HOTKEY_LOCK" ]] || die "settings: can't create the hotkey lock $HOTKEY_LOCK"
+    local owner; owner="$(cat "$HOTKEY_LOCK/pid" 2>/dev/null || true)"
+    if [[ -n "$owner" ]] && ! kill -0 "$owner" 2>/dev/null; then rm -rf "$HOTKEY_LOCK"; continue; fi
+    (( waited == 0 )) && echo "  waiting for another app-e2e run's hotkey checks (pid ${owner:-?})"
+    (( waited >= 1800 )) && die "settings: another app-e2e run held the hotkey lock for 3 minutes"
+    sleep 0.1; waited=$((waited + 1))
+  done
+  echo $$ >"$HOTKEY_LOCK/pid"
+}
+release_hotkey_lock() { [[ "$(cat "$HOTKEY_LOCK/pid" 2>/dev/null)" == "$$" ]] && rm -rf "$HOTKEY_LOCK"; return 0; }
+take_hotkey_lock
+trap 'release_hotkey_lock; rm -rf "$TMP"' EXIT
+
 # Pick combinations unlikely to be taken on the test machine.
 run settings-set 0 "${SUITE_ENV[@]}" -- --settings --set-hotkey "ctrl+opt+cmd+F7" --set-record-hotkey "ctrl+opt+cmd+F8" --set-open-hotkey "ctrl+opt+cmd+F9" --set-target window --set-delay 3
 run settings-read 0 "${SUITE_ENV[@]}" -- --settings
@@ -250,7 +271,7 @@ ok "settings persist across launches and all three hotkeys register with the sys
 env "${SUITE_ENV[@]}" UXREVIEW_DRAFTS_DIR="$TMP/menu-drafts" "$APP_BIN" >/dev/null 2>&1 &
 menu_pid=$!
 registered=""
-for _ in $(seq 1 50); do
+for _ in $(seq 1 100); do
   run settings-conflict 0 "${SUITE_ENV[@]}" -- --settings
   [[ "$(json "$TMP/settings-conflict.json" '`${j.hotkey.status} ${j.recordHotkey.status} ${j.openReviewHotkey.status}`')" == "inUse inUse inUse" ]] && { registered=1; break; }
   sleep 0.2
@@ -273,6 +294,7 @@ run settings-open-off 0 "${SUITE_ENV[@]}" -- --settings --set-open-hotkey none
 [[ "$(json "$TMP/settings-open-off.json" j.openReviewHotkey.status)" == disabled ]] || die "settings: open hotkey disable"
 [[ "$(json "$TMP/settings-open-off.json" j.hotkey.status)" == registered ]] || die "settings: disabling open touched capture"
 ok "a duplicate of another shortcut is rejected and not saved; the record and open hotkeys disable on their own"
+release_hotkey_lock
 
 run settings-disable 0 "${SUITE_ENV[@]}" -- --settings --set-hotkey none
 [[ "$(json "$TMP/settings-disable.json" j.hotkey.status)" == disabled ]] || die "settings: disable"
