@@ -50,6 +50,8 @@ final class ReviewSessionModel: ObservableObject {
     @Published private(set) var resolvedScale: (store: String, target: MediaScaleTarget)?
     /// Detects the AI size for a store (off the main thread): cli, store. Previews pass their own.
     let scaleDetector: @Sendable (String, String) -> MediaScaleTarget
+    /// Reads Settings › Downscale for AI (the app's defaults; the wiring probe passes its own store).
+    let downscaleSetting: () -> Bool
 
     private var scaleTask: Task<Void, Never>?
     @Published private(set) var recentProjects: [String] = []
@@ -107,10 +109,12 @@ final class ReviewSessionModel: ObservableObject {
 
     init(
         draft: ReviewDraft, store: ReviewDraftStore, target: HotSheetStatus,
-        scaleDetector: @escaping @Sendable (String, String) -> MediaScaleTarget = AppSettings.scaleTarget
+        scaleDetector: @escaping @Sendable (String, String) -> MediaScaleTarget = AppSettings.scaleTarget,
+        downscaleSetting: @escaping () -> Bool = { AppSettings.downscaleForAI }
     ) {
         self.store = store
         self.scaleDetector = scaleDetector
+        self.downscaleSetting = downscaleSetting
         session = ReviewSession(
             directory: draft.directory,
             bundle: draft.bundle,
@@ -120,7 +124,7 @@ final class ReviewSessionModel: ObservableObject {
         title = draft.bundle.title
         summary = draft.bundle.summary
         ticketInput = ""
-        downscaleForAI = AppSettings.downscaleForAI
+        downscaleForAI = downscaleSetting()
         // A review whose media already went to an existing ticket goes back to that ticket (§7.5).
         if let pending = store.pendingSubmission(in: draft.directory), pending.isForExistingTicket,
            pending.storePath == target.storePath {
@@ -414,7 +418,7 @@ extension ReviewSessionModel {
     /// Re-reads Downscale for AI and, when it is on, detects the project's AI size in the
     /// background (`hotsheet-cli ai-settings`), so the capture list shows the filed size.
     func refreshScale() {
-        downscaleForAI = AppSettings.downscaleForAI
+        downscaleForAI = downscaleSetting()
         guard downscaleForAI, let cli = session.target.cliPath, let store = session.target.storePath,
               resolvedScale?.store != store
         else { return }

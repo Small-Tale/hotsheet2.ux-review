@@ -146,6 +146,7 @@ macos/
     Review/ReviewDestinationView.swift  Ticket section: New ticket / Add to existing ticket, ticket field, lookup status (docs/07 §7.2.1); Ticket text: rendered preamble, click to edit (TicketTextBox, MarkdownPreview, §7.2.3)
     Review/HeadlessSubmit.swift       `--submit` mode with JSON output (docs/07 §7.8)
     Review/ReviewSessionPreviews.swift  session states for --render-ui-previews
+    Review/ReviewSessionPreviews+Downscale.swift  Downscale for AI wiring probe: Settings toggle → captureSettingsChanged → open session's filed sizes (session-downscale-wiring.json)
     Review/DraftsWindowController.swift  Draft Reviews window (one) + DraftsModel: list, open, annotate, reveal, discard (docs/07 §7.9)
     Review/DraftsView.swift           draft rows (title, Current badge, counts, date, problems) and their buttons; empty state
     Review/DraftDiscarding.swift      discard confirmation, close the draft's editor + session windows, move to the Trash; Delete Immediately confirmation when the Trash refuses

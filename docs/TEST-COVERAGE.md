@@ -1251,10 +1251,8 @@ capture files are no longer cropped or trimmed while drafting.
   - `--downscale off` and the setting off file 3840×2400.
 - **Visual QA:** the `session-*` renders (`--render-ui-previews`) show the mock captures scaled
   for Claude's standard tier (the 1600×1000 mock reads "1389×868 scaled for Claude").
-- **Not covered automatically:** the Settings toggle and a live Submit Review window following
-  a settings change (UI wiring over the tested model and notification); a rotated movie's
-  preferred transform in the scaling composition (recordings and imports here have none). Both are
-  `HS2-ZMDH5D`.
+- The Settings toggle, a live Submit Review window following it, and rotated movies are covered
+  by `HS2-ZMDH5D` (below).
 
 ## HS2-4N722Z: the Crop tool shows the original and adjusts one crop
 
@@ -1514,3 +1512,25 @@ text stacked one word per line at 99 pt wide. The empty Draft Reviews window was
 - **App end to end** (`scripts/app-e2e.sh`): `--submit` with a fake web host (a node HTTP server that writes `client.json` with its own pid) reports `hotSheetURL` as `<url>/?store=<store>&ticket=<slug>`; with an empty `HOTSHEET_HOME` it reports none.
 - **Visual QA:** `session-submitted-hotsheet` (`--render-ui-previews`), inspected by hand; `session-submitted` still has no button.
 - **Not covered automatically:** clicking the button and the browser opening the link (`NSWorkspace.open`).
+
+## HS2-ZMDH5D: AI downscaling of rotated movies, and the Settings / Submit Review wiring
+
+- **Real files** (`EncodingTests.RotatedMovieScalingTests`): H.264 movies written with
+  `AVAssetWriter` and a track transform.
+  - An iPhone-style portrait clip (quarter turn, stored 160×90) imports at 90×160. The Submit
+    Review text, the staged movie (`SubmissionStaging`), and the bundle all give the scaled
+    portrait size (longest edge 80, even sides). The filed track has an identity transform, its
+    quadrant colors match the displayed source, and `scaledFrom` is 90×160.
+  - A half turn whose displayed frame lies at negative coordinates, through `VideoTrim.export`,
+    comes out upright with the displayed colors. A crop of the displayed top half keeps what is
+    shown, not the stored pixels.
+  - `renderTransform` maps both rotations' displayed frames onto the output frame's origin and size.
+  - Mutation check: making `renderTransform` ignore the preferred transform fails all three tests.
+- **App end to end** (`scripts/app-e2e.sh`, `session-downscale-wiring.json` from
+  `--render-ui-previews`): the Settings view's own toggle binding saves `downscaleForAI` (in a
+  throwaway store). `SettingsModel` posts `captureSettingsChanged`, and an open
+  `ReviewSessionModel` re-reads the setting (`refreshScale`) and shows the filed sizes:
+  "1389×868 scaled for Claude" → "1600×1000" → scaled again, with one AI size detection reused.
+  The three states are also rendered (`session-downscale-opened`, `-off`, `-on-again`) for visual QA.
+- **Not covered automatically:** clicking the toggle in a live Settings window (the probe drives the
+  same binding).

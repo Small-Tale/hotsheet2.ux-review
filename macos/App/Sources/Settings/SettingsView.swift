@@ -91,7 +91,9 @@ struct SettingsView: View {
         }
     }
 
-    private func binding<Value>(_ path: WritableKeyPath<CaptureSettings, Value>) -> Binding<Value> {
+    /// The binding each control edits through (`SettingsModel.update`); the downscale wiring
+    /// probe flips the Downscale for AI toggle through it too (HS2-ZMDH5D).
+    func binding<Value>(_ path: WritableKeyPath<CaptureSettings, Value>) -> Binding<Value> {
         Binding(get: { model.settings[keyPath: path] }, set: { value in model.update { $0[keyPath: path] = value } })
     }
 }

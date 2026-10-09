@@ -1215,6 +1215,20 @@ TB="$TMP/previews/editor-toolbar.json"
   "Select|true|Crop|false|Submit Review…|1" ]] || die "toolbar: states $(json "$TB" 'JSON.stringify(j)')"
 ok "the editor's native toolbar: tools on the right follow the keyboard, Restore Original after a crop, Submit Review… works"
 
+# HS2-ZMDH5D: Settings › Downscale for AI reaches an open Submit Review window. The toggle's own
+# binding saves the setting, captureSettingsChanged makes the session re-read it, and the capture
+# list shows the size as filed; turning it back on reuses the AI size detected for the store.
+DW="$TMP/previews/session-downscale-wiring.json"
+STEP='s => [s.step, s.saved, s.downscaleForAI, s.scaled, s.settled, s.detections, s.sizes.join(";")].join("|")'
+[[ "$(json "$DW" "j.steps.map($STEP).join(\"\\n\")")" == "opened|true|true|true|true|1|1389×868 scaled for Claude;1200×800;1388×868 scaled for Claude
+off|false|false|false|true|1|1600×1000;1200×800;1600×1000
+on-again|true|true|true|true|1|1389×868 scaled for Claude;1200×800;1388×868 scaled for Claude" ]] \
+  || die "downscale wiring: $(json "$DW" 'JSON.stringify(j.steps)')"
+for name in opened off on-again; do
+  [[ -s "$TMP/previews/session-downscale-$name.png" ]] || die "previews: session-downscale-$name.png missing"
+done
+ok "the Settings toggle saves Downscale for AI and an open Submit Review window follows it (filed sizes off → full size → scaled, one detection)"
+
 # HS2-1AD1FJ: the settings went to the suite file in $TMP, and `defaults domains` (the plists in
 # ~/Library/Preferences) does not list the run's suite.
 [[ -s "$SUITE.plist" ]] || die "cleanup: the defaults suite is not at $SUITE.plist"

@@ -62,6 +62,7 @@ enum ReviewSessionPreviews {
         try shoot("session-submitted-hotsheet", filedWithHotSheet(model(draft)))
         try written += fitSubmitted(model(draft), to: directory)
         try renderExistingTicket(draft, model: { model($0) }, shoot: shoot)
+        try written += probeDownscaleWiring(draft, store: store, to: directory)
 
         // Blocked: no title, a capture whose file is gone, an annotation outside its capture,
         // and no project chosen.
@@ -292,7 +293,7 @@ enum ReviewSessionPreviews {
         return [json, png]
     }
 
-    private static func snapshot(_ view: some View, size: CGSize, to url: URL) throws -> URL {
+    static func snapshot(_ view: some View, size: CGSize, to url: URL) throws -> URL {
         let host = NSHostingView(rootView: view.frame(width: size.width, height: size.height))
         let window = NSWindow(contentRect: CGRect(origin: .zero, size: size), styleMask: [.titled], backing: .buffered, defer: false)
         window.contentView = host
