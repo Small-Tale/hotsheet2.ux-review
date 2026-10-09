@@ -29,7 +29,7 @@ enum EditorPreviews {
         // Nothing is saved, so every state starts from the same empty draft.
         func capture(
             _ name: String, size: CGSize, script: [EditorScript.Step], pressed: [CGPoint] = [], viewport: CanvasViewport? = nil,
-            stripWidth: CGFloat = MediaStripWidth.standard
+            stripWidth: CGFloat = MediaStripWidth.standard, appearance: NSAppearance.Name? = nil
         ) throws {
             let model = try EditorModel(session: EditorSession(store: store, directory: draft.directory))
             offerWindowButtons(model)
@@ -37,13 +37,17 @@ enum EditorPreviews {
             if let viewport { model.setViewport(viewport) }
             hold(pressed, in: model)
             let view = EditorView(model: model, stripWidthOverride: stripWidth)
-            written.append(try snapshot(view, size: size, to: directory.appendingPathComponent("\(name).png")))
+            written.append(try snapshot(view, size: size, to: directory.appendingPathComponent("\(name).png"), appearance: appearance))
             model.cancelAutosave()
         }
         let wide = CGSize(width: 1240, height: 800)
         try capture("editor-empty", size: wide, script: [])
         written.append(try renderNoMedia(to: directory, scratch: scratch, size: wide))
         try capture("editor-annotated", size: wide, script: annotations + [.select("#1")])
+        // HS2-JMCM6S: the canvas surround follows the appearance.
+        try capture("editor-annotated-dark", size: wide, script: annotations + [.select("#1")], appearance: .darkAqua)
+        try capture("editor-empty-dark", size: wide, script: [], appearance: .darkAqua)
+        written.append(try canvasColors(in: directory))
         // A plain click on an intent chip leaves just that intent (docs/06 §6.5).
         try capture("editor-intent-single", size: wide, script: annotations + [.select("#1"), .intent(.change, .single)])
         // Both captures selected (⌘-click), the second one shown (docs/06 §6.7.2).
@@ -325,7 +329,8 @@ enum EditorPreviews {
     }
 
     static func snapshot(
-        _ view: some View, size: CGSize, to url: URL, interact: ((AnnotationCanvasView) throws -> Void)? = nil
+        _ view: some View, size: CGSize, to url: URL, appearance: NSAppearance.Name? = nil,
+        interact: ((AnnotationCanvasView) throws -> Void)? = nil
     ) throws -> URL {
         // cacheDisplay skips the window's own background, so paint it (else the tool bar's
         // text sits on transparent pixels).
@@ -334,6 +339,7 @@ enum EditorPreviews {
                 .background(Color(nsColor: .windowBackgroundColor))
         )
         let window = NSWindow(contentRect: CGRect(origin: .zero, size: size), styleMask: [.titled], backing: .buffered, defer: false)
+        window.appearance = appearance.flatMap(NSAppearance.init(named:)) ?? NSAppearance(named: .aqua)
         window.contentView = host
         host.frame = CGRect(origin: .zero, size: size)
         host.layoutSubtreeIfNeeded()

@@ -1674,3 +1674,17 @@ text stacked one word per line at 99 pt wide. The empty Draft Reviews window was
 - **Visual QA:** `editor-window` (`--render-ui-previews`), inspected by hand.
 - **Not covered automatically:** hover borders and the overflow menu in a narrow live window.
   VoiceOver reading each button's label is part of `HS2-MVGVJ4`.
+
+## HS2-JMCM6S: the canvas follows the appearance
+
+- **App end to end** (`scripts/app-e2e.sh`): `editor-canvas-colors.json` samples the rendered
+  surround below the capture. In `editor-annotated` (light) it is a light gray (200–245, now 235);
+  in the new `editor-annotated-dark` it is near-black (≤ 80); both are neutral. Both PNGs and
+  `editor-empty-dark` must exist.
+- **Visual QA:** `editor-annotated`, `editor-annotated-dark`, `editor-empty`, `editor-empty-dark`,
+  inspected by hand: the white screenshot keeps a visible edge (shadow and hairline) on the light
+  surround, and the empty-canvas text uses the secondary label color in both appearances.
+- Editor previews now render in light mode by default (`snapshot(appearance:)`), so they no
+  longer depend on the Mac's own appearance.
+- **Not covered automatically:** switching appearance while the editor is open (the canvas
+  redraws in `viewDidChangeEffectiveAppearance`).

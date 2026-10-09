@@ -42,6 +42,12 @@ final class AnnotationCanvasView: NSView {
         reportSize()
     }
 
+    /// The surround follows the appearance (`HS2-JMCM6S`).
+    override func viewDidChangeEffectiveAppearance() {
+        super.viewDidChangeEffectiveAppearance()
+        needsDisplay = true
+    }
+
     override func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()
         reportSize()
@@ -65,7 +71,8 @@ final class AnnotationCanvasView: NSView {
         // A zoomed image extends past the canvas; views no longer clip by default (macOS 14).
         clipsToBounds = true
         context.clip(to: bounds)
-        context.setFillColor(CGColor(gray: 0.13, alpha: 1))
+        let colors = CanvasColors(appearance: effectiveAppearance)
+        context.setFillColor(colors.surround)
         context.fill(bounds)
         reportSize()
         guard let model, let item = model.editor.currentMedia, let renderer = renderer() else {
@@ -76,8 +83,8 @@ final class AnnotationCanvasView: NSView {
         }
         let imageRect = renderer.imageRect
         context.saveGState()
-        context.setShadow(offset: CGSize(width: 0, height: 4), blur: 18, color: CGColor(gray: 0, alpha: 0.5))
-        context.setFillColor(CGColor(gray: 0.2, alpha: 1))
+        context.setShadow(offset: CGSize(width: 0, height: 4), blur: 18, color: colors.shadow)
+        context.setFillColor(colors.mediaBacking)
         context.fill(imageRect)
         context.restoreGState()
         if let image = model.canvasImage() {
@@ -91,6 +98,10 @@ final class AnnotationCanvasView: NSView {
         } else {
             drawPlaceholder("\(item.filename) can't be read.")
         }
+        // A hairline keeps a white screenshot's edge visible on the light surround.
+        context.setStrokeColor(colors.mediaBorder)
+        context.setLineWidth(1)
+        context.stroke(imageRect.insetBy(dx: -0.5, dy: -0.5))
         // The Crop tool shows the original: annotations in its space, not selectable, under the
         // crop rectangle with its handles. Other tools show the cropped media.
         let showsOriginal = model.editor.showsOriginal
@@ -452,23 +463,5 @@ struct AnnotationCanvas: NSViewRepresentable {
         view.model = model
         view.window?.invalidateCursorRects(for: view)
         view.announceChanges()
-    }
-}
-
-extension AnnotationCanvasView {
-    /// Centered text on the empty canvas (no media, or a file that can't be read).
-    func drawPlaceholder(_ text: String) {
-        let paragraph = NSMutableParagraphStyle()
-        paragraph.alignment = .center
-        paragraph.lineSpacing = 4
-        let attributes: [NSAttributedString.Key: Any] = [
-            .font: NSFont.systemFont(ofSize: 14),
-            // The canvas is always dark, whatever the appearance.
-            .foregroundColor: NSColor(white: 0.72, alpha: 1),
-            .paragraphStyle: paragraph,
-        ]
-        let string = NSAttributedString(string: text, attributes: attributes)
-        let size = string.size()
-        string.draw(in: CGRect(x: bounds.midX - size.width / 2, y: bounds.midY - size.height / 2, width: size.width, height: size.height))
     }
 }

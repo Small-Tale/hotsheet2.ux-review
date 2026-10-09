@@ -134,12 +134,14 @@ macos/
     Editor/EditorView.swift           toast overlay, media strip (resizable via StripDivider) (⌘/⇧-click multiple selection), layout
     Editor/CanvasAutoScroller.swift   60 Hz auto-scroll timer while a canvas gesture runs near an edge
     Editor/AnnotationCanvas.swift     NSView canvas: mouse/keyboard → editor (← / → monitor for unedited time fields), drawing via AnnotationRenderer
+    Editor/AnnotationCanvas+Colors.swift  canvas colors per appearance (CanvasColors) and the empty-canvas text
     Editor/AnnotationCanvas+Cursor.swift  canvas cursor: cursor rects per tool; the Crop tool tracks the pointer (mouse moved / cursor update) → NSCursor.frameResize, hands (docs/06 §6.6)
     Editor/TimelineBar.swift          video timeline: play/pause, typed playhead, scrubber, range grips + trim handles, Trim Start/End; TimeField
     Editor/InspectorView.swift        navigation stack: capture note + annotation list → annotation page (back button, intents, note) (docs/06 §6.5.1)
     Editor/HeadlessAnnotate.swift     `--annotate` mode with JSON output
     Editor/NoteFields.swift           the Capture note field and the notes' Markdown tooltip
     Editor/EditorPreviews.swift       editor states + mock screenshots for --render-ui-previews
+    Editor/EditorPreviews+Appearance.swift  editor-canvas-colors.json: the canvas surround sampled in light and dark
     Editor/EditorPreviews+Crop.swift  the Crop tool's preview states (image and video crops)
     Editor/EditorPreviews+ArrowHeads.swift  every head style and a selected span (editor-arrow-heads)
     Editor/EditorPreviews+Toolbar.swift  the real toolbar on a titled window: editor-toolbar.json, editor-window.png

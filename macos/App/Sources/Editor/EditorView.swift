@@ -140,7 +140,7 @@ struct ToastView: View {
         .font(.callout)
         .padding(.horizontal, 14)
         .padding(.vertical, 8)
-        // Opaque, not glass: it sits on the dark canvas backdrop and must read on any capture.
+        // Opaque, not glass: it sits on the canvas and must read on any capture.
         .background(Capsule().fill(Color(nsColor: .windowBackgroundColor)))
         .overlay(Capsule().strokeBorder(Color.primary.opacity(0.12)))
         .shadow(color: .black.opacity(0.25), radius: 8, y: 2)
