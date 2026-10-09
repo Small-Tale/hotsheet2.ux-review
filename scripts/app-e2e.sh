@@ -1159,7 +1159,7 @@ ok "a Trash that refuses keeps the draft (exit 5); --delete deletes it immediate
 
 run previews 0 -- --render-ui-previews "$TMP/previews"
 for name in overlay-region-hint overlay-window-hint overlay-region-selection overlay-region-selection-bottom-edge overlay-window-hover recording-dim-region hud-countdown hud-saved hud-recording-countdown hud-recording hud-saved-video hud-recording-narration hud-saved-narrated settings-registered settings-in-use status-bar-icon-light status-bar-icon-dark menu-capture-target-row-light menu-capture-target-row-dark menu-delay-row-light menu-delay-row-dark menu-narrate-row-off-light menu-narrate-row-off-dark menu-narrate-row-on-light menu-narrate-row-on-dark \
-  editor-empty editor-no-media editor-annotated editor-intent-single editor-window editor-wide-sidebar editor-arrow-selected editor-arrow-heads editor-narrow editor-crop-drag editor-crop-tool editor-crop-adjust editor-cropped editor-multi-select editor-zoomed editor-keyboard-insert editor-video-timeline editor-video-narrow editor-video-trimmed editor-video-crop-tool editor-video-cropped editor-video-playing editor-video-range-drag editor-video-trim-drag editor-autoscroll \
+  editor-empty editor-no-media editor-annotated editor-intent-single editor-window editor-wide-sidebar editor-arrow-selected editor-arrow-heads editor-narrow editor-crop-drag editor-crop-tool editor-crop-adjust editor-cropped editor-multi-select editor-zoomed editor-keyboard-insert editor-video-timeline editor-video-narrow editor-video-trimmed editor-video-crop-tool editor-video-cropped editor-video-playing editor-video-range-drag editor-video-trim-drag editor-autoscroll editor-strip-portrait \
   session-ready session-narrow session-edited session-ticket-text-new session-ticket-text-existing session-ticket-text-edited session-ticket-text-editing session-ticket-text-narrow session-submitting session-failed session-submitted session-submitted-hotsheet session-submitted-fitted session-issues session-empty \
   session-existing-looking session-existing-found session-existing-narrow session-existing-not-found session-existing-closed \
   session-existing-failed session-existing-submitted session-existing-selection session-existing-abandoned \
@@ -1230,6 +1230,15 @@ TYPING="$TMP/previews/editor-note-typing.json"
 [[ "$(json "$TYPING" 'j[2].text + "|" + j[2].note')" == "Field labelXYZ is clipped at 200 % text size.|Field labelXYZ is clipped at 200 % text size." ]] \
   || die "note typing: text $(json "$TYPING" 'JSON.stringify(j[2])')"
 ok "typing in the middle of a note keeps the insertion point there; the note follows every keystroke"
+
+# HS2-QXJZJ9: real clicks swept down the media strip (landscape, tall portrait, landscape) land on
+# the capture under the pointer: three bands in order, each the cell's full height. Before the fix
+# the portrait thumbnail's clipped overflow took the clicks meant for capture 1, which did nothing.
+STRIP="$TMP/previews/editor-strip-clicks.json"
+BANDS='x => { const runs = []; for (const p of j.probes.filter(p => p.x == x)) { const k = p.shown == "none" ? "-" : "m" + (j.media.indexOf(p.shown) + 1); if (!runs.length || runs[runs.length - 1].k != k) runs.push({k, n: 0}); runs[runs.length - 1].n++; } return runs.map(r => r.k + (r.k == "-" ? "" : (r.n >= 26 ? "" : ":short"))).join(","); }'
+[[ "$(json "$STRIP" "[56, 14].map($BANDS).join(\"|\")")" == "-,m1,-,m2,-,m3,-|-,m1,-,m2,-,m3,-" ]] \
+  || die "strip clicks: $(json "$STRIP" "[56, 14].map($BANDS).join(\"|\")")"
+ok "every click on the media strip shows the capture under the pointer, a tall portrait thumbnail included"
 
 # HS2-J2BE94: once filed, the real 640 x 680 Submit Review window shrinks around the success message
 # and stays that size through further SwiftUI layout (HS2-VX8T5A).

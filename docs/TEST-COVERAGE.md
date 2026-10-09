@@ -1569,3 +1569,17 @@ text stacked one word per line at 99 pt wide. The empty Draft Reviews window was
   menu dump has Duplicate ⇧⌘S followed by Save As… ⌥⇧⌘S as its alternate item.
 - **Not covered automatically:** the ⌥ swap in the open menu, the save panel, and the original's
   windows closing as the copy opens (live check `HS2-WXZVDJ`).
+
+## HS2-QXJZJ9: every media strip thumbnail takes its clicks
+
+- **App end to end** (`scripts/app-e2e.sh`): `--render-ui-previews` shows a draft of a
+  landscape, a tall portrait (600 × 1600), and two more landscape captures in a key window far
+  off screen, and sends real mouse down/up events every 3 pt down two columns of the strip (the
+  middle, and beside the filename), parking on the fourth capture before each click
+  (`editor-strip-clicks.json`). Each column must read: nothing, capture 1, nothing, capture 2,
+  nothing, capture 3, nothing, with each capture's band at least 26 clicks (78 pt) tall. Before
+  the fix, the portrait thumbnail's clipped overflow covered capture 1 completely (no click on it
+  did anything) and the filename row of capture 3 had a dead gap.
+- **Visual QA:** `editor-strip-portrait` (the portrait capture shown), inspected by hand.
+- **Unit:** none; the fix is two SwiftUI hit-test shapes with no logic of their own.
+- **Not covered automatically:** a person clicking in a live window; see the follow-up live check.

@@ -141,6 +141,7 @@ macos/
     Editor/EditorPreviews+Crop.swift  the Crop tool's preview states (image and video crops)
     Editor/EditorPreviews+ArrowHeads.swift  every head style and a selected span (editor-arrow-heads)
     Editor/EditorPreviews+Toolbar.swift  the real toolbar on a titled window: editor-toolbar.json, editor-window.png
+    Editor/EditorPreviews+StripClicks.swift  real clicks swept down a media strip with a portrait capture (editor-strip-clicks.json)
     Editor/EditorPreviews+Typing.swift  types into the middle of a note through the real text view (editor-note-typing.json)
     Review/ReviewSessionWindowController.swift  one Submit Review window per draft (docs/07 §7.1)
     Review/ReviewSessionModel.swift   observable session: draft refresh, autosaved fields, remove, debounced ticket lookup, submit off-main

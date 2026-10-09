@@ -68,6 +68,7 @@ enum EditorPreviews {
             viewport: CanvasViewport(zoom: 1.5, center: CGPoint(x: 560, y: 300))
         )
         written += try renderVideo(to: directory, scratch: scratch) + renderAutoScroll(to: directory, scratch: scratch)
+        written += try renderStripClicks(to: directory, scratch: scratch)
         written.append(try windowSize(store: store, draft: draft, to: directory))
         return written
     }

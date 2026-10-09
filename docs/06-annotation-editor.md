@@ -45,7 +45,7 @@ UX Review** (or a click on the Dock icon) opens it on the current draft
 | Area | Contents |
 | --- | --- |
 | Toolbar (the window's native, unified title bar, `HS2-WHP4V1`) | The window title on the left. At the right end, as macOS 26 Liquid Glass items: the tools (§6.3) as one select-one group (it follows R/F/A/I/S/C/V), **Restore Original** (only while the image is cropped or the video trimmed, §6.6, §6.10), and **Submit Review…** (⌘↩), the prominent action: saves, then opens the Submit Review window on this editor's draft ([07-review-session.md](07-review-session.md) §7.1). Undo and redo are in the Edit menu only (⌘Z / ⇧⌘Z, `HS2-0C8ZVN`) |
-| Media strip (left, whenever the review has a capture) | Thumbnails (with the current crop) plus a count badge of annotations on each. Click one to show it; ⌘-click and ⇧-click select several (§6.7.2). Videos are marked. The shown thumbnail has a ✕ button, and every thumbnail a **Remove from Review…** context menu item (§6.7.1). **Resizable** (`HS2-AH6HW4`): drag the line between the strip and the canvas (96–320 pt, 112 standard); thumbnails grow with it, the width is kept across windows and launches, a double-click on the line restores the standard width, and VoiceOver adjusts it in 16 pt steps |
+| Media strip (left, whenever the review has a capture) | Thumbnails (with the current crop) plus a count badge of annotations on each. Click one to show it; ⌘-click and ⇧-click select several (§6.7.2). The whole thumbnail cell (image, filename, and the space around them) takes the click, and only that cell: a capture of any shape, such as a tall portrait window, never takes clicks meant for its neighbors (`HS2-QXJZJ9`). Videos are marked. The shown thumbnail has a ✕ button, and every thumbnail a **Remove from Review…** context menu item (§6.7.1). **Resizable** (`HS2-AH6HW4`): drag the line between the strip and the canvas (96–320 pt, 112 standard); thumbnails grow with it, the width is kept across windows and launches, a double-click on the line restores the standard width, and VoiceOver adjusts it in 16 pt steps |
 | Canvas | The current capture fitted to the view (at most 2×) or zoomed (§6.2.1), on a dark backdrop, with annotations drawn on top. A video shows the frame at the playhead |
 | Toasts (top of the canvas) | No status line (`HS2-KJCJWX`). The editor's messages (crop and trim results and hints) show as a toast that fades after 4 seconds; a save error shows as a toast with a warning sign that stays until saving works again. Saving itself (autosave, ⌘S) shows nothing (`EditorToast`, `ToastPresenter`) |
 | Timeline (under the canvas, videos only) | Play/pause, frame step, playhead time, **Trim Start** / **Trim End**, and the scrubber with each annotation's time range (§6.10) |
@@ -628,6 +628,9 @@ editor offscreen through the real views, on a draft of mock app screenshots:
   grip, and of the start trim handle (the cut part dimmed)
 - `editor-video-frame-step`: the selected range's end grip pressed in place, then ⇧→ and ← sent
   as real key events through the canvas (the range ends at 0:02.90 and the playhead follows)
+- `editor-strip-portrait`: a strip of landscape captures around a tall portrait one, after real
+  clicks swept down the strip; which capture each click showed goes to `editor-strip-clicks.json`
+  (§6.1, `HS2-QXJZJ9`)
 
 ## 6.10 Video time and trimming
 

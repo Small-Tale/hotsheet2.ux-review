@@ -170,6 +170,10 @@ struct MediaStrip: View {
                             thumbnail(item)
                                 .frame(width: size.width, height: size.height)
                                 .clipShape(RoundedRectangle(cornerRadius: 4))
+                                // Clipping hides the filled image's overflow but doesn't stop it
+                                // taking clicks: a portrait capture's overflow covered its
+                                // neighbors, so their clicks went nowhere (HS2-QXJZJ9).
+                                .contentShape(RoundedRectangle(cornerRadius: 4))
                                 .overlay(
                                     RoundedRectangle(cornerRadius: 4)
                                         .stroke(
@@ -185,6 +189,9 @@ struct MediaStrip: View {
                         .background(
                             RoundedRectangle(cornerRadius: 6).fill(Color.accentColor.opacity(selected && selection.count > 1 ? 0.16 : 0))
                         )
+                        // The whole cell takes the click, not just the thumbnail and the
+                        // filename's glyphs (a plain button hit-tests only what it draws).
+                        .contentShape(RoundedRectangle(cornerRadius: 6))
                     }
                     .buttonStyle(.plain)
                     .accessibilityAddTraits(selected ? .isSelected : [])
