@@ -353,7 +353,9 @@ started by a link that names a project files to that project. The order is `--pr
 then the link's project (`launch.json`), then the selected project. The app-wide selection is not
 changed. Choosing a project with **Change** replaces the link's project for that review. A link's
 `ticket` opens the window on **Add to existing ticket** with that ticket, and `--submit` adds the
-review to it when no `--to-ticket` is given.
+review to it when no `--to-ticket` is given. The link's ticket is applied each time the window
+opens, so after choosing **New ticket**, closing the window and opening it again shows the link's
+ticket again.
 
 ## 7.7 Not yet
 
