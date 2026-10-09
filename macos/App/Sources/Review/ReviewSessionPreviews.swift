@@ -30,7 +30,7 @@ enum ReviewSessionPreviews {
             // Previews never run hotsheet-cli; they resolve lookups with previewLookup.
             model.ticketFinder = { _, _ in .success(nil) }
             // No Hot Sheet web client unless a preview says so.
-            model.hotSheetLinkFinder = { _, _ in nil }
+            model.hotSheetLinkFinder = { _, _, _ in nil }
             return model
         }
 
@@ -256,7 +256,7 @@ enum ReviewSessionPreviews {
     /// HS2-ZEF6XD: Hot Sheet's web client is running, so the ticket can be opened in it.
     private static func filedWithHotSheet(_ model: ReviewSessionModel) -> ReviewSessionModel {
         let link = URL(string: "http://127.0.0.1:4175/?store=/Users/me/Code/acme-mail.hs2&ticket=HS-R58EY5")
-        model.hotSheetLinkFinder = { _, _ in link }
+        model.hotSheetLinkFinder = { _, _, _ in link }
         model.hotSheetLink = link
         return filed(model)
     }

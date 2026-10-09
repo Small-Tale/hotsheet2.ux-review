@@ -52,7 +52,10 @@ and **Open in Hot Sheet** (only while Hot Sheet's web client is running, below),
 
 **Open in Hot Sheet** (`HS2-ZEF6XD`, `HotSheetWebClient`) opens the ticket in Hot Sheet 2's web
 client in the default browser, at its deep link
-`<client url>/?store=<ticket store path>&ticket=<slug>` (Hot Sheet 2 `HS2-RVSPQ9`). After filing,
+`<client url>/?store=<project folder>&ticket=<slug>` (Hot Sheet 2 `HS2-RVSPQ9`). The link names
+the project the review was filed into, not its `.hs2` store, which is an implementation detail of
+the project (`HS2-G3BA3P`). Hot Sheet's parameter is called `store` but takes a project folder too.
+The store path is used only when the project isn't known. After filing,
 the window reads `${HOTSHEET_HOME:-~/.hotsheet2}/client.json`, off the main thread. The client
 counts as running only if all of these hold:
 

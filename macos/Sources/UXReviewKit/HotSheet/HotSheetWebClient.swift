@@ -5,8 +5,9 @@ import Foundation
 ///
 /// The web host publishes its loopback origin in `${HOTSHEET_HOME:-~/.hotsheet2}/client.json`
 /// (`url`, `pid`, `started_at`, `id`). It opens a ticket at
-/// `<url>/?store=<ticket store path or project path>&ticket=<slug>` (Hot Sheet 2 docs/06,
-/// `HS2-RVSPQ9`). A record counts only while its process is alive and its URL answers.
+/// `<url>/?store=<project path, else ticket store path>&ticket=<slug>` (Hot Sheet 2 docs/06,
+/// `HS2-RVSPQ9`; the parameter is named `store` but takes a project too). A record counts only while its process is alive and its URL
+/// answers.
 public struct HotSheetWebClient: Equatable, Sendable {
     public static let discoveryFilename = "client.json"
 
@@ -57,8 +58,17 @@ public struct HotSheetWebClient: Equatable, Sendable {
         return client
     }
 
-    /// The deep link that opens `ticket` in the project whose store is `store`.
-    public func ticketURL(store: String, ticket: String) -> URL {
+    /// The deep link that opens `ticket` in its project (`HS2-G3BA3P`). Hot Sheet's `store`
+    /// parameter takes a project folder as well as a store path. The project is what the
+    /// reviewer chose, while the store is the project's implementation detail, so the link names
+    /// the project and falls back to the store only when the project isn't known.
+    public func ticketURL(project: String?, store: String, ticket: String) -> URL {
+        let trimmed = project?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let target = trimmed.isEmpty ? store : URL(fileURLWithPath: trimmed, isDirectory: true).standardizedFileURL.path
+        return ticketURL(target: target, ticket: ticket)
+    }
+
+    private func ticketURL(target store: String, ticket: String) -> URL {
         var components = URLComponents(url: url, resolvingAgainstBaseURL: false) ?? URLComponents()
         if components.path.isEmpty { components.path = "/" }
         // Hot Sheet reads the query with URLSearchParams, where `+` is a space, so everything

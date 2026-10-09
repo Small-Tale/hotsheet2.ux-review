@@ -672,7 +672,7 @@ json "$TMP/submit-flaky.json" j.message | grep -q "the store is locked" || die "
 [[ "$(json "$sdraft/review.json" j.title)" == "Checkout flow" ]] || die "submit: the typed title was not saved before filing"
 
 # HS2-ZEF6XD: a running Hot Sheet web client (a node HTTP server with its client.json) gets a
-# deep link to the ticket in the result.
+# deep link to the ticket, in its project, in the result.
 mkdir -p "$TMP/hshome"
 node -e 'const s = require("http").createServer((q, r) => r.writeHead(404).end()).listen(0, "127.0.0.1", () => {
   require("fs").writeFileSync(process.argv[1], JSON.stringify({pid: process.pid, url: `http://127.0.0.1:${s.address().port}`, started_at: "now", id: "e2e"}));
@@ -682,7 +682,8 @@ for _ in $(seq 50); do [[ -s "$TMP/hshome/client.json" ]] && break; sleep 0.1; d
 run submit 0 HOTSHEET_CLI="$TMP/flaky-cli" HOTSHEET_HOME="$TMP/hshome" -- --submit "${SUB[@]}"
 kill "$web_pid" 2>/dev/null || true
 web_url="$(json "$TMP/hshome/client.json" j.url)"
-[[ "$(json "$TMP/submit.json" j.hotSheetURL)" == "$web_url/?store=$(json "$TMP/submit.json" j.storePath | sed 's/ /%20/g')&ticket=$slug" ]] \
+# HS2-G3BA3P: the link names the project (--project), not its .hs2 store.
+[[ "$(json "$TMP/submit.json" j.hotSheetURL)" == "$web_url/?store=$(echo "$TMP/subproj" | sed 's/ /%20/g')&ticket=$slug" ]] \
   || die "submit: hotSheetURL is $(json "$TMP/submit.json" j.hotSheetURL)"
 [[ "$(json "$TMP/submit.json" j.slug)" == "$slug" ]] || die "submit: retry created another ticket"
 [[ "$(json "$TMP/submit.json" '`${j.mediaCount}/${j.annotationCount}/${j.draftRemoved}`')" == "2/2/true" ]] || die "submit: counts (the annotation outside the crop is left out)"

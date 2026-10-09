@@ -84,10 +84,10 @@ final class ReviewSessionModel: ObservableObject {
     @Published private(set) var abandonedTicket: AbandonedTicket?
     /// The filed ticket in the running Hot Sheet web client (HS2-ZEF6XD); nil while there is none.
     @Published var hotSheetLink: URL?
-    /// Finds the running web client's link to a ticket (off the main thread): store, slug.
-    /// Previews and tests replace it.
-    var hotSheetLinkFinder: @Sendable (String, String) -> URL? = { store, slug in
-        HotSheetWebClient.discover()?.ticketURL(store: store, ticket: slug)
+    /// Finds the running web client's link to a ticket (off the main thread): project (nil
+    /// when unknown), store, slug. Previews and tests replace it.
+    var hotSheetLinkFinder: @Sendable (String?, String, String) -> URL? = { project, store, slug in
+        HotSheetWebClient.discover()?.ticketURL(project: project, store: store, ticket: slug)
     }
 
     /// Looks a ticket up (off the main thread); previews and tests replace it.

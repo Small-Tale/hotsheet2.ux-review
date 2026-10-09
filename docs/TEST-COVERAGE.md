@@ -1784,3 +1784,13 @@ text stacked one word per line at 99 pt wide. The empty Draft Reviews window was
   `session-ticket-text-edited` (a typed title) from `--render-ui-previews`, inspected by hand.
 - **Not covered automatically:** typing in the live field. It keeps its own text, so spaces
   survive, and saves each change through the tested `setTicketTitle`.
+
+## HS2-G3BA3P: Open in Hot Sheet names the project
+
+- **Unit** (`HotSheetWebClientTests.deepLinkNamesTheProjectWhenItIsKnown`): the link carries the
+  project folder (standardized: trailing slash, `..`). A blank project falls back to the store
+  path. Spaces and reserved characters are encoded. The store-only cases keep passing.
+- **App end to end** (`scripts/app-e2e.sh`, HS2-ZEF6XD block): with a running fake web client,
+  `--submit --project <dir>` reports `hotSheetURL` as `<client>/?store=<dir>&ticket=<slug>`.
+- **Not covered automatically:** Hot Sheet 2 opening that link (its `HS2-RVSPQ9` deep link
+  accepts a project path), covered by the live check `HS2-K4KHR3`.

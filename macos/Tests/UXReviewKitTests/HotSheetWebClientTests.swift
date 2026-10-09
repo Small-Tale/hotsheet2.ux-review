@@ -65,15 +65,38 @@ struct HotSheetWebClientTests {
     @Test func deepLinkEncodesTheStoreAndTicket() throws {
         let client = HotSheetWebClient(url: try #require(URL(string: "http://127.0.0.1:4175")), pid: 1)
         #expect(
-            client.ticketURL(store: "/Users/me/Code/acme-mail.hs2", ticket: "HS2-ZEF6XD").absoluteString
+            client.ticketURL(project: nil, store: "/Users/me/Code/acme-mail.hs2", ticket: "HS2-ZEF6XD").absoluteString
                 == "http://127.0.0.1:4175/?store=/Users/me/Code/acme-mail.hs2&ticket=HS2-ZEF6XD"
         )
-        let odd = client.ticketURL(store: "/Users/me/My Code/a+b&c=d.hs2", ticket: "HS-1")
+        let odd = client.ticketURL(project: nil, store: "/Users/me/My Code/a+b&c=d.hs2", ticket: "HS-1")
         #expect(odd.absoluteString == "http://127.0.0.1:4175/?store=/Users/me/My%20Code/a%2Bb%26c%3Dd.hs2&ticket=HS-1")
         let components = try #require(URLComponents(url: odd, resolvingAgainstBaseURL: false))
         #expect(components.queryItems?.first { $0.name == "store" }?.value == "/Users/me/My Code/a+b&c=d.hs2")
         let withPath = HotSheetWebClient(url: try #require(URL(string: "http://localhost:5173/app/")), pid: 1)
-        #expect(withPath.ticketURL(store: "s", ticket: "t").absoluteString == "http://localhost:5173/app/?store=s&ticket=t")
+        #expect(withPath.ticketURL(project: nil, store: "s", ticket: "t").absoluteString == "http://localhost:5173/app/?store=s&ticket=t")
+    }
+
+    /// HS2-G3BA3P: the link names the project the reviewer chose, not its store.
+    @Test func deepLinkNamesTheProjectWhenItIsKnown() throws {
+        let client = HotSheetWebClient(url: try #require(URL(string: "http://127.0.0.1:4176")), pid: 1)
+        let store = "/Users/me/Documents/hotsheet2.hs2"
+        #expect(
+            client.ticketURL(project: "/Users/me/Documents/hotsheet2", store: store, ticket: "HS2-EH01R7").absoluteString
+                == "http://127.0.0.1:4176/?store=/Users/me/Documents/hotsheet2&ticket=HS2-EH01R7"
+        )
+        // A trailing slash or `..` is standardized away; a blank project falls back to the store.
+        #expect(
+            client.ticketURL(project: "/Users/me/Documents/x/../hotsheet2/", store: store, ticket: "T").absoluteString
+                == "http://127.0.0.1:4176/?store=/Users/me/Documents/hotsheet2&ticket=T"
+        )
+        #expect(
+            client.ticketURL(project: "  ", store: store, ticket: "T").absoluteString
+                == "http://127.0.0.1:4176/?store=/Users/me/Documents/hotsheet2.hs2&ticket=T"
+        )
+        // Spaces and reserved characters in the project path are encoded like a store path.
+        let odd = client.ticketURL(project: "/Users/me/My Code/a+b", store: store, ticket: "T")
+        let components = try #require(URLComponents(url: odd, resolvingAgainstBaseURL: false))
+        #expect(components.queryItems?.first { $0.name == "store" }?.value == "/Users/me/My Code/a+b")
     }
 
     @Test(.timeLimit(.minutes(1))) func answersOnlyWhenSomethingListens() async throws {

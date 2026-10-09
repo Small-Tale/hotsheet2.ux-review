@@ -160,7 +160,11 @@ enum HeadlessSubmit {
                 abandonedTicket: review.abandonedTicket,
                 scaledCaptures: review.scaledCaptures,
                 scaledFor: review.scaledFor,
-                hotSheetURL: HotSheetWebClient.discover()?.ticketURL(store: review.storePath, ticket: review.ticket.slug).absoluteString
+                // The project filed into, not its store (HS2-G3BA3P).
+                hotSheetURL: HotSheetWebClient.discover()?.ticketURL(
+                    project: target.storePath == review.storePath ? target.projectDirectory : nil,
+                    store: review.storePath, ticket: review.ticket.slug
+                ).absoluteString
             )))
             return 0
         } catch {
