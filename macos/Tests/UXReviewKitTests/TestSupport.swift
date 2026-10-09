@@ -184,6 +184,11 @@ final class FakeHotSheetClient: HotSheetClient, @unchecked Sendable {
 
     /// False acts like a `hotsheet-cli` without `annotate`.
     var annotationSupport = true
+    /// What `annotate` keeps, like the Hot Sheet 2 generations: everything; the box and text only
+    /// (shapes and intents silently dropped, as before they existed); or a rejection of shapes and
+    /// intents (`annotations require …`, exit 1).
+    enum AnnotationDialect { case native, boxesOnly, rejectsNative }
+    var annotationDialect = AnnotationDialect.native
     /// Each `annotate`, in order: the stored file name it targeted and the annotations.
     var annotated: [(slug: String, filename: String, annotations: [HotSheetMediaAnnotation])] = []
     /// Thrown by the next annotates (each failure consumes one entry).
@@ -196,10 +201,22 @@ final class FakeHotSheetClient: HotSheetClient, @unchecked Sendable {
         return Dictionary(uniqueKeysWithValues: existingNames.map { ($0, "ID-\($0)") })
     }
 
-    func annotate(_ annotations: [HotSheetMediaAnnotation], attachmentID: String, on slug: String) throws {
+    func annotate(_ annotations: [HotSheetMediaAnnotation], attachmentID: String, on slug: String) throws -> [HotSheetMediaAnnotation]? {
         guard annotationSupport else { throw HotSheetError.annotationsUnsupported }
         if !annotateErrors.isEmpty { throw annotateErrors.removeFirst() }
-        annotated.append((slug, String(attachmentID.dropFirst("ID-".count)), annotations))
+        let native = annotations.contains { $0.shape != nil || $0.intents != nil }
+        if native, annotationDialect == .rejectsNative {
+            throw HotSheetError.commandFailed(command: "annotate", exitCode: 1, stderr: "Error: annotations require unique ids")
+        }
+        var stored = annotations
+        if annotationDialect == .boxesOnly {
+            for index in stored.indices {
+                stored[index].shape = nil
+                stored[index].intents = nil
+            }
+        }
+        annotated.append((slug, String(attachmentID.dropFirst("ID-".count)), stored))
+        return stored
     }
 
     /// What `aiSettings` returns or throws (`hotsheet-cli ai-settings get --json`); unknown by default.

@@ -2,8 +2,8 @@
 
 Status: CLI transport implemented and tested end to end against the real `hotsheet-cli`
 (`HS2-3ZSBZ9`), including adding a review to an existing ticket (§3.5, `HS2-E3001H`) and writing
-each capture's regions to Hot Sheet's gallery (§3.4, `HS2-K1XT5V`). Native shapes and intents
-are tracked in `HS2-CKPCD5`.
+each capture's regions to Hot Sheet's gallery as native shapes and intents (§3.4, `HS2-K1XT5V`,
+`HS2-CKPCD5`).
 
 ## 3.1 Discovery
 
@@ -107,15 +107,38 @@ The ticket is titled with the review's title as typed (`HS2-025XNF`), has catego
 
 ## 3.4 Hot Sheet annotation projection
 
-`TicketComposer.compose(...).hotSheetAnnotations` maps each media id to a list of Hot Sheet
-`MediaAnnotation` values:
+`TicketComposer.compose(...)` maps each media id to a list of Hot Sheet 2 `MediaAnnotation`
+values, in two forms.
 
-- `{id, x, y, width, height, start_ms, end_ms, text}`, with `text` set to `#N [intents] note`.
-- Every shape is projected to its bounding rectangle. Point shapes grow to at least 1 unit, the
-  same box Hot Sheet derives from points.
-- Rectangle-only annotations keep the ticket readable by every Hot Sheet 2 version. Native shapes
-  and intents raise the ticket's format marker (`hotsheet/v3-annotation-shapes`, `v4`); they are
-  tracked in `HS2-CKPCD5`.
+**Native** (`hotSheetAnnotations`, `HS2-CKPCD5`):
+`{id, x, y, width, height, start_ms, end_ms, text, shape, intents}`.
+
+| UX Review shape | Hot Sheet `shape` |
+|---|---|
+| rect | omitted (a rectangle) |
+| strike | `{"type":"strike"}` over the same box |
+| freehand | `{"type":"freehand","points":[…]}`, plus `"closed":false` when open |
+| insertion | `{"type":"insertion","point":{…}}` |
+| arrow with a head (open or closed) at one end only | `{"type":"arrow","points":[…]}`. Hot Sheet draws one filled head, at the last point, so a head at the start reverses the points |
+| arrow with any other heads (both ends, bars, circles, none) | an open `freehand` line, since Hot Sheet can't draw those heads. A two-point line gains its midpoint, to meet freehand's three-point minimum |
+
+- `x, y, width, height` is always the shape's bounding box. Point shapes grow to at least 1
+  unit, exactly the box Hot Sheet derives from points.
+- `intents` lists the effective intents only when they differ from Hot Sheet's default for that
+  shape (rect and freehand: comment; strike: remove; insertion: insert; arrow: move). Otherwise
+  it is omitted.
+- `text` is `#N note` (`#N` alone with no note). Intents are native, and `#N` keeps the ticket
+  body's numbering, because Hot Sheet numbers its badges on its own.
+
+**Rectangle** (`legacyHotSheetAnnotations`): `{id, x, y, width, height, start_ms, end_ms, text}`,
+with `text` set to `#N [intents] note`. This is for a Hot Sheet that predates shapes and intents.
+
+**Format markers.** Hot Sheet raises a ticket's format marker when it stores a shape
+(`hotsheet/v3-annotation-shapes`) or intents (`hotsheet/v4-annotation-intents`). A Hot Sheet
+reader older than 2026-10-08 then refuses that ticket (`upgrade_required`). The `hotsheet-cli`
+that wrote it is new enough by construction, since an older one keeps the rectangles (below). A
+review whose annotations are all plain comment boxes needs neither, so it stays readable by every
+Hot Sheet 2 version.
 
 **Writing them (`HS2-K1XT5V`).** `ReviewSubmitter` does this after a successful attach, both for a
 new intake ticket and for a review added to an existing ticket (before its note):
@@ -128,10 +151,23 @@ new intake ticket and for a review added to an existing ticket (before its note)
    This replaces that attachment's annotations, so a retry writes the same list again.
    Captures without annotations and `review.json` are left alone.
 
-`annotate` needs Hot Sheet 2 `HS2-3GA0WK` (2026-10-08). With an older `hotsheet-cli`
-(`unrecognized subcommand`), the client throws `annotationsUnsupported` and the submitter skips the
-rest. If `show` fails, or one capture's write fails, that capture has no regions and the others
-are still written. A retry of only an existing ticket's note doesn't write them again.
+**Which form.** `hotsheet-cli compatibility` reports nothing about annotations, so support is
+detected per write:
+
+- The client runs `annotate … --json` and reads back the stored list from the attachment it
+  prints.
+- If Hot Sheet rejected the native list (exit 1), or stored it without its shapes or intents, the
+  submitter rewrites that capture with the rectangle form. A `hotsheet-cli` with `annotate` but
+  from before shapes and intents ignores those keys silently.
+
+**Failures.**
+
+- `annotate` needs Hot Sheet 2 `HS2-3GA0WK` (2026-10-08). With an older `hotsheet-cli`
+  (`unrecognized subcommand`), the client throws `annotationsUnsupported`, and the submitter
+  skips the rest.
+- If `show` fails, or both of one capture's writes fail, that capture has no regions and the
+  others are still written.
+- A retry of only an existing ticket's note doesn't write them again.
 
 ## 3.5 Adding to an existing ticket
 

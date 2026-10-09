@@ -1,7 +1,7 @@
 import Foundation
 
-/// Hot Sheet 2's rectangle-only `MediaAnnotation` (snake_case on the wire). Every UX Review
-/// shape projects onto one of these by its bounds so Hot Sheet's gallery can show it.
+/// Hot Sheet 2's `MediaAnnotation` (snake_case on the wire). `x/y/width/height` is always the
+/// shape's bounding box, so a reader that ignores `shape` still places it. Spec: docs/03 §3.4.
 public struct HotSheetMediaAnnotation: Codable, Equatable, Sendable {
     public var id: String
     public var x: Int
@@ -11,21 +11,125 @@ public struct HotSheetMediaAnnotation: Codable, Equatable, Sendable {
     public var startMs: Int?
     public var endMs: Int?
     public var text: String
+    /// Nil is a rectangle. Any shape raises the ticket's format marker to `v3-annotation-shapes`.
+    public var shape: HotSheetShape?
+    /// Intent names, in order; nil means the shape's default in Hot Sheet. Any intents raise the
+    /// ticket's format marker to `v4-annotation-intents`.
+    public var intents: [String]?
+
+    public init(
+        id: String, x: Int, y: Int, width: Int, height: Int, startMs: Int?, endMs: Int?, text: String,
+        shape: HotSheetShape? = nil, intents: [String]? = nil
+    ) {
+        self.id = id
+        self.x = x
+        self.y = y
+        self.width = width
+        self.height = height
+        self.startMs = startMs
+        self.endMs = endMs
+        self.text = text
+        self.shape = shape
+        self.intents = intents
+    }
 
     enum CodingKeys: String, CodingKey {
-        case id, x, y, width, height, text
+        case id, x, y, width, height, text, shape, intents
         case startMs = "start_ms"
         case endMs = "end_ms"
+    }
+
+    // Hot Sheet omits an empty `text` and `intents`; decode them as "" and nil.
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(String.self, forKey: .id)
+        x = try container.decode(Int.self, forKey: .x)
+        y = try container.decode(Int.self, forKey: .y)
+        width = try container.decode(Int.self, forKey: .width)
+        height = try container.decode(Int.self, forKey: .height)
+        startMs = try container.decodeIfPresent(Int.self, forKey: .startMs)
+        endMs = try container.decodeIfPresent(Int.self, forKey: .endMs)
+        text = try container.decodeIfPresent(String.self, forKey: .text) ?? ""
+        shape = try container.decodeIfPresent(HotSheetShape.self, forKey: .shape)
+        intents = try container.decodeIfPresent([String].self, forKey: .intents).flatMap { $0.isEmpty ? nil : $0 }
+    }
+
+    /// True when Hot Sheet stored everything this annotation asked for. A CLI that predates
+    /// shapes or intents keeps the box and text but silently drops the rest.
+    public func isKept(by stored: HotSheetMediaAnnotation) -> Bool {
+        stored.id == id && (shape == nil || stored.shape == shape) && (intents == nil || stored.intents == intents)
+    }
+}
+
+/// Hot Sheet 2's annotation shapes beyond the rectangle, tagged by `type`.
+public enum HotSheetShape: Codable, Equatable, Sendable {
+    case rect
+    /// The bounding box, crossed out.
+    case strike
+    case freehand(points: [NormPoint], closed: Bool)
+    /// A line through `points` with one filled head, at the last point.
+    case arrow(points: [NormPoint])
+    case insertion(NormPoint)
+
+    private enum CodingKeys: String, CodingKey { case type, points, closed, point }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        switch try container.decode(String.self, forKey: .type) {
+        case "rect": self = .rect
+        case "strike": self = .strike
+        case "freehand":
+            self = try .freehand(
+                points: container.decode([NormPoint].self, forKey: .points),
+                closed: container.decodeIfPresent(Bool.self, forKey: .closed) ?? true
+            )
+        case "arrow": self = try .arrow(points: container.decode([NormPoint].self, forKey: .points))
+        case "insertion": self = try .insertion(container.decode(NormPoint.self, forKey: .point))
+        case let other:
+            throw DecodingError.dataCorruptedError(forKey: .type, in: container, debugDescription: "unknown shape \(other)")
+        }
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        switch self {
+        case .rect: try container.encode("rect", forKey: .type)
+        case .strike: try container.encode("strike", forKey: .type)
+        case let .freehand(points, closed):
+            try container.encode("freehand", forKey: .type)
+            try container.encode(points, forKey: .points)
+            if !closed { try container.encode(false, forKey: .closed) }
+        case let .arrow(points):
+            try container.encode("arrow", forKey: .type)
+            try container.encode(points, forKey: .points)
+        case let .insertion(point):
+            try container.encode("insertion", forKey: .type)
+            try container.encode(point, forKey: .point)
+        }
+    }
+
+    /// The intent Hot Sheet assumes when `intents` is empty.
+    var defaultIntent: Intent {
+        switch self {
+        case .rect, .freehand: .comment
+        case .strike: .remove
+        case .arrow: .move
+        case .insertion: .insert
+        }
     }
 }
 
 /// Everything needed to file one review in Hot Sheet: the intake ticket, the files to attach
-/// (media plus the canonical `review.json`), and the per-media Hot Sheet annotation projection.
+/// (media plus the canonical `review.json`), and the per-media Hot Sheet annotation projections.
 public struct ComposedReview: Equatable, Sendable {
     public var ticket: NewTicket
     public var bundleFilename: String
     public var mediaFilenames: [String]
+    /// Media id → native annotations: real shapes and intents (docs/03 §3.4).
     public var hotSheetAnnotations: [String: [HotSheetMediaAnnotation]]
+    /// Media id → rectangle-only annotations with the intents in `text`, for a Hot Sheet that
+    /// predates shapes and intents.
+    public var legacyHotSheetAnnotations: [String: [HotSheetMediaAnnotation]]
 }
 
 /// Turns a review bundle into a Hot Sheet intake ticket that instructs the AI absorbing it to
@@ -38,20 +142,11 @@ public enum TicketComposer {
     /// - Parameter preamble: the reviewer's edited instructions template (docs/07 §7.2.3); nil
     ///   for the standard one.
     public static func compose(_ bundle: ReviewBundle, preamble: String? = nil) -> ComposedReview {
-        let numbered = Array(bundle.annotations.enumerated())
-        var projection: [String: [HotSheetMediaAnnotation]] = [:]
-        for (index, annotation) in numbered {
-            let bounds = annotation.shape.bounds
-            projection[annotation.mediaId, default: []].append(HotSheetMediaAnnotation(
-                id: annotation.id,
-                x: bounds.x,
-                y: bounds.y,
-                width: bounds.width,
-                height: bounds.height,
-                startMs: annotation.timeRange?.startMs,
-                endMs: annotation.timeRange?.endMs,
-                text: "#\(index + 1) [\(intentLabel(annotation))] \(annotation.note)"
-            ))
+        var native: [String: [HotSheetMediaAnnotation]] = [:]
+        var legacy: [String: [HotSheetMediaAnnotation]] = [:]
+        for (index, annotation) in bundle.annotations.enumerated() {
+            native[annotation.mediaId, default: []].append(hotSheetAnnotation(annotation, number: index + 1))
+            legacy[annotation.mediaId, default: []].append(legacyHotSheetAnnotation(annotation, number: index + 1))
         }
         let ticket = NewTicket(
             // The review's title is the ticket's title, as typed (HS2-025XNF): one title, edited
@@ -66,7 +161,64 @@ public enum TicketComposer {
             ticket: ticket,
             bundleFilename: bundleFilename,
             mediaFilenames: bundle.media.map(\.filename),
-            hotSheetAnnotations: projection
+            hotSheetAnnotations: native,
+            legacyHotSheetAnnotations: legacy
+        )
+    }
+
+    /// One annotation as Hot Sheet's native shape and intents (docs/03 §3.4). `text` keeps the
+    /// ticket body's `#N`, since Hot Sheet numbers its badges on its own.
+    static func hotSheetAnnotation(_ annotation: Annotation, number: Int) -> HotSheetMediaAnnotation {
+        let shape = hotSheetShape(annotation.shape)
+        let intents = annotation.effectiveIntents
+        let bounds = annotation.shape.bounds
+        return HotSheetMediaAnnotation(
+            id: annotation.id,
+            x: bounds.x,
+            y: bounds.y,
+            width: bounds.width,
+            height: bounds.height,
+            startMs: annotation.timeRange?.startMs,
+            endMs: annotation.timeRange?.endMs,
+            text: annotation.note.isEmpty ? "#\(number)" : "#\(number) \(annotation.note)",
+            shape: shape == .rect ? nil : shape,
+            // Only when they differ from Hot Sheet's default, so a plain comment box stays a v2 ticket.
+            intents: intents == [shape.defaultIntent] ? nil : intents.map(\.rawValue)
+        )
+    }
+
+    /// UX Review's shape as Hot Sheet draws it. Hot Sheet's arrow has one head, at its last point:
+    /// an arrow with a head at one end only maps onto it (reversed when the head is at the start);
+    /// any other heads (a span, bars, circles, none) become an open line, with a midpoint added so
+    /// a two-point line meets freehand's three-point minimum.
+    static func hotSheetShape(_ shape: Shape) -> HotSheetShape {
+        switch shape {
+        case .rect: return .rect
+        case .strike: return .strike
+        case let .insertion(point): return .insertion(point)
+        case let .freehand(points, closed): return .freehand(points: points, closed: closed)
+        case let .arrow(points, heads):
+            if heads.pointsOneWay {
+                return .arrow(points: heads.end.pointsTheWay ? points : points.reversed())
+            }
+            guard points.count == 2 else { return .freehand(points: points, closed: false) }
+            let mid = NormPoint(x: (points[0].x + points[1].x) / 2, y: (points[0].y + points[1].y) / 2)
+            return .freehand(points: [points[0], mid, points[1]], closed: false)
+        }
+    }
+
+    /// One annotation as a plain rectangle with `#N [intents] note`, for an older Hot Sheet.
+    static func legacyHotSheetAnnotation(_ annotation: Annotation, number: Int) -> HotSheetMediaAnnotation {
+        let bounds = annotation.shape.bounds
+        return HotSheetMediaAnnotation(
+            id: annotation.id,
+            x: bounds.x,
+            y: bounds.y,
+            width: bounds.width,
+            height: bounds.height,
+            startMs: annotation.timeRange?.startMs,
+            endMs: annotation.timeRange?.endMs,
+            text: "#\(number) [\(intentLabel(annotation))] \(annotation.note)"
         )
     }
 

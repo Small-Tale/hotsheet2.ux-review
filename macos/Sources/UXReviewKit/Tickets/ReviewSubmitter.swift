@@ -98,8 +98,10 @@ public struct ReviewSubmitter: Sendable {
     }
 
     /// Writes each annotated capture's Hot Sheet annotations (docs/03 §3.4) so Hot Sheet's gallery
-    /// shows the regions. Best effort: the ticket text and `review.json` are the canonical record,
-    /// so a transport or CLI that can't annotate, or a failed write, never fails the submission.
+    /// shows the regions: native shapes and intents, or the rectangle projection when Hot Sheet
+    /// rejected or dropped them (a Hot Sheet from before shapes and intents). Best effort: the
+    /// ticket text and `review.json` are the canonical record, so a transport or CLI that can't
+    /// annotate, or a failed write, never fails the submission.
     /// - Returns: the stored file names whose annotations were written.
     @discardableResult
     func annotateMedia(
@@ -110,9 +112,12 @@ public struct ReviewSubmitter: Sendable {
         var written: [String] = []
         for item in annotated {
             let stored = storedNames[item.filename] ?? item.filename
-            guard let id = ids[stored], let annotations = composed.hotSheetAnnotations[item.id] else { continue }
+            guard let id = ids[stored], let native = composed.hotSheetAnnotations[item.id] else { continue }
+            let legacy = composed.legacyHotSheetAnnotations[item.id] ?? []
             do {
-                try client.annotate(annotations, attachmentID: id, on: ticket.slug)
+                if try !nativeKept(native, attachmentID: id, on: ticket.slug) {
+                    try client.annotate(legacy, attachmentID: id, on: ticket.slug)
+                }
                 written.append(stored)
             } catch HotSheetError.annotationsUnsupported {
                 break
@@ -121,6 +126,17 @@ public struct ReviewSubmitter: Sendable {
             }
         }
         return written
+    }
+
+    /// Writes `native`; false when Hot Sheet rejected it or stored it without its shapes or intents.
+    private func nativeKept(_ native: [HotSheetMediaAnnotation], attachmentID: String, on slug: String) throws -> Bool {
+        do {
+            guard let stored = try client.annotate(native, attachmentID: attachmentID, on: slug) else { return true }
+            let byID = Dictionary(stored.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+            return native.allSatisfy { annotation in byID[annotation.id].map(annotation.isKept) ?? false }
+        } catch HotSheetError.commandFailed {
+            return false
+        }
     }
 
     /// Attaches the files `resume` doesn't list yet, into its batch (or a new one), and returns

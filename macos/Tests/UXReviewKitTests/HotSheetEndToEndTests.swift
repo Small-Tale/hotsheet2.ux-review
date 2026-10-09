@@ -92,8 +92,8 @@ struct HotSheetEndToEndTests {
         try Self.expectGalleryRegions(slug, bundle: bundle, client: client, env: env)
     }
 
-    /// With a CLI that has `annotate`, each annotated capture holds exactly its projection; with an
-    /// older one, the ticket has no annotations.
+    /// With a CLI that has `annotate`, each annotated capture holds exactly its native projection;
+    /// with an older one, the ticket has no annotations.
     static func expectGalleryRegions(_ slug: String, bundle: ReviewBundle, client: HotSheetCLIClient, env: [String: String]) throws {
         let ids = try client.attachmentIDs(on: slug)
         let projection = TicketComposer.compose(bundle).hotSheetAnnotations
@@ -108,7 +108,10 @@ struct HotSheetEndToEndTests {
             }
         }
         if supportsAnnotate {
-            #expect(projection["m1"]?.first?.text.hasPrefix("#1 [") == true)
+            // HS2-CKPCD5: native shapes and intents; the example's intents raise the marker to v4.
+            #expect(projection["m1"]?.contains { $0.shape == .strike } == true)
+            #expect(projection["m2"]?.first?.intents == ["bug"])
+            #expect(String(bytes: before, encoding: .utf8)?.contains("schema: hotsheet/v4-annotation-intents") == true)
             // Re-sending identical annotations is a no-op, so the ticket already held exactly these.
             #expect(try Data(contentsOf: ticketFile) == before)
         } else {

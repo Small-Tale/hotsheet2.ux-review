@@ -1988,3 +1988,26 @@ text stacked one word per line at 99 pt wide. The empty Draft Reviews window was
   - `supportsAnnotate` probes `annotate --help`.
   - The gate uses whichever `hotsheet-cli` it finds. Both branches were run, setting
     `HOTSHEET_CLI` to each CLI in turn.
+
+## HS2-CKPCD5: native shapes and intents in Hot Sheet's gallery
+
+- **Unit** (`HotSheetProjectionTests`):
+  - Each shape's mapping, including arrows reversed for a head at the start, and spans, bars,
+    circles, and bare lines as open lines (a 2-point line gains its midpoint).
+  - Intents sent only when they differ from Hot Sheet's default.
+  - The bounding box at the 10000 edge, and `#N` text.
+  - The tagged wire format: `closed` only when false, a round trip of every shape, and an unknown
+    type rejected.
+  - `isKept`, and the example bundle's full native projection.
+- **Fallback** (`FakeHotSheetClient.AnnotationDialect`): one run per Hot Sheet generation. A
+  Hot Sheet that keeps everything gets one native write per capture. One that drops shapes and
+  intents gets a native write, then the rectangle form. One that rejects them gets the rectangle
+  form.
+- **CLI** (`HotSheetAnnotationTests.annotateReturnsWhatHotSheetStored`): `--json` output decoded,
+  with Hot Sheet's omitted `text` and `intents` treated as empty, and an attachment with no
+  annotations.
+- **End to end, real CLI**: with the hotsheet2 CLI, the stored annotations equal the native
+  projection, byte-identical on re-send, and the ticket carries `hotsheet/v4-annotation-intents`.
+  The older CLI still files with no annotations. Both were run via `HOTSHEET_CLI`.
+- **Not covered automatically:** how Hot Sheet's web gallery draws them (that is Hot Sheet 2's own
+  `HS2-N1EH4W`).

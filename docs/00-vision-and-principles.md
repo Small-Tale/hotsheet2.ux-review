@@ -47,8 +47,9 @@ each region and attaching files one by one.
   bundle format in `spec/` ([02-review-bundle.md](02-review-bundle.md)). macOS comes first and
   establishes the patterns.
 - **Hot Sheet compatible by construction.** Coordinates use Hot Sheet 2's normalized `0…10000`
-  media space. Every shape can project onto Hot Sheet's rectangle annotations, and richer shape
-  data is never lost: it lives in `review.json`.
+  media space. Every shape projects onto Hot Sheet's own annotation shapes and intents (or its
+  rectangles, for an older Hot Sheet), and richer shape data is never lost: it lives in
+  `review.json`.
 - **Headless-capable integration.** Filing works through `hotsheet-cli` with no server running,
   including the regions Hot Sheet's gallery shows (`hotsheet-cli annotate`, `HS2-K1XT5V`).
 - **Human-attributed.** Reviews are filed as `human` actor writes, even if the app was launched

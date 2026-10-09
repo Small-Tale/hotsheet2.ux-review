@@ -78,18 +78,55 @@ struct HotSheetAnnotationTests {
             HotSheetMediaAnnotation(id: "a1", x: 1, y: 2, width: 3, height: 4, startMs: 5, endMs: 6, text: "#1 [bug] n"),
             HotSheetMediaAnnotation(id: "a2", x: 7, y: 8, width: 9, height: 10, startMs: nil, endMs: nil, text: ""),
         ]
-        try client.annotate(annotations, attachmentID: "01M4ATT", on: "HS-1")
+        // Output that isn't the attachment JSON: stored annotations unknown.
+        #expect(try client.annotate(annotations, attachmentID: "01M4ATT", on: "HS-1") == nil)
 
         let args = try #require(runner.calls.first?.arguments)
         #expect(Array(args.prefix(6)) == ["-C", "/stores/demo.hs2", "annotate", "--actor-role=human", "--actor-id=ux-review", "HS-1"])
         #expect(args[6] == "01M4ATT")
-        #expect(args[7].hasPrefix("--file=") && args.count == 8)
+        #expect(args[7].hasPrefix("--file=") && args[8] == "--json" && args.count == 9)
         // The temporary JSON is gone once the CLI has read it.
         #expect(!FileManager.default.fileExists(atPath: String(args[7].dropFirst("--file=".count))))
         #expect(written.count == 2)
         #expect(written.first?["start_ms"] as? Int == 5 && written.first?["end_ms"] as? Int == 6)
         #expect(written.first?["text"] as? String == "#1 [bug] n" && written.first?["width"] as? Int == 3)
         #expect(written.last?["start_ms"] == nil)
+    }
+
+    @Test func annotateReturnsWhatHotSheetStored() throws {
+        // `annotate --json` prints the updated attachment; Hot Sheet omits empty text and intents.
+        let stdout = #"{"id":"01M4ATT","filename":"a.png","created_at":"2026-10-09T07:32:01Z","annotations":["#
+            + #"{"id":"a1","x":1,"y":2,"width":3,"height":4,"shape":{"type":"strike"},"intents":["bug"]},"#
+            + ##"{"id":"a2","x":5,"y":6,"width":1,"height":1,"text":"#2","shape":{"type":"insertion","point":{"x":5,"y":6}}}]}"##
+        let runner = FakeRunner(results: [ProcessResult(exitCode: 0, stdout: stdout + "\n", stderr: "")])
+        let client = HotSheetCLIClient(executable: cli, storePath: store, runner: runner, baseEnvironment: [:])
+        #expect(try client.annotate([], attachmentID: "01M4ATT", on: "HS-1") == [
+            HotSheetMediaAnnotation(
+                id: "a1",
+                x: 1,
+                y: 2,
+                width: 3,
+                height: 4,
+                startMs: nil,
+                endMs: nil,
+                text: "",
+                shape: .strike,
+                intents: ["bug"]
+            ),
+            HotSheetMediaAnnotation(
+                id: "a2", x: 5, y: 6, width: 1, height: 1, startMs: nil, endMs: nil, text: "#2", shape: .insertion(NormPoint(x: 5, y: 6))
+            ),
+        ])
+        // An attachment with no annotations left omits the key.
+        let cleared = FakeRunner(results: [ProcessResult(
+            exitCode: 0,
+            stdout: #"{"id":"X","filename":"a.png","created_at":"t"}"#,
+            stderr: ""
+        )])
+        #expect(
+            try HotSheetCLIClient(executable: cli, storePath: store, runner: cleared, baseEnvironment: [:])
+                .annotate([], attachmentID: "X", on: "HS-1") == []
+        )
     }
 
     @Test func aCLIWithoutAnnotateReportsUnsupported() {
@@ -169,9 +206,10 @@ struct HotSheetAnnotationTests {
         #expect(try ReviewSubmitter(client: blind).submit(bundle, mediaDirectory: dir) == "HS-TEST01")
         #expect(blind.annotated.isEmpty)
 
-        // One capture's write fails: the next one is still written.
+        // One capture's writes fail (native, then the rectangle fallback): the next is still written.
+        let failed = HotSheetError.commandFailed(command: "annotate", exitCode: 1, stderr: "invalid")
         let flaky = FakeHotSheetClient()
-        flaky.annotateErrors = [HotSheetError.commandFailed(command: "annotate", exitCode: 1, stderr: "invalid")]
+        flaky.annotateErrors = [failed, failed]
         #expect(try ReviewSubmitter(client: flaky).submit(bundle, mediaDirectory: dir) == "HS-TEST01")
         #expect(flaky.annotated.map(\.filename) == ["capture-2.mov"])
     }
