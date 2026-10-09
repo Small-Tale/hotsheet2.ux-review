@@ -149,7 +149,8 @@ struct AnnotationDetail: View {
 /// open or closed circle at each end.
 struct ArrowHeadsEditor: View {
     let heads: ArrowHeads
-    let set: (ArrowHeads) -> Void
+    /// Main-actor and Sendable: `Binding(get:set:)` takes a `@Sendable` setter.
+    let set: @MainActor @Sendable (ArrowHeads) -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
@@ -170,7 +171,7 @@ struct ArrowHeadsEditor: View {
         }
     }
 
-    private func picker(_ title: String, _ value: ArrowHead, _ choose: @escaping (ArrowHead) -> Void) -> some View {
+    private func picker(_ title: String, _ value: ArrowHead, _ choose: @escaping @MainActor @Sendable (ArrowHead) -> Void) -> some View {
         Picker(title, selection: Binding(get: { value }, set: choose)) {
             ForEach(ArrowHead.allCases, id: \.self) { head in
                 Text(head.displayName).tag(head)
