@@ -1809,3 +1809,13 @@ text stacked one word per line at 99 pt wide. The empty Draft Reviews window was
   (`AXSwitch`).
 - **Visual QA:** `menu-narrate-row-off/-on-light/-dark`, inspected by hand.
 - **Not covered automatically:** the live menu (part of `HS2-PV2RA7`'s check).
+
+## HS2-5GM7Z2: the menu bar icon is a stop button while recording
+
+- **Unit** (`AppMenusTests.theMenuBarIconStopsARecordingAndOtherwiseOpensTheMenu`): a click stops
+  while recording and opens the menu in every other phase.
+- **Visual QA:** `status-bar-icon-light/-dark` (`--render-ui-previews`) show the idle icon and
+  the stop symbol.
+- **Not covered automatically:** clicking the live status item. `StatusItemController` drops
+  the menu and sets the button's action from `AppMenus.statusItemClick`. Part of `HS2-PV2RA7`'s
+  menu bar check.

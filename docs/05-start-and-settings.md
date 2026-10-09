@@ -46,8 +46,9 @@ work happens in UX Review's own windows (§5.1.1). When idle, it lists:
 The rows from Capture to Narrate are replaced while a capture runs:
 
 - During a countdown, by **Cancel Capture (N s)**.
-- While recording, by **Stop Recording (m:ss)** (plus "Recording microphone narration" when
-  narrating), and the menu bar icon becomes a record symbol.
+- While recording, the menu bar icon becomes a **stop button** (`HS2-5GM7Z2`): a stop symbol
+  with no menu, so a click stops the recording at once. Its tooltip and VoiceOver label are "Stop
+  Recording". The capture hotkeys stop it too (§5.2). The menu comes back when the recording ends.
 - While picking, capturing, or saving a recording, by a status line.
 
 The menu entries are described in UXReviewKit (`AppMenus`) and turned into an `NSMenu` by the

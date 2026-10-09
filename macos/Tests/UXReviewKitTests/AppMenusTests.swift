@@ -232,4 +232,19 @@ struct AppMenusTests {
         }
         #expect(presence.open == ["settings"])
     }
+
+    /// HS2-5GM7Z2: the menu bar icon stops a recording with one click, and opens the menu in
+    /// every other phase.
+    @Test func theMenuBarIconStopsARecordingAndOtherwiseOpensTheMenu() {
+        #expect(AppMenus.statusItemClick(.recording(startedAt: Self.start)) == .stopRecording)
+        for phase: CapturePhase in [
+            .idle,
+            .picking(CaptureRequest()),
+            .countingDown(CaptureRequest(), remaining: 3),
+            .capturing,
+            .finishing,
+        ] {
+            #expect(AppMenus.statusItemClick(phase) == .openMenu, "\(phase)")
+        }
+    }
 }

@@ -218,7 +218,8 @@ hotkey also records when Settings sets the default kind to Video
 Starting a recording uses the same picking and countdown as a screenshot; the countdown HUD
 reads "Recording in…". Once recording begins:
 
-- The menu bar icon turns into a record symbol.
+- The menu bar icon turns into a stop button: one click stops the recording, with no menu
+  ([05-start-and-settings.md](05-start-and-settings.md) §5.1, `HS2-5GM7Z2`).
 - A HUD says "Recording" and explains how to stop.
 - **Region recordings** dim the rest of that display slightly (black at 30 %), with a thin red
   outline just outside the recorded area, until the recording stops or fails (`HS2-122ZFZ`).

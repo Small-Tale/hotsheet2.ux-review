@@ -162,6 +162,17 @@ public enum AppMenus {
     ///
     /// While a capture runs, the rows from Capture to Narrate are replaced by what stops or
     /// explains it.
+    /// What a click on the menu bar icon does (`HS2-5GM7Z2`): while recording it stops the
+    /// recording at once, with no menu; otherwise it opens the menu.
+    public static func statusItemClick(_ phase: CapturePhase) -> StatusItemClick {
+        phase.isRecording ? .stopRecording : .openMenu
+    }
+
+    public enum StatusItemClick: Equatable, Sendable {
+        case openMenu
+        case stopRecording
+    }
+
     public static func statusMenu(_ state: MenuState) -> [MenuEntry] {
         var entries: [MenuEntry] = [.label("UX Review \(state.version)"), .separator]
         if let running = runningCapture(state) {
