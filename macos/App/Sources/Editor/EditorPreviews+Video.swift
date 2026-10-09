@@ -23,31 +23,56 @@ extension EditorPreviews {
             .select("#1"), .time(1500),
         ]
         var written: [URL] = []
-        var canvasHeights: [String: Double] = [:]
-        for (name, size, extra) in [
-            ("editor-video-timeline", CGSize(width: 1240, height: 800), [EditorScript.Step]()),
-            ("editor-video-narrow", CGSize(width: 900, height: 560), []),
-            ("editor-video-trimmed", CGSize(width: 1240, height: 800), [.trim(TimeRange(startMs: 500, endMs: duration)), .time(1000)]),
+        var layouts: [String: [String: Double]] = [:]
+        for (name, size, strip, extra) in [
+            ("editor-video-timeline", CGSize(width: 1240, height: 800), MediaStripWidth.standard, [EditorScript.Step]()),
+            ("editor-video-narrow", CGSize(width: 900, height: 560), MediaStripWidth.standard, []),
+            // HS2-RZVDEQ: the widest saved strip in the narrowest window gives way to the inspector.
+            ("editor-video-narrow-wide-strip", CGSize(width: 900, height: 560), MediaStripWidth.maximum, []),
+            (
+                "editor-video-trimmed",
+                CGSize(width: 1240, height: 800),
+                MediaStripWidth.standard,
+                [.trim(TimeRange(startMs: 500, endMs: duration)), .time(1000)]
+            ),
             // A video crop (docs/06 §6.6): the whole frame under the Crop tool, then the cut frame.
-            ("editor-video-crop-tool", CGSize(width: 1240, height: 800), [.tool(.crop), .crop(videoCrop)]),
-            ("editor-video-cropped", CGSize(width: 1240, height: 800), [.tool(.crop), .crop(videoCrop), .tool(.select)]),
+            ("editor-video-crop-tool", CGSize(width: 1240, height: 800), MediaStripWidth.standard, [.tool(.crop), .crop(videoCrop)]),
+            (
+                "editor-video-cropped",
+                CGSize(width: 1240, height: 800),
+                MediaStripWidth.standard,
+                [.tool(.crop), .crop(videoCrop), .tool(.select)]
+            ),
         ] {
             let model = try EditorModel(session: EditorSession(store: store, directory: draft.directory))
             offerWindowButtons(model)
             (steps + extra).forEach { apply($0, to: model) }
-            written.append(try snapshot(EditorView(model: model), size: size, to: directory.appendingPathComponent("\(name).png")) {
-                canvasHeights[name] = Double($0.bounds.height)
+            let view = EditorView(model: model, stripWidthOverride: strip)
+            written.append(try snapshot(view, size: size, to: directory.appendingPathComponent("\(name).png")) { canvas in
+                let frame = canvas.convert(canvas.bounds, to: nil)
+                layouts[name] = ["width": size.width, "canvasHeight": frame.height, "canvasLeft": frame.minX, "canvasRight": frame.maxX]
             })
         }
         // HS2-XSXV5E: the timeline bar keeps one height, so the canvas takes all of the narrow
         // window's lost height (the duration once wrapped a character per line, growing the bar).
+        // HS2-RZVDEQ: the canvas's right edge plus the divider and inspector is the window's width.
         let layout = directory.appendingPathComponent("editor-video-layout.json")
-        try JSONSerialization.data(withJSONObject: canvasHeights, options: [.prettyPrinted, .sortedKeys]).write(to: layout)
+        try JSONSerialization.data(withJSONObject: layouts, options: [.prettyPrinted, .sortedKeys]).write(to: layout)
         written.append(layout)
-        // Timeline drags (HS2-MAH7NK), caught mid-drag: a range end, and a trim handle's preview.
-        for (name, handle, millis) in [
+        written += try renderTimelineDrags(store: store, draft: draft, steps: steps, to: directory)
+        written.append(try renderFrameStep(store: store, draft: draft, steps: steps, to: directory))
+        // Last, because its autosave writes the scripted annotations into the shared draft.
+        written.append(try renderPlaying(store: store, draft: draft, steps: steps, to: directory))
+        return written
+    }
+
+    /// Timeline drags (HS2-MAH7NK), caught mid-drag: a range end, and a trim handle's preview.
+    private static func renderTimelineDrags(
+        store: ReviewDraftStore, draft: ReviewDraft, steps: [EditorScript.Step], to directory: URL
+    ) throws -> [URL] {
+        try [
             ("editor-video-range-drag", TimelineHandle.rangeEnd, 2600), ("editor-video-trim-drag", TimelineHandle.trimStart, 700),
-        ] {
+        ].map { name, handle, millis in
             let dragging = try EditorModel(session: EditorSession(store: store, directory: draft.directory))
             offerWindowButtons(dragging)
             steps.forEach { apply($0, to: dragging) }
@@ -55,16 +80,12 @@ extension EditorPreviews {
                 editor.beginTimelineDrag(handle)
                 editor.updateTimelineDrag(toMs: millis)
             }
-            written.append(try snapshot(
+            return try snapshot(
                 EditorView(model: dragging),
                 size: CGSize(width: 1240, height: 800),
                 to: directory.appendingPathComponent("\(name).png")
-            ))
+            )
         }
-        written.append(try renderFrameStep(store: store, draft: draft, steps: steps, to: directory))
-        // Last, because its autosave writes the scripted annotations into the shared draft.
-        written.append(try renderPlaying(store: store, draft: draft, steps: steps, to: directory))
-        return written
     }
 
     /// Playing (K): the pause button shows and the playhead and canvas follow the player.

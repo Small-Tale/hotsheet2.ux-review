@@ -1179,7 +1179,7 @@ ok "a Trash that refuses keeps the draft (exit 5); --delete deletes it immediate
 
 run previews 0 -- --render-ui-previews "$TMP/previews"
 for name in overlay-region-hint overlay-window-hint overlay-region-selection overlay-region-selection-bottom-edge overlay-window-hover recording-dim-region hud-countdown hud-saved hud-recording-countdown hud-recording hud-saved-video hud-recording-narration hud-saved-narrated settings-registered settings-in-use status-bar-icon-light status-bar-icon-dark menu-capture-target-row-light menu-capture-target-row-dark menu-delay-row-light menu-delay-row-dark menu-narrate-row-off-light menu-narrate-row-off-dark menu-narrate-row-on-light menu-narrate-row-on-dark \
-  editor-empty editor-empty-dark editor-strip-hover editor-no-media editor-annotated editor-annotated-dark editor-intent-single editor-window editor-wide-sidebar editor-arrow-selected editor-arrow-heads editor-narrow editor-crop-drag editor-crop-tool editor-crop-adjust editor-cropped editor-multi-select editor-zoomed editor-keyboard-insert editor-video-timeline editor-video-narrow editor-video-trimmed editor-video-crop-tool editor-video-cropped editor-video-playing editor-video-range-drag editor-video-trim-drag editor-autoscroll editor-strip-portrait editor-inspector-list editor-inspector-pushed editor-capture-note \
+  editor-empty editor-empty-dark editor-strip-hover editor-video-narrow-wide-strip editor-no-media editor-annotated editor-annotated-dark editor-intent-single editor-window editor-wide-sidebar editor-arrow-selected editor-arrow-heads editor-narrow editor-crop-drag editor-crop-tool editor-crop-adjust editor-cropped editor-multi-select editor-zoomed editor-keyboard-insert editor-video-timeline editor-video-narrow editor-video-trimmed editor-video-crop-tool editor-video-cropped editor-video-playing editor-video-range-drag editor-video-trim-drag editor-autoscroll editor-strip-portrait editor-inspector-list editor-inspector-pushed editor-capture-note \
   session-ready session-narrow session-edited session-ticket-text-new session-ticket-text-existing session-ticket-text-edited session-ticket-text-editing session-ticket-text-narrow session-submitting session-failed session-submitted session-submitted-hotsheet session-submitted-fitted session-issues session-empty \
   session-existing-looking session-existing-found session-existing-narrow session-existing-not-found session-existing-closed \
   session-existing-failed session-existing-submitted session-existing-selection session-existing-abandoned \
@@ -1298,9 +1298,16 @@ ok "the editor's native toolbar: tools on the right follow the keyboard, Restore
 # HS2-XSXV5E: the timeline bar keeps one height in a narrow window (the total duration once
 # wrapped a character per line): the canvas takes all 240 points the 900 x 560 window loses.
 VL="$TMP/previews/editor-video-layout.json"
-[[ "$(json "$VL" 'j["editor-video-timeline"] - j["editor-video-narrow"]')" == "240" ]] \
+[[ "$(json "$VL" 'j["editor-video-timeline"].canvasHeight - j["editor-video-narrow"].canvasHeight')" == "240" ]] \
   || die "video layout: $(json "$VL" 'JSON.stringify(j)')"
 ok "the video timeline bar keeps its height in a narrow window"
+# HS2-RZVDEQ: every column fits the window: the canvas's right edge, a divider, and the 300-point
+# inspector add up to the window's width, even with the widest saved strip in the narrowest window
+# (that strip gives way: the canvas starts at 96..178 + 1 points, not at 321).
+FITS='n => j[n].canvasRight + 1 + 300 == j[n].width'
+[[ "$(json "$VL" "['editor-video-timeline', 'editor-video-narrow', 'editor-video-narrow-wide-strip'].map($FITS).join() + '|' + j['editor-video-narrow-wide-strip'].canvasLeft")" == "true,true,true|179" ]] \
+  || die "video layout: columns don't fit $(json "$VL" 'JSON.stringify(j)')"
+ok "the inspector always fits the window; a wide saved strip gives way in a narrow window"
 # HS2-JMCM6S: the canvas surround follows the appearance: a light gray in light mode (not the old
 # fixed dark slab), near-black in dark mode, neutral in both.
 CC="$TMP/previews/editor-canvas-colors.json"

@@ -20,18 +20,32 @@ struct EditorView: View {
         draggedStripWidth ?? stripWidthOverride ?? MediaStripWidth.clamped(CGFloat(savedStripWidth))
     }
 
+    /// The canvas's minimum width and the inspector's width (`HS2-RZVDEQ`).
+    static let canvasMinWidth: CGFloat = 420
+    static let inspectorWidth: CGFloat = 300
+
     var body: some View {
+        GeometryReader { window in
+            // The strip gives way in a narrow window, so the inspector is never pushed past the
+            // window's edge (`HS2-RZVDEQ`). Two 1-point dividers sit between the columns.
+            let strip = MediaStripWidth.fitted(stripWidth, available: window.size.width - Self.canvasMinWidth - Self.inspectorWidth - 2)
+            columns(stripWidth: strip)
+        }
+        .frame(minWidth: 900, minHeight: 560)
+    }
+
+    private func columns(stripWidth: CGFloat) -> some View {
         VStack(spacing: 0) {
             HStack(spacing: 0) {
                 // Shown with one capture too, so it can be removed (HS2-SSM1E7).
                 if !model.editor.bundle.media.isEmpty {
                     MediaStrip(model: model, width: stripWidth, hoverOverride: stripHoverOverride)
                         .frame(width: stripWidth)
-                    StripDivider(width: stripWidth, drag: dragStrip, end: endStripDrag, set: setStripWidth)
+                    StripDivider(width: stripWidth, drag: { dragStrip($0, from: stripWidth) }, end: endStripDrag, set: setStripWidth)
                 }
                 VStack(spacing: 0) {
                     AnnotationCanvas(model: model)
-                        .frame(minWidth: 420, minHeight: 300)
+                        .frame(minWidth: Self.canvasMinWidth, minHeight: 300)
                         .overlay(alignment: .top) { EditorToastOverlay(model: model) }
                     if model.editor.currentDurationMs != nil {
                         Divider()
@@ -40,14 +54,15 @@ struct EditorView: View {
                 }
                 Divider()
                 InspectorView(model: model)
-                    .frame(width: 300)
+                    .frame(width: Self.inspectorWidth)
             }
         }
-        .frame(minWidth: 900, minHeight: 560)
     }
 
-    private func dragStrip(_ translation: CGFloat) {
-        let start = dragStartWidth ?? stripWidth
+    /// A divider drag, measured from the width shown when it began (narrower than the saved one
+    /// in a narrow window).
+    private func dragStrip(_ translation: CGFloat, from shown: CGFloat) {
+        let start = dragStartWidth ?? shown
         dragStartWidth = start
         draggedStripWidth = MediaStripWidth.dragged(from: start, by: translation)
     }

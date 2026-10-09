@@ -17,6 +17,15 @@ public enum MediaStripWidth {
         return min(max(width, minimum), maximum)
     }
 
+    /// The strip's width in a window: `width` (clamped), narrowed so the strip fits in the
+    /// `available` points the window has left after the canvas's minimum and the inspector
+    /// (`HS2-RZVDEQ`); never below `minimum`. The saved width is kept, so the strip widens again
+    /// when the window does.
+    public static func fitted(_ width: CGFloat, available: CGFloat) -> CGFloat {
+        guard available.isFinite else { return clamped(width) }
+        return min(clamped(width), max(minimum, available))
+    }
+
     /// Where a divider drag that started at `start` ends up after moving `translation` points.
     public static func dragged(from start: CGFloat, by translation: CGFloat) -> CGFloat {
         clamped(start + translation)

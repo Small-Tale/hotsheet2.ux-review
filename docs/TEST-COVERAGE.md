@@ -1729,3 +1729,22 @@ text stacked one word per line at 99 pt wide. The empty Draft Reviews window was
   a character per line and grew the bar.
 - **Visual QA:** `editor-video-narrow` (Trim Start / Trim End as icons, the duration on one line)
   and `editor-video-timeline` (titles shown), inspected by hand.
+
+## HS2-RZVDEQ: the inspector always fits the window
+
+- **Unit** (`MediaStripWidthTests.theStripNarrowsToFitTheWindow`): `MediaStripWidth.fitted`
+  narrows a saved width to the space left (320 → 178 at the 900-point minimum). It keeps a width
+  that fits, never goes below the minimum, still maps a bad width to standard, and passes the
+  clamped width through before the window's width is known. Narrow → wide → narrow → wide gives
+  the same width each time for the same space.
+- **App end to end** (`scripts/app-e2e.sh`): `editor-video-layout.json` records each video
+  render's canvas frame. Canvas right edge + 1 + 300 equals the window width for the wide, the
+  narrow, and the new `editor-video-narrow-wide-strip` (320-point saved strip at 900 × 560), whose
+  canvas starts at 179 (the strip gave way to 178). Before the fix the columns overflowed and
+  clipped the inspector's right margin.
+- The video renders now pass the strip width (standard) instead of reading the Mac's saved one,
+  so they're the same on every machine.
+- **Visual QA:** `editor-video-narrow`, `editor-video-narrow-wide-strip`: a 12-point margin on
+  both sides of the inspector.
+- **Not covered automatically:** dragging the divider in a narrow live window (the drag starts
+  from the shown width).
