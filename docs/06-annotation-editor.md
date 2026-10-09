@@ -793,7 +793,11 @@ whole clip.
 - **Default:** new shapes, drawn or inserted, cover the whole clip.
 - **Inspector:** the **Time** section has a **Whole clip** checkbox. Unchecking it sets the range
   from the playhead to the end. **From** and **To** are time fields: type a time and press Return.
-  Each also has a target button that moves the playhead there, and a **Set to Playhead** button.
+  Each also has one control group relating it to the playhead (`HS2-H00SFD`): **Go To** moves
+  the playhead to that time, and **Use Playhead** sets that time to the playhead. Each button has a
+  tooltip ("Set From to the playhead (0:01.50)") and a VoiceOver label naming the end and the
+  time ("Go to From time, 0:01.00", "Use playhead for From, 0:01.50"). The fields and groups line
+  up across both rows.
   Setting From past To, or To before From, drags the other end along, and the playhead moves to
   the end that was set.
 - **Dragging on the timeline** (`HS2-MAH7NK`): the selected annotation's range has white grips

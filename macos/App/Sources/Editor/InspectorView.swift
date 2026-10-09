@@ -218,23 +218,31 @@ struct TimeRangeEditor: View {
         }
     }
 
+    /// One end: its time field, then one control group relating it to the playhead (`HS2-H00SFD`):
+    /// **Go To** moves the playhead to this time, **Use Playhead** sets this time to the
+    /// playhead. Each button says what it does; the field and group line up across both rows.
     private func endpoint(_ label: String, _ handle: TimelineHandle, _ millis: Int) -> some View {
-        HStack(spacing: 6) {
+        let playhead = TimeFormat.clock(model.editor.currentTimeMs)
+        let time = TimeFormat.clock(millis)
+        return HStack(spacing: 6) {
             Text(label).frame(width: 36, alignment: .leading)
             TimeField(label: label, millis: millis) { set(handle, to: $0) }
                 .help("Type a time, for example 1.5 or 0:01.50")
-            Button { model.mutate { $0.movePlayhead(to: millis) } } label: { Image(systemName: "scope") }
-                .buttonStyle(.borderless)
-                .help("Move the playhead here")
-                .accessibilityLabel("Show \(label.lowercased()) \(TimeFormat.clock(millis))")
             Spacer(minLength: 4)
-            Button("Set to Playhead") { set(handle, to: model.editor.currentTimeMs) }
-                .controlSize(.small)
-                .help("\(label) \(TimeFormat.clock(model.editor.currentTimeMs))")
+            ControlGroup {
+                Button("Go To") { model.mutate { $0.movePlayhead(to: millis) } }
+                    .help("Move the playhead to \(label) (\(time))")
+                    .accessibilityLabel("Go to \(label) time, \(time)")
+                Button("Use Playhead") { set(handle, to: model.editor.currentTimeMs) }
+                    .help("Set \(label) to the playhead (\(playhead))")
+                    .accessibilityLabel("Use playhead for \(label), \(playhead)")
+            }
+            .controlSize(.small)
+            .lineLimit(1)
         }
         .font(.callout)
         .accessibilityElement(children: .contain)
-        .accessibilityLabel("\(label) \(TimeFormat.clock(millis))")
+        .accessibilityLabel("\(label) \(time)")
     }
 }
 

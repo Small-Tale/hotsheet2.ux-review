@@ -1699,3 +1699,13 @@ text stacked one word per line at 99 pt wide. The empty Draft Reviews window was
   and a thicker border, and off dots show their ring where needed.
 - **Not covered automatically:** VoiceOver announcing "selected" (`.isSelected` trait); part of
   `HS2-MVGVJ4`.
+
+## HS2-H00SFD: the time rows' playhead controls
+
+- **Visual QA:** `editor-video-timeline` and `editor-video-narrow` (`--render-ui-previews`),
+  inspected by hand: each of From and To has its field, then one **Go To | Use Playhead** group,
+  aligned across both rows, fitting the inspector at 1240 and 900 points wide.
+- The buttons call the same model operations as before (`movePlayhead(to:)`,
+  `setRangeEnd(_:toMs:for:)`), which `VideoTimeTests` and `TimelineDragTests` cover.
+- **Not covered automatically:** clicking the buttons in the live inspector, and VoiceOver reading
+  their labels (part of `HS2-MVGVJ4`).
