@@ -82,12 +82,12 @@ struct HotSheetWebClientTests {
         let store = "/Users/me/Documents/hotsheet2.hs2"
         #expect(
             client.ticketURL(project: "/Users/me/Documents/hotsheet2", store: store, ticket: "HS2-EH01R7").absoluteString
-                == "http://127.0.0.1:4176/?store=/Users/me/Documents/hotsheet2&ticket=HS2-EH01R7"
+                == "http://127.0.0.1:4176/?project=/Users/me/Documents/hotsheet2&ticket=HS2-EH01R7"
         )
         // A trailing slash or `..` is standardized away; a blank project falls back to the store.
         #expect(
             client.ticketURL(project: "/Users/me/Documents/x/../hotsheet2/", store: store, ticket: "T").absoluteString
-                == "http://127.0.0.1:4176/?store=/Users/me/Documents/hotsheet2&ticket=T"
+                == "http://127.0.0.1:4176/?project=/Users/me/Documents/hotsheet2&ticket=T"
         )
         #expect(
             client.ticketURL(project: "  ", store: store, ticket: "T").absoluteString
@@ -96,7 +96,8 @@ struct HotSheetWebClientTests {
         // Spaces and reserved characters in the project path are encoded like a store path.
         let odd = client.ticketURL(project: "/Users/me/My Code/a+b", store: store, ticket: "T")
         let components = try #require(URLComponents(url: odd, resolvingAgainstBaseURL: false))
-        #expect(components.queryItems?.first { $0.name == "store" }?.value == "/Users/me/My Code/a+b")
+        #expect(odd.absoluteString.contains("?project=/Users/me/My%20Code/a%2Bb&ticket=T"))
+        #expect(components.queryItems?.first { $0.name == "project" }?.value == "/Users/me/My Code/a+b")
     }
 
     @Test(.timeLimit(.minutes(1))) func answersOnlyWhenSomethingListens() async throws {

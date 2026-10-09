@@ -62,10 +62,10 @@ Ticket File** (the ticket's Markdown file in the store, revealed in Finder), and
 
 **Open in Hot Sheet** (`HS2-ZEF6XD`, `HotSheetWebClient`) opens the ticket in Hot Sheet 2's web
 client in the default browser, at its deep link
-`<client url>/?store=<project folder>&ticket=<slug>` (Hot Sheet 2 `HS2-RVSPQ9`). The link names
+`<client url>/?project=<project folder>&ticket=<slug>` (Hot Sheet 2 `HS2-BQ0ECV`). The link names
 the project the review was filed into, not its `.hs2` store, which is an implementation detail of
-the project (`HS2-G3BA3P`). Hot Sheet's parameter is called `store` but takes a project folder too.
-The store path is used only when the project isn't known. After filing,
+the project (`HS2-G3BA3P`). It uses the compatibility `store=` key with the store path only
+when the project isn't known. After filing,
 the window reads `${HOTSHEET_HOME:-~/.hotsheet2}/client.json`, off the main thread. The client
 counts as running only if all of these hold:
 

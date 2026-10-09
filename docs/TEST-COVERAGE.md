@@ -1509,7 +1509,7 @@ text stacked one word per line at 99 pt wide. The empty Draft Reviews window was
   - `processIsAlive` for this process and a free pid;
   - deep-link encoding of spaces, `+`, `&`, `=`, and a client URL with a path;
   - `answers` against a real local TCP listener (a 404 counts), and not after it closes.
-- **App end to end** (`scripts/app-e2e.sh`): `--submit` with a fake web host (a node HTTP server that writes `client.json` with its own pid) reports `hotSheetURL` as `<url>/?store=<store>&ticket=<slug>`; with an empty `HOTSHEET_HOME` it reports none.
+- **App end to end** (`scripts/app-e2e.sh`): `--submit` with a fake web host (a node HTTP server that writes `client.json` with its own pid) reports `hotSheetURL` as `<url>/?project=<project>&ticket=<slug>`; with an empty `HOTSHEET_HOME` it reports none.
 - **Visual QA:** `session-submitted-hotsheet` (`--render-ui-previews`), inspected by hand; `session-submitted` still has no button.
 - **Not covered automatically:** clicking the button and the browser opening the link (`NSWorkspace.open`).
 
@@ -1787,7 +1787,7 @@ text stacked one word per line at 99 pt wide. The empty Draft Reviews window was
   project folder (standardized: trailing slash, `..`). A blank project falls back to the store
   path. Spaces and reserved characters are encoded. The store-only cases keep passing.
 - **App end to end** (`scripts/app-e2e.sh`, HS2-ZEF6XD block): with a running fake web client,
-  `--submit --project <dir>` reports `hotSheetURL` as `<client>/?store=<dir>&ticket=<slug>`.
+  `--submit --project <dir>` reports `hotSheetURL` as `<client>/?project=<dir>&ticket=<slug>`.
 - **Not covered automatically:** Hot Sheet 2 opening that link (its `HS2-RVSPQ9` deep link
   accepts a project path), covered by the live check `HS2-K4KHR3`.
 

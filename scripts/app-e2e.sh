@@ -706,7 +706,7 @@ run submit 0 HOTSHEET_CLI="$TMP/flaky-cli" HOTSHEET_HOME="$TMP/hshome" -- --subm
 kill "$web_pid" 2>/dev/null || true
 web_url="$(json "$TMP/hshome/client.json" j.url)"
 # HS2-G3BA3P: the link names the project (--project), not its .hs2 store.
-[[ "$(json "$TMP/submit.json" j.hotSheetURL)" == "$web_url/?store=$(echo "$TMP/subproj" | sed 's/ /%20/g')&ticket=$slug" ]] \
+[[ "$(json "$TMP/submit.json" j.hotSheetURL)" == "$web_url/?project=$(echo "$TMP/subproj" | sed 's/ /%20/g')&ticket=$slug" ]] \
   || die "submit: hotSheetURL is $(json "$TMP/submit.json" j.hotSheetURL)"
 [[ "$(json "$TMP/submit.json" j.slug)" == "$slug" ]] || die "submit: retry created another ticket"
 [[ "$(json "$TMP/submit.json" '`${j.mediaCount}/${j.annotationCount}/${j.draftRemoved}`')" == "2/2/true" ]] || die "submit: counts (the annotation outside the crop is left out)"
