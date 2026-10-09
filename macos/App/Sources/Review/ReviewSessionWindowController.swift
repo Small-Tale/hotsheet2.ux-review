@@ -41,7 +41,7 @@ final class ReviewSessionWindowController: NSWindowController, NSWindowDelegate 
             existing.present()
             return
         }
-        let model = ReviewSessionModel(draft: draft, store: store, target: AppSettings.currentStatus())
+        let model = ReviewSessionModel(draft: draft, store: store, target: AppSettings.status(forDraft: draft.directory))
         model.closeEditor = { EditorWindowController.close(directory: $0) }
         let controller = ReviewSessionWindowController(model: model)
         open[key] = controller

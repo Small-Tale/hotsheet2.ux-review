@@ -35,7 +35,8 @@ enum UXReviewMain {
         // Synchronous: --settings (apply/print settings, check the hotkey), --annotate (run an
         // editing script on a draft), --submit (file a draft in Hot Sheet, docs/07 §7.8),
         // --discard-draft / --drafts (discard one draft, list them all, docs/07 §7.10),
-        // --open-review / --save-review / --duplicate-review (reviews as documents).
+        // --open-review / --save-review / --duplicate-review (reviews as documents),
+        // --open-url (a capture link, docs/04 §4.13).
         let arguments = Array(CommandLine.arguments.dropFirst())
         let synchronous: [(String, @MainActor @Sendable ([String]) -> Int32)] = [
             ("--settings", HeadlessSettings.run(arguments:)),
@@ -47,6 +48,8 @@ enum UXReviewMain {
             ("--open-review", HeadlessReviewDocuments.run(arguments:)),
             ("--save-review", HeadlessReviewDocuments.run(arguments:)),
             ("--duplicate-review", HeadlessReviewDocuments.run(arguments:)),
+            // A uxreview://capture link's preparation, short of capturing (HS2-CWTNY2).
+            ("--open-url", HeadlessOpenURL.run(arguments:)),
         ]
         for (flag, run) in synchronous where CommandLine.arguments.contains(flag) {
             startHeadless()

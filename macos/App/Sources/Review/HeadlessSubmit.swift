@@ -4,7 +4,8 @@ import UXReviewKit
 /// `UXReview --submit [--drafts-dir DIR] [--draft NAME] [--project DIR] [--title T] [--summary S] [--to-ticket REF] [--downscale on|off]`:
 /// files a draft review in Hot Sheet with no UI (a new ticket, or the existing ticket `--to-ticket`
 /// names), through the same `ReviewSession` rules and `DraftSubmitter` as the session window, and
-/// prints one JSON object. Used by scripts/app-e2e.sh.
+/// prints one JSON object. Used by scripts/app-e2e.sh. A draft a capture link started files to the
+/// link's project and ticket unless `--project` / `--to-ticket` say otherwise (`launch.json`).
 /// Exit codes: 0 submitted, 2 bad arguments / no draft / the review has issues, 3 Hot Sheet not
 /// ready, 5 submitting failed (the draft is kept). Spec: docs/07-review-session.md §7.8.
 @MainActor
@@ -76,7 +77,9 @@ enum HeadlessSubmit {
         case let .failure(failure): return fail(failure, code: 2)
         }
 
-        let target = AppSettings.currentStatus()
+        // `--project`, else the project a capture link named for this draft (HS2-CWTNY2).
+        let target = AppSettings.status(forDraft: draft.directory)
+        let launch = DraftLaunch.load(from: draft.directory)
         var session = ReviewSession(
             directory: draft.directory,
             bundle: draft.bundle,
@@ -91,7 +94,7 @@ enum HeadlessSubmit {
         if let problem = target.problem {
             return fail(Failure(error: "hotSheetUnavailable", message: problem, draftDirectory: path), code: 3)
         }
-        if let reference = command.toTicket {
+        if let reference = command.toTicket ?? launch.ticket {
             // The same lookup the window runs; its issues block submitting like any other.
             session.setDestination(.existingTicket)
             session.editTicket(reference)

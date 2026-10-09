@@ -30,18 +30,29 @@ enum AppSettings {
     }
 
     static var projectDirectory: URL? {
-        get {
-            let args = CommandLine.arguments
-            if let index = args.firstIndex(of: "--project"), index + 1 < args.count {
-                return URL(fileURLWithPath: args[index + 1], isDirectory: true)
-            }
-            return defaults.string(forKey: projectKey).map { URL(fileURLWithPath: $0, isDirectory: true) }
-        }
+        get { explicitProject ?? defaults.string(forKey: projectKey).map { URL(fileURLWithPath: $0, isDirectory: true) } }
         set { defaults.set(newValue?.path, forKey: projectKey) }
+    }
+
+    /// `--project DIR` on the command line, which wins over everything else.
+    private static var explicitProject: URL? {
+        let args = CommandLine.arguments
+        guard let index = args.firstIndex(of: "--project"), index + 1 < args.count else { return nil }
+        return URL(fileURLWithPath: args[index + 1], isDirectory: true)
     }
 
     static func currentStatus() -> HotSheetStatus {
         HotSheetStatus.detect(projectDirectory: projectDirectory)
+    }
+
+    /// The Hot Sheet target for the draft in `directory`: `--project`, else the project its
+    /// capture link named (`launch.json`, `HS2-CWTNY2`), else the selected project.
+    static func status(forDraft directory: URL) -> HotSheetStatus {
+        HotSheetStatus.detect(projectDirectory: DraftLaunch.project(
+            explicit: explicitProject,
+            draft: directory,
+            selected: projectDirectory
+        ))
     }
 
     /// Project folders used before, most recent first, that still exist (docs/07 §7.6).

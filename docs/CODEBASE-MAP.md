@@ -34,6 +34,7 @@ macos/
     HotSheet/HotSheetStatus.swift     ready/problem detection for UI and --status
     HotSheet/ProcessRunner.swift      Process seam (fakeable in tests)
     Capture/CaptureRequest.swift      kind/target/delay of a capture (docs/04 §4.1)
+    Capture/CaptureLink.swift         uxreview://capture?… links: parse + prepare the review (HS2-CWTNY2, docs/04 §4.13)
     Capture/RegionGeometry.swift      AppKit rect → display-local, pixel-snapped capture area
     Capture/WindowSelection.swift     window-server snapshots, pick/frontmost window rules, own windows kept in captures (docs/04 §4.3)
     Capture/RecordingWindowExceptions.swift  a recording's own-window exceptions: when to update the running filter as windows open/close (docs/04 §4.3)
@@ -49,6 +50,7 @@ macos/
     Capture/CaptureCommand.swift      `--capture` argument parsing (docs/04 §4.11)
     Review/ReviewDraftStore.swift     draft reviews on disk, createEmptyDraft for New Review (docs/04 §4.6)
     Review/DraftEdits.swift           edits.json (image and movie crops + trims until submitting), EditProjection: exact maps, outside rules, clipping (docs/06 §6.6, §6.10)
+    Review/DraftLaunch.swift          launch.json: the project + ticket a capture link named for a review (HS2-CWTNY2)
     Review/DraftEdits+Legacy.swift    migrateLegacyEdits: originals/ + crops.json drafts → edits.json
     Review/ReviewSelection.swift      the part of a review that goes to an existing ticket (what is left out), apply/prune (docs/07 §7.2.2)
     Review/SubmissionPreview.swift    each capture as it will be filed (cropped size, trimmed length, AI-scaled size, annotations left out) for the Submit Review window (docs/07 §7.2)
@@ -118,6 +120,8 @@ macos/
     Capture/VideoRecording.swift      SCStream recorder, microphone recorder (AVCaptureSession → host clock), synthetic recorder
     Capture/OwnWindowFollower.swift   polls the window list while a display recording runs; updates the stream's filter when own windows open/close
     Capture/CaptureCoordinator.swift  UI flow: permission (+ microphone), pick, countdown, capture, alerts
+    Capture/CaptureCoordinator+Links.swift  opens a capture link: prepare its review, then start its capture (docs/04 §4.13)
+    Capture/HeadlessOpenURL.swift     `--open-url` headless mode: a capture link short of capturing (docs/04 §4.13)
     Capture/TargetPicker.swift        region drag + window pick overlays
     Capture/CaptureHUD.swift          countdown / saved HUD panel
     Capture/RecordingDimOverlay.swift click-through dim window shown during a region recording
@@ -154,6 +158,7 @@ macos/
     Review/ReviewSessionWindowController.swift  one Submit Review window per draft (docs/07 §7.1)
     Review/ReviewSessionModel.swift   observable session: draft refresh, autosaved fields, remove, debounced ticket lookup, submit off-main
     Review/ReviewSessionModel+HotSheet.swift  Open in Hot Sheet after filing: find the web client's ticket link off the main thread (HS2-ZEF6XD)
+    Review/ReviewSessionModel+Project.swift  choosing the project in Submit Review (replaces a capture link's project, docs/07 §7.6)
     Review/ReviewSessionView.swift    capture list, title/summary, issues, project, ticket, progress, failure, success
     Review/ReviewDestinationView.swift  Ticket section: New ticket / Add to existing ticket, ticket field, lookup status (docs/07 §7.2.1); Ticket text: rendered preamble, click to edit (TicketTextBox, MarkdownPreview, §7.2.3)
     Review/HeadlessSubmit.swift       `--submit` mode with JSON output (docs/07 §7.8)

@@ -846,6 +846,45 @@ run abandoned-existing 0 -- --submit "${ASUB[@]}" --to-ticket "$existing"
 hs -C "$TMP/subproj.hs2" show "$lost" | grep -q "^status: not_started" || die "abandoned: the left-behind ticket should be untouched"
 ok "after a failed New ticket try, adding to an existing ticket reports the ticket left behind (abandonedTicket) without deleting it"
 
+echo "capture links: uxreview://capture?… (HS2-CWTNY2)"
+LDRAFTS="$TMP/link-drafts"
+run link-bad 2 -- --open-url "uxreview://capture?kidn=video" --drafts-dir "$LDRAFTS"
+[[ "$(json "$TMP/link-bad.json" j.error)" == unknownParameter ]] || die "link: a typo was not rejected $(cat "$TMP/link-bad.json")"
+run link-narrate 2 -- --open-url "uxreview://capture?narrate=on" --drafts-dir "$LDRAFTS"
+[[ "$(json "$TMP/link-narrate.json" j.error)" == narrationNeedsVideo ]] || die "link: narrate on a screenshot"
+# A bare link: the default capture into the current review (none yet, so nothing prepared).
+run link-bare 0 -- --open-url "uxreview://capture" --drafts-dir "$LDRAFTS"
+[[ "$(json "$TMP/link-bare.json" '[j.request.kind, j.request.target, j.request.delaySeconds, j.review, j.draftDirectory === undefined].join("|")')" == "screenshot|region|0|current|true" ]] \
+  || die "link: bare $(cat "$TMP/link-bare.json")"
+[[ ! -e "$LDRAFTS/current" ]] || die "link: a bare link created a review"
+# A review in progress, then a link that names the project, the ticket, a title, and context.
+run link-earlier 0 "${SYN[@]}" -- --capture screenshot --target region --rect 100,100,300,200 --drafts-dir "$LDRAFTS"
+learlier="$(json "$TMP/link-earlier.json" j.draftDirectory)"
+lproject="$(node -e 'console.log(encodeURIComponent(process.argv[1]))' "$TMP/subproj")"
+run link 0 -- --open-url "uxreview://capture?kind=video&target=window&delay=3&narrate=off&project=$lproject&ticket=$existing&title=Kerf%20demo&context=Step%203%20of%20the%20tour" --drafts-dir "$LDRAFTS"
+ldraft="$(json "$TMP/link.json" j.draftDirectory)"
+[[ "$(json "$TMP/link.json" '[j.request.kind, j.request.target, j.request.delaySeconds, j.narrate, j.review, j.title, j.summary].join("|")')" == \
+  "video|window|3|false|new|Kerf demo|Step 3 of the tour" ]] || die "link: $(cat "$TMP/link.json")"
+[[ "$(json "$ldraft/launch.json" '[j.projectDirectory, j.ticket].join("|")')" == "$TMP/subproj|$existing" ]] || die "link: launch.json $(cat "$ldraft/launch.json")"
+[[ "$ldraft" != "$learlier" && "$(json "$learlier/review.json" j.media.length)" == 1 && ! -e "$learlier/launch.json" ]] \
+  || die "link: the review in progress changed"
+ok "a capture link checks its parameters, starts a new review with its title and notes, and keeps its project and ticket in launch.json"
+# The capture goes into the link's review; --submit with no --project or --to-ticket files it to
+# the link's project, onto the link's ticket (the developer's own selected project never matters).
+run link-shot 0 "${SYN[@]}" -- --capture screenshot --target region --rect 100,100,300,200 --drafts-dir "$LDRAFTS"
+[[ "$(json "$TMP/link-shot.json" j.draftDirectory)" == "$ldraft" ]] || die "link: the capture went to another review"
+run link-submit 0 -- --submit --drafts-dir "$LDRAFTS"
+[[ "$(json "$TMP/link-submit.json" '[j.slug, j.addedToExistingTicket, j.mediaCount].join("|")')" == "$existing|true|1" ]] \
+  || die "link: submit $(cat "$TMP/link-submit.json")"
+[[ "$(json "$TMP/link-submit.json" j.storePath)" == "$(cd "$TMP/subproj.hs2" && pwd -P)" || "$(json "$TMP/link-submit.json" j.storePath)" == "$TMP/subproj.hs2" ]] \
+  || die "link: filed to $(json "$TMP/link-submit.json" j.storePath)"
+hs -C "$TMP/subproj.hs2" show "$existing" >"$TMP/link-ticket.md"
+for needle in "## UX review: Kerf demo" "Step 3 of the tour"; do
+  grep -qF "$needle" "$TMP/link-ticket.md" || die "link: ticket lacks '$needle'"
+done
+[[ -e "$learlier" ]] || die "link: the other review was removed"
+ok "a review a capture link started files to the link's project and ticket by default"
+
 # HS2-2QP0GM: a capture removed by the review session leaves an open editor consistent.
 RDRAFTS="$TMP/remove-drafts"
 run remove-shot1 0 "${SYN[@]}" -- --capture screenshot --target region --rect 100,100,300,200 --drafts-dir "$RDRAFTS"

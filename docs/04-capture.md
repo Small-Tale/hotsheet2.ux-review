@@ -505,3 +505,58 @@ UXReview --open-media FILE [FILE…] [--drafts-dir DIR] [--into-draft DIR]
   would show), and `media`.
 - Errors and exit codes match `--import`. A missing `--into-draft` draft exits 5 (`failed`).
 
+
+## 4.13 Capture links
+
+`HS2-CWTNY2`. A link can start a capture that is already set up for its project, so a demo site,
+a doc, or a script can ask for feedback in one click. For example, Kerf UI's UX demo tool can
+link to a capture of the step on screen, filed to Kerf's Hot Sheet project. UX Review registers
+the `uxreview` URL scheme (`CFBundleURLTypes` in `macos/project.yml`):
+
+```
+uxreview://capture?kind=video&project=/Users/me/kerf&ticket=HS-1A2B3C&title=Kerf%20demo&context=Step%203
+```
+
+The action is `capture`; `uxreview:capture?…` works too. Parameters (`CaptureLink`):
+
+| Parameter | Values | Default |
+| --- | --- | --- |
+| `kind` | `screenshot` (or `image`), `video` (or `recording`) | `screenshot` |
+| `target` | `region`, `window`, `screen` (or `display`) | `region` |
+| `delay` | whole seconds, 0–60 | 0 |
+| `narrate` | `on`/`off` (`1`/`0`, `true`/`false`, `yes`/`no`); only with `kind=video` | the setting |
+| `project` | the project folder: an absolute path or a `file://` URL | the selected project |
+| `ticket` | an existing ticket to add the review to: a slug, a ULID, or text holding one | a new ticket |
+| `title` | the review's title (at most 200 characters) | |
+| `context` | text that starts the review's overall notes (at most 10,000 characters) | |
+| `review` | `new` or `current` | `new` when the link sets a project, ticket, title, or context; else `current` |
+
+Values are case-insensitive. An unknown parameter, a repeated one, or a bad value makes the link
+invalid, and UX Review says why in an alert. A typo never silently captures the wrong thing.
+
+What a link does:
+
+1. **The review.** With `review=new`, a new empty review starts and becomes current. The review
+   in progress stays as it was. With `review=current`, the capture goes into the current review,
+   as from the menu bar.
+2. **Its presets.** The title replaces the review's title. The context starts the review's
+   overall notes; it is added after any notes already there. The project and ticket go in the
+   review's `launch.json` (`DraftLaunch`), and a later link to the same review replaces the
+   values it sets.
+3. **The capture.** UX Review steps back from the front, so the page that opened the link is the
+   capture's app. Then the capture starts as from the menu: the region or window picker, the
+   countdown, and for a video, recording until stopped. `narrate` applies to that one recording.
+   The editor then opens on the capture, as after any capture (§4.6).
+
+A link never submits by itself. The reviewer picks the region, annotates, and submits. The Submit
+Review window shows the link's project as the target, and its ticket under **Add to existing
+ticket** ([07-review-session.md](07-review-session.md) §7.2, §7.6), so everything the link set is
+visible and can be changed before filing. A link that arrives while a capture is under way is
+ignored, with a note on screen. A link that opens UX Review waits until it has launched.
+
+**Headless:** `UXReview --open-url URL [--drafts-dir DIR]` parses the link and prepares its review,
+but doesn't capture. It prints the capture it would start as JSON: `request`, `narrate`, `review`,
+`draftDirectory`, `title`, `summary`, and `launch`. Exit codes: 0 prepared, 2 an invalid link
+(`error` is `unknownParameter`, `invalidValue`, …), 5 the review couldn't be written. A following
+`--capture` adds to that review, and `--submit` files it to the link's project and ticket
+(§7.8).

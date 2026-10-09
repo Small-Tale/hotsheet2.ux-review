@@ -17,7 +17,7 @@ final class CaptureCoordinator: ObservableObject {
 
     let backend: CaptureBackend
     let store: ReviewDraftStore
-    private let hud = CaptureHUD()
+    let hud = CaptureHUD()
     /// Dims the rest of the display during a region recording (docs/04 §4.9).
     private let recordingDim = RecordingDimOverlay()
     private var task: Task<Void, Never>?

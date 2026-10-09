@@ -348,6 +348,13 @@ longer has a project chooser). `UXReview --project <dir>` overrides it for one r
 
 Changing the project in one session window refreshes every open session window.
 
+**A capture link's project** (`HS2-CWTNY2`, [04-capture.md](04-capture.md) §4.13). A review
+started by a link that names a project files to that project. The order is `--project` first,
+then the link's project (`launch.json`), then the selected project. The app-wide selection is not
+changed. Choosing a project with **Change** replaces the link's project for that review. A link's
+`ticket` opens the window on **Add to existing ticket** with that ticket, and `--submit` adds the
+review to it when no `--to-ticket` is given.
+
 ## 7.7 Not yet
 
 - Downscaling for AI (§7.5.1):

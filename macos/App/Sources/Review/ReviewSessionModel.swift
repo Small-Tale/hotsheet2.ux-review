@@ -134,7 +134,15 @@ final class ReviewSessionModel: ObservableObject {
             // A retry sends the same part it started with (§7.2.2).
             if let selection = pending.selection { session.setSelection(selection) }
             lockedTicket = pending.ticket.slug
+        } else if let ticket = DraftLaunch.load(from: draft.directory).ticket {
+            // A capture link named the ticket to add this review to (HS2-CWTNY2, §7.2).
+            ticketInput = ticket
+            session.setDestination(.existingTicket)
+            session.editTicket(ticket)
         }
+        // A capture link's project is this review's target until another one is chosen (§7.6).
+        let directory = draft.directory
+        statusProvider = { AppSettings.status(forDraft: directory) }
         recentProjects = AppSettings.recentProjects
         edits = DraftEdits.load(from: draft.directory)
         ticketText = DraftTicketText.load(from: draft.directory)
@@ -289,16 +297,6 @@ final class ReviewSessionModel: ObservableObject {
         } catch {
             notice = "Couldn't remove the capture: \(ReviewSubmitter.describe(error))"
         }
-    }
-
-    func useProject(_ url: URL) {
-        guard session.isEditable else { return }
-        AppSettings.useProject(url)
-        refreshTarget()
-    }
-
-    func chooseProject() {
-        if let url = AppSettings.chooseProjectFolder() { useProject(url) }
     }
 
     // MARK: Submitting

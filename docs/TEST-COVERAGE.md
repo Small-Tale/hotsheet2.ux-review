@@ -1748,3 +1748,23 @@ text stacked one word per line at 99 pt wide. The empty Draft Reviews window was
   both sides of the inspector.
 - **Not covered automatically:** dragging the divider in a narrow live window (the drag starts
   from the shown width).
+
+## HS2-CWTNY2: capture links (`uxreview://capture?…`)
+
+- **Unit** (`CaptureLinkTests`):
+  - a bare link's defaults (region screenshot into the current review), and both spellings of the action;
+  - every parameter and its synonyms;
+  - presets choose a new review unless `review=current`;
+  - every rejection: unknown action or parameter, a repeated parameter, bad kind, target, delay, narrate, project, ticket, title, context, or review, and narrate without video;
+  - preparing: a new review with its title, notes, and `launch.json`, leaving the review in progress alone, then the next capture landing in it;
+  - a bare link changing nothing;
+  - links into the current review in turn (notes added, title, project, and ticket replaced, the rest kept), and two `new` links making two reviews;
+  - `launch.json` round trip, removal when empty, and a corrupt file reading as none;
+  - project precedence: `--project`, then the link, then the setting.
+- **App end to end** (`scripts/app-e2e.sh`), with `--open-url`:
+  - a typo and narrate-on-a-screenshot exit 2 with their codes;
+  - a bare link prepares nothing;
+  - a full link starts a new review (title, notes) with `launch.json` and leaves the earlier review untouched;
+  - a synthetic `--capture` goes into it;
+  - `--submit` with no `--project` or `--to-ticket` adds it to the link's ticket in the link's project, and the ticket shows the title and context.
+- **Not covered automatically:** clicking a real `uxreview://` link in a browser. That covers Launch Services routing, a cold launch, and the app stepping back so the page is the capture's app. The `AppDelegate` routing and `CaptureCoordinator.openLink` are thin. Live check: `HS2-P50AJK`.

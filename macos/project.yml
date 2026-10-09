@@ -53,6 +53,10 @@ targets:
             CFBundleTypeRole: Viewer
             LSHandlerRank: Alternate
             LSItemContentTypes: [public.movie]
+        # `uxreview://capture?…` capture links (HS2-CWTNY2, docs/04 §4.13).
+        CFBundleURLTypes:
+          - CFBundleURLName: com.smalltale.uxreview.capture-link
+            CFBundleURLSchemes: [uxreview]
         NSMicrophoneUsageDescription: UX Review records your voice as narration for screen recordings when you turn narration on.
     # The hardened runtime blocks the microphone without this entitlement (narration, docs/04 §4.9).
     entitlements:

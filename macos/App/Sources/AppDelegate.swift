@@ -9,7 +9,8 @@ import UXReviewKit
 /// the current draft here. And it receives images and movies opened from Finder ("Open With",
 /// or dropped on the Dock icon; the document types are declared in project.yml). URLs that
 /// arrive within `batchDelay` of each other import as one all-or-nothing batch into the current
-/// draft (docs/04-capture.md §4.12.1).
+/// draft (docs/04-capture.md §4.12.1). `uxreview://capture?…` links start a capture set up
+/// for a project (docs/04 §4.13).
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
     static let batchDelay: Duration = .milliseconds(300)
@@ -21,6 +22,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
     private var waiting = false
     /// Reviews opened from Finder before launch finished.
     private var pendingReviews: [URL] = []
+    /// Capture links opened before launch finished (`HS2-CWTNY2`).
+    private var pendingLinks: [URL] = []
 
     func applicationDidFinishLaunching(_: Notification) {
         let capture = CaptureCoordinator()
@@ -95,8 +98,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
     // MARK: Opening files from Finder
 
     func application(_: NSApplication, open urls: [URL]) {
+        // `uxreview://capture?…` links start a capture (HS2-CWTNY2); they never import as media.
+        let links = urls.filter(CaptureLink.isLink)
+        if let capture {
+            links.forEach(capture.openLink)
+        } else {
+            pendingLinks += links
+        }
+        let files = urls.filter { !CaptureLink.isLink($0) }
         // `.uxreview` documents open in the editor; images and movies import (HS2-BKWZ5N).
-        let reviews = urls.filter { $0.pathExtension == ReviewDraftStore.packageExtension }
+        let reviews = files.filter { $0.pathExtension == ReviewDraftStore.packageExtension }
         if let store = capture?.store {
             for url in reviews {
                 ReviewDocuments.open(url, store: store)
@@ -104,7 +115,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         } else {
             pendingReviews += reviews
         }
-        let media = urls.filter { $0.pathExtension != ReviewDraftStore.packageExtension }
+        let media = files.filter { $0.pathExtension != ReviewDraftStore.packageExtension }
         guard !media.isEmpty, batch.add(media) else { return }
         waiting = true
         Task {
@@ -119,6 +130,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         if let store = capture?.store, !pendingReviews.isEmpty {
             pendingReviews.forEach { ReviewDocuments.open($0, store: store) }
             pendingReviews = []
+        }
+        if let capture, !pendingLinks.isEmpty {
+            pendingLinks.forEach(capture.openLink)
+            pendingLinks = []
         }
         guard !waiting, let capture, !batch.pending.isEmpty else { return }
         capture.openMedia(batch.flush())
