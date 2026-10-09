@@ -138,6 +138,7 @@ macos/
     Editor/TimelineBar.swift          video timeline: play/pause, typed playhead, scrubber, range grips + trim handles, Trim Start/End; TimeField
     Editor/InspectorView.swift        navigation stack: capture note + annotation list → annotation page (back button, intents, note) (docs/06 §6.5.1)
     Editor/HeadlessAnnotate.swift     `--annotate` mode with JSON output
+    Editor/NoteFields.swift           the Capture note field and the notes' Markdown tooltip
     Editor/EditorPreviews.swift       editor states + mock screenshots for --render-ui-previews
     Editor/EditorPreviews+Crop.swift  the Crop tool's preview states (image and video crops)
     Editor/EditorPreviews+ArrowHeads.swift  every head style and a selected span (editor-arrow-heads)

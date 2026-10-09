@@ -1630,3 +1630,12 @@ text stacked one word per line at 99 pt wide. The empty Draft Reviews window was
 - **Not covered automatically:** the editor opening after a live capture (the coordinator calls
   the tested `EditorWindowController.show(directory:store:mediaId:)` when the setting is on;
   headless captures never open windows). Live check: `HS2-MCJWZ6`.
+
+## HS2-FDG3D9: note labels name the content
+
+- **Visual QA:** `editor-window`, `editor-empty`, `editor-capture-note`, and
+  `editor-video-timeline` (`--render-ui-previews`) show **Note** and **Capture note** with no
+  format hint, inspected by hand.
+- **Not covered automatically:** the Markdown tooltip (`.help`). SwiftUI builds its accessibility
+  tree only while an assistive client is attached, so the offscreen renders can't read it; it is
+  part of the VoiceOver walkthrough `HS2-MVGVJ4`.
