@@ -10,6 +10,8 @@ struct EditorView: View {
     @AppStorage("editorMediaStripWidth", store: AppSettings.defaults) private var savedStripWidth = Double(MediaStripWidth.standard)
     /// Previews fix the width instead of reading the saved one.
     var stripWidthOverride: CGFloat?
+    /// Previews draw the shown thumbnail as if the pointer were over it (its ✕ revealed).
+    var stripHoverOverride = false
     /// The width while the divider is being dragged; saved when the drag ends.
     @State private var draggedStripWidth: CGFloat?
     @State private var dragStartWidth: CGFloat?
@@ -23,7 +25,7 @@ struct EditorView: View {
             HStack(spacing: 0) {
                 // Shown with one capture too, so it can be removed (HS2-SSM1E7).
                 if !model.editor.bundle.media.isEmpty {
-                    MediaStrip(model: model, width: stripWidth)
+                    MediaStrip(model: model, width: stripWidth, hoverOverride: stripHoverOverride)
                         .frame(width: stripWidth)
                     StripDivider(width: stripWidth, drag: dragStrip, end: endStripDrag, set: setStripWidth)
                 }
@@ -156,6 +158,10 @@ struct ToastView: View {
 struct MediaStrip: View {
     @ObservedObject var model: EditorModel
     var width = MediaStripWidth.standard
+    var hoverOverride = false
+    /// The thumbnail under the pointer, and the one with keyboard focus (Full Keyboard Access).
+    @State private var hovered: String?
+    @FocusState private var focused: String?
 
     var body: some View {
         let selection = Set(model.editor.selectedMediaIds)
@@ -194,9 +200,17 @@ struct MediaStrip: View {
                         .contentShape(RoundedRectangle(cornerRadius: 6))
                     }
                     .buttonStyle(.plain)
+                    .focused($focused, equals: item.id)
                     .accessibilityAddTraits(selected ? .isSelected : [])
+                    // VoiceOver reaches removal while the ✕ is hidden (`HS2-WTPT8X`).
+                    .accessibilityAction(named: "\(CaptureRemovalPrompt.title(count: removalTargets(item).count)) from Review") {
+                        if let confirm = model.confirmRemoval { confirm(removalTargets(item)) }
+                    }
+                    // The ✕ shows on the shown thumbnail only while the pointer is over it or it
+                    // has keyboard focus, like Finder's and Photos' close buttons (`HS2-WTPT8X`);
+                    // the context menu and Edit › Remove Capture from Review… are always there.
                     .overlay(alignment: .topLeading) {
-                        if shown, let confirm = model.confirmRemoval {
+                        if shown, hoverOverride || hovered == item.id || focused == item.id, let confirm = model.confirmRemoval {
                             let targets = removalTargets(item)
                             Button { confirm(targets) } label: {
                                 Image(systemName: "xmark.circle.fill")
@@ -215,6 +229,10 @@ struct MediaStrip: View {
                             let targets = removalTargets(item)
                             Button("\(CaptureRemovalPrompt.title(count: targets.count)) from Review…") { confirm(targets) }
                         }
+                    }
+                    // After the ✕'s overlay, so moving onto the ✕ still counts as over the cell.
+                    .onHover { inside in
+                        if inside { hovered = item.id } else if hovered == item.id { hovered = nil }
                     }
                 }
             }

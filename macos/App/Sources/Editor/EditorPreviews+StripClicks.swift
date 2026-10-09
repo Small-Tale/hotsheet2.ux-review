@@ -38,6 +38,18 @@ extension EditorPreviews {
         return [png, url]
     }
 
+    /// HS2-WTPT8X: the shown thumbnail's ✕ appears only under the pointer, so it is drawn with
+    /// the hover on (`editor-strip-hover.png`); every other render shows the strip at rest.
+    static func renderStripHover(to directory: URL, store: ReviewDraftStore, draft: ReviewDraft, size: CGSize) throws -> URL {
+        let model = try EditorModel(session: EditorSession(store: store, directory: draft.directory))
+        offerWindowButtons(model)
+        defer { model.cancelAutosave() }
+        return try snapshot(
+            EditorView(model: model, stripWidthOverride: MediaStripWidth.standard, stripHoverOverride: true),
+            size: size, to: directory.appendingPathComponent("editor-strip-hover.png")
+        )
+    }
+
     /// Landscape, tall portrait (a phone-sized window), landscape, then the parking capture.
     private static func stripClickModel(scratch: URL) throws -> EditorModel {
         let store = ReviewDraftStore(root: scratch.appendingPathComponent("strip-clicks"))

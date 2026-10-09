@@ -47,7 +47,7 @@ enum EditorPreviews {
         // HS2-JMCM6S: the canvas surround follows the appearance.
         try capture("editor-annotated-dark", size: wide, script: annotations + [.select("#1")], appearance: .darkAqua)
         try capture("editor-empty-dark", size: wide, script: [], appearance: .darkAqua)
-        written.append(try canvasColors(in: directory))
+        written += try [canvasColors(in: directory), renderStripHover(to: directory, store: store, draft: draft, size: wide)]
         // A plain click on an intent chip leaves just that intent (docs/06 §6.5).
         try capture("editor-intent-single", size: wide, script: annotations + [.select("#1"), .intent(.change, .single)])
         // Both captures selected (⌘-click), the second one shown (docs/06 §6.7.2).

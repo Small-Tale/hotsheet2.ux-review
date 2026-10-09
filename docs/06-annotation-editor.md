@@ -511,7 +511,9 @@ editor also saves on ⌘S and when the window closes. `EditorSession.save()` run
 ### 6.7.1 Removing a capture in the editor
 
 `HS2-SSM1E7`. A capture can be removed from the review in the UX Review window: the ✕ on the
-shown thumbnail, a thumbnail's **Remove from Review…** context menu item, or **Edit › Remove
+shown thumbnail (shown only while the pointer is over that thumbnail or it has keyboard focus,
+like Finder's and Photos' close buttons, `HS2-WTPT8X`; VoiceOver gets the thumbnail's
+**Remove Capture from Review** action instead), a thumbnail's **Remove from Review…** context menu item, or **Edit › Remove
 Capture from Review…** (no shortcut). With several captures selected (§6.7.2) they act on the
 whole selection and say so: "Remove 3 Captures from Review…". The ✕ and the context menu of a
 selected thumbnail remove the selection; the context menu of a thumbnail outside it removes just

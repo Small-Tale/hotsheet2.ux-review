@@ -1709,3 +1709,14 @@ text stacked one word per line at 99 pt wide. The empty Draft Reviews window was
   `setRangeEnd(_:toMs:for:)`), which `VideoTimeTests` and `TimelineDragTests` cover.
 - **Not covered automatically:** clicking the buttons in the live inspector, and VoiceOver reading
   their labels (part of `HS2-MVGVJ4`).
+
+## HS2-WTPT8X: the strip's ✕ only on hover
+
+- **Visual QA:** `editor-empty` and the other editor renders show the shown thumbnail with no ✕
+  (at rest); the new `editor-strip-hover` (`--render-ui-previews`, hover drawn on) shows it.
+  Both inspected by hand; `scripts/app-e2e.sh` requires the new PNG.
+- **App end to end:** the strip-click sweep (`HS2-QXJZJ9`) still lands every click on its capture
+  now that no ✕ covers the shown thumbnail's corner.
+- **Not covered automatically:** real pointer hover and Full Keyboard Access focus revealing the
+  ✕, and VoiceOver's Remove action (`HS2-MVGVJ4`). Removal itself is covered by the
+  `HS2-SSM1E7` tests.
