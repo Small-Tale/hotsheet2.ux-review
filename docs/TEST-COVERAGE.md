@@ -1920,3 +1920,11 @@ text stacked one word per line at 99 pt wide. The empty Draft Reviews window was
 - **Visual QA:** `editor-video-trim-mode`, inspected by hand.
 - **Not covered automatically:** dragging the handles, Return / Esc, and the disabled toolbar
   and inspector in a live window.
+
+## HS2-VJRM2V: a larger play button leads the timeline
+
+- **Visual QA:** `editor-video-timeline`, `editor-video-narrow`, and `editor-video-playing` (the
+  pause symbol) show the round 30-point play button at the start of the scrubber row, inspected
+  by hand.
+- **App end to end:** the narrow layout check (`HS2-XSXV5E`) still sees the bar keep its height.
+- Playback itself is unchanged (`VideoPlaybackTests`, the `play` script op).

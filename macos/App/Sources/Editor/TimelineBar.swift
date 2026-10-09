@@ -14,12 +14,6 @@ struct TimelineBar: View {
         let duration = editor.currentDurationMs ?? 0
         VStack(spacing: 6) {
             HStack(spacing: 8) {
-                Button { model.togglePlayback() } label: {
-                    Image(systemName: model.isPlaying ? "pause.fill" : "play.fill")
-                        .frame(width: 14)
-                }
-                .help(model.isPlaying ? "Pause (K)" : "Play (K)")
-                .accessibilityLabel(model.isPlaying ? "Pause" : "Play")
                 // No step buttons (HS2-QXNXHS): ← / → step a frame, `,` / `.` 0.1 s (⇧: 1 s).
                 HStack(spacing: 4) {
                     TimeField(label: "Playhead time", millis: editor.currentTimeMs) { millis in
@@ -37,8 +31,12 @@ struct TimelineBar: View {
                 trimControls
             }
             .buttonStyle(.borderless)
-            TimelineTrack(model: model, duration: duration)
-                .frame(height: 30)
+            // The play button leads the timeline, larger (HS2-VJRM2V).
+            HStack(alignment: .top, spacing: 10) {
+                PlayButton(model: model)
+                TimelineTrack(model: model, duration: duration)
+                    .frame(height: 30)
+            }
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
@@ -65,6 +63,27 @@ struct TimelineBar: View {
             .disabled(!model.editor.canTrim)
             .fixedSize()
         }
+    }
+}
+
+/// Play / pause (K), at the start of the timeline: a round button larger than the controls
+/// above it, so it reads as the timeline's own control (`HS2-VJRM2V`).
+struct PlayButton: View {
+    @ObservedObject var model: EditorModel
+    static let size: CGFloat = 30
+
+    var body: some View {
+        Button { model.togglePlayback() } label: {
+            Image(systemName: model.isPlaying ? "pause.fill" : "play.fill")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(.primary)
+                .frame(width: Self.size, height: Self.size)
+                .background(Circle().fill(Color.primary.opacity(0.1)))
+                .contentShape(Circle())
+        }
+        .buttonStyle(.plain)
+        .help(model.isPlaying ? "Pause (K)" : "Play (K)")
+        .accessibilityLabel(model.isPlaying ? "Pause" : "Play")
     }
 }
 
