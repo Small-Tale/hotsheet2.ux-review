@@ -284,7 +284,23 @@ The recording never silently loses narration it was asked for: the reviewer choo
 mode never prompts and fails instead (§4.11).
 
 **How the audio is recorded.** UX Review records the microphone itself rather than through
-ScreenCaptureKit's `captureMicrophone` (a choice made when the deployment target was macOS 14):
+ScreenCaptureKit's `captureMicrophone`. This was first chosen because the deployment target was
+macOS 14. It was re-evaluated for the macOS 26 target (`HS2-CVXQRD`) and kept, because
+`captureMicrophone` wouldn't be at least as good:
+
+- **Failure isolation.** With `captureMicrophone`, a microphone problem is an error of the screen
+  stream itself (`SCStreamError.failedToStartMicrophoneCapture`, or the system stopping the
+  stream). It could end or refuse the whole recording. A separate session lets the video carry on
+  when the microphone fails or is unplugged (below).
+- **Permission is the same either way.** Both need the Microphone permission and the same
+  pre-flight (above), so there is no single permission flow to gain.
+- **Sync is already one timeline.** The buffers are re-timed onto the host clock that
+  ScreenCaptureKit frames use, so moving them into the stream would save only that conversion.
+- **Reliability reports.** Developers report unplayable files from `captureMicrophone`
+  recordings (Apple Developer Forums thread 805892).
+
+Revisit this if narration drifts on long recordings or a future ScreenCaptureKit keeps the
+stream running through microphone failures.
 
 - An `AVCaptureSession` on the default audio input delivers 48 kHz mono 16-bit LPCM.
 - Each buffer's timestamp is converted from the session's clock to the host clock, which
