@@ -60,13 +60,7 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
             backing: .buffered,
             defer: false
         )
-        window.title = "\(model.editor.bundle.title) — Annotate"
-        // A saved review shows its document proxy icon; an untitled one says so (HS2-BKWZ5N).
-        if model.session.store.isUntitled(model.session.directory) {
-            window.subtitle = "Not saved"
-        } else {
-            window.representedURL = model.session.directory
-        }
+        Self.title(window, for: model)
         let content = EditorHostingView(rootView: EditorView(model: model))
         window.contentView = content
         window.contentMinSize = CGSize(width: 900, height: 560)
@@ -82,6 +76,17 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
 
     @available(*, unavailable)
     required init?(coder _: NSCoder) { fatalError("not used") }
+
+    /// Titles the window like any document window: the review's title alone (`HS2-3B3RB6`). A saved
+    /// review shows its document proxy icon; an untitled one says "Not saved" (HS2-BKWZ5N).
+    static func title(_ window: NSWindow, for model: EditorModel) {
+        window.title = model.editor.bundle.title
+        if model.session.store.isUntitled(model.session.directory) {
+            window.subtitle = "Not saved"
+        } else {
+            window.representedURL = model.session.directory
+        }
+    }
 
     private func present() {
         guard let window else { return }
@@ -258,6 +263,10 @@ final class EditorHostingView: NSHostingView<EditorView> {
 
     required init(rootView: EditorView) {
         super.init(rootView: rootView)
+        // The window's title, subtitle and toolbar are AppKit's. Without this, the inspector's
+        // NavigationStack bridges its (empty) navigation title into the window and clears the
+        // "Not saved" subtitle (`HS2-3B3RB6`).
+        sceneBridgingOptions = []
         registerForDraggedTypes([.fileURL])
     }
 

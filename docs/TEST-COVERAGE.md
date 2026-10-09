@@ -1639,3 +1639,15 @@ text stacked one word per line at 99 pt wide. The empty Draft Reviews window was
 - **Not covered automatically:** the Markdown tooltip (`.help`). SwiftUI builds its accessibility
   tree only while an assistive client is attached, so the offscreen renders can't read it; it is
   part of the VoiceOver walkthrough `HS2-MVGVJ4`.
+
+## HS2-3B3RB6: the editor window's title
+
+- **App end to end** (`scripts/app-e2e.sh`): `editor-toolbar.json` from `--render-ui-previews`
+  (the window built by the same `EditorWindowController.title(_:for:)` the editor uses) has the
+  title `Acme Mail review` and the subtitle `Not saved` (the preview review is untitled), read
+  after SwiftUI's layout. This pins a regression: the inspector's `NavigationStack` bridged its
+  empty navigation title into the window and cleared the subtitle, so `EditorHostingView` now
+  sets `sceneBridgingOptions = []`.
+- **Visual QA:** `editor-window`, inspected by hand.
+- **Not covered automatically:** the Window menu and Mission Control names (both read
+  `NSWindow.title`), and the proxy icon of a saved review (set by the same function).

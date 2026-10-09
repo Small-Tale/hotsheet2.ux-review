@@ -12,8 +12,8 @@ extension EditorPreviews {
     /// A titled window with the real `EditorToolbar` over the editor, as the editor window builds
     /// it: the toolbar's items after opening (Select tool, nothing to restore), after the C key's
     /// tool change and a crop (Crop selected, Restore Original shown), written to
-    /// `editor-toolbar.json`; the window frame, title bar and toolbar included, drawn as
-    /// `editor-window.png`.
+    /// `editor-toolbar.json` with the window's title, subtitle and proxy icon; the window frame,
+    /// title bar and toolbar included, drawn as `editor-window.png`.
     static func renderToolbar(to directory: URL, store: ReviewDraftStore, draft: ReviewDraft) throws -> [URL] {
         let model = try EditorModel(session: EditorSession(store: store, directory: draft.directory))
         annotations.forEach { apply($0, to: model) }
@@ -25,8 +25,8 @@ extension EditorPreviews {
             backing: .buffered,
             defer: false
         )
-        window.title = "\(model.editor.bundle.title) — Annotate"
-        window.contentView = NSHostingView(rootView: EditorView(model: model))
+        EditorWindowController.title(window, for: model)
+        window.contentView = EditorHostingView(rootView: EditorView(model: model))
         var submitted = 0
         let toolbar = EditorToolbar(model: model) { submitted += 1 }
         toolbar.install(on: window)
@@ -67,6 +67,7 @@ extension EditorPreviews {
                 "opened": opened, "cropped": cropped, "submitted": submitted,
                 "toolbarStyle": window.toolbarStyle == .unified ? "unified" : "other",
                 "titleVisible": window.titleVisibility == .visible,
+                "title": window.title, "subtitle": window.subtitle, "proxyIcon": window.representedURL != nil,
             ],
             options: [.prettyPrinted, .sortedKeys]
         ).write(to: url)
