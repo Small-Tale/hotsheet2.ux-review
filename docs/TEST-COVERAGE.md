@@ -2011,3 +2011,20 @@ text stacked one word per line at 99 pt wide. The empty Draft Reviews window was
   The older CLI still files with no annotations. Both were run via `HOTSHEET_CLI`.
 - **Not covered automatically:** how Hot Sheet's web gallery draws them (that is Hot Sheet 2's own
   `HS2-N1EH4W`).
+
+## HS2-20VQ8Q: Show in Finder and Copy Path on media strip thumbnails
+
+- **Unit** (`CaptureFileActionsTests`): the titles ("Copy Path" / "Copy 3 Paths"), one path
+  per line (spaces kept, empty for none), `EditorSession.fileURLs` naming the draft's existing
+  files in the order given and skipping unknown ids, and a cropped capture still pointing at its
+  uncropped file. The targets walk a selection sequence: one capture, ⌘-click (the selected and an
+  unselected thumbnail), ⇧-click range, a selected capture removed underneath, a capture added
+  and never preselected, and a plain click back to one.
+- **App end to end** (`scripts/app-e2e.sh`): `--render-ui-previews` asks the real off-screen
+  editor window's view under a right-click for its context menu (AppKit's `menu(for:)`, the real
+  SwiftUI menu, without popping it up), then runs Show in Finder and Copy Path from it against a
+  private pasteboard and a recorded reveal (`editor-strip-menu.json`). Three cases: one capture, a
+  capture in a two-capture selection, and one outside it. Each must list Show in Finder, Copy
+  Path (or Copy 2 Paths), a separator, then Remove, and act on the expected draft files.
+- **Not covered automatically:** the menu drawn on screen, and Finder actually opening (the
+  run never touches the clipboard or Finder).

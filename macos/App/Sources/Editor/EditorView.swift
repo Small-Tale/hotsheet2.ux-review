@@ -219,15 +219,15 @@ struct MediaStrip: View {
                     .focused($focused, equals: item.id)
                     .accessibilityAddTraits(selected ? .isSelected : [])
                     // VoiceOver reaches removal while the ✕ is hidden (`HS2-WTPT8X`).
-                    .accessibilityAction(named: "\(CaptureRemovalPrompt.title(count: removalTargets(item).count)) from Review") {
-                        if let confirm = model.confirmRemoval { confirm(removalTargets(item)) }
+                    .accessibilityAction(named: "\(CaptureRemovalPrompt.title(count: actedOn(item).count)) from Review") {
+                        if let confirm = model.confirmRemoval { confirm(actedOn(item)) }
                     }
                     // The ✕ shows on the shown thumbnail only while the pointer is over it or it
                     // has keyboard focus, like Finder's and Photos' close buttons (`HS2-WTPT8X`);
                     // the context menu and Edit › Remove Capture from Review… are always there.
                     .overlay(alignment: .topLeading) {
                         if shown, hoverOverride || hovered == item.id || focused == item.id, let confirm = model.confirmRemoval {
-                            let targets = removalTargets(item)
+                            let targets = actedOn(item)
                             Button { confirm(targets) } label: {
                                 Image(systemName: "xmark.circle.fill")
                                     .symbolRenderingMode(.palette)
@@ -241,8 +241,12 @@ struct MediaStrip: View {
                         }
                     }
                     .contextMenu {
+                        let targets = actedOn(item)
+                        // Show in Finder and Copy Path act on the same captures as removal (docs/06 §6.7.3).
+                        Button(CaptureFileActions.revealTitle) { model.showInFinder(targets) }
+                        Button(CaptureFileActions.copyTitle(count: targets.count)) { model.copyPaths(targets) }
                         if let confirm = model.confirmRemoval {
-                            let targets = removalTargets(item)
+                            Divider()
                             Button("\(CaptureRemovalPrompt.title(count: targets.count)) from Review…") { confirm(targets) }
                         }
                     }
@@ -261,8 +265,8 @@ struct MediaStrip: View {
         flags.contains(.command) ? .toggle : flags.contains(.shift) ? .extend : .plain
     }
 
-    /// The selection when `item` is in it, else `item` alone.
-    private func removalTargets(_ item: MediaItem) -> [MediaItem] {
+    /// What a thumbnail's ✕ and context menu act on: the selection when `item` is in it, else `item` alone.
+    private func actedOn(_ item: MediaItem) -> [MediaItem] {
         model.editor.mediaToRemove(from: item.id).compactMap(model.editor.media)
     }
 

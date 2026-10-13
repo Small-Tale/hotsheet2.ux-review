@@ -117,3 +117,20 @@ public struct CaptureRemovalPrompt: Equatable, Sendable {
         count == 1 ? "Remove Capture" : "Remove \(count) Captures"
     }
 }
+
+/// The media strip's **Show in Finder** and **Copy Path** context menu items (docs/06 §6.7.3,
+/// `HS2-20VQ8Q`). They act on the same captures as removal (`removalTargets`).
+public enum CaptureFileActions {
+    /// Finder is macOS's file manager; a port to another OS names its own here.
+    public static let revealTitle = "Show in Finder"
+
+    /// "Copy Path" / "Copy 3 Paths".
+    public static func copyTitle(count: Int) -> String {
+        count == 1 ? "Copy Path" : "Copy \(count) Paths"
+    }
+
+    /// The files' paths, one per line, as Finder's Copy as Pathname writes several.
+    public static func pasteboardText(_ files: [URL]) -> String {
+        files.map(\.path).joined(separator: "\n")
+    }
+}

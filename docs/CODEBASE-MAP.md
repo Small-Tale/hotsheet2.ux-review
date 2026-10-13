@@ -88,7 +88,7 @@ macos/
     Editor/AnnotationEditor+FrameStep.swift  ← / → frame steps: TimelineStepTarget (last-used timeline target), step rules (docs/06 §6.4, §6.10)
     Editor/FrameGrid.swift            uniform frame grid for frame steps at a movie's expected rate (recorded, constant nominal, or a variable-rate movie's snapped interval) (docs/06 §6.10)
     Editor/AnnotationEditor+Media.swift  syncMedia/dropMedia: follow captures added to or removed from the draft (docs/06 §6.7); media strip selection (clickMedia, mediaToRemove)
-    Editor/MediaSelection.swift       media strip multiple selection: click / ⌘-click / ⇧-click rules, removal targets, CaptureRemovalPrompt (docs/06 §6.7.2)
+    Editor/MediaSelection.swift       media strip multiple selection: click / ⌘-click / ⇧-click rules, removal targets, CaptureRemovalPrompt (docs/06 §6.7.2); CaptureFileActions: Show in Finder / Copy Path titles and text (§6.7.3)
     Editor/VideoTrim.swift            movie export trimmed + cropped + scaled in one pass (AVAssetExportSession async export(to:as:), one AVVideoComposition), byte-exact restore, expected frame rate (recorded metadata, sample cursor + edit list), frame cache
     Editor/VideoPlayback.swift        play/pause: AVPlayer on the trimmed clip, player frames, PlaybackRules
     Editor/CanvasViewport.swift       canvas zoom/pan: fit, zoom stops, anchored zoom, clamped pan, reframe (Crop tool on/off), AutoScroll near edges (docs/06 §6.2.1)

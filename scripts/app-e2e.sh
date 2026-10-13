@@ -1371,6 +1371,19 @@ BANDS='x => { const runs = []; for (const p of j.probes.filter(p => p.x == x)) {
   || die "strip clicks: $(json "$STRIP" "[56, 14].map($BANDS).join(\"|\")")"
 ok "every click on the media strip shows the capture under the pointer, a tall portrait thumbnail included"
 
+# HS2-20VQ8Q: a real right-click on a thumbnail opens Show in Finder, Copy Path, then Remove; both
+# file items act on the clicked capture, on the whole selection when it is part of one, and on
+# just itself when it is not. Paths are the draft's own files, one per line.
+MENU="$TMP/previews/editor-strip-menu.json"
+CASE='c => c.titles.join("/") + "|" + c.copied.join(",") + "|" + c.revealed.join(",") + "|" + c.copiedInDraft + c.revealedInDraft'
+[[ "$(json "$MENU" "($CASE)(j.single)")" == "Show in Finder/Copy Path/-/Remove Capture from Review…|capture-1.png|capture-1.png|truetrue" ]] \
+  || die "strip menu, one capture: $(json "$MENU" 'JSON.stringify(j.single)')"
+[[ "$(json "$MENU" "($CASE)(j.selection)")" == "Show in Finder/Copy 2 Paths/-/Remove 2 Captures from Review…|capture-1.png,capture-3.png|capture-1.png,capture-3.png|truetrue" ]] \
+  || die "strip menu, selection: $(json "$MENU" 'JSON.stringify(j.selection)')"
+[[ "$(json "$MENU" "($CASE)(j.outside)")" == "Show in Finder/Copy Path/-/Remove Capture from Review…|capture-2.png|capture-2.png|truetrue" ]] \
+  || die "strip menu, outside the selection: $(json "$MENU" 'JSON.stringify(j.outside)')"
+ok "a thumbnail's context menu shows its file in Finder and copies its path, for the selection when it is in one"
+
 # HS2-4R84WH: the inspector is a navigation stack. Real clicks: a list row pushes annotation #1's
 # page; Back pops to the list and deselects; ⌘[ does the same; a note-focus request made just
 # before the page is pushed (a double-click on the canvas) focuses the note once it shows.

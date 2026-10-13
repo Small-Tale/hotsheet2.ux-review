@@ -30,12 +30,70 @@ extension EditorPreviews {
         model.mutate { $0.clickMedia(ids[1], .plain) }
         clicker.settle()
         let png = try clicker.snapshot(to: directory.appendingPathComponent("editor-strip-portrait.png"))
-        model.cancelAutosave()
         let url = directory.appendingPathComponent("editor-strip-clicks.json")
         try JSONSerialization.data(
             withJSONObject: ["media": ids, "probes": probes], options: [.prettyPrinted, .sortedKeys]
         ).write(to: url)
-        return [png, url]
+        let menu = try renderStripMenu(model, clicker, centers: bandCenters(probes, x: Double(MediaStripWidth.standard / 2)), to: directory)
+        model.cancelAutosave()
+        return [png, url, menu]
+    }
+
+    /// The middle of each capture's band of clicks down one column: where to click a thumbnail.
+    private static func bandCenters(_ probes: [[String: Any]], x: Double) -> [String: CGPoint] {
+        var heights: [String: [Int]] = [:]
+        for probe in probes where probe["x"] as? Double == x {
+            if let shown = probe["shown"] as? String, shown != "none", let y = probe["y"] as? Int { heights[shown, default: []].append(y) }
+        }
+        return heights.mapValues { CGPoint(x: x, y: Double($0[$0.count / 2])) }
+    }
+
+    /// HS2-20VQ8Q: real right-clicks on the media strip open its context menu; Show in Finder and
+    /// Copy Path run from that menu on one capture, on a selection, and on a capture outside the
+    /// selection (`editor-strip-menu.json`). Copy Path writes to a private pasteboard and Show in
+    /// Finder is recorded, so the run never touches the clipboard or opens Finder.
+    private static func renderStripMenu(
+        _ model: EditorModel, _ clicker: ClickableEditor, centers: [String: CGPoint], to directory: URL
+    ) throws -> URL {
+        let pasteboard = NSPasteboard.withUniqueName()
+        defer { pasteboard.releaseGlobally() }
+        var revealed: [URL] = []
+        model.pasteboard = pasteboard
+        model.reveal = { revealed = $0 }
+        let draft = model.session.directory.standardizedFileURL
+        let names = { (files: [URL]) in files.map(\.lastPathComponent) }
+        let inDraft = { (files: [URL]) in files.allSatisfy { $0.deletingLastPathComponent().standardizedFileURL == draft } }
+        func open(_ id: String) -> [String: Any] {
+            guard let point = centers[id], let menu = clicker.contextMenu(at: point) else { return ["clicked": id, "titles": []] }
+            let titles = menu.items.map { $0.isSeparatorItem ? "-" : $0.title }
+            pasteboard.clearContents()
+            revealed = []
+            for title in [CaptureFileActions.revealTitle, titles.first { $0.hasPrefix("Copy ") } ?? ""] {
+                if let index = menu.items.firstIndex(where: { $0.title == title }) { menu.performActionForItem(at: index) }
+            }
+            clicker.settle()
+            let copied = (pasteboard.string(forType: .string) ?? "").split(separator: "\n").map { URL(fileURLWithPath: String($0)) }
+            return [
+                "clicked": id, "titles": titles,
+                "copied": names(copied),
+                "copiedInDraft": inDraft(copied) && copied.allSatisfy { FileManager.default.fileExists(atPath: $0.path) },
+                "revealed": names(revealed), "revealedInDraft": inDraft(revealed),
+            ]
+        }
+        let ids = model.editor.bundle.media.map(\.id)
+        model.mutate { $0.clickMedia(ids[0], .plain) }
+        clicker.settle()
+        let single = open(ids[0])
+        model.mutate { $0.clickMedia(ids[2], .toggle) }
+        clicker.settle()
+        let selection = open(ids[2])
+        let outside = open(ids[1])
+        model.pasteboard = .general
+        let url = directory.appendingPathComponent("editor-strip-menu.json")
+        try JSONSerialization.data(
+            withJSONObject: ["single": single, "selection": selection, "outside": outside], options: [.prettyPrinted, .sortedKeys]
+        ).write(to: url)
+        return url
     }
 
     /// HS2-WTPT8X: the shown thumbnail's ✕ appears only under the pointer, so it is drawn with
@@ -108,6 +166,25 @@ final class ClickableEditor {
             window.sendEvent(event)
             settle()
         }
+    }
+
+    /// The context menu a right-click at `point` (top-down in the view) opens, as AppKit asks the
+    /// view under the pointer for it, without popping it up (that would block until dismissed).
+    func contextMenu(at point: CGPoint) -> NSMenu? {
+        let location = CGPoint(x: point.x, y: size.height - point.y)
+        guard let event = NSEvent.mouseEvent(
+            with: .rightMouseDown, location: location, modifierFlags: [], timestamp: ProcessInfo.processInfo.systemUptime,
+            windowNumber: window.windowNumber, context: nil, eventNumber: 0, clickCount: 1, pressure: 1
+        ) else { return nil }
+        var view = window.contentView?.hitTest(location)
+        while let current = view {
+            if let menu = current.menu(for: event) {
+                menu.update()
+                return menu
+            }
+            view = current.superview
+        }
+        return nil
     }
 
     /// A key equivalent such as ⌘[ through the window, as a key press reaches SwiftUI's shortcuts.

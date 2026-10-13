@@ -238,6 +238,13 @@ public final class EditorSession {
         return (bundle, edits)
     }
 
+    /// The capture files in the draft directory, in the order given, for Show in Finder and Copy
+    /// Path (docs/06 §6.7.3). Unknown ids are skipped. While the review is a draft these are the
+    /// files as captured: crops and trims are applied only on submit.
+    public func fileURLs(_ mediaIds: [String]) -> [URL] {
+        mediaIds.compactMap(editor.media).map { directory.appendingPathComponent($0.filename) }
+    }
+
     /// Remove from Review in the editor (`HS2-SSM1E7`): saves this session's edits first, so
     /// unsaved work on the other captures is kept, then removes the capture from the draft
     /// (`ReviewDraftStore.removeMedia`: its file, annotations, and crop or trim) and catches up.

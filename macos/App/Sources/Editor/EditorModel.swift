@@ -47,6 +47,10 @@ final class EditorModel: ObservableObject {
     /// Asks before removing captures from the review (docs/06 §6.7.1, §6.7.2). Set by the editor
     /// window; the media strip offers ✕ and **Remove from Review…** only when it is.
     var confirmRemoval: (([MediaItem]) -> Void)?
+    /// Where Copy Path writes and how Show in Finder reveals (docs/06 §6.7.3); previews swap in
+    /// a private pasteboard and a recorder.
+    var pasteboard = NSPasteboard.general
+    var reveal: ([URL]) -> Void = { NSWorkspace.shared.activateFileViewerSelecting($0) }
 
     private var saveTask: Task<Void, Never>?
     private var imageCache: [String: (crop: PixelRect?, image: CGImage?)] = [:]
@@ -77,6 +81,22 @@ final class EditorModel: ObservableObject {
         syncViewport()
         revision += 1
         scheduleSave()
+    }
+
+    // MARK: Capture files
+
+    /// Show in Finder (docs/06 §6.7.3): the captures' files, selected in a Finder window.
+    func showInFinder(_ items: [MediaItem]) {
+        let files = session.fileURLs(items.map(\.id))
+        if !files.isEmpty { reveal(files) }
+    }
+
+    /// Copy Path (docs/06 §6.7.3): the captures' file paths, one per line.
+    func copyPaths(_ items: [MediaItem]) {
+        let files = session.fileURLs(items.map(\.id))
+        guard !files.isEmpty else { return }
+        pasteboard.clearContents()
+        pasteboard.setString(CaptureFileActions.pasteboardText(files), forType: .string)
     }
 
     // MARK: Zoom and pan
