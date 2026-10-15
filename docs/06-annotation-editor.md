@@ -597,8 +597,14 @@ thumbnail is part of it (§6.7.2), else just that thumbnail. The file is the cap
 folder (`<draft>/capture-N.png`). While the review is a draft that is the capture as taken: a crop
 or trim is applied only when the review is submitted (§6.6, §6.10).
 
-"Finder" is the macOS file manager's name; a port to another OS names its own
-(`CaptureFileActions.revealTitle`).
+"Finder" is the macOS file manager's name (`CaptureFileActions.revealTitle`). A port to another
+OS uses its host's term and path format for both items (`HS2-ZBZNRS`):
+
+| Host | Reveal item | Copy Path text |
+| --- | --- | --- |
+| macOS (shipped) | **Show in Finder** | POSIX path, one per line |
+| Windows (planned, `HS2-DEP1TW`) | **Show in File Explorer** (selects the file, as `explorer /select,`) | Windows path with backslashes and drive letter, one per line (CRLF), as File Explorer's Copy as path does, but unquoted |
+| Linux (planned, `HS2-DXWATE`) | **Show in Files** under GNOME, **Open Containing Folder** elsewhere (selects the file through the `org.freedesktop.FileManager1` D-Bus `ShowItems` call, else opens the folder) | POSIX path, one per line |
 
 ## 6.8 Code
 
