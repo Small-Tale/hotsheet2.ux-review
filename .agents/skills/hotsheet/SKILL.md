@@ -3,7 +3,7 @@ name: hotsheet
 description: Plan and work through the complete Hot Sheet Up Next queue using priority, overlap, dependencies, and safe parallelism. Works headless, with or without a server.
 ---
 
-<!-- hotsheet-skill-version: 60 -->
+<!-- hotsheet-skill-version: 62 -->
 
 Work the project's complete Hot Sheet Up Next queue. An invocation normally drains every
 actionable Up Next ticket; completing one ticket is not a stopping condition.
@@ -50,6 +50,10 @@ actionable Up Next ticket; completing one ticket is not a stopping condition.
    For git-backed Started tickets, keep `started_phase` current as work moves through
    analyzing, planning, working, initial_testing, integrating, and final_testing;
    use `hotsheet-cli edit <id> --started-phase <phase>` or the equivalent MCP update.
+   Record each transition when it happens: `initial_testing` before running tests or
+   gates, `integrating` before merging or pushing, `final_testing` while CI runs, and
+   back to `working` when a failure sends you back to code. Never leave a ticket at
+   `working` while its tests run.
 4. **Create every follow-up immediately, without asking.** As soon as you identify an
    unfinished step, open question, known gap, out-of-scope task, or designed-but-unbuilt
    behavior, create its ticket. Do not ask permission, wait, promise to file it later, or
@@ -176,8 +180,9 @@ Notes:
 - If a ticket is unclear, do not guess. Record the needed decision, continue independent
   tickets, and return if the answer becomes available.
 - When a genuine user decision can be narrowed to concise, distinct options, a
-  `FEEDBACK NEEDED` note may include an uppercase `CHOICE` or `CHOICE:` line immediately
-  followed by a Markdown list. Options may include attachment references. Use choices
+  `FEEDBACK NEEDED` note may include one or more uppercase `CHOICE` or `CHOICE:` lines, each
+  followed by a Markdown list (blank lines allowed). Put each group's question on the line
+  before its `CHOICE`. Options may include attachment references. Use choices
   to make a decision easier, not to offload ordinary implementation judgment or replace
   an open-ended question. Users may select zero or multiple options and may always add a
   freeform response, so do not describe the list as exhaustive or require a selection.
