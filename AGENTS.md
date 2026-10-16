@@ -230,3 +230,8 @@ For any change that can affect a rendered interface, inspect the real result in 
 If the ticket has a problem or design image, capture the corresponding after state at the same component and viewport as closely as practical. Attach the image to the ticket and name it in the completion note. Screenshots supplement behavioral tests. If browser capture or attachment is unavailable after practical attempts, describe the exact blocker and leave the visual ticket open for review rather than claiming visual validation.
 
 <!-- hotsheet:end section=visual-qa -->
+
+## Project specifics
+
+- Codebase map: `docs/CODEBASE-MAP.md`
+- Requirements summary: `docs/REQUIREMENTS-SUMMARY.md`

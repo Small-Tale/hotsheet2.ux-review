@@ -13,7 +13,9 @@ any behavior change.
 | [05-start-and-settings.md](05-start-and-settings.md) | Menu bar menu, global hotkey, Settings window, persistence |
 | [06-annotation-editor.md](06-annotation-editor.md) | Annotation editor: shapes, notes, intents, crop, undo/redo, saving, `--annotate` |
 | [07-review-session.md](07-review-session.md) | Review session: capture list, title/summary, blocking issues, target project, submit, staging clean-up, `--submit`, draft reviews (list, reopen, discard), `--drafts` / `--discard-draft` |
+| [08-public-feedback.md](08-public-feedback.md) | Design only: reporting to a project's public tracker (testers, end users), feedback-target manifests, GitHub handoff and relay transports |
 | [CODEBASE-MAP.md](CODEBASE-MAP.md) | File-by-file orientation |
+| [REQUIREMENTS-SUMMARY.md](REQUIREMENTS-SUMMARY.md) | Per-doc status: shipped, partial, design-only, deferred |
 | [TEST-COVERAGE.md](TEST-COVERAGE.md) | Which tests cover which behavior |
 
 ## Roadmap
@@ -38,5 +40,6 @@ Repository foundation: `HS2-3ZSBZ9`. The following are tracked as Hot Sheet tick
 | App UI end-to-end tests + visual QA | `HS2-HA9TW3` |
 | Git remote + CI | `HS2-MWKQEP` |
 | Signing, notarization, distribution | `HS2-418QY0` |
+| Public feedback for testers (design `HS2-C9A8PD`): manifest + discovery · Submit destination + tester mode · GitHub handoff · relay · page URL · Hot Sheet 2 side | `HS2-AG38J7` · `HS2-VGC3DQ` · `HS2-3FD90F` · `HS2-41DFZN` · `HS2-KBGYWD` · `HS2-NH7D94` |
 | Linux variant | `HS2-DXWATE` |
 | Windows variant | `HS2-DEP1TW` |
