@@ -40,6 +40,7 @@ struct SettingsView: View {
             }
             Section("Submitting") {
                 Toggle("Downscale images and videos for AI", isOn: binding(\.downscaleForAI))
+                    .accessibilityIdentifier("settings-downscale")
                 Text(Self.downscaleCaption)
                     .font(.caption)
                     .foregroundStyle(.secondary)

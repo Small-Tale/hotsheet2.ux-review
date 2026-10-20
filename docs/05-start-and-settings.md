@@ -258,3 +258,7 @@ message}`, `openReviewHotkey {status, message}`, and `defaultCapture`.
 narration, the pointer, clicks, and Downscale for AI on and off, and that a headless recording uses the saved
 pointer settings), registration of all three
 hotkeys, a real conflict for each against a running menu bar instance, and duplicate rejection.
+
+Test isolation: when `UXREVIEW_DEFAULTS_SUITE` selects separate test preferences, native
+window-frame autosave is disabled because AppKit otherwise writes those frames to the
+standard application defaults. See [live UI testing](09-ui-testing.md).

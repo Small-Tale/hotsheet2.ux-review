@@ -50,6 +50,8 @@ final class CommandMenuItem: NSMenuItem {
         self.perform = perform
         super.init(title: title, action: #selector(fire), keyEquivalent: "")
         target = self
+        // AppKit otherwise exposes the shared action selector, "fire", for every item.
+        setAccessibilityIdentifier("menu-\(title)")
     }
 
     @available(*, unavailable)

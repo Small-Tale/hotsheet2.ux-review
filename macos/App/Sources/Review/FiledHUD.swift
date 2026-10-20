@@ -26,6 +26,7 @@ final class FiledHUD {
     private init(review: SubmittedReview, model: ReviewSessionModel) {
         self.model = model
         panel = NSPanel(contentRect: .zero, styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: true)
+        panel.setAccessibilityIdentifier("filed-hud")
         panel.level = .floating
         panel.isOpaque = false
         panel.backgroundColor = .clear
@@ -97,6 +98,7 @@ struct FiledHUDView: View {
             HStack(spacing: 8) {
                 Image(systemName: "checkmark.circle.fill").foregroundStyle(.green)
                 Text(review.confirmationTitle).font(.headline).foregroundStyle(.white)
+                    .accessibilityIdentifier("filed-confirmation")
             }
             Text(review.confirmationDetail)
                 .font(.callout)

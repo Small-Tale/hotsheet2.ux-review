@@ -14,6 +14,7 @@ any behavior change.
 | [06-annotation-editor.md](06-annotation-editor.md) | Annotation editor: shapes, notes, intents, crop, undo/redo, saving, `--annotate` |
 | [07-review-session.md](07-review-session.md) | Review session: capture list, title/summary, blocking issues, target project, submit, staging clean-up, `--submit`, draft reviews (list, reopen, discard), `--drafts` / `--discard-draft` |
 | [08-public-feedback.md](08-public-feedback.md) | Design only: reporting to a project's public tracker (testers, end users), feedback-target manifests, GitHub handoff and relay transports |
+| [09-ui-testing.md](09-ui-testing.md) | Live XCUITest target, screenshot artifacts, desktop/permission setup and manual capture matrix |
 | [CODEBASE-MAP.md](CODEBASE-MAP.md) | File-by-file orientation |
 | [REQUIREMENTS-SUMMARY.md](REQUIREMENTS-SUMMARY.md) | Per-doc status: shipped, partial, design-only, deferred |
 | [TEST-COVERAGE.md](TEST-COVERAGE.md) | Which tests cover which behavior |

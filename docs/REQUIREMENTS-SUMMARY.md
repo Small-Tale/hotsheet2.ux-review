@@ -13,6 +13,7 @@ code, the doc and the code win. Open work is tracked in [README.md](README.md#ro
 | [05 Start and settings](05-start-and-settings.md) | Shipped. Permission onboarding is deferred (`HS2-418QY0`). |
 | [06 Annotation editor](06-annotation-editor.md) | Shipped. Some refinements are tracked as open tickets in the roadmap. |
 | [07 Review session](07-review-session.md) | Shipped: Submit Review, drafts, and opening the filed ticket in Hot Sheet. |
+| [09 Live UI testing](09-ui-testing.md) | Shipped XCUITest target/runner with verified Settings, import/editor and new/existing submission flows plus inspected screenshots (`HS2-HA9TW3`). Real capture is opt-in and its permitted run remains in `HS2-EP2VQR`; hardware/permission combinations have a manual matrix. |
 | [08 Public feedback](08-public-feedback.md) | Design only (`HS2-C9A8PD`). Phases: `HS2-AG38J7`, `HS2-VGC3DQ`, `HS2-3FD90F`, `HS2-41DFZN`, `HS2-KBGYWD`, `HS2-NH7D94`. |
 
 Arrow export (`HS2-5X8QFP`): implemented and CLI-tested; reviewer accepted the result on 2026-10-20. Agent-run gallery/editor visual verification was unavailable. Native projection preserves all six start/end styles, point order, and head-derived default intent; older transports retain the rectangle fallback (docs/03 §3.4).

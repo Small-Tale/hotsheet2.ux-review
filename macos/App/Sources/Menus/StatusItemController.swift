@@ -35,6 +35,7 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         let click = AppMenus.statusItemClick(recording ? .recording(startedAt: Date()) : .idle)
         item.button?.image = StatusBarIcon.image(isRecording: recording)
         item.button?.setAccessibilityLabel(StatusBarIcon.accessibilityLabel(isRecording: recording))
+        item.button?.setAccessibilityIdentifier("status-item")
         item.button?.toolTip = recording ? "Stop Recording" : nil
         switch click {
         case .openMenu:

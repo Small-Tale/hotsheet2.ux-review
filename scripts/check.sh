@@ -55,6 +55,11 @@ if [[ "${SKIP_APP:-0}" != "1" ]]; then
 
   step "app e2e: headless capture flows (scripts/app-e2e.sh)"
   "$ROOT/scripts/app-e2e.sh" "$APP_BIN"
+
+  if [[ "${RUN_UI_TESTS:-0}" == "1" ]]; then
+    step "live XCUITest flows (requires an unlocked desktop and UI automation trust)"
+    "$ROOT/scripts/ui-e2e.sh"
+  fi
 fi
 
 step "all checks passed"

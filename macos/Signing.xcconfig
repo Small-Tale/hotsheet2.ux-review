@@ -1,4 +1,5 @@
-// Code signing for UXReview.app (HS2-7BVW9T). The default is ad hoc, which needs no
+// Code signing for UXReview.app and its UI-test runner (HS2-7BVW9T, HS2-HA9TW3).
+// The default is ad hoc, which needs no
 // certificate, but macOS then identifies the app by the hash of each build, so privacy
 // permissions such as Screen Recording stop applying after every rebuild.
 //

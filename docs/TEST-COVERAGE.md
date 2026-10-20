@@ -1,7 +1,8 @@
 # Test coverage
 
 Each feature gets both unit tests and end-to-end tests. Tests live in
-`macos/Tests/UXReviewKitTests/` unless noted, and all of them run in `scripts/check.sh`.
+`macos/Tests/UXReviewKitTests/` unless noted. Core and headless checks run in
+`scripts/check.sh`; live XCUITest flows run separately or with `RUN_UI_TESTS=1` (see below).
 
 ## HS2-3ZSBZ9: repository foundation
 
@@ -2038,3 +2039,35 @@ text stacked one word per line at 99 pt wide. The empty Draft Reviews window was
 ## Submit destination order (`HS2-0166DH`)
 
 Layout-only reorder reuses the destination/lookup/selection controls and model. Existing `ExistingTicketSessionTests` and `ReviewSessionTests` cover mode changes, lookup, and submission. Native `--render-ui-previews` rendered successfully; `session-ready`, `session-narrow`, `session-existing-found`, and `session-existing-narrow` were visually inspected and attached to the ticket. Manual acceptance: choose a project, verify Submit as comes before Review, switch both modes, enter a ticket, and inspect wide/narrow layouts and the lower Ticket text preview. Reviewer accepted the implementation on 2026-10-20 after the native preview evidence was attached. The agent could not perform interactive browser verification.
+
+## Live app UI target (`HS2-HA9TW3`)
+
+`macos/UITests/` is a separate XCUITest target, generated from `macos/project.yml` and
+run with `scripts/ui-e2e.sh` (or `RUN_UI_TESTS=1 scripts/check.sh`). Unit tests continue
+to exercise menu descriptions, editor transitions, session state and submission logic in
+isolation; the UI suite exercises the real parent compositions over those models.
+
+| Flow | Live test and assertions | Unit baseline |
+| --- | --- | --- |
+| Status menu → Settings | Toggle downscaling both ways, relaunch, verify saved value; retain menu and Settings screenshots | `AppMenusTests`, `SettingsTests` |
+| File → Add Media → editor → new ticket | Real file picker, draw rectangle, Undo/Redo, edit note, resize editor/session, submit; verify the real store's attached bundle and draft cleanup | editor, keyboard, session and submitter tests |
+| Existing ticket | Invalid then valid lookup, switch New/Existing and retain ticket, assert section order, submit with no extra ticket; inspect stored note/bundle | `ExistingTicketSessionTests`, `ExistingTicketSubmitterTests` |
+| Screen capture | Opt-in `UXREVIEW_UI_REAL_CAPTURE=1`: permission preflight via the tested executable, real menu capture, editor opens, PNG dimensions match metadata | capture pipeline/geometry tests; headless real-permission check |
+
+Default runs skip real capture rather than presenting a TCC prompt. Opt-in makes its
+permission/backend failures fail the test. Screenshots are retained in `.xcresult` and
+exported to the run's attachments directory. See [09-ui-testing.md](09-ui-testing.md) for
+commands, desktop permissions, isolation and the manual capture regression matrix.
+
+Verification on 2026-10-20: all three default live UI flows passed; the real-capture test
+was explicitly skipped. The run exercised Settings persistence, file import, annotation
+undo/redo, new and existing ticket submission, lower-form scrolling, confirmation panels,
+stored image bytes and draft cleanup. Wide/narrow native captures were visually inspected
+and attached to `HS2-HA9TW3`. The normal app build, 58 affected unit tests, all 100 serialized
+headless app checks, formatting, strict lint and shell syntax checks also passed.
+
+The runner uses temporary build/result directories and the app's signing configuration to
+avoid protected-checkout access and preserve approvals when a development identity is
+configured. Fixtures register XCTest teardown blocks so assertion failures also clean up.
+Real capture remains tracked by `HS2-EP2VQR` and requires Screen Recording permission; the
+manual capture matrix is documented separately rather than counted as automated coverage.

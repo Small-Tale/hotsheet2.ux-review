@@ -119,6 +119,8 @@ struct AnnotationDetail: View {
                 ))
                 .font(.body)
                 .focused($noteFocused)
+                .accessibilityIdentifier("annotation-note")
+                .accessibilityLabel("Annotation note")
                 .scrollContentBackground(.hidden)
                 .padding(4)
                 .help(markdownHelp)

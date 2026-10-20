@@ -14,12 +14,13 @@ spec/
 docs/                          requirements, source of truth (see docs/README.md)
 scripts/
   check.sh                     repo gate: lint, spec, tests, app build + smoke + app e2e
+  ui-e2e.sh                    live XCUITest gate; keeps xcresult, logs and exported screenshots (docs/09)
   app-e2e.sh                   drives the built app's headless modes (docs/04 §4.11, docs/06 §6.9, docs/07 §7.8, §7.10)
   macos-project.sh             XcodeGen → macos/UXReview.xcodeproj (not committed)
   make-app-icon.swift          1024 px icon export → macos/App/Resources/Assets.xcassets/AppIcon.appiconset (docs/05 §5.1.1)
 macos/
   Package.swift                SwiftPM package UXReviewKit (core, no AppKit)
-  project.yml                  XcodeGen spec for UXReview.app (menu bar agent app)
+  project.yml                  XcodeGen spec for UXReview.app and UXReviewUITests; UITesting config isolates the app bundle identity
   Signing.xcconfig             code signing: ad hoc unless the gitignored Signing.local.xcconfig sets an identity (docs/01 §1.3)
   Signing.local.xcconfig.example  template for the machine-local signing identity
   Sources/UXReviewKit/
@@ -107,6 +108,7 @@ macos/
     Editor/DragModifiers.swift        ⇧ / ⌥ while dragging: ModifiedBox resize, drawn boxes, 45° snapping (HS2-Q5TA4C)
     Editor/Filmstrip.swift            the timeline filmstrip: frame count, times, small frames from the movie (HS2-VMKTHQ)
   Tests/UXReviewKitTests/      Swift Testing unit + end-to-end tests (docs/TEST-COVERAGE.md)
+  UITests/                    XCTest live UI target: UIAppFixture isolates real stores/settings; AppUITests drives menus, import, editor, submit and optional real capture
   App/Resources/Assets.xcassets  StatusBarIcon template vector (menu bar icon, docs/05 §5.1)
   App/Sources/
     UXReviewApp.swift          @main: headless mode routing, else an AppKit NSApplication run loop
@@ -118,7 +120,7 @@ macos/
     Menus/DockPresence.swift   Dock icon + app menu bar while a UX Review window is open (WindowPresence)
     AppSettings.swift          project folder (defaults / --project), recent projects, folder panel, Downscale for AI + the store's AI size
     UIPreviews.swift           --render-ui-previews offscreen renders for visual QA
-    WindowSizing.swift         saved window frames kept on screen; why root views state a minimum size (docs/05 §5.1.1)
+    WindowSizing.swift         saved window frames kept on screen; isolated defaults disable standard frame autosave; root-view minimum size (docs/05 §5.1.1)
     Capture/CaptureBackend.swift      ScreenCaptureKit + synthetic backends, CaptureFailure
     Capture/CaptureEnvironment.swift  displays, window list, capture context provider, CaptureChrome (windows never captured)
     Capture/CapturePipeline.swift     capture → PNG / recorded movie → draft store

@@ -87,6 +87,11 @@ client's tests must decode them, and the macOS tests also re-encode them lossles
 7. `scripts/app-e2e.sh`, which drives the built app's headless capture, import, settings,
    annotation, submit (against a throwaway Hot Sheet store), and preview modes
 
+Set `RUN_UI_TESTS=1` to append the live `UXReviewUITests` suite to the gate, or run
+`scripts/ui-e2e.sh` separately on an unlocked desktop. Its result bundle retains screenshots
+from passing tests and the wrapper exports attachments for visual inspection.
+See [09-ui-testing.md](09-ui-testing.md) for isolation, permissions and real-capture opt-in.
+
 Set `SKIP_APP=1` to skip the app build. Long steps are time-boxed when coreutils `timeout` is
 available.
 

@@ -305,6 +305,7 @@ final class AnnotationCanvasView: NSView {
 
     override func isAccessibilityElement() -> Bool { true }
     override func accessibilityRole() -> NSAccessibility.Role? { .group }
+    override func accessibilityIdentifier() -> String { "annotation-canvas" }
 
     override func accessibilityLabel() -> String? {
         guard let item = model?.editor.currentMedia else { return "Annotation canvas, no capture" }

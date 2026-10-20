@@ -18,7 +18,8 @@ enum WindowSizing {
     /// Restores the window's frame saved under `name` (and saves it from now on), kept on screen.
     /// Call it on the new window at its opening size, after setting `contentMinSize`.
     static func restoreFrame(_ window: NSWindow, name: String) {
-        guard restoresFrames else { return }
+        // NSWindow autosave uses standard defaults even when the app uses an isolated suite.
+        guard restoresFrames, ProcessInfo.processInfo.environment["UXREVIEW_DEFAULTS_SUITE"] == nil else { return }
         let opening = window.frame.size
         window.setFrameAutosaveName(name)
         keepOnScreen(window, defaultSize: opening)

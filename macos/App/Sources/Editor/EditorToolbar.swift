@@ -98,6 +98,7 @@ final class EditorToolbar: NSObject, NSToolbarDelegate {
             button.tag = index
             button.toolTip = tool.toolTip
             button.setAccessibilityLabel(tool.label)
+            button.setAccessibilityIdentifier("tool-\(tool.rawValue)")
             button.setAccessibilityHelp(tool.toolTip)
             // Every tool the same size, so the selected one's highlight is the same everywhere.
             button.translatesAutoresizingMaskIntoConstraints = false

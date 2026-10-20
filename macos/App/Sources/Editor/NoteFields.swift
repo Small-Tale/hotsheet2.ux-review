@@ -25,6 +25,7 @@ struct CaptureNoteField: View {
                 .scrollContentBackground(.hidden)
                 .padding(4)
                 .accessibilityLabel("Capture note")
+                .accessibilityIdentifier("capture-note")
                 .help(markdownHelp)
                 if note.isEmpty {
                     Text("Anything about this whole capture?")

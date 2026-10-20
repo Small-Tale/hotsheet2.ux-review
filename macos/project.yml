@@ -6,6 +6,10 @@ options:
   deploymentTarget:
     macOS: "26.0"
   createIntermediateGroups: true
+configs:
+  Debug: debug
+  Release: release
+  UITesting: debug
 packages:
   UXReviewKit:
     path: .
@@ -67,6 +71,7 @@ targets:
     configFiles:
       Debug: Signing.xcconfig
       Release: Signing.xcconfig
+      UITesting: Signing.xcconfig
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.smalltale.uxreview
@@ -74,3 +79,44 @@ targets:
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         ENABLE_HARDENED_RUNTIME: YES
         GENERATE_INFOPLIST_FILE: NO
+      configs:
+        UITesting:
+          PRODUCT_BUNDLE_IDENTIFIER: com.smalltale.uxreview.uitesting
+  UXReviewUITests:
+    type: bundle.ui-testing
+    platform: macOS
+    configFiles:
+      Debug: Signing.xcconfig
+      Release: Signing.xcconfig
+      UITesting: Signing.xcconfig
+    sources:
+      - UITests
+    dependencies:
+      - target: UXReview
+      - package: UXReviewKit
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.smalltale.uxreview.uitests
+        GENERATE_INFOPLIST_FILE: YES
+        TEST_TARGET_NAME: UXReview
+schemes:
+  UXReview:
+    build:
+      targets:
+        UXReview: all
+    run:
+      config: Debug
+  UXReviewUITests:
+    build:
+      targets:
+        UXReview: all
+        UXReviewUITests: [test]
+    test:
+      config: UITesting
+      targets:
+        - name: UXReviewUITests
+          parallelizable: false
+      environmentVariables:
+        UXREVIEW_UI_REAL_CAPTURE: $(UXREVIEW_UI_REAL_CAPTURE)
+        UXREVIEW_UI_APP: $(BUILT_PRODUCTS_DIR)/UXReview.app/Contents/MacOS/UXReview
+        HOTSHEET_CLI: $(HOTSHEET_CLI)
