@@ -34,6 +34,7 @@ macos/
     HotSheet/HotSheetCLIClient.swift  HotSheetClient protocol, CreatedTicket (slug + file), CLI transport (new, attach with stored names + --batch-id, attachIncomplete, show, edit --note-file, moveToTrash, ai-settings get --json), HotSheetLocator
     HotSheet/HotSheetWebClient.swift  the running Hot Sheet 2 web client (client.json, live pid, answers) and its ticket deep link (docs/07 §7.2)
     HotSheet/HotSheetProjects.swift   the projects Hot Sheet knows: `hotsheet-cli checkout list` (HS2-T32CZC)
+    HotSheet/RecentTickets.swift     newest-created CLI listing parser, 10-ticket cap, store/request-scoped suggestion state (HS2-19XFD1)
     HotSheet/HotSheetTicket.swift     an existing ticket from `show` front matter, its file; TicketReference (slug/ULID/path in pasted text)
     HotSheet/HotSheetStatus.swift     ready/problem detection for UI and --status
     HotSheet/ProcessRunner.swift      Process seam (fakeable in tests)
@@ -75,6 +76,7 @@ macos/
     Settings/Hotkey.swift             global hotkey model: parse/display, Carbon codes (docs/05 §5.2)
     Settings/CaptureSettings.swift    settings (incl. downscaleForAI) + KeyValueStoring persistence, RecordingPointer (pointer/clicks in recordings), HotkeySlot (capture/record, duplicate rules), HotkeyAction
     Settings/SettingsCommand.swift    `--settings` argument parsing (docs/05 §5.5)
+    Settings/FilePreferences.swift  PreferencesStoring + writable shared plist adapter for absolute test overrides (HS2-7HJNAC)
     Settings/RecentProjects.swift     recent target projects (at most 10) + persistence, the Change menu's project list (ProjectMenuItem) (docs/07 §7.6)
     Settings/ProductName.swift        full (Hot Sheet 2 UX Review) and short (UX Review) product names (docs/00 §0.0)
     Settings/AppMenus.swift           menu bar menu as MenuEntry lists per phase, MenuShortcut, WindowPresence (docs/05 §5.1)
@@ -169,6 +171,8 @@ macos/
     Review/ReviewSessionModel+HotSheet.swift  Open in Hot Sheet after filing: find the web client's ticket link off the main thread (HS2-ZEF6XD)
     Review/FiledHUD.swift             the transient HUD confirming a filing (Open in Hot Sheet, Copy Slug; HS2-ZYV3SC)
     Review/ReviewSessionModel+Project.swift  choosing the project in Submit Review (replaces a capture link's project, docs/07 §7.6)
+    Review/ReviewSessionModel+RecentTickets.swift  asynchronous recent-ticket loading and selection (HS2-19XFD1)
+    Review/RecentTicketsButton.swift  Recent popup beside the existing-ticket reference field
     Review/ProjectChangeMenu.swift    Submit Review's Change menu: recent projects, then Hot Sheet's (HS2-T32CZC)
     Review/CaptureGrid.swift          Submit Review's captures: a grid of the media as filed, problems under it (HS2-55N4BN)
     Review/ReviewSessionView.swift    project → ticket destination → review → captures → ticket text; issues, progress, failure, success

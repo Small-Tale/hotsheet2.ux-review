@@ -31,8 +31,11 @@ struct ReviewDestinationRows: View {
                 .fixedSize(horizontal: false, vertical: true)
         } else {
             VStack(alignment: .leading, spacing: 6) {
-                TextField("Ticket", text: $model.ticketInput, prompt: Text("HS-ABC123, or paste a ticket reference"))
-                    .accessibilityIdentifier("session-ticket")
+                HStack(alignment: .firstTextBaseline, spacing: 8) {
+                    TextField("Ticket", text: $model.ticketInput, prompt: Text("HS-ABC123, or paste a ticket reference"))
+                        .accessibilityIdentifier("session-ticket")
+                    RecentTicketsButton(model: model)
+                }
                 lookupStatus
                     .font(.caption)
                     .fixedSize(horizontal: false, vertical: true)

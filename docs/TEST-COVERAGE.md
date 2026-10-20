@@ -2099,3 +2099,49 @@ assert key codes, JSON, missing-field defaults, disabled bindings, preserved sav
 bindings and duplicate validation. Headless app checks assert fresh settings, persisted
 legacy bindings and status-menu shortcuts. The live Settings/menu flow retains screenshots
 with the default capture bindings registered, then exercises persistence in both directions.
+
+## HS2-19XFD1: Recent tickets in Submit Review
+
+- **Unit:** `RecentTicketsTests` covers listing order, the 10-ticket cap after tombstone filtering,
+  completed/verified tickets, spaced and Unicode titles, empty/malformed output, CLI failure,
+  selected-store arguments, and suggestion transitions (cross-project and same-project stale
+  responses, repeated resolution, failed load/retry, empty/refill, and no project).
+- **Real CLI:** `recentTicketsUseRealCreationOrderAndSelectedProject` creates 13 tickets in an
+  isolated store, deletes the newest, updates the oldest, and verifies the newest 10 in creation
+  order. A second store verifies isolation; a chosen suggestion resolves through normal lookup.
+- **Live UI:** `testExistingTicketLookupModeSwitchAndSubmission` enters an invalid reference,
+  opens Recent, selects the real project's ticket, switches destination modes, reopens at narrow
+  width, and files a review into the chosen ticket with no extra ticket created. It captures
+  wide/narrow popup and selected-ticket states, including the 10-row cap.
+  `testRecentTicketsFollowProjectChangesAndEmptyRefill` switches between two real project
+  stores, verifies no cross-project suggestions, refreshes after an empty project gains a ticket,
+  and selects again after switching back. This also regresses the Change menu action: clicking
+  a listed project must update the saved project and the live session. It uses native typeahead
+  and checks persistence across processes. The shared temporary plist uses `FilePreferences`;
+  absolute-path UserDefaults suites were confirmed read-only in a two-process Foundation probe.
+- **Manual:** switch projects with the popup open, try an empty project and a temporarily
+  unavailable CLI, retry, then paste a ticket reference. Inspect popup readability at wide/narrow
+  widths and keyboard navigation. Background request transitions have unit coverage.
+
+
+## HS2-7HJNAC: Writable isolated preferences
+
+`FilePreferencesTests` covers separate instances, interleaved sequential writes preserving
+unrelated keys, deletion/refill, data/string type checks, invalid values, missing/malformed/non-dictionary
+files, failed writes, and an actual subprocess updating the same plist. The app keeps normal
+UserDefaults preferences; only absolute-path test overrides use this adapter.
+
+The existing headless settings flows in `scripts/app-e2e.sh` verify writes across app launches
+and compatibility with `defaults read`. The live UI suite uses the same adapter in the app and
+fixture; Settings persistence and project-switching checks verify its shipped composition.
+
+The editor sidebar retains its existing concrete UserDefaults backend required by SwiftUI
+AppStorage (`HS2-NN2QC0` tracks a writable isolated bridge). Parallel subprocess saturation
+exposed `HS2-P7M4PE`; affected Swift suites are verified with `swift test --no-parallel` while
+that independent scheduling defect is open.
+
+Verified on 2026-10-20: 112 affected core tests passed serially; the full headless app gate
+passed 101 checks; the live UI suite passed 5 tests with the unrelated opt-in real-capture
+test skipped. Focused Recent popup/empty-state captures, wide/narrow parent-window captures,
+and Settings off/on/off captures were visually inspected and attached to `HS2-19XFD1` and
+`HS2-7HJNAC`. The offline preview render also passes with the recent-ticket loader replaced.

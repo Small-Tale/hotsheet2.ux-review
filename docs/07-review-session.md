@@ -91,6 +91,12 @@ intake ticket: all of it, or the part chosen under **Add** (§7.2.2).
 - **The field** takes a slug (`HS2-ABC123`, any case) or a pasted ticket reference: a line from
   `hotsheet-cli ls`, a ticket file path, a link, or a ULID
   ([03-hotsheet-integration.md](03-hotsheet-integration.md) §3.5).
+- **Recent** opens a popup with the selected project's 10 newest-created tickets, newest first,
+  showing title, slug, and status (`HS2-19XFD1`). Deleted and moved tickets are omitted; completed
+  tickets remain available. Choosing a row fills the reference field and runs the same validated
+  lookup as typing. Opening the popup refreshes its list off the main thread; changing projects
+  clears old rows immediately and ignores late responses. Loading, empty, and failed-list states
+  are explicit; a failed list offers **Try Again** and never prevents manual entry.
 - **The lookup** runs `hotsheet-cli show` in the project's store 0.3 s after typing stops, and
   again when the project changes. Under the field it shows "Looking up HS-…", the found ticket's
   slug, “title”, and status, or the problem (§7.3). A result for text that has since changed, or

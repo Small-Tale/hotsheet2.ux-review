@@ -237,8 +237,12 @@ Persistence: settings are saved as JSON under the defaults key `captureSettings`
 
 The project folder (`projectDirectory`) and the recently used project folders (`recentProjects`,
 [07-review-session.md](07-review-session.md) §7.6) live in the same defaults domain. The domain is the
-app's own (`com.smalltale.uxreview`), or the suite named by `UXREVIEW_DEFAULTS_SUITE` (tests). Tests
-pass an absolute path (`<dir>/defaults` → `<dir>/defaults.plist`), so a test suite lives in a
+app's own (`com.smalltale.uxreview`), or the suite named by `UXREVIEW_DEFAULTS_SUITE` (tests).
+An absolute value for that override uses `<value>.plist` through `FilePreferences`, read and
+written directly so separate test processes share writable settings (`HS2-7HJNAC`). Named
+suites continue using UserDefaults. The override is for sequential test writers; it does not
+provide cross-process transactions. The editor sidebar's native AppStorage bridge is tracked
+separately in `HS2-NN2QC0`. Tests pass an absolute path (`<dir>/defaults` → `<dir>/defaults.plist`), so a test suite lives in a
 temporary folder and never adds a domain to ~/Library/Preferences (HS2-1AD1FJ).
 
 ## 5.4 Not yet

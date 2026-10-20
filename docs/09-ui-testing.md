@@ -61,7 +61,12 @@ Tests launch the normal app and click its real menu bar extra. They open Setting
 controls, enter the editor through the shipped menu, invoke Add Media with its shipped ⌘⇧O shortcut, import through the real open
 panel, annotate with Undo/Redo shortcuts, and open Submit Review from its toolbar button. Submission invokes the installed real
 `hotsheet-cli` against an isolated store and verifies the resulting ticket and attached
-review files. Readiness checks wait for observable UI state rather than assuming a fixed
+review files. Existing-ticket submission opens the Recent popup, checks its 10-ticket cap,
+selects a suggestion, and reopens it at narrow width before submitting. A separate flow prepares media through the shipped import CLI, then switches
+between two real project stores, checks an empty project, adds a ticket, refreshes the popup,
+and switches back to confirm suggestions follow the selected project. Popup evidence captures the
+native Popover element because it can extend beyond the parent window's frame.
+Readiness checks wait for observable UI state rather than assuming a fixed
 launch or submission delay.
 
 Status-menu helpers require a hittable entry with the same nonempty frame across three
@@ -71,7 +76,7 @@ the action or automatically reopen a failed menu. A regression cycles through op
 snapshotting, selecting Settings, and closing Settings three times; the separate
 Settings flow checks persistence across app relaunch.
 
-The suite uses live AppKit/SwiftUI windows and controls. It does not substitute offscreen
+The suite uses live AppKit/SwiftUI windows and controls. The temporary preference file is a shared fixture store; normal app preferences still use UserDefaults. Absolute-path UserDefaults suites become read-only when loaded by another process on the tested runtime, while named domains resolve in separate app/runner containers (`HS2-7HJNAC`). It does not substitute offscreen
 previews, synthetic capture results, mocked CLI responses, or a test-only route that opens
 the desired window at launch. Headless commands may prepare fixtures or inspect persisted
 results; they do not stand in for the UI interaction being tested.
@@ -80,9 +85,9 @@ Each run uses temporary resources:
 
 | Resource | Isolation |
 | --- | --- |
-| Settings | `UXREVIEW_DEFAULTS_SUITE` names an absolute temporary `defaults` path, keeping its plist with the run |
+| Settings | `UXREVIEW_DEFAULTS_SUITE` names a temporary plist base path. The app and runner read/write it with `FilePreferences`, and fixture cleanup removes it with the run directory |
 | Drafts and discarded reviews | `UXREVIEW_DRAFTS_DIR` and `UXREVIEW_TRASH_DIR` point inside the temporary root |
-| Destination project | `--project` selects a temporary project; `HOTSHEET_STORE` forces its real adjacent `.hs2` store |
+| Destination project | `--project` selects a temporary project; `HOTSHEET_STORE` normally forces its real adjacent `.hs2` store. The project-switching test removes that override and `--project`, sets isolated saved preferences, and uses sibling-store resolution for two isolated projects |
 | Hot Sheet process state | `HOTSHEET_HOME` points inside the temporary root; `HOTSHEET_CLI` resolves the real installed executable |
 
 Fixture setup creates a PNG test card; the test imports it through the real open panel. A fresh real store is initialized with `hotsheet-cli -C

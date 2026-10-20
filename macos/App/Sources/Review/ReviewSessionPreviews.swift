@@ -29,6 +29,7 @@ enum ReviewSessionPreviews {
             model.previewScale(.claudeStandard)
             // Previews never run hotsheet-cli; they resolve lookups with previewLookup.
             model.ticketFinder = { _, _ in .success(nil) }
+            model.recentTicketLoader = { _, _ in .success([]) }
             // No Hot Sheet web client unless a preview says so.
             model.hotSheetLinkFinder = { _, _, _ in nil }
             return model

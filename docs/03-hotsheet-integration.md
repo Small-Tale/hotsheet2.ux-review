@@ -187,6 +187,15 @@ slug counts only when it is uppercase or has a digit, so words like `ux-review` 
 no such ticket. The ticket file is `<store>/tickets/<last two ULID characters>/<ULID>.md`, reported
 only when it exists. A `deleted` or `moved` ticket doesn't take reviews.
 
+**Recent suggestions** (`HS2-19XFD1`, docs/07 §7.2.1). `HotSheetCLIClient.recentTickets()`
+runs `hotsheet-cli -C <store> ls --sort created`. The installed CLI lists oldest first with
+no descending or structured-output option. `RecentTicket.parseList` reads its marker/slug/status/title
+rows, trims column padding, reverses creation order, omits deleted/moved tickets, and keeps 10.
+An empty store's `(no tickets)` output is an empty list; malformed rows or a command failure
+surface as a recoverable list error. The UI loads off the main thread and scopes each response
+to its store and request, so older results cannot repopulate a changed project. Choosing a
+suggestion uses the ordinary validated ticket lookup above.
+
 **Writing.** `ReviewSubmitter.add(…)` validates and writes `review.json` exactly like §3.2, then:
 
 1. `hotsheet-cli -C <store> attach --actor-role=human --actor-id=ux-review <SLUG> --batch-id=… --batch-label=UX review capture --purpose=problem_evidence -- <media…> review.json`:

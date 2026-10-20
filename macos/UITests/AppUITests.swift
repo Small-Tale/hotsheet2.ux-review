@@ -48,8 +48,7 @@ final class AppUITests: XCTestCase {
         toggle.click()
         XCTAssertEqual(controlValue(toggle), "0")
         XCTAssertTrue(fixture.wait {
-            fixture.defaults.synchronize()
-            return !CaptureSettingsStore.load(from: fixture.defaults).downscaleForAI
+            !CaptureSettingsStore.load(from: fixture.defaults).downscaleForAI
         })
         capture("settings-downscale-off", settings)
     }
@@ -111,6 +110,9 @@ final class AppUITests: XCTestCase {
         continueAfterFailure = false
         let fixture = try UIAppFixture()
         addTeardownBlock { await fixture.cleanup() }
+        for index in 0 ..< 11 {
+            _ = try fixture.run(fixture.cli, ["-C", fixture.store.path, "new", "--title", "Earlier ticket \(index)"])
+        }
         let created = try fixture.run(fixture.cli, ["-C", fixture.store.path, "new", "--title", "Existing UI destination"])
         let slug = try XCTUnwrap(TicketReference.parse(created))
         fixture.launch()
@@ -123,7 +125,13 @@ final class AppUITests: XCTestCase {
         replace(ticket, with: "HS-NOTFOUND")
         XCTAssertTrue(session.staticTexts["No ticket HS-NOTFOUND in project.hs2."].waitForExistence(timeout: 10))
         XCTAssertFalse(session.buttons["session-submit"].isEnabled)
-        replace(ticket, with: slug)
+        session.buttons["session-recent-tickets"].click()
+        let suggestion = fixture.app.buttons["recent-ticket-\(slug)"]
+        XCTAssertTrue(suggestion.waitForExistence(timeout: 10))
+        capturePopup("recent-tickets-popup-wide", fixture.app)
+        XCTAssertEqual(fixture.app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "recent-ticket-")).count, 10)
+        suggestion.click()
+        XCTAssertEqual(ticket.value as? String, slug)
         XCTAssertTrue(fixture.wait { session.buttons["session-submit"].isEnabled })
         destination.radioButtons["New ticket"].click()
         XCTAssertFalse(ticket.exists)
@@ -134,17 +142,80 @@ final class AppUITests: XCTestCase {
         capture("submit-existing-wide", session)
         resize(session, to: CGSize(width: 520, height: 680))
         capture("submit-existing-narrow", session)
+        session.buttons["session-recent-tickets"].click()
+        XCTAssertTrue(suggestion.waitForExistence(timeout: 10))
+        capturePopup("recent-tickets-popup-narrow", fixture.app)
+        suggestion.click()
         captureDetails("submit-existing-details", session)
         session.buttons["session-submit"].click()
         XCTAssertTrue(fixture.wait(timeout: 20) { !session.exists })
         captureConfirmation("filed-existing", fixture.app)
-        XCTAssertEqual(try fixture.tickets().count, 1, "Adding a review must not create another ticket")
+        XCTAssertEqual(try fixture.tickets().count, 12, "Adding a review must not create another ticket")
         let stored = try fixture.run(fixture.cli, ["-C", fixture.store.path, "show", slug])
         XCTAssertTrue(stored.contains("UX review: Live UI follow-up"))
         let bundle = try XCTUnwrap(fixture.attachedBundles().first)
         XCTAssertEqual(bundle.title, "Live UI follow-up")
         try fixture.verifyAttachedImage(bundle)
         XCTAssertNil(try fixture.drafts.current())
+    }
+
+    func testRecentTicketsFollowProjectChangesAndEmptyRefill() throws {
+        continueAfterFailure = false
+        let fixture = try UIAppFixture()
+        addTeardownBlock { await fixture.cleanup() }
+        fixture.app.launchEnvironment["HOTSHEET_STORE"] = nil
+        fixture.app.launchArguments.removeFirst(2) // --project deliberately overrides later project choices.
+        fixture.defaults.set(fixture.project.path, forKey: "projectDirectory")
+        let otherProject = fixture.root.appendingPathComponent("other-project")
+        let otherStore = fixture.root.appendingPathComponent("other-project.hs2")
+        try FileManager.default.createDirectory(at: otherProject, withIntermediateDirectories: true)
+        _ = try fixture.run(fixture.cli, ["-C", otherStore.path, "init"])
+        try RecentProjectsStore.save(RecentProjects(paths: [fixture.project.path, otherProject.path]), to: fixture.defaults)
+        let created = try fixture.run(fixture.cli, ["-C", fixture.store.path, "new", "--title", "First project ticket"])
+        let slug = try XCTUnwrap(TicketReference.parse(created))
+        _ = try fixture.run(fixture.executable, ["--import", fixture.image.path])
+        fixture.launch()
+        _ = fixture.openEditor()
+        let session = fixture.openSubmit()
+        session.radioGroups["session-destination"].radioButtons["Add to existing ticket"].click()
+        session.buttons["session-recent-tickets"].click()
+        XCTAssertTrue(fixture.app.buttons["recent-ticket-\(slug)"].waitForExistence(timeout: 10))
+        fixture.app.typeKey(.escape, modifierFlags: [])
+        changeProject("other-project", in: session, fixture: fixture)
+        session.buttons["session-recent-tickets"].click()
+        let empty = fixture.app.staticTexts["No recent tickets in this project. You can still paste a reference."]
+        XCTAssertTrue(empty.waitForExistence(timeout: 10))
+        XCTAssertFalse(fixture.app.buttons["recent-ticket-\(slug)"].exists)
+        capturePopup("recent-tickets-empty", fixture.app)
+        fixture.app.typeKey(.escape, modifierFlags: [])
+        let added = try fixture.run(fixture.cli, ["-C", otherStore.path, "new", "--title", "Newly created in other project"])
+        let otherSlug = try XCTUnwrap(TicketReference.parse(added))
+        session.buttons["session-recent-tickets"].click()
+        let suggestion = fixture.app.buttons["recent-ticket-\(otherSlug)"]
+        XCTAssertTrue(suggestion.waitForExistence(timeout: 10))
+        suggestion.click()
+        XCTAssertTrue(fixture.wait { session.buttons["session-submit"].isEnabled })
+        XCTAssertEqual(session.textFields["session-ticket"].value as? String, otherSlug)
+        changeProject("project", in: session, fixture: fixture)
+        session.buttons["session-recent-tickets"].click()
+        XCTAssertTrue(fixture.app.buttons["recent-ticket-\(slug)"].waitForExistence(timeout: 10))
+        XCTAssertFalse(fixture.app.buttons["recent-ticket-\(otherSlug)"].exists)
+        fixture.app.buttons["recent-ticket-\(slug)"].click()
+        XCTAssertTrue(fixture.wait { session.buttons["session-submit"].isEnabled })
+        XCTAssertEqual(session.textFields["session-ticket"].value as? String, slug)
+    }
+
+    private func changeProject(_ title: String, in session: XCUIElement, fixture: UIAppFixture) {
+        session.menuButtons["Change"].click()
+        let item = fixture.app.menuItems[title]
+        XCTAssertTrue(item.waitForExistence(timeout: 5))
+        XCTAssertTrue(item.isHittable)
+        fixture.app.typeKey(String(title.prefix(1)), modifierFlags: [])
+        fixture.app.typeKey(.return, modifierFlags: [])
+        XCTAssertTrue(session.staticTexts[title].waitForExistence(timeout: 5))
+        XCTAssertTrue(fixture.wait {
+            fixture.defaults.string(forKey: "projectDirectory") == fixture.root.appendingPathComponent(title).path
+        }, "The chosen project must persist across processes")
     }
 
     func testRealScreenCaptureFromStatusMenu() throws {
@@ -213,6 +284,15 @@ final class AppUITests: XCTestCase {
             abs(window.frame.width - size.width) < 4 && abs(window.frame.height - size.height) < 4
         }, object: nil)
         XCTAssertEqual(XCTWaiter.wait(for: [ready], timeout: 5), .completed)
+    }
+
+    private func capturePopup(_ name: String, _ app: XCUIApplication) {
+        let popup = app.popovers.firstMatch
+        XCTAssertTrue(popup.waitForExistence(timeout: 5))
+        let attachment = XCTAttachment(screenshot: popup.screenshot())
+        attachment.name = name
+        attachment.lifetime = .keepAlways
+        add(attachment)
     }
 
     private func capture(_ name: String, _ element: XCUIElement) {

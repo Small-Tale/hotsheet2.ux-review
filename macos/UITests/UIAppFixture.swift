@@ -11,7 +11,7 @@ final class UIAppFixture {
     let store: URL
     let drafts: ReviewDraftStore
     let image: URL
-    let defaults: UserDefaults
+    let defaults: FilePreferences
     let cli: URL
     let executable: URL
     private let suite: String
@@ -23,14 +23,12 @@ final class UIAppFixture {
         drafts = ReviewDraftStore(root: root.appendingPathComponent("drafts"))
         image = root.appendingPathComponent("fixture.png")
         suite = root.appendingPathComponent("defaults").path
-        defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        defaults = FilePreferences(url: URL(fileURLWithPath: suite).appendingPathExtension("plist"))
         cli = try XCTUnwrap(HotSheetLocator.findCLI(), "Install hotsheet-cli or set HOTSHEET_CLI")
         executable = URL(fileURLWithPath: try XCTUnwrap(ProcessInfo.processInfo.environment["UXREVIEW_UI_APP"]))
         var prepared = false
         defer {
             if !prepared {
-                defaults.removePersistentDomain(forName: suite)
-                defaults.synchronize()
                 try? FileManager.default.removeItem(at: root)
             }
         }
@@ -43,7 +41,6 @@ final class UIAppFixture {
             openReviewHotkey: nil, downscaleForAI: false
         )
         try CaptureSettingsStore.save(settings, to: defaults)
-        defaults.synchronize()
         app.launchArguments = ["--project", project.path, "-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
         app.launchEnvironment = [
             "UXREVIEW_DEFAULTS_SUITE": suite, "UXREVIEW_DRAFTS_DIR": drafts.root.path,
@@ -58,8 +55,6 @@ final class UIAppFixture {
 
     func cleanup() {
         app.terminate()
-        defaults.removePersistentDomain(forName: suite)
-        defaults.synchronize()
         try? FileManager.default.removeItem(at: root)
     }
 

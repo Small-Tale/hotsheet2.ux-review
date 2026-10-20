@@ -49,7 +49,15 @@ final class SettingsModel: ObservableObject {
 
 extension AppSettings {
     /// The app's defaults; `UXREVIEW_DEFAULTS_SUITE` selects a separate suite (tests).
-    static var defaults: UserDefaults {
+    static var defaults: any PreferencesStoring {
+        if let path = ProcessInfo.processInfo.environment["UXREVIEW_DEFAULTS_SUITE"], path.hasPrefix("/") {
+            return FilePreferences(url: URL(fileURLWithPath: path).appendingPathExtension("plist"))
+        }
+        return nativeDefaults
+    }
+
+    /// SwiftUI AppStorage requires a concrete UserDefaults store.
+    static var nativeDefaults: UserDefaults {
         ProcessInfo.processInfo.environment["UXREVIEW_DEFAULTS_SUITE"].flatMap(UserDefaults.init(suiteName:)) ?? .standard
     }
 }

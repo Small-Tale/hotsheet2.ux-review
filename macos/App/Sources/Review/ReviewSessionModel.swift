@@ -97,6 +97,18 @@ final class ReviewSessionModel: ObservableObject {
         query.run(cliPath: cli)
     }
 
+    @Published var recentTickets = RecentTicketSuggestions()
+    var recentTicketsTask: Task<Void, Never>?
+    var recentTicketLoader: @Sendable (String, String) -> Result<[RecentTicket], SubmissionFailure> = { cli, store in
+        do {
+            return try .success(HotSheetCLIClient(
+                executable: URL(fileURLWithPath: cli), storePath: URL(fileURLWithPath: store)
+            ).recentTickets())
+        } catch {
+            return .failure(SubmissionFailure(message: ReviewSubmitter.describe(error)))
+        }
+    }
+
     private var saveTask: Task<Void, Never>?
     private var lookupTask: Task<Void, Never>?
     /// The lookup running now, so the same query isn't started twice.
@@ -190,7 +202,9 @@ final class ReviewSessionModel: ObservableObject {
 
     func refreshTarget() {
         recentProjects = AppSettings.recentProjects
+        let previousStore = session.target.storePath
         session.setTarget(statusProvider())
+        if session.target.storePath != previousStore { loadRecentTickets() }
         scheduleLookup()
         refreshScale()
     }
@@ -199,6 +213,7 @@ final class ReviewSessionModel: ObservableObject {
 
     func setDestination(_ destination: ReviewDestination) {
         guard session.setDestination(destination) else { return }
+        loadRecentTickets()
         scheduleLookup()
     }
 

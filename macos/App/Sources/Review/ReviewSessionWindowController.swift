@@ -70,7 +70,6 @@ final class ReviewSessionWindowController: NSWindowController, NSWindowDelegate 
         window.isReleasedWhenClosed = false
         WindowSizing.restoreFrame(window, name: "UXReviewSession")
         super.init(window: window)
-        let store = model.store
         window.contentView = NSHostingView(rootView: ReviewSessionView(
             model: model,
             done: { [weak window] in window?.close() }
