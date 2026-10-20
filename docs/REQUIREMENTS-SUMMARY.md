@@ -15,6 +15,6 @@ code, the doc and the code win. Open work is tracked in [README.md](README.md#ro
 | [07 Review session](07-review-session.md) | Shipped: Submit Review, drafts, and opening the filed ticket in Hot Sheet. |
 | [08 Public feedback](08-public-feedback.md) | Design only (`HS2-C9A8PD`). Phases: `HS2-AG38J7`, `HS2-VGC3DQ`, `HS2-3FD90F`, `HS2-41DFZN`, `HS2-KBGYWD`, `HS2-NH7D94`. |
 
-Arrow export (`HS2-5X8QFP`): implemented and CLI-tested; gallery/editor visual verification remains pending. Native projection preserves all six start/end styles, point order, and head-derived default intent; older transports retain the rectangle fallback (docs/03 §3.4).
+Arrow export (`HS2-5X8QFP`): implemented and CLI-tested; reviewer accepted the result on 2026-10-20. Agent-run gallery/editor visual verification was unavailable. Native projection preserves all six start/end styles, point order, and head-derived default intent; older transports retain the rectangle fallback (docs/03 §3.4).
 
 Submit destination order (`HS2-0166DH`): controls now follow project selection before Review; app build, affected tests, and wide/narrow native previews verified; reviewer accepted the result on 2026-10-20. Interactive browser verification was unavailable to the agent.
