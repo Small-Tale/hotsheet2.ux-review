@@ -2050,7 +2050,7 @@ isolation; the UI suite exercises the real parent compositions over those models
 | Flow | Live test and assertions | Unit baseline |
 | --- | --- | --- |
 | Status menu → Settings | Toggle downscaling both ways, relaunch, verify saved value; retain menu and Settings screenshots | `AppMenusTests`, `SettingsTests` |
-| File → Add Media → editor → new ticket | Real file picker, draw rectangle, Undo/Redo, edit note, resize editor/session, submit; verify the real store's attached bundle and draft cleanup | editor, keyboard, session and submitter tests |
+| File → Add Media → editor → new ticket | Empty editor wide/narrow captures (⇧⌘O hint, `HS2-G7P3E3`), real file picker, draw rectangle, Undo/Redo, edit note, resize editor/session, submit; verify the real store's attached bundle and draft cleanup | editor, keyboard, session and submitter tests |
 | Existing ticket | Invalid then valid lookup, switch New/Existing and retain ticket, assert section order, submit with no extra ticket; inspect stored note/bundle | `ExistingTicketSessionTests`, `ExistingTicketSubmitterTests` |
 | Screen capture | Opt-in `UXREVIEW_UI_REAL_CAPTURE=1`: permission preflight via the tested executable, real menu capture, editor opens, PNG dimensions match metadata | capture pipeline/geometry tests; headless real-permission check |
 

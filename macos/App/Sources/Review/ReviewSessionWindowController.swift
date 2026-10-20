@@ -138,7 +138,7 @@ final class ReviewSessionWindowController: NSWindowController, NSWindowDelegate 
 
     // MARK: File menu, for this window's draft
 
-    /// Add Media… (⌘O): adds images or movies to *this* draft, all or nothing (docs/04 §4.12.2).
+    /// Add Media… (⇧⌘O): adds images or movies to *this* draft, all or nothing (docs/04 §4.12.2).
     @objc func addMedia(_: Any?) {
         guard let window else { return }
         let panel = MediaChooser.panel()

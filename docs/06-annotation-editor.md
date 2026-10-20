@@ -34,7 +34,7 @@ UX Review** (or a click on the Dock icon) opens it on the current draft
   window. The canvas then says "No captures in this review yet" and how to add some, and the
   inspector says "Add an image or movie to start annotating."
 - Each draft gets one window, which stays until closed. Opening it again brings it forward.
-- **Add Media…** (File menu, ⌘O; no toolbar button, `HS2-BSDXHA`) adds existing images or movies to *this window's*
+- **Add Media…** (File menu, ⇧⌘O; no toolbar button, `HS2-BSDXHA`) adds existing images or movies to *this window's*
   draft, like a drop ([04-capture.md](04-capture.md) §4.12.2), and shows the first one.
 - Finder Open With and a drop on the Dock icon add to the current draft and open its editor
   on the first one ([04-capture.md](04-capture.md) §4.12.1).

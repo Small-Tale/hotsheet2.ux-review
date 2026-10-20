@@ -165,7 +165,7 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
     @objc func zoomIn(_: Any?) { model.zoomIn() }
     @objc func zoomOut(_: Any?) { model.zoomOut() }
 
-    /// File › Add Media… (⌘O): choose images or movies to add to *this* draft, like a drop.
+    /// File › Add Media… (⇧⌘O): choose images or movies to add to *this* draft, like a drop.
     @objc func addMedia(_: Any?) {
         guard let window else { return }
         let panel = MediaChooser.panel()

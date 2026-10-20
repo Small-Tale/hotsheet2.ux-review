@@ -40,6 +40,13 @@ final class AppUITests: XCTestCase {
         let fixture = try UIAppFixture()
         addTeardownBlock { await fixture.cleanup() }
         fixture.launch()
+        _ = fixture.openEditor()
+        let emptyEditor = fixture.app.windows.containing(.group, identifier: "annotation-canvas").firstMatch
+        let initialSize = emptyEditor.frame.size
+        capture("editor-empty-wide", emptyEditor)
+        resize(emptyEditor, to: CGSize(width: 900, height: 620))
+        capture("editor-empty-narrow", emptyEditor)
+        resize(emptyEditor, to: initialSize)
         let canvas = fixture.importImage()
         let editor = fixture.app.windows.containing(.group, identifier: "annotation-canvas").firstMatch
         fixture.app.checkBoxes["tool-rect"].click()
