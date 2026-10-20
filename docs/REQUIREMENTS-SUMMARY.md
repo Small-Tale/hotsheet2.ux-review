@@ -8,7 +8,7 @@ code, the doc and the code win. Open work is tracked in [README.md](README.md#ro
 | [00 Vision and principles](00-vision-and-principles.md) | Shipped: the macOS target workflow (capture, annotate, file) works end to end. |
 | [01 Architecture](01-architecture.md) | Shipped for macOS. Linux (`HS2-DXWATE`) and Windows (`HS2-DEP1TW`) are deferred. |
 | [02 Review bundle](02-review-bundle.md) | Shipped: `uxreview/bundle/v1`. `context.url` is defined but never filled (`HS2-KBGYWD`). |
-| [03 Hot Sheet integration](03-hotsheet-integration.md) | Shipped: CLI transport, adding to an existing ticket, native gallery regions. |
+| [03 Hot Sheet integration](03-hotsheet-integration.md) | Shipped: CLI transport with independent pipe draining (`HS2-P7M4PE`), adding to an existing ticket, native gallery regions. |
 | [04 Capture](04-capture.md) | Shipped: screenshots, video, context, drafts, capture links. |
 | [05 Start and settings](05-start-and-settings.md) | Shipped. Fresh capture/video shortcut defaults are ⌥⇧⌘4/5; saved bindings are preserved (`HS2-NJEEAZ`). Permission onboarding is deferred (`HS2-418QY0`). |
 | [06 Annotation editor](06-annotation-editor.md) | Shipped. Some refinements are tracked as open tickets in the roadmap. |

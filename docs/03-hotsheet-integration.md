@@ -30,6 +30,14 @@ The extra locations matter because GUI apps launched from Finder get a minimal `
 
 ## 3.2 Submission (CLI transport)
 
+`SystemProcessRunner` drains stdout on the caller and stderr on a dedicated thread before
+collecting the exit status. Pipe output larger than the OS buffer cannot block the child,
+and parallel synchronous callers do not depend on the shared dispatch pool to finish their
+readers (`HS2-P7M4PE`). Both streams use lossy UTF-8 decoding so invalid bytes preserve the
+remaining diagnostics. Launch errors throw; a nonzero child exit is returned to the client.
+The runner remains synchronous without an internal deadline; repository gates time-box it
+externally.
+
 `ReviewSubmitter.submit(bundle, mediaDirectory:)` does the following:
 
 1. Validates the bundle and checks that every media file exists. Nothing is written if either

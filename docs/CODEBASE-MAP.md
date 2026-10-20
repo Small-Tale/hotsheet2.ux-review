@@ -31,6 +31,7 @@ macos/
     Tickets/TicketPreamble.swift   the editable preamble (AI instructions / existing-ticket intro): standard templates, {{placeholders}}, DraftTicketText (`ticket-text.json`) (docs/07 §7.2.3)
     Tickets/MarkdownBlocks.swift   headings / list items / paragraphs of a short Markdown text, for the rendered ticket text
     Tickets/ReviewSubmitter.swift  validate → write review.json → create ticket → attach batch; steps, resume, attachFailed; add(…) to an existing ticket: attach batch → note, noteFailed; PartialAttach: resume an interrupted attach into the same batch
+    HotSheet/ProcessRunner.swift     synchronous subprocess capture with a dedicated stderr reader (independent of cooperative/global pool scheduling)
     HotSheet/HotSheetCLIClient.swift  HotSheetClient protocol, CreatedTicket (slug + file), CLI transport (new, attach with stored names + --batch-id, attachIncomplete, show, edit --note-file, moveToTrash, ai-settings get --json), HotSheetLocator
     HotSheet/HotSheetWebClient.swift  the running Hot Sheet 2 web client (client.json, live pid, answers) and its ticket deep link (docs/07 §7.2)
     HotSheet/HotSheetProjects.swift   the projects Hot Sheet knows: `hotsheet-cli checkout list` (HS2-T32CZC)

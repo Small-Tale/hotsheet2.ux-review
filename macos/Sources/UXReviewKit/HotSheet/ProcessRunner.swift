@@ -54,7 +54,9 @@ public struct SystemProcessRunner: ProcessRunning {
         let errBox = DataBox()
         let group = DispatchGroup()
         group.enter()
-        DispatchQueue.global().async {
+        // A blocked synchronous caller can occupy every cooperative/global pool worker.
+        // The reader must have its own thread so it can always make progress independently.
+        Thread.detachNewThread {
             errBox.data = err.fileHandleForReading.readDataToEndOfFile()
             group.leave()
         }

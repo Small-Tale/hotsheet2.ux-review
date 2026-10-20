@@ -2137,11 +2137,22 @@ fixture; Settings persistence and project-switching checks verify its shipped co
 
 The editor sidebar retains its existing concrete UserDefaults backend required by SwiftUI
 AppStorage (`HS2-NN2QC0` tracks a writable isolated bridge). Parallel subprocess saturation
-exposed `HS2-P7M4PE`; affected Swift suites are verified with `swift test --no-parallel` while
-that independent scheduling defect is open.
+exposed `HS2-P7M4PE`; the dedicated reader and parallel regressions are described below.
 
 Verified on 2026-10-20: 112 affected core tests passed serially; the full headless app gate
 passed 101 checks; the live UI suite passed 5 tests with the unrelated opt-in real-capture
 test skipped. Focused Recent popup/empty-state captures, wide/narrow parent-window captures,
 and Settings off/on/off captures were visually inspected and attached to `HS2-19XFD1` and
 `HS2-7HJNAC`. The offline preview render also passes with the recent-ticket loader replaced.
+
+## HS2-P7M4PE: Process readers under parallel load
+
+`ProcessRunnerTests` exercises more synchronous callers than the cooperative pool has workers,
+asserting complete stdout, stderr and status for every caller. Subprocess contract tests cover
+both pipes beyond capacity (stderr first), empty output, invalid UTF-8, a nonzero exit,
+launch failure, and exact environment/working-directory propagation. The full parallel core
+suite also exercises real Hot Sheet CLI submissions. External gate time bounds remain in place;
+the synchronous runner does not promise cancellation or an internal deadline.
+
+Verified on 2026-10-20: all 762 core tests passed with normal parallel scheduling; all five
+process-runner tests also passed with the strict cooperative pool.
