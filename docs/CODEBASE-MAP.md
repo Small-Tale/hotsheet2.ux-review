@@ -15,6 +15,7 @@ docs/                          requirements, source of truth (see docs/README.md
 scripts/
   check.sh                     repo gate: lint, spec, tests, app build + smoke + app e2e
   ui-e2e.sh                    live XCUITest gate; keeps xcresult, logs and exported screenshots (docs/09)
+  tests/test_ui_e2e.py          subprocess regressions for UI wrapper diagnostics/exit codes using controlled Xcode tools
   app-e2e.sh                   drives the built app's headless modes (docs/04 §4.11, docs/06 §6.9, docs/07 §7.8, §7.10)
   macos-project.sh             XcodeGen → macos/UXReview.xcodeproj (not committed)
   make-app-icon.swift          1024 px icon export → macos/App/Resources/Assets.xcassets/AppIcon.appiconset (docs/05 §5.1.1)

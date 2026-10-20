@@ -15,6 +15,9 @@ tbox() {
   else "$@"; fi
 }
 
+step "UI runner shell regressions"
+python3 -B -m unittest discover -s scripts/tests -p 'test_*.py' -q
+
 step "swiftformat --lint"
 swiftformat --lint --quiet macos
 

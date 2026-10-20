@@ -1,5 +1,15 @@
 # Test coverage
 
+## HS2-ZACZ72: UI runner failure diagnostics
+
+`scripts/tests/test_ui_e2e.py` runs the real shell wrapper with controlled Xcode command
+stubs. It covers absent/empty/malformed/unexpected summaries, valid detailed test failures,
+unstructured log-tail fallback, preserving build status across result-export failures,
+failing export after a successful build, and unchanged successful summary output. Assertions
+check actual exit codes and diagnostics without launching the app or requiring UI permissions.
+Run with `python3 -B -m unittest discover -s scripts/tests -p 'test_*.py' -q`; included in
+`scripts/check.sh`.
+
 ## HS2-HMPJTP: native status-menu traversal
 
 - Live `testStatusMenuSnapshotDismissAndReopen` repeats open → screenshot → Settings → close →

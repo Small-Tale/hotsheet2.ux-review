@@ -27,8 +27,8 @@ xcodebuild -project "$ROOT/macos/UXReview.xcodeproj" -scheme UXReviewUITests -co
   -maximum-test-execution-time-allowance 240 -resultBundlePath "$RESULT" \
   "HOTSHEET_CLI=$CLI" "UXREVIEW_UI_REAL_CAPTURE=$REAL_CAPTURE" test "$@" >> "$LOG" 2>&1 || code=$?
 if [[ -d "$RESULT" ]]; then
-  xcrun xcresulttool export attachments --path "$RESULT" --output-path "$RUN_ROOT/attachments" >> "$LOG" 2>&1 || code=1
-  xcrun xcresulttool get test-results summary --path "$RESULT" > "$RUN_ROOT/summary.json" 2>> "$LOG" || code=1
+  xcrun xcresulttool export attachments --path "$RESULT" --output-path "$RUN_ROOT/attachments" >> "$LOG" 2>&1 || { [[ "$code" != 0 ]] || code=1; }
+  xcrun xcresulttool get test-results summary --path "$RESULT" > "$RUN_ROOT/summary.json" 2>> "$LOG" || { [[ "$code" != 0 ]] || code=1; }
 fi
 printf 'UI test artifacts: %s\n' "$RUN_ROOT"
 if [[ "$code" != 0 ]]; then
@@ -39,10 +39,19 @@ errors = [line for line in log if 'error:' in line or 'TEST FAILED' in line or '
 for line in errors[:15]:
     print(line[:1200], file=sys.stderr)
 summary = pathlib.Path(sys.argv[2])
-if summary.exists():
-    for failure in json.loads(summary.read_text()).get('testFailures', []):
-        print(failure.get('testName', '') + ': ' + failure.get('failureText', '')[:1600], file=sys.stderr)
-if not errors and not summary.exists():
+try:
+    result = json.loads(summary.read_text())
+    if not isinstance(result, dict) or not isinstance(result.get('testFailures', []), list):
+        raise ValueError('Unexpected summary shape')
+    failures = [failure for failure in result.get('testFailures', [])
+                if isinstance(failure, dict) and isinstance(failure.get('failureText'), str)
+                and failure['failureText']]
+except (OSError, ValueError):
+    failures = []
+    print('UI test summary unavailable; see xcodebuild.log.', file=sys.stderr)
+for failure in failures:
+    print(str(failure.get('testName', '')) + ': ' + failure['failureText'][:1600], file=sys.stderr)
+if not errors and not failures:
     print('\n'.join(log[-20:]), file=sys.stderr)
 PYERROR
   exit "$code"

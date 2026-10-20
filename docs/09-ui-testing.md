@@ -29,6 +29,14 @@ test steps, failures, skips, and screenshots; retain the exported PNGs when hand
 visual review. A green summary with skipped capture tests does not establish real capture
 coverage.
 
+On failure, the wrapper preserves the original `xcodebuild` exit status even if result
+export also fails. It prints build errors and available test-failure details; missing,
+empty, malformed or unexpected summary data falls back to a bounded log tail when no
+structured diagnostic is available. Result-export failure still fails an otherwise
+successful run. Run the wrapper's isolated shell regressions without launching apps with
+`python3 -B -m unittest discover -s scripts/tests -p 'test_*.py' -q`; they also run in
+`scripts/check.sh`.
+
 The wrapper prints the exact artifact directory. Build products also live under that
 temporary root, outside protected checkout locations such as Documents. Preserve the
 result bundle or attach inspected screenshots before the operating system clears temporary
