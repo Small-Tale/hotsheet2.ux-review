@@ -71,8 +71,9 @@ Each run uses temporary resources:
 | Hot Sheet process state | `HOTSHEET_HOME` points inside the temporary root; `HOTSHEET_CLI` resolves the real installed executable |
 
 Fixture setup creates a PNG test card; the test imports it through the real open panel. A fresh real store is initialized with `hotsheet-cli -C
-<temporary-project>.hs2 init`. Disable the isolated settings' global shortcuts during setup
-to avoid competing with another app instance. Isolated-defaults sessions also disable native
+<temporary-project>.hs2 init`. Most flows disable the isolated settings' global shortcuts
+to avoid competing with another app instance. The Settings/menu test registers the default
+capture/video pair to verify its presentation and registration. Isolated-defaults sessions also disable native
 window-frame autosave, which otherwise always uses the app’s standard defaults. Never submit to the working project's store
 or use the developer's normal defaults, draft directory, or Trash for test cleanup.
 

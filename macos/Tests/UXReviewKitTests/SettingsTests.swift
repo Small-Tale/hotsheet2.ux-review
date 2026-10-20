@@ -4,9 +4,9 @@ import Testing
 
 struct HotkeyTests {
     @Test(arguments: [
-        ("⌥⇧⌘U", "⌥⇧⌘U"),
-        ("opt+shift+cmd+u", "⌥⇧⌘U"),
-        ("Cmd-Shift-Opt-U", "⌥⇧⌘U"), // any order, any case, either separator
+        ("⌥⇧⌘4", "⌥⇧⌘4"),
+        ("opt+shift+cmd+4", "⌥⇧⌘4"),
+        ("Cmd-Shift-Opt-4", "⌥⇧⌘4"), // any order, any case, either separator
         ("ctrl+alt+5", "⌃⌥5"),
         ("⌘⌃F6", "⌃⌘F6"), // displayed in Apple's modifier order
         ("F12", "F12"),
@@ -28,7 +28,7 @@ struct HotkeyTests {
 
     @Test func carbonValuesMatchTheHeaders() throws {
         let hotkey = Hotkey.defaultCapture
-        #expect(hotkey.keyCode == 32) // kVK_ANSI_U
+        #expect(hotkey.keyCode == 21) // kVK_ANSI_4
         #expect(hotkey.carbonModifiers == 0x0800 | 0x0200 | 0x0100) // optionKey | shiftKey | cmdKey
         #expect(try #require(Hotkey("⌃A")).carbonModifiers == 0x1000) // controlKey
         #expect(try #require(Hotkey("F1")).keyCode == 122) // kVK_F1
@@ -54,7 +54,7 @@ struct HotkeyTests {
 
     @Test func codableUsesTheDisplayString() throws {
         let data = try JSONEncoder().encode(Hotkey.defaultCapture)
-        #expect(String(data: data, encoding: .utf8) == #""⌥⇧⌘U""#)
+        #expect(String(data: data, encoding: .utf8) == #""⌥⇧⌘4""#)
         #expect(try JSONDecoder().decode(Hotkey.self, from: data) == .defaultCapture)
         #expect(throws: DecodingError.self) { try JSONDecoder().decode(Hotkey.self, from: Data(#""⌘?""#.utf8)) }
     }
@@ -72,7 +72,7 @@ struct CaptureSettingsTests {
         #expect(settings == CaptureSettings())
         #expect(settings.captureHotkey == .defaultCapture)
         #expect(settings.recordHotkey == .defaultRecord)
-        #expect(Hotkey.defaultRecord.display == "⌥⇧⌘V")
+        #expect(Hotkey.defaultRecord.display == "⌥⇧⌘5")
         #expect(settings.openReviewHotkey == .defaultOpenReview)
         #expect(Hotkey.defaultOpenReview.display == "⌥⇧⌘E")
         #expect(settings.defaultRequest == CaptureRequest(kind: .screenshot, target: .region, delaySeconds: 0))
@@ -128,8 +128,8 @@ struct CaptureSettingsTests {
         try CaptureSettingsStore.save(CaptureSettings(), to: store)
         let json = try #require(store.data(forKey: CaptureSettingsStore.key).flatMap { String(data: $0, encoding: .utf8) })
         #expect(
-            json == #"{"captureHotkey":"⌥⇧⌘U","defaultRequest":{"delaySeconds":0,"kind":"screenshot","target":"region"},"#
-                + #""downscaleForAI":true,"narration":false,"openEditorAfterCapture":true,"openReviewHotkey":"⌥⇧⌘E","recordHotkey":"⌥⇧⌘V","#
+            json == #"{"captureHotkey":"⌥⇧⌘4","defaultRequest":{"delaySeconds":0,"kind":"screenshot","target":"region"},"#
+                + #""downscaleForAI":true,"narration":false,"openEditorAfterCapture":true,"openReviewHotkey":"⌥⇧⌘E","recordHotkey":"⌥⇧⌘5","#
                 + #""showClicksInRecordings":false,"showPointerInRecordings":true}"#
         )
     }
@@ -148,7 +148,7 @@ struct CaptureSettingsTests {
         (#"{"recordHotkey":null}"#, CaptureSettings(recordHotkey: nil)),
         (#"{"recordHotkey":"⌘?"}"#, CaptureSettings()),
         // Settings saved before narration existed record without it.
-        (#"{"captureHotkey":"⌥⇧⌘U"}"#, CaptureSettings(narration: false)),
+        (#"{"captureHotkey":"⌥⇧⌘4"}"#, CaptureSettings(narration: false)),
         (#"{"narration":true}"#, CaptureSettings(narration: true)),
         (#"{"narration":"yes"}"#, CaptureSettings()), // wrong type → all defaults
         // Settings saved before the Open UX Review hotkey existed get its default (HS2-KVMX71).
@@ -157,7 +157,7 @@ struct CaptureSettingsTests {
         (#"{"openReviewHotkey":"⌃⌥⌘R"}"#, CaptureSettings(openReviewHotkey: Hotkey("⌃⌥⌘R"))),
         // Settings saved before the pointer settings existed show the pointer, not clicks (HS2-S4GA06).
         (
-            #"{"captureHotkey":"⌥⇧⌘U","narration":true}"#,
+            #"{"captureHotkey":"⌥⇧⌘4","narration":true}"#,
             CaptureSettings(narration: true, showPointerInRecordings: true, showClicksInRecordings: false)
         ),
         (#"{"showPointerInRecordings":false}"#, CaptureSettings(showPointerInRecordings: false)),
@@ -226,8 +226,8 @@ struct HotkeySlotTests {
         let settings = CaptureSettings()
         // Each slot's own combination is fine; the other slot's is not.
         #expect(settings.problem(with: .defaultCapture, for: .capture) == nil)
-        #expect(settings.problem(with: .defaultRecord, for: .capture) == "⌥⇧⌘V is already the record video shortcut.")
-        #expect(settings.problem(with: .defaultCapture, for: .record) == "⌥⇧⌘U is already the capture shortcut.")
+        #expect(settings.problem(with: .defaultRecord, for: .capture) == "⌥⇧⌘5 is already the record video shortcut.")
+        #expect(settings.problem(with: .defaultCapture, for: .record) == "⌥⇧⌘4 is already the capture shortcut.")
         #expect(settings.problem(with: try #require(Hotkey("⌃⌥F6")), for: .record) == nil)
         // An unusable combination reports its own problem first.
         #expect(settings.problem(with: try #require(Hotkey("⇧U")), for: .record)?.contains("⌘, ⌃, or ⌥") == true)
@@ -236,7 +236,7 @@ struct HotkeySlotTests {
         #expect(oneOff.problem(with: .defaultCapture, for: .record) == nil)
         // The Open UX Review slot takes part in the same rules.
         #expect(settings.problem(with: .defaultOpenReview, for: .capture) == "⌥⇧⌘E is already the Open UX Review shortcut.")
-        #expect(settings.problem(with: .defaultRecord, for: .openReview) == "⌥⇧⌘V is already the record video shortcut.")
+        #expect(settings.problem(with: .defaultRecord, for: .openReview) == "⌥⇧⌘5 is already the record video shortcut.")
     }
 
     @Test func registrableSkipsDisabledAndDuplicateSlots() {
@@ -396,8 +396,8 @@ struct SettingsCommandTests {
         #expect(try command.apply(to: CaptureSettings()).openReviewHotkey == Hotkey("⌃⌥⌘R"))
         let off = try #require(try SettingsCommand.parse(["--settings", "--set-open-hotkey", "none"]))
         #expect(try off.apply(to: CaptureSettings()).openReviewHotkey == nil)
-        let taken = try #require(try SettingsCommand.parse(["--settings", "--set-open-hotkey", "opt+shift+cmd+v"]))
-        #expect(throws: CommandLineError.invalidValue("--set-open-hotkey", "⌥⇧⌘V: ⌥⇧⌘V is already the record video shortcut.")) {
+        let taken = try #require(try SettingsCommand.parse(["--settings", "--set-open-hotkey", "opt+shift+cmd+5"]))
+        #expect(throws: CommandLineError.invalidValue("--set-open-hotkey", "⌥⇧⌘5: ⌥⇧⌘5 is already the record video shortcut.")) {
             try taken.apply(to: CaptureSettings())
         }
         #expect(throws: CommandLineError.missingValue("--set-open-hotkey")) {
@@ -406,18 +406,18 @@ struct SettingsCommandTests {
     }
 
     @Test func rejectsADuplicateOfTheOtherSlot() throws {
-        let toRecord = try #require(try SettingsCommand.parse(["--settings", "--set-record-hotkey", "opt+shift+cmd+u"]))
-        #expect(throws: CommandLineError.invalidValue("--set-record-hotkey", "⌥⇧⌘U: ⌥⇧⌘U is already the capture shortcut.")) {
+        let toRecord = try #require(try SettingsCommand.parse(["--settings", "--set-record-hotkey", "opt+shift+cmd+4"]))
+        #expect(throws: CommandLineError.invalidValue("--set-record-hotkey", "⌥⇧⌘4: ⌥⇧⌘4 is already the capture shortcut.")) {
             try toRecord.apply(to: CaptureSettings())
         }
-        let toCapture = try #require(try SettingsCommand.parse(["--settings", "--set-hotkey", "opt+shift+cmd+v"]))
-        #expect(throws: CommandLineError.invalidValue("--set-hotkey", "⌥⇧⌘V: ⌥⇧⌘V is already the record video shortcut.")) {
+        let toCapture = try #require(try SettingsCommand.parse(["--settings", "--set-hotkey", "opt+shift+cmd+5"]))
+        #expect(throws: CommandLineError.invalidValue("--set-hotkey", "⌥⇧⌘5: ⌥⇧⌘5 is already the record video shortcut.")) {
             try toCapture.apply(to: CaptureSettings())
         }
         // Allowed once the other slot is disabled, and when both swap in one command.
         #expect(try toRecord.apply(to: CaptureSettings(captureHotkey: nil)).recordHotkey == .defaultCapture)
         let swap = try #require(try SettingsCommand.parse([
-            "--settings", "--set-hotkey", "opt+shift+cmd+v", "--set-record-hotkey", "opt+shift+cmd+u",
+            "--settings", "--set-hotkey", "opt+shift+cmd+5", "--set-record-hotkey", "opt+shift+cmd+4",
         ]))
         #expect(try swap.apply(to: CaptureSettings()) == CaptureSettings(captureHotkey: .defaultRecord, recordHotkey: .defaultCapture))
         // Changing only the target never trips over an already-duplicated (hand-edited) pair.

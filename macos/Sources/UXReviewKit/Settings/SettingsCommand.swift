@@ -2,7 +2,7 @@ import Foundation
 
 /// Headless settings invocation of the app, used by scripts and end-to-end tests:
 ///
-///     UXReview --settings [--set-hotkey ⌥⇧⌘U|none] [--set-record-hotkey ⌥⇧⌘V|none]
+///     UXReview --settings [--set-hotkey ⌥⇧⌘4|none] [--set-record-hotkey ⌥⇧⌘5|none]
 ///                         [--set-open-hotkey ⌥⇧⌘E|none] [--set-target display|window|region] [--set-delay N]
 ///                         [--set-narration on|off] [--set-show-pointer on|off] [--set-show-clicks on|off]
 ///                         [--set-downscale on|off] [--set-open-editor on|off]

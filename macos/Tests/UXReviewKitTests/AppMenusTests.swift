@@ -97,12 +97,12 @@ struct AppMenusTests {
             #expect(delays.map(\.title) == offered, "\(command)")
             #expect(request.kind == .video)
             // An item shows the hotkey that starts exactly its capture. The default kind here is
-            // video, so both hotkeys record and Capture Video shows the first (Capture, ⌥⇧⌘U).
+            // video, so both hotkeys record and Capture Video shows the first (Capture, ⌥⇧⌘4).
             #expect(entries[4] == .action("Capture Image", .captureDefault(.screenshot)))
             #expect(entries[5] == .action(
                 "Capture Video",
                 .captureDefault(.video),
-                shortcut: MenuShortcut("u", [.option, .shift, .command])
+                shortcut: MenuShortcut("4", [.option, .shift, .command])
             ))
         }
     }
@@ -129,12 +129,12 @@ struct AppMenusTests {
             #expect(entries[4] == .action(
                 "Capture Image",
                 .captureDefault(.screenshot),
-                shortcut: MenuShortcut("u", [.option, .shift, .command])
+                shortcut: MenuShortcut("4", [.option, .shift, .command])
             ))
             #expect(entries[5] == .action(
                 "Capture Video",
                 .captureDefault(.video),
-                shortcut: MenuShortcut("v", [.option, .shift, .command])
+                shortcut: MenuShortcut("5", [.option, .shift, .command])
             ))
         }
         // A hotkey the menu can't render (F6) shows nothing but still exists; an unset one too.

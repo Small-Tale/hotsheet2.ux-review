@@ -194,14 +194,21 @@ SUITE="$TMP/defaults"
 SUITE_ENV=(UXREVIEW_DEFAULTS_SUITE="$SUITE")
 
 run settings-default 0 "${SUITE_ENV[@]}" -- --settings
-[[ "$(json "$TMP/settings-default.json" j.settings.captureHotkey)" == "⌥⇧⌘U" ]] || die "settings: default hotkey"
+[[ "$(json "$TMP/settings-default.json" j.settings.captureHotkey)" == "⌥⇧⌘4" ]] || die "settings: default hotkey"
 [[ "$(json "$TMP/settings-default.json" j.defaultCapture)" == "Screenshot of Region" ]] || die "settings: default capture"
-[[ "$(json "$TMP/settings-default.json" j.settings.recordHotkey)" == "⌥⇧⌘V" ]] || die "settings: default record hotkey"
+[[ "$(json "$TMP/settings-default.json" j.settings.recordHotkey)" == "⌥⇧⌘5" ]] || die "settings: default record hotkey"
 [[ "$(json "$TMP/settings-default.json" j.settings.openReviewHotkey)" == "⌥⇧⌘E" ]] || die "settings: default open hotkey"
 [[ "$(json "$TMP/settings-default.json" j.settings.narration)" == false ]] || die "settings: narration on by default"
 [[ "$(json "$TMP/settings-default.json" j.settings.showPointerInRecordings)" == true ]] || die "settings: pointer hidden by default"
 [[ "$(json "$TMP/settings-default.json" j.settings.showClicksInRecordings)" == false ]] || die "settings: clicks shown by default"
-ok "fresh settings: ⌥⇧⌘U starts a region screenshot, ⌥⇧⌘V records video, ⌥⇧⌘E opens UX Review, no narration, pointer but no clicks"
+ok "fresh settings: ⌥⇧⌘4 starts a region screenshot, ⌥⇧⌘5 records video, ⌥⇧⌘E opens UX Review, no narration, pointer but no clicks"
+
+# HS2-NJEEAZ: a new default must not rewrite explicitly stored previous bindings.
+run settings-legacy-save 0 UXREVIEW_DEFAULTS_SUITE="$TMP/legacy-defaults" -- --settings --set-hotkey '⌥⇧⌘U' --set-record-hotkey '⌥⇧⌘V'
+run settings-legacy-read 0 UXREVIEW_DEFAULTS_SUITE="$TMP/legacy-defaults" -- --settings
+[[ "$(json "$TMP/settings-legacy-read.json" j.settings.captureHotkey)" == "⌥⇧⌘U" ]] || die "settings: saved capture binding changed"
+[[ "$(json "$TMP/settings-legacy-read.json" j.settings.recordHotkey)" == "⌥⇧⌘V" ]] || die "settings: saved video binding changed"
+ok "saved capture/video bindings survive the new defaults across launches"
 
 run settings-narration-on 0 "${SUITE_ENV[@]}" -- --settings --set-narration on
 run settings-narration-read 0 "${SUITE_ENV[@]}" -- --settings
@@ -1299,7 +1306,7 @@ ok "UI renders offscreen (picker overlays, recording dim, HUDs, Settings window,
 # HS2-2NAVKX: the menu bar menu shows only global shortcuts, so Settings… and Quit carry no ⌘, or ⌘Q.
 MENUS="$TMP/previews/menus.json"
 TITLES='m => m.map(i => i.separator ? "-" : i.title + (i.shortcut ? "[" + i.shortcut + "]" : "")).join("|")'
-[[ "$(json "$MENUS" "($TITLES)(j.statusMenuIdle)")" == "UX Review "*"|-|Capture|Delay|Capture Image[⌥⇧⌘U]|Capture Video[⌥⇧⌘V]|Narrate Next Recording with Microphone|-|Settings…|Open UX Review|-|Quit UX Review" ]] \
+[[ "$(json "$MENUS" "($TITLES)(j.statusMenuIdle)")" == "UX Review "*"|-|Capture|Delay|Capture Image[⌥⇧⌘4]|Capture Video[⌥⇧⌘5]|Narrate Next Recording with Microphone|-|Settings…|Open UX Review|-|Quit UX Review" ]] \
   || die "menus: status menu $(json "$MENUS" "($TITLES)(j.statusMenuIdle)")"
 # HS2-W62GWS: the Capture [Screen | Window | Region] picker shows the default target.
 [[ "$(json "$MENUS" 'j.statusMenuIdle[2].choices.join() + "|" + j.statusMenuIdle[2].selected')" == "Screen,Window,Region|Region" ]] \

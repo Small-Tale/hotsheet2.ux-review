@@ -5,7 +5,7 @@ import XCTest
 final class AppUITests: XCTestCase {
     func testStatusMenuSettingsPersistAcrossRelaunch() throws {
         continueAfterFailure = false
-        let fixture = try UIAppFixture()
+        let fixture = try UIAppFixture(registerDefaultHotkeys: true)
         addTeardownBlock { await fixture.cleanup() }
         fixture.launch()
         fixture.openStatusMenu()

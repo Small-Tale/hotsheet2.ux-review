@@ -250,7 +250,7 @@ Each feature gets both unit tests and end-to-end tests. Tests live in
     duplicates, distinct round-tripping Carbon ids, and the record slot's request (video,
     default target and delay)
   - `HotkeyActionTests.recordSlotForEveryPhase`: the record slot's action in every capture phase
-  - `CaptureSettingsTests`: the ⌥⇧⌘V default, the stored JSON, legacy settings without
+  - `CaptureSettingsTests`: the ⌥⇧⌘5 default, the stored JSON, legacy settings without
     `recordHotkey`, `null`, and unreadable values
   - `SettingsCommandTests`: `--set-record-hotkey` (set, `none`, bad values), duplicate
     rejection in both directions, allowed swaps, and target-only changes on already-duplicated
@@ -2071,3 +2071,11 @@ avoid protected-checkout access and preserve approvals when a development identi
 configured. Fixtures register XCTest teardown blocks so assertion failures also clean up.
 Real capture remains tracked by `HS2-EP2VQR` and requires Screen Recording permission; the
 manual capture matrix is documented separately rather than counted as automated coverage.
+
+## Capture shortcut defaults (`HS2-NJEEAZ`)
+
+Fresh settings use ⌥⇧⌘4 for default capture and ⌥⇧⌘5 for video. Settings/Hotkey tests
+assert key codes, JSON, missing-field defaults, disabled bindings, preserved saved U/V
+bindings and duplicate validation. Headless app checks assert fresh settings, persisted
+legacy bindings and status-menu shortcuts. The live Settings/menu flow retains screenshots
+with the default capture bindings registered, then exercises persistence in both directions.

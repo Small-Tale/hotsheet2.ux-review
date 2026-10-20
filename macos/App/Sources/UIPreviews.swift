@@ -101,11 +101,11 @@ enum UIPreviews {
             ("hud-countdown", HUDContent(title: "3", subtitle: "Capturing in…", large: true)),
             ("hud-saved", HUDContent(title: "Saved capture-2.png", subtitle: "2 captures in this review", large: false)),
             ("hud-recording-countdown", HUDContent(title: "5", subtitle: "Recording in…", large: true)),
-            ("hud-recording", HUDContent(title: "Recording", subtitle: "Stop from the menu bar or press ⌥⇧⌘U", large: false)),
+            ("hud-recording", HUDContent(title: "Recording", subtitle: "Stop from the menu bar or press ⌥⇧⌘5", large: false)),
             ("hud-saved-video", HUDContent(title: "Saved capture-3.mov", subtitle: "0:12 · 3 captures in this review", large: false)),
             (
                 "hud-recording-narration",
-                HUDContent(title: "Recording", subtitle: "Microphone on. Stop from the menu bar or press ⌥⇧⌘V", large: false)
+                HUDContent(title: "Recording", subtitle: "Microphone on. Stop from the menu bar or press ⌥⇧⌘5", large: false)
             ),
             (
                 "hud-saved-narrated",

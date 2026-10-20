@@ -10,7 +10,7 @@ code, the doc and the code win. Open work is tracked in [README.md](README.md#ro
 | [02 Review bundle](02-review-bundle.md) | Shipped: `uxreview/bundle/v1`. `context.url` is defined but never filled (`HS2-KBGYWD`). |
 | [03 Hot Sheet integration](03-hotsheet-integration.md) | Shipped: CLI transport, adding to an existing ticket, native gallery regions. |
 | [04 Capture](04-capture.md) | Shipped: screenshots, video, context, drafts, capture links. |
-| [05 Start and settings](05-start-and-settings.md) | Shipped. Permission onboarding is deferred (`HS2-418QY0`). |
+| [05 Start and settings](05-start-and-settings.md) | Shipped. Fresh capture/video shortcut defaults are ⌥⇧⌘4/5; saved bindings are preserved (`HS2-NJEEAZ`). Permission onboarding is deferred (`HS2-418QY0`). |
 | [06 Annotation editor](06-annotation-editor.md) | Shipped. Some refinements are tracked as open tickets in the roadmap. |
 | [07 Review session](07-review-session.md) | Shipped: Submit Review, drafts, and opening the filed ticket in Hot Sheet. |
 | [09 Live UI testing](09-ui-testing.md) | Shipped XCUITest target/runner with verified Settings, import/editor and new/existing submission flows plus inspected screenshots (`HS2-HA9TW3`). Real capture is opt-in and its permitted run remains in `HS2-EP2VQR`; hardware/permission combinations have a manual matrix. |

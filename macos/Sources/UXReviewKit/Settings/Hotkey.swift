@@ -2,7 +2,7 @@ import Foundation
 
 /// A global keyboard shortcut: one key plus modifiers. Key codes are macOS virtual key codes
 /// (Carbon `kVK_*`), so the app can register the hotkey with `RegisterEventHotKey` directly.
-/// Text form: `⌃⌥⇧⌘U` (display) or `ctrl+opt+shift+cmd+u` (also accepted when parsing).
+/// Text form: `⌃⌥⇧⌘4` (display) or `ctrl+opt+shift+cmd+4` (also accepted when parsing).
 /// Spec: docs/05-start-and-settings.md §5.2.
 public struct Hotkey: Equatable, Hashable, Sendable {
     public enum Modifier: String, CaseIterable, Comparable, Sendable {
@@ -48,10 +48,10 @@ public struct Hotkey: Equatable, Hashable, Sendable {
         self.modifiers = modifiers
     }
 
-    /// ⌥⇧⌘U: unlikely to clash with system or common app shortcuts.
-    public static let defaultCapture = Hotkey(keyCode: 32, modifiers: [.option, .shift, .command])
-    /// ⌥⇧⌘V: record a video ("V" for video), next to the capture shortcut.
-    public static let defaultRecord = Hotkey(keyCode: 9, modifiers: [.option, .shift, .command])
+    /// ⌥⇧⌘4: capture, alongside macOS ⇧⌘4 with an extra Option modifier.
+    public static let defaultCapture = Hotkey(keyCode: 21, modifiers: [.option, .shift, .command])
+    /// ⌥⇧⌘5: record video, alongside macOS ⇧⌘5 with an extra Option modifier.
+    public static let defaultRecord = Hotkey(keyCode: 23, modifiers: [.option, .shift, .command])
     /// ⌥⇧⌘E: open the UX Review window ("E" for editor), in the same ⌥⇧⌘ family. Registration is
     /// exclusive, so if another app already owns it Settings says so (docs/05 §5.2).
     public static let defaultOpenReview = Hotkey(keyCode: 14, modifiers: [.option, .shift, .command])
@@ -63,7 +63,7 @@ public struct Hotkey: Equatable, Hashable, Sendable {
     /// The key's display name, for example `U`, `5`, `F6`, or `Space`; nil for unsupported keys.
     public var keyName: String? { Self.names[keyCode] }
 
-    /// `⌥⇧⌘U`.
+    /// `⌥⇧⌘4`.
     public var display: String {
         modifiers.sorted().map(\.symbol).joined() + (keyName ?? "#\(keyCode)")
     }
@@ -78,7 +78,7 @@ public struct Hotkey: Equatable, Hashable, Sendable {
         return nil
     }
 
-    /// Parses `⌥⇧⌘U`, `opt+shift+cmd+u`, or `Ctrl-Opt-F6` (case-insensitive).
+    /// Parses `⌥⇧⌘4`, `opt+shift+cmd+4`, or `Ctrl-Opt-F6` (case-insensitive).
     public init?(_ text: String) {
         var rest = text.trimmingCharacters(in: .whitespaces)
         var modifiers: Set<Modifier> = []

@@ -47,7 +47,7 @@ public struct MenuShortcut: Hashable, Sendable {
         }
     }
 
-    /// `⌥⇧⌘U`.
+    /// `⌥⇧⌘4`.
     public var display: String {
         modifiers.sorted().map(\.symbol).joined() + (key == " " ? "Space" : key.uppercased())
     }
@@ -151,8 +151,8 @@ public enum AppMenus {
     ///     ───
     ///     Capture  [Screen | Window | Region]
     ///     Delay    [None | 3 s | 10 s]
-    ///     Capture Image                       ⌥⇧⌘U
-    ///     Capture Video                       ⌥⇧⌘V
+    ///     Capture Image                       ⌥⇧⌘4
+    ///     Capture Video                       ⌥⇧⌘5
     ///     Narrate Next Recording with Microphone  (switch)
     ///     ───
     ///     Settings…

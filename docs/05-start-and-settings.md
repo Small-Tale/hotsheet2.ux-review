@@ -26,7 +26,7 @@ work happens in UX Review's own windows (§5.1.1). When idle, it lists:
    target with the default delay, read when the item is chosen, so a change in the rows above
    applies at once. A delay starts a countdown ([04-capture.md](04-capture.md) §4.3). Each shows
    its global shortcut (§5.2) when that shortcut starts exactly this capture and is a letter,
-   digit, or Space: by default ⌥⇧⌘U on Capture Image and ⌥⇧⌘V on Capture Video.
+   digit, or Space: by default ⌥⇧⌘4 on Capture Image and ⌥⇧⌘5 on Capture Video.
 5. **Narrate Next Recording with Microphone**: a switch row that turns narration on or off for
    the next recording only ([04-capture.md](04-capture.md) §4.9). Like the picker rows, flipping
    it (the switch or anywhere on the row) keeps the menu open (`HS2-JBWPP5`), so the reviewer sees
@@ -125,12 +125,20 @@ menu bar and work while a UX Review window is in front (§5.1.1).
 
 | Shortcut | Default | Does, when idle |
 | --- | --- | --- |
-| **Capture** | **⌥⇧⌘U** | The default capture: kind, target, and delay from Settings (§5.3) |
-| **Record video** | **⌥⇧⌘V** | A video of the default target with the default delay, whatever the default kind is |
+| **Capture** | **⌥⇧⌘4** | The default capture: kind, target, and delay from Settings (§5.3) |
+| **Record video** | **⌥⇧⌘5** | A video of the default target with the default delay, whatever the default kind is |
 | **Open UX Review** | **⌥⇧⌘E** | Opens the UX Review window, like the menu bar menu's **Open UX Review** (§5.1) |
 
-So a reviewer who switches between stills and video uses ⌥⇧⌘U for one and ⌥⇧⌘V for the other
+So a reviewer who switches between stills and video uses ⌥⇧⌘4 for one and ⌥⇧⌘5 for the other
 without changing the default. When the default kind is Video, both start the same recording.
+
+The 4/5 defaults (`HS2-NJEEAZ`) add Option to the familiar macOS capture shortcuts;
+macOS's documented ⇧⌘4 and ⇧⌘5 bindings remain distinct. These defaults avoid the
+common Paste and Match Style binding. They are customizable and not universally free:
+[InDesign Separations Preview](https://helpx.adobe.com/indesign/desktop/get-started/settings-and-preferences/keyboard-shortcuts.html)
+uses ⌥⇧⌘4 for Black and ⌥⇧⌘5 for the first Spot plate. Existing saved bindings,
+including the former ⌥⇧⌘U/⌥⇧⌘V defaults or disabled shortcuts, are preserved;
+only fresh settings and missing fields receive the new defaults.
 
 Apart from what they start, both capture shortcuts behave the same way, so either one ends what
 the other started:
@@ -150,7 +158,7 @@ each is registered **exclusively**: if another app already owns it, registration
 Settings shows "already used by another app" so the reviewer can pick another.
 
 The three shortcuts must differ. The Settings recorder refuses another shortcut's combination
-(it beeps and explains, for example "⌥⇧⌘U is already the capture shortcut."), and so does the
+(it beeps and explains, for example "⌥⇧⌘4 is already the capture shortcut."), and so does the
 headless mode (§5.5). If hand-edited settings hold the same combination twice anyway, only the
 first slot (Capture, then Record video, then Open UX Review) registers it, and the later one
 reports it as invalid.
@@ -161,8 +169,8 @@ Requirements on each shortcut:
   `` - = [ ] ; ' , . / \ ` ``.
 - At least one of ⌘, ⌃, or ⌥, so typing is never blocked. F-keys may stand alone.
 
-Text forms: the display form is `⌃⌥⇧⌘U` (always in Apple's modifier order). Parsing also
-accepts `ctrl+opt+shift+cmd+u` and `Cmd-Shift-U`, case-insensitive.
+Text forms: the display form is `⌃⌥⇧⌘4` (always in Apple's modifier order). Parsing also
+accepts `ctrl+opt+shift+cmd+4` and `Cmd-Shift-4`, case-insensitive.
 
 Each shortcut is registered with Carbon's `RegisterEventHotKey` as **exclusive**, under its own
 hotkey id (1 for Capture, 2 for Record video, 3 for Open UX Review), so presses go to the right action. Each one
@@ -170,7 +178,7 @@ has its own status:
 
 | Status | Shown in Settings |
 | --- | --- |
-| `registered` | "⌥⇧⌘U starts a capture from any app." / "⌥⇧⌘V records a video from any app." / "⌥⇧⌘E opens UX Review from any app." |
+| `registered` | "⌥⇧⌘4 starts a capture from any app." / "⌥⇧⌘5 records a video from any app." / "⌥⇧⌘E opens UX Review from any app." |
 | `inUse` | Another app (or another UX Review instance) already owns the combination. Choose a different shortcut. |
 | `disabled` | No shortcut is set |
 | `invalid` / `failed` | The combination is unusable or duplicated, or the system refused it |
@@ -215,10 +223,10 @@ The Settings window (menu bar menu or app menu › Settings…, ⌘,) has four s
 Persistence: settings are saved as JSON under the defaults key `captureSettings`:
 
 ```json
-{"captureHotkey":"⌥⇧⌘U","defaultRequest":{"delaySeconds":0,"kind":"screenshot","target":"region"},"downscaleForAI":true,"narration":false,"openEditorAfterCapture":true,"openReviewHotkey":"⌥⇧⌘E","recordHotkey":"⌥⇧⌘V","showClicksInRecordings":false,"showPointerInRecordings":true}
+{"captureHotkey":"⌥⇧⌘4","defaultRequest":{"delaySeconds":0,"kind":"screenshot","target":"region"},"downscaleForAI":true,"narration":false,"openEditorAfterCapture":true,"openReviewHotkey":"⌥⇧⌘E","recordHotkey":"⌥⇧⌘5","showClicksInRecordings":false,"showPointerInRecordings":true}
 ```
 
-- Missing fields take their defaults. Settings saved before `recordHotkey` existed get ⌥⇧⌘V,
+- Missing fields take their defaults. Settings saved before `recordHotkey` existed get ⌥⇧⌘5,
   settings saved before `openReviewHotkey` existed get ⌥⇧⌘E,
   settings saved before `narration` existed record without narration, and settings saved
   before `showPointerInRecordings` / `showClicksInRecordings` existed show the pointer but not
@@ -240,7 +248,7 @@ temporary folder and never adds a domain to ~/Library/Preferences (HS2-1AD1FJ).
 ## 5.5 Headless settings mode
 
 ```
-UXReview --settings [--set-hotkey ⌥⇧⌘U|none] [--set-record-hotkey ⌥⇧⌘V|none]
+UXReview --settings [--set-hotkey ⌥⇧⌘4|none] [--set-record-hotkey ⌥⇧⌘5|none]
                     [--set-open-hotkey ⌥⇧⌘E|none] [--set-target display|window|region] [--set-delay N]
                     [--set-narration on|off] [--set-show-pointer on|off] [--set-show-clicks on|off]
                     [--set-downscale on|off] [--set-open-editor on|off]

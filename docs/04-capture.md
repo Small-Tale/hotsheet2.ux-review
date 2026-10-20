@@ -211,7 +211,7 @@ Drafts/
 ## 4.9 Video recording
 
 The menu offers "Record Video of Screen / Window / Region" and "Record Video After Delay". The
-record-video hotkey (⌥⇧⌘V by default) records the default target from any app, and the capture
+record-video hotkey (⌥⇧⌘5 by default) records the default target from any app, and the capture
 hotkey also records when Settings sets the default kind to Video
 ([05-start-and-settings.md](05-start-and-settings.md) §5.2).
 

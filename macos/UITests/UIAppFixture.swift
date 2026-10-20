@@ -16,7 +16,7 @@ final class UIAppFixture {
     let executable: URL
     private let suite: String
 
-    init() throws {
+    init(registerDefaultHotkeys: Bool = false) throws {
         root = FileManager.default.temporaryDirectory.appendingPathComponent("uxreview-ui-\(UUID().uuidString)")
         project = root.appendingPathComponent("project")
         store = root.appendingPathComponent("project.hs2")
@@ -38,7 +38,9 @@ final class UIAppFixture {
         try ImageFiles.writePNG(XCTUnwrap(ImageFiles.testCard(width: 800, height: 500)), to: image)
         let settings = CaptureSettings(
             defaultRequest: CaptureRequest(kind: .screenshot, target: .display),
-            captureHotkey: nil, recordHotkey: nil, openReviewHotkey: nil, downscaleForAI: false
+            captureHotkey: registerDefaultHotkeys ? .defaultCapture : nil,
+            recordHotkey: registerDefaultHotkeys ? .defaultRecord : nil,
+            openReviewHotkey: nil, downscaleForAI: false
         )
         try CaptureSettingsStore.save(settings, to: defaults)
         defaults.synchronize()
