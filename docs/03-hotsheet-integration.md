@@ -134,8 +134,9 @@ with `text` set to `#N [intents] note`. This is for a Hot Sheet that predates sh
 
 **Format markers.** Nonstandard arrow heads require `hotsheet/v6-annotation-arrow-heads`;
 standard arrows retain the older shape format. Read-back compares both heads, so a CLI that
-silently drops them triggers the rectangle fallback. Full native-projection integration tests
-require an arrow-head-aware CLI (`HOTSHEET_CLI` can select a current development build).
+silently drops them triggers the rectangle fallback. Integration tests verify either native heads or the legacy fallback. Set
+`UXREVIEW_REQUIRE_ARROW_HEADS=1` for strict native verification with an arrow-head-aware CLI
+(`HOTSHEET_CLI` can select a current development build).
 Hot Sheet raises a ticket's format marker when it stores a shape
 (`hotsheet/v3-annotation-shapes`) or intents (`hotsheet/v4-annotation-intents`). A Hot Sheet
 reader older than 2026-10-08 then refuses that ticket (`upgrade_required`). The `hotsheet-cli`

@@ -7,6 +7,7 @@ import Testing
 /// `UXREVIEW_REQUIRE_HOTSHEET=1` (as `scripts/check.sh` does) to make a missing CLI a failure.
 struct HotSheetEndToEndTests {
     static let cli = HotSheetLocator.findCLI()
+    static let requiresArrowHeads = ProcessInfo.processInfo.environment["UXREVIEW_REQUIRE_ARROW_HEADS"] == "1"
     static let required = ProcessInfo.processInfo.environment["UXREVIEW_REQUIRE_HOTSHEET"] == "1"
     /// Whether this `hotsheet-cli` has `annotate` (Hot Sheet 2 `HS2-3GA0WK`); older ones file
     /// reviews without gallery regions.
@@ -92,26 +93,32 @@ struct HotSheetEndToEndTests {
         try Self.expectGalleryRegions(slug, bundle: bundle, client: client, env: env)
     }
 
-    /// With a CLI that has `annotate`, each annotated capture holds exactly its native projection;
-    /// with an older one, the ticket has no annotations.
+    /// Each capture holds the native projection or the legacy fallback an older CLI requires.
+    /// A CLI without `annotate` leaves the ticket without gallery annotations.
     static func expectGalleryRegions(_ slug: String, bundle: ReviewBundle, client: HotSheetCLIClient, env: [String: String]) throws {
         let ids = try client.attachmentIDs(on: slug)
-        let projection = TicketComposer.compose(bundle).hotSheetAnnotations
+        let composed = TicketComposer.compose(bundle)
+        let projection = composed.hotSheetAnnotations
         let ticketFile = try URL(fileURLWithPath: #require(client.findTicket(slug)?.file))
         let before = try Data(contentsOf: ticketFile)
+        let nativeHeads = String(bytes: before, encoding: .utf8)?.contains("schema: hotsheet/v6-annotation-arrow-heads") == true
+        if requiresArrowHeads { #expect(nativeHeads) }
         for (filename, mediaID) in [("capture-1.png", "m1"), ("capture-2.mov", "m2")] {
+            // The image contains the span; an older CLI falls back for that capture only.
+            let expected = !nativeHeads && mediaID == "m1" ? composed.legacyHotSheetAnnotations[mediaID] : projection[mediaID]
             let stored = try storedAnnotations(
-                resending: projection[mediaID] ?? [], to: slug, attachment: #require(ids[filename]), client: client, env: env
+                resending: expected ?? [], to: slug, attachment: #require(ids[filename]), client: client, env: env
             )
             if supportsAnnotate {
-                #expect(stored == projection[mediaID], "\(filename)")
+                #expect(stored == expected, "\(filename)")
             }
         }
         if supportsAnnotate {
-            // The example's nonstandard arrow heads require the guarded v6 format.
+            // Native head support uses v6; an older CLI keeps v4 with a rectangle fallback.
             #expect(projection["m1"]?.contains { $0.shape == .strike } == true)
             #expect(projection["m2"]?.first?.intents == ["bug"])
-            #expect(String(bytes: before, encoding: .utf8)?.contains("schema: hotsheet/v6-annotation-arrow-heads") == true)
+            let marker = nativeHeads ? "hotsheet/v6-annotation-arrow-heads" : "hotsheet/v4-annotation-intents"
+            #expect(String(bytes: before, encoding: .utf8)?.contains("schema: \(marker)") == true)
             // Re-sending identical annotations is a no-op, so the ticket already held exactly these.
             #expect(try Data(contentsOf: ticketFile) == before)
         } else {
@@ -370,8 +377,8 @@ private final class FailingFirstEdit: ProcessRunning, @unchecked Sendable {
 }
 
 extension HotSheetEndToEndTests {
-    @Test(.enabled(if: cli != nil, "hotsheet-cli not installed"))
-    func everyArrowHeadPairSurvivesRealSubmissionAndReadBack() throws {
+    @Test(.enabled(if: supportsAnnotate, "hotsheet-cli annotate not installed"))
+    func everyArrowHeadPairUsesNativeOrLegacyProjectionInRealStore() throws {
         let cli = try #require(Self.cli)
         let root = try TestSupport.makeTempDirectory()
         defer { try? FileManager.default.removeItem(at: root) }
@@ -401,7 +408,10 @@ extension HotSheetEndToEndTests {
         let ticket = try #require(client.findTicket(slug)?.file)
         let before = try Data(contentsOf: URL(fileURLWithPath: ticket))
         let ids = try client.attachmentIDs(on: slug)
-        let expected = try #require(TicketComposer.compose(bundle).hotSheetAnnotations["m1"])
+        let nativeHeads = String(bytes: before, encoding: .utf8)?.contains("schema: hotsheet/v6-annotation-arrow-heads") == true
+        if Self.requiresArrowHeads { #expect(nativeHeads) }
+        let composed = TicketComposer.compose(bundle)
+        let expected = try #require((nativeHeads ? composed.hotSheetAnnotations : composed.legacyHotSheetAnnotations)["m1"])
         let stored = try Self.storedAnnotations(
             resending: expected,
             to: slug,
@@ -410,8 +420,11 @@ extension HotSheetEndToEndTests {
             env: env
         )
         #expect(stored == expected)
-        // An identical edit is a no-op: the original submission already retained every pair.
+        // An identical edit is a no-op: submission already stored the selected projection.
         #expect(try Data(contentsOf: URL(fileURLWithPath: ticket)) == before)
-        #expect(String(bytes: before, encoding: .utf8)?.contains("schema: hotsheet/v6-annotation-arrow-heads") == true)
+        if !nativeHeads {
+            #expect(expected.allSatisfy { $0.shape == nil })
+            #expect(expected.first?.text == "#1 [comment] ")
+        }
     }
 }
