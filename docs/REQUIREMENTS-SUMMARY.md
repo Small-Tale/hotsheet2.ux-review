@@ -17,4 +17,4 @@ code, the doc and the code win. Open work is tracked in [README.md](README.md#ro
 
 Arrow export (`HS2-5X8QFP`): implemented and CLI-tested; gallery/editor visual verification remains pending. Native projection preserves all six start/end styles, point order, and head-derived default intent; older transports retain the rectangle fallback (docs/03 §3.4).
 
-Submit destination order (`HS2-0166DH`): controls now follow project selection before Review; app build, affected tests, and wide/narrow native previews verified; interactive browser verification pending.
+Submit destination order (`HS2-0166DH`): controls now follow project selection before Review; app build, affected tests, and wide/narrow native previews verified; reviewer accepted the result on 2026-10-20. Interactive browser verification was unavailable to the agent.
