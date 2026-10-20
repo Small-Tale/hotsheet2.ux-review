@@ -25,7 +25,7 @@ macos/
   Sources/UXReviewKit/
     Model/ReviewBundle.swift       bundle, media (incl. scaledFrom: MediaPixelSize, the capture's note), shapes, intents, time ranges, Codable
     Model/BundleValidation.swift   ReviewBundle.validate() rules (docs/02 §2.7)
-    Tickets/TicketComposer.swift   intake ticket body, existing-ticket note, Hot Sheet annotation projection (docs/03 §3.3–3.5)
+    Tickets/TicketComposer.swift   intake ticket body, existing-ticket note, Hot Sheet annotation projection including both arrow heads and head-derived defaults (docs/03 §3.3–3.5)
     Tickets/TicketPreamble.swift   the editable preamble (AI instructions / existing-ticket intro): standard templates, {{placeholders}}, DraftTicketText (`ticket-text.json`) (docs/07 §7.2.3)
     Tickets/MarkdownBlocks.swift   headings / list items / paragraphs of a short Markdown text, for the rendered ticket text
     Tickets/ReviewSubmitter.swift  validate → write review.json → create ticket → attach batch; steps, resume, attachFailed; add(…) to an existing ticket: attach batch → note, noteFailed; PartialAttach: resume an interrupted attach into the same batch

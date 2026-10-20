@@ -27,27 +27,32 @@ struct HotSheetProjectionTests {
         ))
     }
 
-    @Test func arrowsKeepTheirDirectionAndOtherHeadsBecomeLines() {
-        // Hot Sheet's arrow has one head, at its last point.
-        #expect(project(.arrow(points: [start, bend, finish])).shape == .arrow(points: [start, bend, finish]))
-        #expect(project(.arrow(points: [start, bend], heads: ArrowHeads(start: .none, end: .open))).shape == .arrow(points: [start, bend]))
-        #expect(project(.arrow(points: [start, bend, finish], heads: ArrowHeads(start: .closed, end: .none))).shape == .arrow(points: [
-            finish,
-            bend,
-            start,
-        ]))
-        // Spans, bars, circles, and bare lines: an open line; two points gain their midpoint.
-        let mid = NormPoint(x: 400, y: 600)
-        for heads in [
-            ArrowHeads(start: .closed, end: .closed), ArrowHeads(start: .flat, end: .flat),
-            ArrowHeads(start: .none, end: .closedCircle), ArrowHeads(start: .none, end: .none),
-        ] {
-            #expect(project(.arrow(points: [start, bend], heads: heads)).shape == .freehand(points: [start, mid, bend], closed: false))
-            #expect(project(.arrow(points: [start, bend, finish], heads: heads)).shape == .freehand(
-                points: [start, bend, finish],
-                closed: false
-            ))
+    @Test func arrowsPreserveEveryHeadPairAndPointOrder() throws {
+        for startHead in ArrowHead.allCases {
+            for endHead in ArrowHead.allCases {
+                let heads = ArrowHeads(start: startHead, end: endHead)
+                for points in [[start, bend], [start, bend, finish]] {
+                    let projected = project(.arrow(points: points, heads: heads))
+                    #expect(projected.shape == .arrow(points: points, heads: heads))
+                    #expect(projected.intents == nil)
+                    #expect(projected.shape?.defaultIntent == (heads.pointsOneWay ? .move : .comment))
+                    let data = try JSONEncoder().encode(projected)
+                    #expect(try JSONDecoder().decode(HotSheetMediaAnnotation.self, from: data) == projected)
+                    var stripped = projected
+                    stripped.shape = .arrow(points: points)
+                    #expect(projected.isKept(by: stripped) == (heads == .standard))
+                }
+            }
         }
+        let standard = HotSheetShape.arrow(points: [start, bend])
+        let data = try JSONEncoder().encode(standard)
+        let text = try #require(String(bytes: data, encoding: .utf8))
+        #expect(!text.contains("startHead") && !text.contains("endHead"))
+        #expect(try JSONDecoder().decode(HotSheetShape.self, from: data) == standard)
+        let partial = Data(#"{"type":"arrow","points":[{"x":100,"y":900},{"x":700,"y":300}],"startHead":"flat"}"#.utf8)
+        #expect(try JSONDecoder().decode(HotSheetShape.self, from: partial) == .arrow(
+            points: [start, bend], heads: ArrowHeads(start: .flat, end: .closed)
+        ))
     }
 
     @Test func intentsAreSentOnlyWhenTheyDifferFromHotSheetsDefault() {
@@ -177,7 +182,7 @@ struct HotSheetProjectionTests {
             .arrow(points: [NormPoint(x: 1200, y: 3000), NormPoint(x: 2600, y: 1800), NormPoint(x: 4500, y: 600)]),
             .strike,
             .insertion(NormPoint(x: 5200, y: 4100)),
-            .freehand(points: [NormPoint(x: 6000, y: 4000), NormPoint(x: 6000, y: 4300), NormPoint(x: 6000, y: 4600)], closed: false),
+            .arrow(points: [NormPoint(x: 6000, y: 4000), NormPoint(x: 6000, y: 4600)], heads: ArrowHeads(start: .flat, end: .flat)),
         ])
         #expect(shot.map(\.intents) == [["change"], nil, nil, nil, nil])
         #expect(shot.first?.text == "#1 Primary button label is truncated at narrow widths.")

@@ -2028,3 +2028,9 @@ text stacked one word per line at 99 pt wide. The empty Draft Reviews window was
   Path (or Copy 2 Paths), a separator, then Remove, and act on the expected draft files.
 - **Not covered automatically:** the menu drawn on screen, and Finder actually opening (the
   run never touches the clipboard or Finder).
+
+## Arrow export end styles (`HS2-5X8QFP`)
+
+- Unit: `HotSheetProjectionTests.arrowsPreserveEveryHeadPairAndPointOrder` checks all 36 pairs on straight and bent arrows, default intents, JSON round trips, omitted standard fields, partial-field decoding, and dropped-head detection.
+- End to end: `HotSheetEndToEndTests.everyArrowHeadPairSurvivesRealSubmissionAndReadBack` submits all pairs to a real CLI/store and confirms an identical annotation edit is a no-op. Existing submission tests cover the guarded v6 marker and fallback transports.
+- Manual: inspect exported heads in the Hot Sheet gallery/editor at wide and narrow sizes; change both ends, save, reopen, and check the stored heads and effective intent.

@@ -14,3 +14,5 @@ code, the doc and the code win. Open work is tracked in [README.md](README.md#ro
 | [06 Annotation editor](06-annotation-editor.md) | Shipped. Some refinements are tracked as open tickets in the roadmap. |
 | [07 Review session](07-review-session.md) | Shipped: Submit Review, drafts, and opening the filed ticket in Hot Sheet. |
 | [08 Public feedback](08-public-feedback.md) | Design only (`HS2-C9A8PD`). Phases: `HS2-AG38J7`, `HS2-VGC3DQ`, `HS2-3FD90F`, `HS2-41DFZN`, `HS2-KBGYWD`, `HS2-NH7D94`. |
+
+Arrow export (`HS2-5X8QFP`): implemented and CLI-tested; gallery/editor visual verification remains pending. Native projection preserves all six start/end styles, point order, and head-derived default intent; older transports retain the rectangle fallback (docs/03 §3.4).

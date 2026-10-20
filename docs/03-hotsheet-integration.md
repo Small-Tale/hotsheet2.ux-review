@@ -119,13 +119,12 @@ values, in two forms.
 | strike | `{"type":"strike"}` over the same box |
 | freehand | `{"type":"freehand","points":[…]}`, plus `"closed":false` when open |
 | insertion | `{"type":"insertion","point":{…}}` |
-| arrow with a head (open or closed) at one end only | `{"type":"arrow","points":[…]}`. Hot Sheet draws one filled head, at the last point, so a head at the start reverses the points |
-| arrow with any other heads (both ends, bars, circles, none) | an open `freehand` line, since Hot Sheet can't draw those heads. A two-point line gains its midpoint, to meet freehand's three-point minimum |
+| arrow | `{"type":"arrow","points":[…],"startHead":"…","endHead":"…"}` with point order unchanged. The standard start (`none`) and end (`closed`) are omitted. All six styles at either end are preserved (`HS2-5X8QFP`). |
 
 - `x, y, width, height` is always the shape's bounding box. Point shapes grow to at least 1
   unit, exactly the box Hot Sheet derives from points.
 - `intents` lists the effective intents only when they differ from Hot Sheet's default for that
-  shape (rect and freehand: comment; strike: remove; insertion: insert; arrow: move). Otherwise
+  shape (rect and freehand: comment; strike: remove; insertion: insert; arrow: move when exactly one end is open/closed and the other is none, otherwise comment). Otherwise
   it is omitted.
 - `text` is `#N note` (`#N` alone with no note). Intents are native, and `#N` keeps the ticket
   body's numbering, because Hot Sheet numbers its badges on its own.
@@ -133,7 +132,11 @@ values, in two forms.
 **Rectangle** (`legacyHotSheetAnnotations`): `{id, x, y, width, height, start_ms, end_ms, text}`,
 with `text` set to `#N [intents] note`. This is for a Hot Sheet that predates shapes and intents.
 
-**Format markers.** Hot Sheet raises a ticket's format marker when it stores a shape
+**Format markers.** Nonstandard arrow heads require `hotsheet/v6-annotation-arrow-heads`;
+standard arrows retain the older shape format. Read-back compares both heads, so a CLI that
+silently drops them triggers the rectangle fallback. Full native-projection integration tests
+require an arrow-head-aware CLI (`HOTSHEET_CLI` can select a current development build).
+Hot Sheet raises a ticket's format marker when it stores a shape
 (`hotsheet/v3-annotation-shapes`) or intents (`hotsheet/v4-annotation-intents`). A Hot Sheet
 reader older than 2026-10-08 then refuses that ticket (`upgrade_required`). The `hotsheet-cli`
 that wrote it is new enough by construction, since an older one keeps the rectangles (below). A

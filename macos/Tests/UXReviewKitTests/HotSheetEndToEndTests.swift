@@ -108,10 +108,10 @@ struct HotSheetEndToEndTests {
             }
         }
         if supportsAnnotate {
-            // HS2-CKPCD5: native shapes and intents; the example's intents raise the marker to v4.
+            // The example's nonstandard arrow heads require the guarded v6 format.
             #expect(projection["m1"]?.contains { $0.shape == .strike } == true)
             #expect(projection["m2"]?.first?.intents == ["bug"])
-            #expect(String(bytes: before, encoding: .utf8)?.contains("schema: hotsheet/v4-annotation-intents") == true)
+            #expect(String(bytes: before, encoding: .utf8)?.contains("schema: hotsheet/v6-annotation-arrow-heads") == true)
             // Re-sending identical annotations is a no-op, so the ticket already held exactly these.
             #expect(try Data(contentsOf: ticketFile) == before)
         } else {
@@ -366,5 +366,52 @@ private final class FailingFirstEdit: ProcessRunning, @unchecked Sendable {
             return ProcessResult(exitCode: 1, stdout: "", stderr: "Error: the store is locked")
         }
         return try runner.run(executable: executable, arguments: arguments, environment: environment, currentDirectory: currentDirectory)
+    }
+}
+
+extension HotSheetEndToEndTests {
+    @Test(.enabled(if: cli != nil, "hotsheet-cli not installed"))
+    func everyArrowHeadPairSurvivesRealSubmissionAndReadBack() throws {
+        let cli = try #require(Self.cli)
+        let root = try TestSupport.makeTempDirectory()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let store = root.appendingPathComponent("store.hs2")
+        var env = ProcessInfo.processInfo.environment
+        env["HOTSHEET_ACTOR_ROLE"] = nil
+        env["HOTSHEET_ACTOR_ID"] = nil
+        let runner = SystemProcessRunner()
+        let initialized = try runner.run(executable: cli, arguments: ["-C", store.path, "init"], environment: env, currentDirectory: nil)
+        try #require(initialized.exitCode == 0)
+        var bundle = try TestSupport.exampleBundle()
+        bundle.media = [bundle.media[0]]
+        let points = [NormPoint(x: 100, y: 200), NormPoint(x: 4000, y: 3000)]
+        bundle.annotations = ArrowHead.allCases.flatMap { start in
+            ArrowHead.allCases.map { end in
+                Annotation(
+                    id: "\(start.rawValue)-\(end.rawValue)",
+                    mediaId: "m1",
+                    shape: .arrow(points: points, heads: ArrowHeads(start: start, end: end)),
+                    note: ""
+                )
+            }
+        }
+        try Data("image".utf8).write(to: root.appendingPathComponent(bundle.media[0].filename))
+        let client = HotSheetCLIClient(executable: cli, storePath: store, runner: runner, baseEnvironment: env)
+        let slug = try ReviewSubmitter(client: client).submit(bundle, mediaDirectory: root)
+        let ticket = try #require(client.findTicket(slug)?.file)
+        let before = try Data(contentsOf: URL(fileURLWithPath: ticket))
+        let ids = try client.attachmentIDs(on: slug)
+        let expected = try #require(TicketComposer.compose(bundle).hotSheetAnnotations["m1"])
+        let stored = try Self.storedAnnotations(
+            resending: expected,
+            to: slug,
+            attachment: #require(ids[bundle.media[0].filename]),
+            client: client,
+            env: env
+        )
+        #expect(stored == expected)
+        // An identical edit is a no-op: the original submission already retained every pair.
+        #expect(try Data(contentsOf: URL(fileURLWithPath: ticket)) == before)
+        #expect(String(bytes: before, encoding: .utf8)?.contains("schema: hotsheet/v6-annotation-arrow-heads") == true)
     }
 }

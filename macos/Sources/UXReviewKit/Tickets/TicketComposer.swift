@@ -67,11 +67,11 @@ public enum HotSheetShape: Codable, Equatable, Sendable {
     /// The bounding box, crossed out.
     case strike
     case freehand(points: [NormPoint], closed: Bool)
-    /// A line through `points` with one filled head, at the last point.
-    case arrow(points: [NormPoint])
+    /// A line through `points`, preserving the heads at both ends.
+    case arrow(points: [NormPoint], heads: ArrowHeads = .standard)
     case insertion(NormPoint)
 
-    private enum CodingKeys: String, CodingKey { case type, points, closed, point }
+    private enum CodingKeys: String, CodingKey { case type, points, closed, point, startHead, endHead }
 
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
@@ -83,7 +83,11 @@ public enum HotSheetShape: Codable, Equatable, Sendable {
                 points: container.decode([NormPoint].self, forKey: .points),
                 closed: container.decodeIfPresent(Bool.self, forKey: .closed) ?? true
             )
-        case "arrow": self = try .arrow(points: container.decode([NormPoint].self, forKey: .points))
+        case "arrow":
+            self = try .arrow(points: container.decode([NormPoint].self, forKey: .points), heads: ArrowHeads(
+                start: container.decodeIfPresent(ArrowHead.self, forKey: .startHead) ?? .none,
+                end: container.decodeIfPresent(ArrowHead.self, forKey: .endHead) ?? .closed
+            ))
         case "insertion": self = try .insertion(container.decode(NormPoint.self, forKey: .point))
         case let other:
             throw DecodingError.dataCorruptedError(forKey: .type, in: container, debugDescription: "unknown shape \(other)")
@@ -99,9 +103,11 @@ public enum HotSheetShape: Codable, Equatable, Sendable {
             try container.encode("freehand", forKey: .type)
             try container.encode(points, forKey: .points)
             if !closed { try container.encode(false, forKey: .closed) }
-        case let .arrow(points):
+        case let .arrow(points, heads):
             try container.encode("arrow", forKey: .type)
             try container.encode(points, forKey: .points)
+            if heads.start != ArrowHeads.standard.start { try container.encode(heads.start, forKey: .startHead) }
+            if heads.end != ArrowHeads.standard.end { try container.encode(heads.end, forKey: .endHead) }
         case let .insertion(point):
             try container.encode("insertion", forKey: .type)
             try container.encode(point, forKey: .point)
@@ -113,7 +119,7 @@ public enum HotSheetShape: Codable, Equatable, Sendable {
         switch self {
         case .rect, .freehand: .comment
         case .strike: .remove
-        case .arrow: .move
+        case let .arrow(_, heads): heads.pointsOneWay ? .move : .comment
         case .insertion: .insert
         }
     }
@@ -187,23 +193,14 @@ public enum TicketComposer {
         )
     }
 
-    /// UX Review's shape as Hot Sheet draws it. Hot Sheet's arrow has one head, at its last point:
-    /// an arrow with a head at one end only maps onto it (reversed when the head is at the start);
-    /// any other heads (a span, bars, circles, none) become an open line, with a midpoint added so
-    /// a two-point line meets freehand's three-point minimum.
+    /// Preserve native point order and both heads; Hot Sheet uses the same defaults.
     static func hotSheetShape(_ shape: Shape) -> HotSheetShape {
         switch shape {
-        case .rect: return .rect
-        case .strike: return .strike
-        case let .insertion(point): return .insertion(point)
-        case let .freehand(points, closed): return .freehand(points: points, closed: closed)
-        case let .arrow(points, heads):
-            if heads.pointsOneWay {
-                return .arrow(points: heads.end.pointsTheWay ? points : points.reversed())
-            }
-            guard points.count == 2 else { return .freehand(points: points, closed: false) }
-            let mid = NormPoint(x: (points[0].x + points[1].x) / 2, y: (points[0].y + points[1].y) / 2)
-            return .freehand(points: [points[0], mid, points[1]], closed: false)
+        case .rect: .rect
+        case .strike: .strike
+        case let .insertion(point): .insertion(point)
+        case let .freehand(points, closed): .freehand(points: points, closed: closed)
+        case let .arrow(points, heads): .arrow(points: points, heads: heads)
         }
     }
 
