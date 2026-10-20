@@ -56,6 +56,13 @@ panel, annotate with Undo/Redo shortcuts, and open Submit Review from its toolba
 review files. Readiness checks wait for observable UI state rather than assuming a fixed
 launch or submission delay.
 
+Status-menu helpers require a hittable entry with the same nonempty frame across three
+readiness polls within five seconds. They click the ready entry's center, avoiding XCTest's
+implicit native menu traversal/reopening; callers assert the destination window and controls. They do not retry
+the action or automatically reopen a failed menu. A regression cycles through opening,
+snapshotting, selecting Settings, and closing Settings three times; the separate
+Settings flow checks persistence across app relaunch.
+
 The suite uses live AppKit/SwiftUI windows and controls. It does not substitute offscreen
 previews, synthetic capture results, mocked CLI responses, or a test-only route that opens
 the desired window at launch. Headless commands may prepare fixtures or inspect persisted

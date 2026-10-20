@@ -3,6 +3,25 @@ import XCTest
 
 @MainActor
 final class AppUITests: XCTestCase {
+    func testStatusMenuSnapshotDismissAndReopen() throws {
+        continueAfterFailure = false
+        let fixture = try UIAppFixture()
+        addTeardownBlock { await fixture.cleanup() }
+        fixture.launch()
+        for cycle in 1 ... 3 {
+            fixture.openStatusMenu()
+            let menu = fixture.app.statusItems["status-item"].menus.firstMatch
+            capture("status-menu-reopened-\(cycle)", menu)
+            fixture.clickStatusEntry("Settings…")
+            let settings = fixture.app.windows["UX Review Settings"]
+            XCTAssertTrue(settings.waitForExistence(timeout: 5))
+            XCTAssertTrue(settings.switches["settings-downscale"].isHittable)
+            capture("settings-after-reopen-\(cycle)", settings)
+            settings.buttons["_XCUI:CloseWindow"].click()
+            XCTAssertTrue(fixture.wait(timeout: 5) { !settings.exists })
+        }
+    }
+
     func testStatusMenuSettingsPersistAcrossRelaunch() throws {
         continueAfterFailure = false
         let fixture = try UIAppFixture(registerDefaultHotkeys: true)

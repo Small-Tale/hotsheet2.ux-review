@@ -1,5 +1,15 @@
 # Test coverage
 
+## HS2-HMPJTP: native status-menu traversal
+
+- Live `testStatusMenuSnapshotDismissAndReopen` repeats open → screenshot → Settings → close →
+  reopen three times through the shipped status item. It asserts the destination window
+  and hittable Settings controls.
+- The shared fixture bounds readiness to five seconds and three stable, hittable geometry
+  samples, then physically clicks the item center without implicit menu traversal or action retries.
+- Existing Settings persistence, editor/import and submission flows exercise the same helper.
+- No product logic changed; this regression lives at the real XCUITest interaction layer.
+
 Each feature gets both unit tests and end-to-end tests. Tests live in
 `macos/Tests/UXReviewKitTests/` unless noted. Core and headless checks run in
 `scripts/check.sh`; live XCUITest flows run separately or with `RUN_UI_TESTS=1` (see below).

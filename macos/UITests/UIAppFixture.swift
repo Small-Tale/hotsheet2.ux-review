@@ -86,10 +86,35 @@ final class UIAppFixture {
         let status = app.statusItems["status-item"]
         XCTAssertTrue(status.waitForExistence(timeout: 10), "UX Review status item missing; check UI automation permissions")
         status.click()
+        waitForStatusEntry("Settings…")
     }
 
     func clickStatusEntry(_ title: String) {
-        app.statusItems["status-item"].menuItems["menu-\(title)"].click()
+        let entry = waitForStatusEntry(title)
+        // MenuItem.click() traverses/reopens ancestor menus, which can time out even
+        // when this status menu is already visible. Click the ready item's center instead.
+        entry.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).click()
+    }
+
+    @discardableResult
+    private func waitForStatusEntry(_ title: String) -> XCUIElement {
+        let entry = app.statusItems["status-item"].menus.firstMatch.menuItems["menu-\(title)"]
+        var previousFrame: CGRect?
+        var stableSamples = 0
+        let ready = wait(timeout: 5) {
+            guard entry.exists, entry.isHittable else {
+                previousFrame = nil
+                stableSamples = 0
+                return false
+            }
+            let frame = entry.frame
+            guard !frame.isEmpty, !frame.isInfinite, !frame.isNull else { return false }
+            stableSamples = frame == previousFrame ? stableSamples + 1 : 1
+            previousFrame = frame
+            return stableSamples >= 3
+        }
+        XCTAssertTrue(ready, "Status menu entry \(title) never became hittable with stable geometry")
+        return entry
     }
 
     func openEditor() -> XCUIElement {
