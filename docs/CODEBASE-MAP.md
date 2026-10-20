@@ -168,7 +168,7 @@ macos/
     Review/ReviewSessionModel+Project.swift  choosing the project in Submit Review (replaces a capture link's project, docs/07 §7.6)
     Review/ProjectChangeMenu.swift    Submit Review's Change menu: recent projects, then Hot Sheet's (HS2-T32CZC)
     Review/CaptureGrid.swift          Submit Review's captures: a grid of the media as filed, problems under it (HS2-55N4BN)
-    Review/ReviewSessionView.swift    capture list, title/summary, issues, project, ticket, progress, failure, success
+    Review/ReviewSessionView.swift    project → ticket destination → review → captures → ticket text; issues, progress, failure, success
     Review/ReviewDestinationView.swift  Ticket section: New ticket / Add to existing ticket, ticket field, lookup status (docs/07 §7.2.1); Ticket text: rendered preamble, click to edit (TicketTextBox, MarkdownPreview, §7.2.3)
     Review/HeadlessSubmit.swift       `--submit` mode with JSON output (docs/07 §7.8)
     Review/ReviewSessionPreviews.swift  session states for --render-ui-previews

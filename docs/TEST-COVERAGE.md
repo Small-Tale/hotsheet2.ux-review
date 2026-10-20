@@ -2034,3 +2034,7 @@ text stacked one word per line at 99 pt wide. The empty Draft Reviews window was
 - Unit: `HotSheetProjectionTests.arrowsPreserveEveryHeadPairAndPointOrder` checks all 36 pairs on straight and bent arrows, default intents, JSON round trips, omitted standard fields, partial-field decoding, and dropped-head detection.
 - End to end: `HotSheetEndToEndTests.everyArrowHeadPairSurvivesRealSubmissionAndReadBack` submits all pairs to a real CLI/store and confirms an identical annotation edit is a no-op. Existing submission tests cover the guarded v6 marker and fallback transports.
 - Manual: inspect exported heads in the Hot Sheet gallery/editor at wide and narrow sizes; change both ends, save, reopen, and check the stored heads and effective intent.
+
+## Submit destination order (`HS2-0166DH`)
+
+Layout-only reorder reuses the destination/lookup/selection controls and model. Existing `ExistingTicketSessionTests` and `ReviewSessionTests` cover mode changes, lookup, and submission. Native `--render-ui-previews` rendered successfully; `session-ready`, `session-narrow`, `session-existing-found`, and `session-existing-narrow` were visually inspected and attached to the ticket. Manual acceptance: choose a project, verify Submit as comes before Review, switch both modes, enter a ticket, and inspect wide/narrow layouts and the lower Ticket text preview. Matching real UI after evidence remains required before closure.

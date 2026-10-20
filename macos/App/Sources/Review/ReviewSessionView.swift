@@ -61,6 +61,14 @@ struct ReviewSessionView: View {
             }
             .disabled(!editable)
 
+            // Choose the ticket before entering the review (HS2-0166DH).
+            Section {
+                ReviewDestinationRows(model: model)
+            } header: {
+                Text("Ticket")
+            }
+            .disabled(!editable)
+
             Section {
                 ReviewTitleField(model: model)
                 if model.session.issues.contains(.blankTitle) {
@@ -107,9 +115,7 @@ struct ReviewSessionView: View {
             }
 
             Section {
-                ReviewDestinationRows(model: model)
-            } header: {
-                Text("Ticket")
+                TicketTextBox(model: model)
             }
             .disabled(!editable)
         }

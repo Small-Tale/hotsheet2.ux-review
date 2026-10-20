@@ -28,9 +28,10 @@ Reviews window (§7.9) opens it on any other draft.
 | Area | Contents |
 | --- | --- |
 | Hot Sheet project | First, so where the review goes is chosen before anything else (`HS2-8HMGTD`). The target project's name and the store it files into, or the problem (§7.6). **Change** lists recent projects (the current one checked), then **Choose Folder…** |
+| Ticket | Immediately after project selection and before Review (`HS2-0166DH`): **Submit as** **New ticket** (the default) or **Add to existing ticket**, then the existing-ticket field, lookup (§7.2.1), and Add selection (§7.2.2) |
 | Review | **Title** (required) and **Summary** (Markdown, optional). The Title is a full-width bordered field with a hint under it. It is the one title (`HS2-025XNF`): a new ticket is filed under it exactly as typed (trimmed). Added to an existing ticket, it heads the note ("UX review: <title>"). Typing is saved into the draft's `review.json` half a second after it stops. "Give the review a title." shows under a blank title |
 | Captures (N) | A **grid of the media**, nothing to manipulate (`HS2-55N4BN`, `CaptureGrid`): one tile per capture in review order, **as it will be filed** (`SubmissionPreview`, `HS2-64P9DT`). The tile shows the cropped part of a cropped image, or a movie's frame at its trim start cut to its crop, with a play badge. Its top-right badge counts the annotations filed with it, and an orange badge and border mark a capture with a problem. Its tooltip and VoiceOver label give the file name, the pixel size as filed ("cropped" after a crop; "scaled for Claude" when downscaled for AI, as in "2576×1449 scaled for Claude", §7.5.1), the duration ("trimmed" after a trim), the annotation count, the source app, and the capture's note (§6.5.2, `HS2-WE6ST8`). Under the grid, each capture's problem is listed in orange (§7.3), then what a crop or trim leaves out, such as "capture-1.png: 2 annotations outside the crop will be left out". Nothing is cropped or trimmed until submitting (§7.5); the preview reads `edits.json`. Captures are annotated and removed in the editor (docs/06 §6.7.1), not here; the existing-ticket selection list still shows each capture's note under its checkbox |
-| Ticket | **Submit as** **New ticket** (the default) or **Add to existing ticket**, and for the latter the ticket field and its lookup (§7.2.1). Then **Ticket text**, the preamble for the chosen destination (§7.2.3) |
+| Ticket text | The preamble for the chosen destination (§7.2.3), below Captures |
 | Before submitting | Only when the review has a problem that belongs to no field or capture (an unsupported format, duplicate ids); shown above every other section |
 | Footer | The counts as filed ("3 captures · 4 annotations", plus "(2 left out)" when a crop or trim leaves some out), the only remaining problem, or "N things to fix before submitting"; progress while submitting; the failure (§7.5); and **Submit to Hot Sheet** (default button, Return), which reads **Try Again** after a failure |
 
@@ -135,7 +136,7 @@ ticket gets the "UX review: <title>" intro (docs/03 §3.5 item 1). The reviewer 
 preamble for one review. The reviewer summary, capture context, media, and annotations that
 follow are always generated, so the editor never shows them.
 
-- **Shown rendered.** Under the destination, **Ticket text** shows the chosen destination's
+- **Shown rendered.** Below Captures, **Ticket text** shows the chosen destination's
   preamble as Markdown (headings, numbered and bulleted items, inline code), with the review's
   values filled in. It follows the New/Existing switch: each destination has its own text.
 - **Click to edit.** Clicking the text (or **Edit**) shows the template in a monospaced editor.

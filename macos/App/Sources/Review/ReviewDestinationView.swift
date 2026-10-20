@@ -46,7 +46,6 @@ struct ReviewDestinationRows: View {
                 .accessibilityIdentifier("session-selection")
             }
         }
-        TicketTextBox(model: model)
     }
 
     /// "Everything: 3 captures, 4 annotations" or "2 of 3 captures · 3 of 4 annotations".
