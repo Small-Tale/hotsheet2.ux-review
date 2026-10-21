@@ -12,6 +12,8 @@ interrupt another process with the same application identity. This suite complem
 ## Running and reviewing evidence
 
 Run from the repository root on a logged-in, unlocked macOS desktop with Xcode selected.
+Announce immediately before desktop automation begins: it clicks menus, types and resizes
+windows, so the person using the Mac needs to know when physical input starts.
 The wrapper holds a temporary `caffeinate` assertion to prevent display/system idle sleep
 until it exits; it cannot unlock a locked Mac. Locking the desktop during a run prevents
 physical UI events even though accessibility queries may still find the app.
@@ -74,7 +76,20 @@ readiness polls within five seconds. They click the ready entry's center, avoidi
 implicit native menu traversal/reopening; callers assert the destination window and controls. They do not retry
 the action or automatically reopen a failed menu. A regression cycles through opening,
 snapshotting, selecting Settings, and closing Settings three times; the separate
-Settings flow checks persistence across app relaunch.
+Settings flow checks persistence across app relaunch. A focused regression dismisses the menu
+with Escape, verifies a bounded not-ready result, explicitly reopens it and enters the editor.
+
+A failed readiness assertion retains a small `status-menu-readiness` text attachment with the
+requested entry, app/foreground state, best-effort desktop-lock flag, status/menu existence,
+and the last entry hit-test/frame/stability sample (`HS2-K0JZP2`). It does not collect other
+window titles or retry the click. `desktopLocked=unknown` means the session dictionary did not
+expose a lock flag; inspect the run's existing screen recording to distinguish lock/focus
+interruption from product behavior. Accessibility can continue finding an app behind a lock
+screen, which does not prove its menu can receive physical events. The 2026-10-20 investigation
+confirmed a lock screen during one failed status-item click. The original ticket run
+(`20261020T062742Z-12459`) shows Safari foregrounded with the menu dismissed while Open UX
+Review was being polled. These recordings establish external interruption for those runs;
+they do not establish a universal cause for every intermittent failure.
 
 The suite uses live AppKit/SwiftUI windows and controls. The temporary preference file is a shared fixture store; normal app preferences still use UserDefaults. Absolute-path UserDefaults suites become read-only when loaded by another process on the tested runtime, while named domains resolve in separate app/runner containers (`HS2-7HJNAC`). It does not substitute offscreen
 previews, synthetic capture results, mocked CLI responses, or a test-only route that opens

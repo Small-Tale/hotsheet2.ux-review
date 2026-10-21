@@ -2156,3 +2156,27 @@ the synchronous runner does not promise cancellation or an internal deadline.
 
 Verified on 2026-10-20: all 762 core tests passed with normal parallel scheduling; all five
 process-runner tests also passed with the strict cooperative pool.
+
+## HS2-K0JZP2: Status-menu interruption diagnostics
+
+`AppUITests.testDismissedStatusMenuReportsStateAndExplicitReopenWorks` deliberately dismisses
+the real menu, verifies a bounded not-ready result with an unhittable entry and reset stability,
+then explicitly reopens it, waits for Open UX Review and enters the real editor. Existing
+three-cycle snapshot/reopen and Settings/relaunch flows retain the original five-second,
+three-consecutive-stable-sample readiness requirement. Failed assertions retain a bounded
+text diagnostic with app/foreground/lock state and the last menu-entry observation.
+
+The investigation inspected an actual failed run recording and confirmed the login window
+during the click, rather than a product menu-geometry failure. A desktop must remain unlocked
+for physical UI verification; the runner's idle-sleep assertion cannot unlock it. The original
+ticket recording also shows Safari foregrounded with the status menu dismissed during the Open UX Review readiness check. These findings apply to those inspected runs;
+other intermittent failures are not assigned a cause without corresponding evidence.
+
+Verified on 2026-10-21: all three affected live UI checks passed across two runs (Settings
+persistence/relaunch, three snapshot/reopen cycles, and deliberate dismissal/explicit reopen
+into the editor). The new regression uses a two-second negative observation so XCTest's
+predicate polling can actually sample; production readiness remains five seconds. The
+retained negative diagnostic shows an existing menu/entry that is unhittable with an empty
+frame and zero stable samples, confirming existence alone is insufficient. Focused menu and
+Settings captures were inspected and attached to the ticket. Seven UI-wrapper regressions,
+build-for-testing, strict lint, formatting and diff checks also passed.
