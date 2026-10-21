@@ -50,14 +50,18 @@ final class SettingsModel: ObservableObject {
 extension AppSettings {
     /// The app's defaults; `UXREVIEW_DEFAULTS_SUITE` selects a separate suite (tests).
     static var defaults: any PreferencesStoring {
-        if let path = ProcessInfo.processInfo.environment["UXREVIEW_DEFAULTS_SUITE"], path.hasPrefix("/") {
-            return FilePreferences(url: URL(fileURLWithPath: path).appendingPathExtension("plist"))
-        }
+        if let isolatedDefaults { return isolatedDefaults }
         return nativeDefaults
     }
 
-    /// SwiftUI AppStorage requires a concrete UserDefaults store.
+    static var isolatedDefaults: FilePreferences? {
+        guard let path = ProcessInfo.processInfo.environment["UXREVIEW_DEFAULTS_SUITE"], path.hasPrefix("/") else { return nil }
+        return FilePreferences(url: URL(fileURLWithPath: path).appendingPathExtension("plist"))
+    }
+
+    /// File overrides use their own observable bridge; ordinary suites retain native AppStorage.
     static var nativeDefaults: UserDefaults {
-        ProcessInfo.processInfo.environment["UXREVIEW_DEFAULTS_SUITE"].flatMap(UserDefaults.init(suiteName:)) ?? .standard
+        guard isolatedDefaults == nil else { return .standard }
+        return ProcessInfo.processInfo.environment["UXREVIEW_DEFAULTS_SUITE"].flatMap(UserDefaults.init(suiteName:)) ?? .standard
     }
 }

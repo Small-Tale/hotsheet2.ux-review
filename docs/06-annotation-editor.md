@@ -60,6 +60,13 @@ editor), and ⌘W work.
 - In the note field, ⌘Z undoes typing.
 - On the canvas, ⌘Z undoes editor changes.
 
+The saved sidebar width uses native `@AppStorage` for normal/named UserDefaults. Absolute-path
+isolated test preferences use the same numeric `editorMediaStripWidth` key in the shared plist
+(`HS2-NN2QC0`). An observable bridge refreshes that file every 250 ms in common run-loop modes,
+so open editors follow programmatic changes as well as local drags/resets. Missing, invalid or
+non-finite values fall back to the standard width. Narrow-window fitting never overwrites the
+saved preference. See [09-ui-testing.md](09-ui-testing.md).
+
 ## 6.2 Drawing and numbering
 
 `AnnotationRenderer` (CoreGraphics, in `UXReviewKit`) draws everything:

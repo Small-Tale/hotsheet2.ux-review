@@ -77,6 +77,7 @@ macos/
     Settings/Hotkey.swift             global hotkey model: parse/display, Carbon codes (docs/05 §5.2)
     Settings/CaptureSettings.swift    settings (incl. downscaleForAI) + KeyValueStoring persistence, RecordingPointer (pointer/clicks in recordings), HotkeySlot (capture/record, duplicate rules), HotkeyAction
     Settings/SettingsCommand.swift    `--settings` argument parsing (docs/05 §5.5)
+    Settings/FileDoublePreference.swift  observable numeric file preference; common-mode refresh, durable readback
     Settings/FilePreferences.swift  PreferencesStoring + writable shared plist adapter for absolute test overrides (HS2-7HJNAC)
     Settings/RecentProjects.swift     recent target projects (at most 10) + persistence, the Change menu's project list (ProjectMenuItem) (docs/07 §7.6)
     Settings/ProductName.swift        full (Hot Sheet 2 UX Review) and short (UX Review) product names (docs/00 §0.0)
@@ -148,6 +149,7 @@ macos/
     Editor/EditorModel.swift          observable wrapper: mutate → redraw + autosave, reload on capture
     Editor/EditorModel+Filmstrip.swift  loads the filmstrip off the main thread (HS2-VMKTHQ)
     Editor/EditorToolbar.swift        the editor window's native NSToolbar: tool group, Restore Original, Submit Review… (prominent)
+    Settings/PreferenceDouble.swift   native AppStorage / observable FileDoublePreference bridge for numeric UI preferences
     Editor/EditorView.swift           toast overlay, media strip (resizable via StripDivider) (⌘/⇧-click multiple selection), layout
     Editor/CanvasAutoScroller.swift   60 Hz auto-scroll timer while a canvas gesture runs near an edge
     Editor/AnnotationCanvas.swift     NSView canvas: mouse/keyboard → editor (← / → monitor for unedited time fields), drawing via AnnotationRenderer

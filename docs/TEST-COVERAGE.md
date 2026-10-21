@@ -2135,8 +2135,8 @@ The existing headless settings flows in `scripts/app-e2e.sh` verify writes acros
 and compatibility with `defaults read`. The live UI suite uses the same adapter in the app and
 fixture; Settings persistence and project-switching checks verify its shipped composition.
 
-The editor sidebar retains its existing concrete UserDefaults backend required by SwiftUI
-AppStorage (`HS2-NN2QC0` tracks a writable isolated bridge). Parallel subprocess saturation
+The editor sidebar keeps native AppStorage for normal suites and observes numeric values in
+the shared test plist through `FileDoublePreference` (`HS2-NN2QC0`). Parallel subprocess saturation
 exposed `HS2-P7M4PE`; the dedicated reader and parallel regressions are described below.
 
 Verified on 2026-10-20: 112 affected core tests passed serially; the full headless app gate
@@ -2188,3 +2188,26 @@ and inspected both emitted plists for marketing version `0.1.0` and build `1`. T
 plist contains build-setting substitutions rather than XcodeGen's default `1.0`. The live
 three-cycle menu/Settings test passed, and its inspected menu capture shows `UX Review 0.1.0`.
 Strict lint, formatting and diff checks passed. The declared settings remain the version source.
+
+
+## HS2-NN2QC0: Live sidebar preference bridge
+
+`FileDoublePreferenceTests` covers missing/default values, local writes, two observers,
+external numeric/string changes, deletion/refill, reset followed by another edit, malformed
+files, non-finite/invalid values, failed writes, disabled/native mode, and unrelated-key
+preservation. Existing `MediaStripWidthTests` retains the clamping/fitting rules.
+
+`AppUITests.testSidebarWidthPersistsAndFollowsExternalChanges` drives the shipped divider,
+checks the live divider geometry and persisted number, applies external preference writes while
+the editor is open, narrows/widens without changing the saved width, double-clicks to reset,
+edits again and relaunches to verify persistence. It captures wide, narrow, reset and relaunched
+states for visual inspection. Normal suites continue to use the real SwiftUI AppStorage path.
+
+Verified on 2026-10-21: the live sidebar transition/persistence flow passed, and the other
+six composed live UI flows passed in a separate run (the unrelated opt-in real capture was
+skipped). The 42 affected core tests previously passed on the unchanged implementation;
+normal Debug build and preview render passed, and the integrated UITesting build passed.
+Strict lint/format and diff checks passed. Four actual editor captures (external wide,
+fitted narrow, reset and persisted relaunch) were inspected and attached to the ticket.
+The pre-existing missing divider accessibility value is tracked separately as `HS2-0TWA35`;
+this persistence flow asserts real divider geometry and the stored number.

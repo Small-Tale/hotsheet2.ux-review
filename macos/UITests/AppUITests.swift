@@ -273,7 +273,7 @@ final class AppUITests: XCTestCase {
         element.typeText(text)
     }
 
-    private func resize(_ window: XCUIElement, to size: CGSize) {
+    func resize(_ window: XCUIElement, to size: CGSize) {
         let frame = window.frame
         let corner = window.coordinate(withNormalizedOffset: CGVector(dx: 1, dy: 1)).withOffset(CGVector(dx: -2, dy: -2))
         corner.click(
@@ -295,7 +295,7 @@ final class AppUITests: XCTestCase {
         add(attachment)
     }
 
-    private func capture(_ name: String, _ element: XCUIElement) {
+    func capture(_ name: String, _ element: XCUIElement) {
         let attachment = XCTAttachment(screenshot: element.screenshot())
         attachment.name = name
         attachment.lifetime = .keepAlways

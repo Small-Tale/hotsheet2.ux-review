@@ -17,6 +17,11 @@ public final class FilePreferences: PreferencesStoring {
 
     public func data(forKey key: String) -> Data? { values()[key] as? Data }
     public func string(forKey key: String) -> String? { values()[key] as? String }
+    public func double(forKey key: String) -> Double? {
+        let value = values()[key]
+        if let number = value as? NSNumber { return number.doubleValue }
+        return (value as? String).flatMap(Double.init)
+    }
 
     /// Matches UserDefaults' nonthrowing interface. Unreadable/missing files start empty;
     /// unsupported plist values or failed writes leave the previous file intact.

@@ -7,7 +7,7 @@ import UXReviewKit
 struct EditorView: View {
     @ObservedObject var model: EditorModel
     /// The media strip's width as last dragged, kept across windows and launches (`HS2-AH6HW4`).
-    @AppStorage("editorMediaStripWidth", store: AppSettings.nativeDefaults) private var savedStripWidth = Double(MediaStripWidth.standard)
+    @PreferenceDouble("editorMediaStripWidth", defaultValue: Double(MediaStripWidth.standard)) private var savedStripWidth
     /// Previews fix the width instead of reading the saved one.
     var stripWidthOverride: CGFloat?
     /// Previews draw the shown thumbnail as if the pointer were over it (its ✕ revealed).
@@ -105,6 +105,7 @@ struct StripDivider: View {
             }
             .accessibilityElement()
             .accessibilityLabel("Capture sidebar width")
+            .accessibilityIdentifier("editor-strip-divider")
             .accessibilityValue("\(Int(width)) points")
             .accessibilityAdjustableAction { direction in
                 switch direction {

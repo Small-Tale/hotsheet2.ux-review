@@ -68,6 +68,9 @@ selects a suggestion, and reopens it at narrow width before submitting. A separa
 between two real project stores, checks an empty project, adds a ticket, refreshes the popup,
 and switches back to confirm suggestions follow the selected project. Popup evidence captures the
 native Popover element because it can extend beyond the parent window's frame.
+The sidebar flow drags and resets the real divider, checks cross-process numeric preference
+updates, fitting at minimum window width, restoration when widened, and persistence after
+relaunch. Its wide/narrow editor screenshots retain the surrounding toolbar/canvas/inspector.
 Readiness checks wait for observable UI state rather than assuming a fixed
 launch or submission delay.
 

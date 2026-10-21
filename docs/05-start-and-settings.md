@@ -244,9 +244,10 @@ app's own (`com.smalltale.uxreview`), or the suite named by `UXREVIEW_DEFAULTS_S
 An absolute value for that override uses `<value>.plist` through `FilePreferences`, read and
 written directly so separate test processes share writable settings (`HS2-7HJNAC`). Named
 suites continue using UserDefaults. The override is for sequential test writers; it does not
-provide cross-process transactions. The editor sidebar's native AppStorage bridge is tracked
-separately in `HS2-NN2QC0`. Tests pass an absolute path (`<dir>/defaults` → `<dir>/defaults.plist`), so a test suite lives in a
-temporary folder and never adds a domain to ~/Library/Preferences (HS2-1AD1FJ).
+provide cross-process transactions. The editor sidebar retains native AppStorage for ordinary
+suites and uses an observable numeric file bridge for absolute-path overrides (`HS2-NN2QC0`,
+docs/06 §6.1). Tests pass an absolute path (`<dir>/defaults` → `<dir>/defaults.plist`), so a test
+suite lives in a temporary folder and never adds a domain to ~/Library/Preferences (HS2-1AD1FJ).
 
 ## 5.4 Not yet
 
