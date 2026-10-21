@@ -2180,3 +2180,11 @@ retained negative diagnostic shows an existing menu/entry that is unhittable wit
 frame and zero stable samples, confirming existence alone is insufficient. Focused menu and
 Settings captures were inspected and attached to the ticket. Seven UI-wrapper regressions,
 build-for-testing, strict lint, formatting and diff checks also passed.
+
+## HS2-DPP2RY: Generated bundle version
+
+T0 verification on 2026-10-21: regenerated the XcodeGen project, built Debug and UITesting,
+and inspected both emitted plists for marketing version `0.1.0` and build `1`. The source
+plist contains build-setting substitutions rather than XcodeGen's default `1.0`. The live
+three-cycle menu/Settings test passed, and its inspected menu capture shows `UX Review 0.1.0`.
+Strict lint, formatting and diff checks passed. The declared settings remain the version source.

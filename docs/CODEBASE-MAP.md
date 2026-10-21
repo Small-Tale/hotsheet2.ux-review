@@ -21,7 +21,7 @@ scripts/
   make-app-icon.swift          1024 px icon export → macos/App/Resources/Assets.xcassets/AppIcon.appiconset (docs/05 §5.1.1)
 macos/
   Package.swift                SwiftPM package UXReviewKit (core, no AppKit)
-  project.yml                  XcodeGen spec for UXReview.app and UXReviewUITests; UITesting config isolates the app bundle identity
+  project.yml                  XcodeGen spec for UXReview.app and UXReviewUITests; marketing/build settings drive bundle versions; UITesting config isolates the app bundle identity
   Signing.xcconfig             code signing: ad hoc unless the gitignored Signing.local.xcconfig sets an identity (docs/01 §1.3)
   Signing.local.xcconfig.example  template for the machine-local signing identity
   Sources/UXReviewKit/

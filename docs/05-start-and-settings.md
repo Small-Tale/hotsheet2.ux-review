@@ -12,7 +12,10 @@ derived from the Hot Sheet 2 design export `docs/design/exports/ux-review-status
 (cropped to its 20-point artwork and sized 18 points). The menu is short (`HS2-80CTK8`); review
 work happens in UX Review's own windows (§5.1.1). When idle, it lists:
 
-1. **UX Review <version>** (a heading).
+1. **UX Review <version>** (a heading). The bundled version follows `MARKETING_VERSION`
+   in `macos/project.yml` (currently `0.1.0`); `CFBundleVersion` follows
+   `CURRENT_PROJECT_VERSION`. XcodeGen emits build-setting substitutions rather than its
+   default `1.0` (`HS2-DPP2RY`).
 2. **Capture [Screen | Window | Region]** (`HS2-W62GWS`): a segmented control in the menu row
    showing the default target. Choosing a segment makes it the default target, the same setting
    as Settings › Default capture › Capture (§5.3), so it persists and an open Settings window
