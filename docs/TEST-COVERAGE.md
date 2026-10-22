@@ -2211,3 +2211,19 @@ Strict lint/format and diff checks passed. Four actual editor captures (external
 fitted narrow, reset and persisted relaunch) were inspected and attached to the ticket.
 The pre-existing missing divider accessibility value is tracked separately as `HS2-0TWA35`;
 this persistence flow asserts real divider geometry and the stored number.
+
+### Destination-dependent Title (`HS2-6V0S8A`)
+
+- Unit: `ExistingTicketSessionTests.hiddenTitleDoesNotBlockExistingAndSwitchesPreserveTheDraft`
+  covers repeated New/Existing switches with edited, blank and refilled titles; new-ticket
+  validation, preserved text and retained lookup. `ExistingTicketSubmitterTests.blankHiddenTitleUsesTheDefaultWhenAdded`
+  checks the fallback note, absence of ticket creation, and cleanup.
+- Real app/CLI: `scripts/review-title-e2e.sh` imports a fixture without screen capture,
+  refuses a blank new-ticket title, files the edited title, then adds a blank-title review
+  to that ticket. It checks the note, both attached bundle titles and the ticket count.
+  Called by `scripts/app-e2e.sh`; can run independently for affected verification.
+- Native UI: updated `testExistingTicketLookupModeSwitchAndSubmission` asserts title order,
+  hides the title for Existing, preserves edits on return, clears it and submits with the
+  default heading. Compilation and execution status are recorded on the ticket. Live
+  desktop execution remains pending an isolated GUI runner; offscreen previews support
+  visual inspection but do not prove the live parent flow.

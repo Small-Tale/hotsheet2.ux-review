@@ -783,6 +783,9 @@ done
 [[ "$(grep 'batch_id: ' "$TMP/partial-ticket.md" | sort -u | wc -l | tr -d ' ')" == 1 ]] || die "partial: attachments are in more than one batch"
 ok "an attach stopped by an unreadable file: exit 5 (partlyAttached, the record lists what got in); the retry attaches only the rest, into the same batch"
 
+bash "$ROOT/scripts/review-title-e2e.sh" "$APP_BIN"
+ok "destination-dependent title validation through the real app and CLI"
+
 echo "review session: add to an existing ticket (HS2-E3001H)"
 # An existing ticket that already holds a capture-1.png, so Hot Sheet renames the new one.
 existing="$(hs -C "$TMP/subproj.hs2" new --actor-role=human --title="Accounts page redesign" --category=task --details="Original body." \

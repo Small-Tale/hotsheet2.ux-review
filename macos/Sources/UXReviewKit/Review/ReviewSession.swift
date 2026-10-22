@@ -216,7 +216,8 @@ public struct ReviewSession: Equatable, Sendable {
     }
 
     public var issues: [SessionIssue] {
-        SessionIssue.all(for: bundle, target: target) { !missingFiles.contains($0.filename) } + destinationIssues
+        let common = SessionIssue.all(for: bundle, target: target) { !missingFiles.contains($0.filename) }
+        return common.filter { destination == .newTicket || $0 != .blankTitle } + destinationIssues
     }
 
     public var canSubmit: Bool { isEditable && issues.isEmpty }
@@ -330,7 +331,7 @@ public struct DraftSubmitter: Sendable {
         let draft: ReviewDraft
         do {
             draft = try store.update(directory) { bundle in
-                bundle.title = (title ?? bundle.title).trimmingCharacters(in: .whitespacesAndNewlines)
+                bundle.title = Self.submissionTitle(title ?? bundle.title, addingToExisting: existing != nil)
                 if let summary { bundle.summary = summary }
             }
         } catch {
@@ -390,6 +391,11 @@ public struct DraftSubmitter: Sendable {
             submittedAt: now(),
             draftRemoved: removed
         ), staged)
+    }
+
+    private static func submissionTitle(_ title: String, addingToExisting: Bool) -> String {
+        let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        return addingToExisting && trimmed.isEmpty ? "UX review" : trimmed
     }
 
     /// `review` noting the captures `staged` scaled down for AI.

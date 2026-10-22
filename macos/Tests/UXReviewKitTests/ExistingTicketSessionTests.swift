@@ -187,6 +187,23 @@ struct ExistingTicketSessionTests {
         #expect(session.phase == .submitting(.creatingTicket))
     }
 
+    @Test func hiddenTitleDoesNotBlockExistingAndSwitchesPreserveTheDraft() {
+        var session = Self.session(in: .found)
+        for title in ["Edited title", " \n ", "Refilled title"] {
+            session.edit(title: title)
+            for _ in 0 ..< 2 {
+                session.setDestination(.newTicket)
+                #expect(session.bundle.title == title)
+                #expect(session.canSubmit == !title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                session.setDestination(.existingTicket)
+                #expect(session.bundle.title == title)
+                #expect(session.canSubmit)
+                #expect(!session.issues.contains(.blankTitle))
+                #expect(session.existingTicket == Self.ticket1)
+            }
+        }
+    }
+
     @Test func aResultForASlugEditedMeanwhileIsIgnored() {
         var session = Self.session()
         session.setDestination(.existingTicket)
@@ -254,6 +271,16 @@ struct ExistingTicketSubmitterTests {
     static let existing = HotSheetTicket(
         id: "01M4CCW6AW9EHFYT2QTZJ70H8D", slug: "HS-OLD001", title: "Accounts page", status: "started", file: "/stores/a.hs2/t.md"
     )
+
+    @Test func blankHiddenTitleUsesTheDefaultWhenAdded() throws {
+        let fixture = try DraftSubmitterTests.Fixture()
+        let draft = try fixture.draft(captures: 1)
+        let result = try fixture.submitter().submit(draft.directory, title: " \n ", into: Self.existing)
+        #expect(result.title == "UX review")
+        #expect(fixture.client.created.isEmpty)
+        #expect(fixture.client.notes.first?.markdown.hasPrefix("## UX review: UX review\n") == true)
+        #expect(result.draftRemoved)
+    }
 
     @Test func attachesThenAddsANoteAndDeletesTheDraft() throws {
         let fixture = try DraftSubmitterTests.Fixture()

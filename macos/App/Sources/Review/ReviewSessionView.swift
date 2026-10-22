@@ -70,11 +70,6 @@ struct ReviewSessionView: View {
             .disabled(!editable)
 
             Section {
-                ReviewTitleField(model: model)
-                if model.session.issues.contains(.blankTitle) {
-                    IssueLabel(text: SessionIssue.blankTitle.message(in: model.session.bundle))
-                        .font(.caption)
-                }
                 VStack(alignment: .leading, spacing: 6) {
                     Text("Summary")
                     ZStack(alignment: .topLeading) {
@@ -228,7 +223,7 @@ struct ReviewSessionView: View {
     }
 }
 
-private struct IssueLabel: View {
+struct IssueLabel: View {
     let text: String
 
     var body: some View {

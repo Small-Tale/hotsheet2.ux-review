@@ -25,6 +25,11 @@ struct ReviewDestinationRows: View {
         .accessibilityIdentifier("session-destination")
 
         if session.destination == .newTicket {
+            ReviewTitleField(model: model)
+            if session.issues.contains(.blankTitle) {
+                IssueLabel(text: SessionIssue.blankTitle.message(in: session.bundle))
+                    .font(.caption)
+            }
             Text("Files a new intake ticket. An AI working it splits it into one ticket per change.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
@@ -314,7 +319,7 @@ struct MarkdownPreview: View {
 }
 
 /// The review's one title (`HS2-025XNF`, §7.2): a full-width bordered field, so it reads as
-/// editable, with a hint that it is the new ticket's title (or heads the existing ticket's note).
+/// editable, with a hint that it is the new ticket's title. Only shown for a new ticket.
 struct ReviewTitleField: View {
     @ObservedObject var model: ReviewSessionModel
 
@@ -326,7 +331,7 @@ struct ReviewTitleField: View {
                 .labelsHidden()
                 .accessibilityLabel("Title")
                 .accessibilityIdentifier("session-title")
-            Text(model.session.destination == .newTicket ? "Also the new ticket's title." : "Heads the note added to the ticket.")
+            Text("Also the new ticket's title.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }
