@@ -21,5 +21,5 @@ Arrow export (`HS2-5X8QFP`): implemented and CLI-tested; reviewer accepted the r
 Submit destination order (`HS2-0166DH`): controls now follow project selection before Review; app build, affected tests, and wide/narrow native previews verified; reviewer accepted the result on 2026-10-20. Interactive browser verification was unavailable to the agent.
 
 Title placement (`HS2-6V0S8A`): implemented with Title second in Ticket for New ticket,
-hidden for Existing; blank existing titles use “UX review”. Affected logic/headless and
-native preview verification is tracked on the ticket; live isolated GUI verification remains open.
+hidden for Existing; blank existing titles use “UX review”. Affected unit/headless checks,
+native previews and the actual mode-switch/submission UI flow passed (2026-10-22).

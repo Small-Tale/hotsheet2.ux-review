@@ -140,6 +140,7 @@ final class AppUITests: XCTestCase {
         XCTAssertFalse(ticket.exists)
         XCTAssertEqual(session.textFields["session-title"].value as? String, "Live UI follow-up")
         replace(session.textFields["session-title"], with: "")
+        XCTAssertEqual(session.textFields["session-title"].value as? String, "")
         XCTAssertFalse(session.buttons["session-submit"].isEnabled)
         destination.radioButtons["Add to existing ticket"].click()
         XCTAssertFalse(session.textFields["session-title"].exists)
@@ -276,7 +277,11 @@ final class AppUITests: XCTestCase {
         XCTAssertTrue(element.waitForExistence(timeout: 5))
         element.click()
         element.typeKey("a", modifierFlags: .command)
-        element.typeText(text)
+        if text.isEmpty {
+            element.typeKey(.delete, modifierFlags: [])
+        } else {
+            element.typeText(text)
+        }
     }
 
     func resize(_ window: XCUIElement, to size: CGSize) {

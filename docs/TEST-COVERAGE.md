@@ -2241,7 +2241,9 @@ and the status entry unhittable. Do not treat isolated native output as live UI 
   to that ticket. It checks the note, both attached bundle titles and the ticket count.
   Called by `scripts/app-e2e.sh`; can run independently for affected verification.
 - Native UI: updated `testExistingTicketLookupModeSwitchAndSubmission` asserts title order,
-  hides the title for Existing, preserves edits on return, clears it and submits with the
-  default heading. Compilation and execution status are recorded on the ticket. Live
-  desktop execution remains pending an isolated GUI runner; offscreen previews support
-  visual inspection but do not prove the live parent flow.
+  hides the title for Existing, preserves edits on return, explicitly deletes selected text
+  for an empty replacement, checks the blank value and submits with the
+  default heading. The live flow passed on 2026-10-22 after the test helper was corrected
+  to delete selected text for an empty replacement. Actual wide/narrow captures were inspected
+  and attached alongside the matching new-ticket native previews. The 40 affected unit tests,
+  real headless submissions, Debug/UI builds and lint/format also passed.
