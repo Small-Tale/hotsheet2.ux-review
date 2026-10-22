@@ -98,3 +98,16 @@ available.
 SwiftFormat owns layout, including trailing commas. SwiftLint's `trailing_comma` rule is
 disabled to avoid conflicts. SwiftFormat's `hoistTry` rule is disabled because it rewrites
 `#expect(try …)` into invalid code.
+
+## 1.5 AI guidance ownership
+
+[`AGENTS.md`](../AGENTS.md) is the shared source of truth; [`CLAUDE.md`](../CLAUDE.md)
+contains the native `@AGENTS.md` import. Put shared project policies and documentation
+pointers in AGENTS.md, and only Claude-specific additions beside the import.
+Hot Sheet's built-in setup writer manages the marked guidance sections and keeps the
+Hot Sheet skill adapters in sync. Review generated changes while preserving local policy.
+
+Rulesync is an optional alternative owner, not a dependency of this project. Switching
+requires an explicit ownership migration and preservation of local rules; do not run
+both writers against the same instruction files. The maintained procedure lives in
+Hot Sheet 2's `guidance/rulesync/README.md`.
