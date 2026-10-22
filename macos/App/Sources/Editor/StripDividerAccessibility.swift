@@ -36,6 +36,7 @@ final class StripDividerAccessibilityView: NSView {
 
     override func hitTest(_: NSPoint) -> NSView? { nil }
     override func isAccessibilityElement() -> Bool { true }
+    override func isAccessibilityEnabled() -> Bool { true }
     override func accessibilityRole() -> NSAccessibility.Role? { .slider }
     override func accessibilityLabel() -> String? { "Capture sidebar width" }
     override func accessibilityIdentifier() -> String { "editor-strip-divider" }

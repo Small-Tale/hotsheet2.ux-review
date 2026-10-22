@@ -14,6 +14,7 @@ extension AppUITests {
         resize(editor, to: CGSize(width: 1200, height: 700))
         let slider = editor.sliders["editor-strip-divider"]
         XCTAssertTrue(slider.waitForExistence(timeout: 5), editor.debugDescription)
+        XCTAssertTrue(slider.isEnabled)
         assertAnnouncedWidth(112, slider: slider, fixture: fixture)
         captureSidebarHierarchy("sidebar-accessibility-after", editor: editor)
         try fixture.adjustSidebar(kAXIncrementAction as CFString)
@@ -31,7 +32,7 @@ extension AppUITests {
         captureSidebarHierarchy("sidebar-accessibility-after-actions", editor: editor)
     }
 
-    private func captureSidebarHierarchy(_ name: String, editor: XCUIElement) {
+    func captureSidebarHierarchy(_ name: String, editor: XCUIElement) {
         let tree = XCTAttachment(string: editor.debugDescription)
         tree.name = name
         tree.lifetime = .keepAlways

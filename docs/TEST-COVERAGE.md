@@ -2215,7 +2215,7 @@ this persistence flow asserts real divider geometry and the stored number.
 ## HS2-0TWA35: Accessible sidebar width
 
 The isolated native `editor-sidebar-accessibility.json` probe and app-E2E assertions verify
-actual role/label/value, bounds, both action directions, external displayed widths and pointer
+actual role/label/value and enabled state, bounds, both action directions, external displayed widths and pointer
 pass-through without desktop events. Existing `MediaStripWidthTests` covers range clamping, thumbnail geometry, narrow/wide fitting
 and edits crossing both bounds. The live accessibility regression reads the real slider's
 announced point value, invokes its public AX increment/decrement actions and checks persisted
@@ -2229,6 +2229,13 @@ syntax checks passed. The native probe uses an interior point of a nonempty view
 pointer pass-through check. The final live AX/composition and drag/persistence checks remain
 pending: the last attempt was interrupted before editor entry, with Keynote foregrounded
 and the status entry unhittable. Do not treat isolated native output as live UI proof.
+
+On 2026-10-22 the actual default-width hierarchy exposed the slider/value but marked it
+disabled. The native view now explicitly reports enabled; isolated and live enabled-state
+assertions pass. The full real drag/external-update/fitting/reset/relaunch flow passed
+against this corrected view, with inspected wide/narrow screenshots and an enabled after
+hierarchy attached. Direct public AX increment/decrement remains unverified: the test
+runner reported `process trusted=false`; its Accessibility grant is still needed.
 
 ### Destination-dependent Title (`HS2-6V0S8A`)
 

@@ -13,6 +13,8 @@ extension AppUITests {
         resize(editor, to: CGSize(width: 1200, height: 700))
         let divider = editor.descendants(matching: .any)["editor-strip-divider"]
         assertStripWidth(112, divider: divider, editor: editor, fixture: fixture)
+        XCTAssertTrue(divider.isEnabled)
+        captureSidebarHierarchy("sidebar-accessibility-enabled", editor: editor)
         dragStrip(divider, by: 80)
         assertStripWidth(192, divider: divider, editor: editor, fixture: fixture)
         XCTAssertTrue(fixture.wait { fixture.defaults.double(forKey: "editorMediaStripWidth") == 192 })

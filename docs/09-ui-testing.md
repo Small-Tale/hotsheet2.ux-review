@@ -75,6 +75,9 @@ The accessibility flow reads the real divider slider's announced width and invok
 macOS AX increment/decrement actions, checking saved state and programmatic changes back to
 the live control, bounds, fitting, reset and a further edit. A bounded test helper resolves
 only the launched test app's element by identifier; it does not substitute model calls.
+Direct public AX actions additionally require Accessibility trust for the UI-test runner
+itself (`UXReviewUITests-Runner`), beyond XCTest event access. A `process trusted=false`
+diagnostic means that grant is missing; do not substitute model calls for the AX check.
 Readiness checks wait for observable UI state rather than assuming a fixed
 launch or submission delay.
 

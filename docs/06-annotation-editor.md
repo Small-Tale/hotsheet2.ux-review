@@ -65,7 +65,7 @@ isolated test preferences use the same numeric `editorMediaStripWidth` key in th
 (`HS2-NN2QC0`). An observable bridge refreshes that file every 250 ms in common run-loop modes,
 so open editors follow programmatic changes as well as local drags/resets. Missing, invalid or
 non-finite values fall back to the standard width. Narrow-window fitting never overwrites the
-saved preference. The divider exposes a transparent native slider accessibility view labeled
+saved preference. The divider exposes an enabled transparent native slider accessibility view labeled
 **Capture sidebar width**, with its current displayed width announced in points and
 increment/decrement actions changing it by 16 points within the 96–320 range (`HS2-0TWA35`).
 The accessibility view does not draw a second control or change pointer dragging

@@ -1444,6 +1444,7 @@ FITS='n => j[n].canvasRight + 1 + 300 == j[n].width'
 ok "the inspector always fits the window; a wide saved strip gives way in a narrow window"
 # HS2-0TWA35: isolated native accessibility contract (the live suite exercises composition).
 AX="$TMP/previews/editor-sidebar-accessibility.json"
+[[ "$(json "$AX" j.enabled)" == true ]] || die "sidebar accessibility slider is disabled"
 [[ "$(json "$AX" '[j.role, j.label, j.identifier, j.minimum, j.maximum, j.initial, j.pointerPassesThrough].join("|")')" == \
   "AXSlider|Capture sidebar width|editor-strip-divider|96|320|112 points|true" ]] \
   || die "sidebar accessibility metadata $(json "$AX" 'JSON.stringify(j)')"

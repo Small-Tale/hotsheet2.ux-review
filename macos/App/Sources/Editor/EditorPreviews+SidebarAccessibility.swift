@@ -29,6 +29,7 @@ extension EditorPreviews {
         action(increment: true)
         let report: [String: Any] = [
             "role": view.accessibilityRole()?.rawValue ?? "",
+            "enabled": view.isAccessibilityEnabled(),
             "label": view.accessibilityLabel() ?? "",
             "identifier": view.accessibilityIdentifier(),
             "minimum": view.accessibilityMinValue() as? CGFloat ?? -1,
