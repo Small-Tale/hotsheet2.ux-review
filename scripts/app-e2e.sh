@@ -1442,6 +1442,15 @@ FITS='n => j[n].canvasRight + 1 + 300 == j[n].width'
 [[ "$(json "$VL" "['editor-video-timeline', 'editor-video-narrow', 'editor-video-narrow-wide-strip'].map($FITS).join() + '|' + j['editor-video-narrow-wide-strip'].canvasLeft")" == "true,true,true|179" ]] \
   || die "video layout: columns don't fit $(json "$VL" 'JSON.stringify(j)')"
 ok "the inspector always fits the window; a wide saved strip gives way in a narrow window"
+# HS2-0TWA35: isolated native accessibility contract (the live suite exercises composition).
+AX="$TMP/previews/editor-sidebar-accessibility.json"
+[[ "$(json "$AX" '[j.role, j.label, j.identifier, j.minimum, j.maximum, j.initial, j.pointerPassesThrough].join("|")')" == \
+  "AXSlider|Capture sidebar width|editor-strip-divider|96|320|112 points|true" ]] \
+  || die "sidebar accessibility metadata $(json "$AX" 'JSON.stringify(j)')"
+[[ "$(json "$AX" 'j.requests.join() + "|" + j.performed.every(Boolean) + "|" + j.values.every((v, i) => v === j.requests[i] + " points")')" == \
+  "128,112,96,320,162,128|true|true" ]] || die "sidebar accessibility actions $(json "$AX" 'JSON.stringify(j)')"
+ok "the native sidebar announces its width, adjusts both ways within bounds and passes pointer events through"
+
 # HS2-JMCM6S: the canvas surround follows the appearance: a light gray in light mode (not the old
 # fixed dark slab), near-black in dark mode, neutral in both.
 CC="$TMP/previews/editor-canvas-colors.json"

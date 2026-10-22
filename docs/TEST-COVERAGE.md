@@ -2212,6 +2212,24 @@ fitted narrow, reset and persisted relaunch) were inspected and attached to the 
 The pre-existing missing divider accessibility value is tracked separately as `HS2-0TWA35`;
 this persistence flow asserts real divider geometry and the stored number.
 
+## HS2-0TWA35: Accessible sidebar width
+
+The isolated native `editor-sidebar-accessibility.json` probe and app-E2E assertions verify
+actual role/label/value, bounds, both action directions, external displayed widths and pointer
+pass-through without desktop events. Existing `MediaStripWidthTests` covers range clamping, thumbnail geometry, narrow/wide fitting
+and edits crossing both bounds. The live accessibility regression reads the real slider's
+announced point value, invokes its public AX increment/decrement actions and checks persisted
+values, external updates, both bounds, narrow fitting, double-click reset, deletion and another
+edit. It retains a matching after accessibility tree plus wide/narrow editor captures.
+The drag/persistence regression must also run against the final accessible control.
+
+Verification on 2026-10-21: all three width-logic tests, the normal Debug build, complete
+offscreen render, isolated native metadata/action assertions, strict lint/format and shell
+syntax checks passed. The native probe uses an interior point of a nonempty view for its
+pointer pass-through check. The final live AX/composition and drag/persistence checks remain
+pending: the last attempt was interrupted before editor entry, with Keynote foregrounded
+and the status entry unhittable. Do not treat isolated native output as live UI proof.
+
 ### Destination-dependent Title (`HS2-6V0S8A`)
 
 - Unit: `ExistingTicketSessionTests.hiddenTitleDoesNotBlockExistingAndSwitchesPreserveTheDraft`

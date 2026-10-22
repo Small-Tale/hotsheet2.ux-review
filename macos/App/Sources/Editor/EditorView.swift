@@ -89,6 +89,7 @@ struct StripDivider: View {
 
     var body: some View {
         Divider()
+            .accessibilityHidden(true)
             .overlay {
                 Color.clear
                     .frame(width: 9)
@@ -102,17 +103,11 @@ struct StripDivider: View {
                             .onEnded { _ in end() }
                     )
                     .onTapGesture(count: 2) { set(MediaStripWidth.standard) }
+                    .accessibilityHidden(true)
             }
-            .accessibilityElement()
-            .accessibilityLabel("Capture sidebar width")
-            .accessibilityIdentifier("editor-strip-divider")
-            .accessibilityValue("\(Int(width)) points")
-            .accessibilityAdjustableAction { direction in
-                switch direction {
-                case .increment: set(width + 16)
-                case .decrement: set(width - 16)
-                @unknown default: break
-                }
+            .overlay {
+                StripDividerAccessibility(width: width, set: set)
+                    .frame(width: 9)
             }
             .help("Drag to resize the capture sidebar; double-click for the standard width")
     }

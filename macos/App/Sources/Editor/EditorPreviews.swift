@@ -77,6 +77,7 @@ enum EditorPreviews {
         written += try renderVideo(to: directory, scratch: scratch) + renderAutoScroll(to: directory, scratch: scratch)
         written += try renderStripClicks(to: directory, scratch: scratch)
         written.append(try windowSize(store: store, draft: draft, to: directory))
+        written.append(try sidebarAccessibility(to: directory))
         return written
     }
 

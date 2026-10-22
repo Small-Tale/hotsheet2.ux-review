@@ -114,7 +114,7 @@ macos/
     Editor/DragModifiers.swift        ⇧ / ⌥ while dragging: ModifiedBox resize, drawn boxes, 45° snapping (HS2-Q5TA4C)
     Editor/Filmstrip.swift            the timeline filmstrip: frame count, times, small frames from the movie (HS2-VMKTHQ)
   Tests/UXReviewKitTests/      Swift Testing unit + end-to-end tests (docs/TEST-COVERAGE.md)
-  UITests/                    XCTest live UI target: UIAppFixture isolates real stores/settings; +StatusMenu helpers retain bounded lock/focus/geometry diagnostics; AppUITests drives menus, explicit dismissal/reopen, import, editor, submit and optional real capture
+  UITests/                    XCTest live UI target: UIAppFixture isolates real stores/settings; +StatusMenu helpers retain bounded lock/focus/geometry diagnostics; +Accessibility resolves real app AX elements/actions for sidebar verification; AppUITests drives menus, explicit dismissal/reopen, import, editor, submit and optional real capture
   App/Resources/Assets.xcassets  StatusBarIcon template vector (menu bar icon, docs/05 §5.1)
   App/Sources/
     UXReviewApp.swift          @main: headless mode routing, else an AppKit NSApplication run loop
@@ -151,7 +151,9 @@ macos/
     Editor/EditorModel+Filmstrip.swift  loads the filmstrip off the main thread (HS2-VMKTHQ)
     Editor/EditorToolbar.swift        the editor window's native NSToolbar: tool group, Restore Original, Submit Review… (prominent)
     Settings/PreferenceDouble.swift   native AppStorage / observable FileDoublePreference bridge for numeric UI preferences
-    Editor/EditorView.swift           toast overlay, media strip (resizable via StripDivider) (⌘/⇧-click multiple selection), layout
+    Editor/EditorPreviews+SidebarAccessibility.swift  isolated native accessibility metadata/actions probe, asserted by app-e2e
+    Editor/StripDividerAccessibility.swift  transparent native slider accessibility value/actions over the existing SwiftUI divider
+    Editor/EditorView.swift           toast overlay, media strip (resizable via StripDivider with native slider accessibility semantics) (⌘/⇧-click multiple selection), layout
     Editor/CanvasAutoScroller.swift   60 Hz auto-scroll timer while a canvas gesture runs near an edge
     Editor/AnnotationCanvas.swift     NSView canvas: mouse/keyboard → editor (← / → monitor for unedited time fields), drawing via AnnotationRenderer
     Editor/AnnotationCanvas+Colors.swift  canvas colors per appearance (CanvasColors) and the empty-canvas text

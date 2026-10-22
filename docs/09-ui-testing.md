@@ -71,6 +71,10 @@ native Popover element because it can extend beyond the parent window's frame.
 The sidebar flow drags and resets the real divider, checks cross-process numeric preference
 updates, fitting at minimum window width, restoration when widened, and persistence after
 relaunch. Its wide/narrow editor screenshots retain the surrounding toolbar/canvas/inspector.
+The accessibility flow reads the real divider slider's announced width and invokes its public
+macOS AX increment/decrement actions, checking saved state and programmatic changes back to
+the live control, bounds, fitting, reset and a further edit. A bounded test helper resolves
+only the launched test app's element by identifier; it does not substitute model calls.
 Readiness checks wait for observable UI state rather than assuming a fixed
 launch or submission delay.
 
