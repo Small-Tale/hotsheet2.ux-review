@@ -48,7 +48,7 @@ extension AppUITests {
         assertAnnouncedWidth(320, slider: slider, fixture: fixture)
         try fixture.adjustSidebar(kAXIncrementAction as CFString)
         assertAnnouncedWidth(320, slider: slider, fixture: fixture)
-        resize(editor, to: CGSize(width: 900, height: 620))
+        resizeToMinimumWidth(editor, minimum: 900)
         XCTAssertTrue(fixture.wait { slider.value as? String == "178 points" })
         capture("sidebar-accessible-narrow", editor)
         try fixture.adjustSidebar(kAXDecrementAction as CFString)

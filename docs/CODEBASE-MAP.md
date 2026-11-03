@@ -16,6 +16,10 @@ scripts/
   check.sh                     repo gate: lint, spec, tests, app build + smoke + app e2e
   ui-e2e.sh                    live XCUITest gate; keeps xcresult, logs and exported screenshots (docs/09)
   tests/test_ui_e2e.py          subprocess regressions for UI wrapper diagnostics/exit codes using controlled Xcode tools
+  vm-ui-e2e.sh                 runs ui-e2e.sh inside a dedicated Parallels macOS guest and copies artifacts back (docs/09, HS2-GR8A2A)
+  vm-ui-provision.sh           one-time guest setup: Xcode selection/license, developer + unattended UI automation, no sleep
+  vm_transfer.py               one-shot host-only HTTP file exchange used by vm-ui-e2e.sh
+  tests/test_vm_ui_e2e.py       transfer-helper and VM wrapper preflight regressions (fake prlctl)
   app-e2e.sh                   drives the built app's headless modes (docs/04 §4.11, docs/06 §6.9, docs/07 §7.8, §7.10)
   review-title-e2e.sh          affected real app/CLI checks for new/existing title validation and attached bundle titles; no desktop events
   macos-project.sh             XcodeGen → macos/UXReview.xcodeproj (not committed)

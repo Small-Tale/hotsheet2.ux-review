@@ -284,19 +284,6 @@ final class AppUITests: XCTestCase {
         }
     }
 
-    func resize(_ window: XCUIElement, to size: CGSize) {
-        let frame = window.frame
-        let corner = window.coordinate(withNormalizedOffset: CGVector(dx: 1, dy: 1)).withOffset(CGVector(dx: -2, dy: -2))
-        corner.click(
-            forDuration: 0.2,
-            thenDragTo: corner.withOffset(CGVector(dx: size.width - frame.width, dy: size.height - frame.height))
-        )
-        let ready = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
-            abs(window.frame.width - size.width) < 4 && abs(window.frame.height - size.height) < 4
-        }, object: nil)
-        XCTAssertEqual(XCTWaiter.wait(for: [ready], timeout: 5), .completed)
-    }
-
     private func capturePopup(_ name: String, _ app: XCUIApplication) {
         let popup = app.popovers.firstMatch
         XCTAssertTrue(popup.waitForExistence(timeout: 5))

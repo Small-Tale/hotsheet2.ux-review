@@ -39,7 +39,8 @@ to by `HOTSHEET_CLI`.
 scripts/macos-project.sh                 # generate macos/UXReview.xcodeproj, then open it in Xcode
 (cd macos && swift test)                 # core unit + end-to-end tests
 scripts/check.sh                         # full gate: lint, spec, tests, app build + smoke run
-scripts/ui-e2e.sh                        # live macOS UI tests + retained screenshots (docs/09)
+UXREVIEW_UI_VM="macOS 27" scripts/vm-ui-e2e.sh   # live macOS UI tests in a Parallels guest (docs/09)
+scripts/ui-e2e.sh                        # same suite on this desktop (takes over input; opt-in)
 ```
 
 So that macOS keeps Screen Recording permission across rebuilds, sign with your Apple Development

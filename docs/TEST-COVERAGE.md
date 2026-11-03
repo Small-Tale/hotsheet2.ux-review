@@ -2079,6 +2079,18 @@ permission/backend failures fail the test. Screenshots are retained in `.xcresul
 exported to the run's attachments directory. See [09-ui-testing.md](09-ui-testing.md) for
 commands, desktop permissions, isolation and the manual capture regression matrix.
 
+## Isolated guest UI runner (`HS2-GR8A2A`)
+
+`scripts/vm-ui-e2e.sh` runs the live UI suite in a dedicated Parallels macOS guest.
+
+- Unit: `scripts/tests/test_vm_ui_e2e.py` runs `scripts/vm_transfer.py` as a real local server (staged-file GET only, path escapes rejected, PUT stored atomically) and the wrapper against a fake `prlctl` for every preflight refusal (missing VM name, stopped guest, unresponsive Tools, no console user, locked desktop, no Xcode), asserting nothing is synced.
+- End to end: the real wrapper against the provisioned guest, running the full `UXReviewUITests` suite with artifacts copied back to the host (see the ticket for the run).
+- UI helpers: the window `resize` helper's corner-then-edge correction and `resizeToMinimumWidth` exact clamp are exercised by every editor, submission and sidebar live test in the guest.
+- Unit: connect failures and late `PrlJob_GetRetCode` errors are retried for repeatable commands and give up with "Could not run commands" when they persist.
+- Not covered by unit tests: the launch marker retry (`run.started`) and upload retry; the fake `prlctl` stops before sync, so only real guest runs exercise them.
+- Known guest gap: the direct-AX sidebar test needs runner Accessibility trust (`HS2-07PFQX`).
+- Manual: guest login/unlock after boot, Parallels Tools recovery, and the real-capture TCC grant in the guest (docs/09, "Real capture lane").
+
 Verification on 2026-10-20: all three default live UI flows passed; the real-capture test
 was explicitly skipped. The run exercised Settings persistence, file import, annotation
 undo/redo, new and existing ticket submission, lower-form scrolling, confirmation panels,

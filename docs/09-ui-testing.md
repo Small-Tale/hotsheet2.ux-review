@@ -57,6 +57,113 @@ about accessibility labels or geometry supplement this review. Attach inspected 
 the ticket; when a ticket includes a problem image, reproduce that component, state, and
 viewport as closely as practical for its after image.
 
+## Isolated macOS guest runner
+
+`scripts/vm-ui-e2e.sh` runs the same suite inside a dedicated Parallels Desktop macOS
+guest, so XCUITest drives the guest's desktop instead of the developer's (HS2-GR8A2A).
+It is the default way to run live UI tests on a development Mac; running
+`scripts/ui-e2e.sh` directly on the host remains an explicit opt-in that takes over the
+host desktop.
+
+```sh
+export UXREVIEW_UI_VM="macOS 27"         # name from `prlctl list -a`
+scripts/vm-ui-e2e.sh
+scripts/vm-ui-e2e.sh -only-testing:UXReviewUITests/AppUITests/testStatusMenuSettingsPersistAcrossRelaunch
+```
+
+Each run:
+
+1. Checks that the guest is running with Parallels Tools, that a non-root user is logged in
+   at the guest console, that the guest desktop is unlocked, that Xcode is selected, and that
+   the guest's visible screen is at least `UXREVIEW_UI_VM_MIN_SIZE` points (default
+   `1200x700`, the largest editor size the suite resizes to).
+   It exits with status 3 and a specific message otherwise, before copying anything.
+2. Stages the tracked and unignored working tree (so never `Signing.local.xcconfig` or local
+   Hot Sheet data), the host's `hotsheet-cli`, and the host's `xcodegen` installation, then
+   serves them from `scripts/vm_transfer.py`. This one-shot HTTP helper binds only to the
+   Parallels host-only address (`UXREVIEW_UI_VM_HOST_IP`, default `10.211.55.2`), serves only
+   the staged files, accepts uploads only into the run directory, and stops after each
+   transfer. The guest fetches with `curl` into `~/uxreview-vm/` for its console user.
+3. Starts `scripts/ui-e2e.sh` detached in the guest user's Aqua session
+   (`launchctl asuser`) and polls for completion (`UXREVIEW_UI_VM_TIMEOUT`, default 5400 s).
+   Long `prlctl exec` sessions can drop with `PRL_ERR_IO_STOPPED`, so no guest command is
+   held open for the duration of the run.
+4. Uploads the guest run directory and unpacks it on the host under
+   `${UXREVIEW_UI_VM_ARTIFACTS:-$TMPDIR/uxreview-vm-ui}/<timestamp>-<pid>/artifacts/`
+   (`Results.xcresult`, `attachments/`, `summary.json`, `xcodebuild.log`), with the guest's
+   console output in `guest-output.txt`. The wrapper prints that directory and exits with
+   the guest suite's status; a missing artifact upload fails an otherwise green run.
+
+Pointer drags in the guest end a few points short, and a drag of about 5 pt or less is
+ignored. The suite's window `resize` helper therefore drags the corner slowly and holds at
+the end, then corrects each side from its edge midpoint by growing past the target and
+shrinking back, so every drag stays above that threshold, and accepts a size within 4 pt
+(`macos/UITests/AppUITests.swift`). Checks that depend on the exact width, such as the
+editor's fitted media strip, use `resizeToMinimumWidth`: it drags past the editor's 900 pt
+minimum so the window clamps to exactly that width.
+
+Accessibility trust for the UI-test runner is not yet provisioned in the guest, so the
+direct-AX sidebar test fails there with `process trusted=false` until `HS2-07PFQX` lands.
+
+The guest builds with ad hoc signing because the developer's local signing identity is not
+copied. `UXREVIEW_UI_REAL_CAPTURE` is forwarded unchanged.
+
+### Guest setup
+
+1. Create a macOS guest in Parallels Desktop with the same major macOS version that the
+   host's Xcode supports, install Parallels Tools, and log in at its console.
+2. Copy the host's `Xcode.app` into the guest's `/Applications` (or install it there from
+   the App Store). Host shared folders attach to a macOS guest only after a guest reboot,
+   which a FileVault guest cannot finish unattended. Instead, `tar` Xcode on the host,
+   `split -b 500m` it, record `shasum -a 256` of the parts, serve them with
+   `scripts/vm_transfer.py`, and download each part in the guest until its checksum
+   matches before extracting. The Parallels bridge can drop a long stream ("Host is down"),
+   so a single 10 GB `curl … | tar -x` is not reliable.
+3. Run `UXREVIEW_UI_VM=… scripts/vm-ui-provision.sh`. It changes only the guest: selects
+   Xcode, accepts its license, runs first-launch setup, enables developer mode, adds the
+   console user to `_developer`, enables unattended UI automation
+   (`automationmodetool enable-automationmode-without-authentication`), and disables guest
+   sleep and screen saver. Unattended automation is acceptable here because the guest is
+   a dedicated test machine; never apply it to the developer host.
+4. Dismiss one-time guest banners (for example Xcode's "Multiple Extensions Added") before the
+   first run; a banner over the top-right of a window blocks clicks there.
+
+### Recovery
+
+- **"No user is logged in" / "desktop is locked"**: open the guest window in Parallels and
+  log in or unlock. With FileVault on, every guest boot needs that manual login, so prefer
+  suspending the guest over restarting it.
+- **"The guest's visible screen is …"**: Parallels sizes a macOS guest's display from its
+  window. Enlarge the guest window (or use a larger scaled resolution in the VM's display
+  settings) until the visible area, excluding menu bar and Dock, meets the minimum.
+- **"Could not run commands"**: the guest's exec service did not answer. Right after a guest
+  boot, or now and then mid-session, `prlctl exec` fails with `PRL_ERR_IO_STOPPED` for up to
+  about 30 s; the wrapper retries that connect failure with a growing backoff
+  (`UXREVIEW_UI_VM_RETRY_DELAY`, default 3 s per attempt). Repeatable guest commands
+  (preflight, sync, status polling, output read-back and artifact upload) also retry
+  `PrlJob_GetResult`/`PrlJob_GetRetCode` errors, which can arrive after the command ran. The
+  launch is not repeated blindly: it writes `~/uxreview-vm/run.started` and is retried only
+  while that marker is missing. If failures persist, restart Tools from the guest's Parallels
+  menu or reinstall it.
+- **"Guest … is not running (state: invalid)"**: renaming or re-registering the VM in
+  Parallels can leave a stale entry under the old name. Use the running name from
+  `prlctl list -a`.
+- **"Timed out waiting for the guest run"**: the run may still be in progress. Inspect
+  `~/uxreview-vm/run-output.txt` in the guest, or quit `xcodebuild` there, before rerunning.
+- **Transfer helper failed to start**: check that `UXREVIEW_UI_VM_HOST_IP` matches the
+  host's Parallels bridge address (`ifconfig bridge100`) and that the host firewall allows
+  incoming connections for `python3`.
+- **Automation-mode prompt or timeout in the guest**: rerun `scripts/vm-ui-provision.sh`.
+
+### Real capture lane
+
+Screen Recording and Microphone approvals are per-machine TCC grants that need a person to
+approve them in the guest's System Settings. Real capture therefore stays a separately gated
+lane in the guest as well: grant Screen Recording to the `UITesting` build in the guest once,
+then run `UXREVIEW_UI_REAL_CAPTURE=1 scripts/vm-ui-e2e.sh`. Because guest builds are ad hoc
+signed, the grant can stop applying after a rebuild. Without the grant, the suite records a
+skip, or fails when the lane is required, exactly as on the host.
+
 ## What the automated suite exercises
 
 Tests launch the normal app and click its real menu bar extra. They open Settings, change

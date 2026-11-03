@@ -21,7 +21,8 @@ extension AppUITests {
         fixture.defaults.set(256.0, forKey: "editorMediaStripWidth")
         assertStripWidth(256, divider: divider, editor: editor, fixture: fixture)
         capture("sidebar-external-wide", editor)
-        resize(editor, to: CGSize(width: 900, height: 620))
+        // The editor's minimum width (EditorView, 900 pt) leaves exactly 178 pt for the strip.
+        resizeToMinimumWidth(editor, minimum: 900)
         XCTAssertTrue(fixture.wait {
             (96 ... 180).contains(self.shownStripWidth(divider, in: editor))
         })
