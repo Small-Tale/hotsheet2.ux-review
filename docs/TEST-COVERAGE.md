@@ -2246,8 +2246,17 @@ On 2026-10-22 the actual default-width hierarchy exposed the slider/value but ma
 disabled. The native view now explicitly reports enabled; isolated and live enabled-state
 assertions pass. The full real drag/external-update/fitting/reset/relaunch flow passed
 against this corrected view, with inspected wide/narrow screenshots and an enabled after
-hierarchy attached. Direct public AX increment/decrement remains unverified: the test
-runner reported `process trusted=false`; its Accessibility grant is still needed.
+hierarchy attached. Direct public AX increment/decrement remained unverified: the test
+runner reported `process trusted=false`; its Accessibility grant was still needed.
+
+On 2026-11-03 the live AX regression passed in the isolated macOS 27 guest
+(`scripts/vm-ui-e2e.sh`, `HS2-GR8A2A`) after the runner was granted Accessibility (in macOS 27,
+Privacy & Security → Device Control and Data Access). It read `112 points`, invoked both
+public AX actions through the bounds, fitted the strip to `178 points` at the editor's
+900 pt minimum, and checked reset, external updates and a further edit. The final tree
+reports an enabled `AXSlider` at `128 points`. The drag/persistence regression also passed
+there against the same control, and wide/narrow captures were inspected. Production code is
+unchanged since `0ed79b1`. The guest grant is tied to the ad hoc build until `HS2-07PFQX`.
 
 ### Destination-dependent Title (`HS2-6V0S8A`)
 
