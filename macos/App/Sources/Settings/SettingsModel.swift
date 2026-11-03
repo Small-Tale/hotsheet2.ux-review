@@ -8,13 +8,41 @@ final class SettingsModel: ObservableObject {
     @Published private(set) var settings: CaptureSettings
     @Published private(set) var registrations: [HotkeySlot: GlobalHotkeyCenter.Registration] = [:]
 
+    /// Open at login, read back from the system each time (`HS2-QNXVDA`).
+    @Published private(set) var loginItemStatus: LoginItemStatus = .notRegistered
+    /// Why the last Open at login change failed, until the next change or refresh.
+    @Published private(set) var loginItemError: String?
+
     let hotkeys = GlobalHotkeyCenter()
     private let store: KeyValueStoring
+    private let loginItem: any LoginItemControlling
 
-    init(store: KeyValueStoring = AppSettings.defaults) {
+    init(store: KeyValueStoring = AppSettings.defaults, loginItem: (any LoginItemControlling)? = nil) {
         self.store = store
+        self.loginItem = loginItem ?? AppSettings.makeLoginItem()
         settings = CaptureSettingsStore.load(from: store)
         registrations = hotkeys.register(settings)
+        loginItemStatus = self.loginItem.status
+    }
+
+    /// Re-reads Open at login; the reviewer may have changed it in System Settings.
+    func refreshLoginItem() {
+        loginItemStatus = loginItem.status
+    }
+
+    /// Registers or unregisters the login item, then shows what the system reports.
+    func setOpenAtLogin(_ enabled: Bool) {
+        do {
+            try loginItem.setEnabled(enabled)
+            loginItemError = nil
+        } catch {
+            loginItemError = "Couldn't change Open at login: \(error.localizedDescription)"
+        }
+        loginItemStatus = loginItem.status
+    }
+
+    func openLoginItemsSettings() {
+        loginItem.openSystemSettings()
     }
 
     func registration(_ slot: HotkeySlot) -> GlobalHotkeyCenter.Registration {

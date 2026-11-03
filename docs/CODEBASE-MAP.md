@@ -83,6 +83,7 @@ macos/
     Settings/Hotkey.swift             global hotkey model: parse/display, Carbon codes (docs/05 §5.2)
     Settings/CaptureSettings.swift    settings (incl. downscaleForAI) + KeyValueStoring persistence, RecordingPointer (pointer/clicks in recordings), HotkeySlot (capture/record, duplicate rules), HotkeyAction
     Settings/SettingsCommand.swift    `--settings` argument parsing (docs/05 §5.5)
+    Settings/LoginItem.swift          Open at login: LoginItemStatus, LoginItemControlling, PreferencesLoginItem test stand-in (HS2-QNXVDA)
     Settings/FileDoublePreference.swift  observable numeric file preference; common-mode refresh, durable readback
     Settings/FilePreferences.swift  PreferencesStoring + writable shared plist adapter for absolute test overrides (HS2-7HJNAC)
     Settings/RecentProjects.swift     recent target projects (at most 10) + persistence, the Change menu's project list (ProjectMenuItem) (docs/07 §7.6)
@@ -151,6 +152,7 @@ macos/
     Settings/SettingsView.swift       Settings window content + shortcut recorder
     Settings/SettingsWindowController.swift  the one Settings window (⌘,)
     Settings/HeadlessSettings.swift   `--settings` mode with JSON output
+    Settings/SystemLoginItem.swift    Open at login via SMAppService.mainApp; AppSettings.makeLoginItem picks the stand-in under test isolation
     Editor/EditorWindowController.swift  the UX Review window: one per draft, save on close, Add Media / Submit / Show in Finder for its draft, file drop target (docs/04 §4.12.2), MediaChooser
     Editor/EditorModel.swift          observable wrapper: mutate → redraw + autosave, reload on capture
     Editor/EditorModel+Filmstrip.swift  loads the filmstrip off the main thread (HS2-VMKTHQ)

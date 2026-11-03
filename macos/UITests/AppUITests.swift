@@ -268,7 +268,7 @@ final class AppUITests: XCTestCase {
         capture(name, form)
     }
 
-    private func controlValue(_ element: XCUIElement) -> String {
+    func controlValue(_ element: XCUIElement) -> String {
         if let number = element.value as? NSNumber { return number.stringValue }
         return element.value as? String ?? "<no value>"
     }

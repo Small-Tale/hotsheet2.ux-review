@@ -2285,3 +2285,29 @@ On 2026-11-03 (`HS2-07PFQX`), the grants were verified to persist with the guest
   to delete selected text for an empty replacement. Actual wide/narrow captures were inspected
   and attached alongside the matching new-ticket native previews. The 40 affected unit tests,
   real headless submissions, Debug/UI builds and lint/format also passed.
+
+## HS2-QNXVDA: Open at login
+
+Settings › General › Open at login, through `SMAppService.mainApp`. Under test isolation it uses the `PreferencesLoginItem` stand-in.
+
+- Unit (`LoginItemTests`):
+  - the switch and caption for each of the four statuses;
+  - `--set-open-at-login` parsing, including the bad-value error, and that the flag leaves `CaptureSettings` alone;
+  - the stand-in's off → on → on → off → off → on transitions, read through a second instance;
+  - the approval state and Open Login Items request, and unreadable state.
+- End to end (`scripts/app-e2e.sh`, headless): the stand-in through the real binary.
+  - Off by default, turns on and off, and persists across launches.
+  - A rejected value changes nothing.
+  - The approval state.
+- Live UI (`AppUITests+LoginItem.swift`), against the real Settings window:
+  - the switch drives the stand-in and caption;
+  - an external change shows when Settings reopens;
+  - a further edit, then relaunch persistence and turning it off;
+  - the approval flow, where the Open Login Items Settings… button appears, is clicked, and goes away when the switch turns off.
+- Live UI also checks that the Settings window stops at the visible screen height and scrolls to the last Global shortcuts row. Adding General made the form taller than the guest's 1020 pt screen.
+- Manual, run only in the isolated UI-test guest (2026-11-03): the real `SMAppService` path through `UXReview --settings` without test isolation.
+  - Before registering, macOS reported `notFound`. Settings therefore treats it as off.
+  - `--set-open-at-login on` returned `enabled`, and `sfltool dumpbtm` listed `com.smalltale.uxreview.uitesting` as `[enabled, allowed]`.
+  - `off` returned `notRegistered`.
+- Verification runs:
+  - The 4 Settings live tests passed in the guest, the full gate passed (`scripts/check.sh`: 771 unit tests, 104 app e2e checks), and the full guest suite passed apart from one intermittent failure (`HS2-M8PKED`).

@@ -1047,6 +1047,23 @@ run openeditor-bad 2 "${SUITE_ENV[@]}" -- --settings --set-open-editor sometimes
 run openeditor-on 0 "${SUITE_ENV[@]}" -- --settings --set-open-editor on
 ok "Open the editor after each capture is on by default, persists when turned off, and rejects a bad value"
 
+echo "open at login (HS2-QNXVDA; the isolated suite uses a stand-in, never a real login item)"
+run login-default 0 "${SUITE_ENV[@]}" -- --settings
+[[ "$(json "$TMP/login-default.json" j.openAtLogin.status)" == notRegistered ]] || die "open at login: on by default"
+run login-on 0 "${SUITE_ENV[@]}" -- --settings --set-open-at-login on
+[[ "$(json "$TMP/login-on.json" j.openAtLogin.status)" == enabled ]] || die "open at login: not turned on"
+run login-read 0 "${SUITE_ENV[@]}" -- --settings
+[[ "$(json "$TMP/login-read.json" j.openAtLogin.status)" == enabled ]] || die "open at login: not persisted"
+run login-bad 2 "${SUITE_ENV[@]}" -- --settings --set-open-at-login maybe
+[[ "$(json "$TMP/login-bad.json" j.error)" == invalidArguments ]] || die "open at login: bad value accepted"
+run login-still 0 "${SUITE_ENV[@]}" -- --settings
+[[ "$(json "$TMP/login-still.json" j.openAtLogin.status)" == enabled ]] || die "open at login: a rejected change applied"
+run login-approval 0 "${SUITE_ENV[@]}" UXREVIEW_TEST_LOGIN_ITEM_APPROVAL=1 -- --settings --set-open-at-login on
+[[ "$(json "$TMP/login-approval.json" j.openAtLogin.status)" == requiresApproval ]] || die "open at login: approval state"
+run login-off 0 "${SUITE_ENV[@]}" -- --settings --set-open-at-login off
+[[ "$(json "$TMP/login-off.json" j.openAtLogin.status)" == notRegistered ]] || die "open at login: not turned off"
+ok "Open at login is off by default, turns on and off, persists, waits for approval when asked, and rejects a bad value"
+
 echo "downscale for AI when filing (HS2-PT8PM6)"
 run downscale-default 0 "${SUITE_ENV[@]}" -- --settings
 [[ "$(json "$TMP/downscale-default.json" j.settings.downscaleForAI)" == true ]] || die "downscale: off by default"

@@ -2,12 +2,49 @@ import AppKit
 import SwiftUI
 import UXReviewKit
 
-/// The Settings window: what the default capture is and which global shortcuts start captures.
+/// The Settings window: opening at login, what the default capture is, and which global
+/// shortcuts start captures.
 struct SettingsView: View {
     @ObservedObject var model: SettingsModel
+    /// The form's natural height, so the window is only as tall as needed but never taller
+    /// than the screen (HS2-QNXVDA: with General, it outgrows a small display).
+    @State private var contentHeight: CGFloat = 0
 
     var body: some View {
+        ScrollView {
+            form.onGeometryChange(for: CGFloat.self) { $0.size.height } action: { contentHeight = $0 }
+        }
+        .frame(width: 440, height: contentHeight > 0 ? min(contentHeight, Self.maxHeight) : nil)
+        .fixedSize()
+        .onAppear {
+            NSApp.activate(ignoringOtherApps: true)
+            model.refreshLoginItem()
+        }
+        // Coming back from System Settings › Login Items shows any change made there.
+        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
+            model.refreshLoginItem()
+        }
+    }
+
+    /// The visible screen height less the title bar and a margin; the form scrolls beyond it.
+    static var maxHeight: CGFloat {
+        (NSScreen.main?.visibleFrame.height ?? 800) - 60
+    }
+
+    private var form: some View {
         Form {
+            Section("General") {
+                Toggle("Open at login", isOn: Binding(get: { model.loginItemStatus.isOn }, set: { model.setOpenAtLogin($0) }))
+                    .accessibilityIdentifier("settings-open-at-login")
+                Text(model.loginItemError ?? model.loginItemStatus.message)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .accessibilityIdentifier("settings-open-at-login-status")
+                if model.loginItemStatus == .requiresApproval {
+                    Button("Open Login Items Settings…") { model.openLoginItemsSettings() }
+                        .accessibilityIdentifier("settings-open-login-items")
+                }
+            }
             Section("Default capture") {
                 Picker("Kind", selection: binding(\.defaultRequest.kind)) {
                     Text("Screenshot").tag(CaptureKind.screenshot)
@@ -68,7 +105,6 @@ struct SettingsView: View {
         .formStyle(.grouped)
         .frame(width: 440)
         .fixedSize()
-        .onAppear { NSApp.activate(ignoringOtherApps: true) }
     }
 
     /// Under Downscale for AI (docs/07 §7.5.1).

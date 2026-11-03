@@ -10,6 +10,8 @@ final class SettingsWindowController: NSWindowController {
         let controller = shared ?? SettingsWindowController(model: model)
         shared = controller
         guard let window = controller.window else { return }
+        // Open at login can change in System Settings while the window is closed (HS2-QNXVDA).
+        model.refreshLoginItem()
         if !window.isVisible { window.center() }
         DockPresence.present(window)
     }

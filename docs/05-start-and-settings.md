@@ -191,8 +191,19 @@ those simply take precedence.
 
 ## 5.3 Settings
 
-The Settings window (menu bar menu or app menu › Settings…, ⌘,) has four sections:
+The Settings window (menu bar menu or app menu › Settings…, ⌘,) has five sections:
 
+- **General**: **Open at login** (off, `HS2-QNXVDA`) registers UX Review as a login item, so it
+  opens in the menu bar when the reviewer logs in. It uses `SMAppService.mainApp`.
+  - The system registration is the source of truth, not a saved setting. The reviewer can also
+    remove the item in System Settings › General › Login Items. Settings re-reads it each time
+    the window opens and whenever UX Review becomes active.
+  - A caption under the switch states the current state. While macOS waits for the reviewer to
+    allow the item, the switch stays on, and an **Open Login Items Settings…** button opens that
+    pane. macOS reports `notFound` for an app that was never registered. That reads as off,
+    like `notRegistered`.
+  - If the system refuses a change, the caption shows the error, and the switch shows what the
+    system reports.
 - **Default capture**: kind (Screenshot, Video), target (Screen, Window, Region), and delay
   (None, 3, 5, 10 seconds).
   This is what the Capture hotkey does. The Record video hotkey uses the same target and delay,
@@ -259,14 +270,18 @@ suite lives in a temporary folder and never adds a domain to ~/Library/Preferenc
 UXReview --settings [--set-hotkey ⌥⇧⌘4|none] [--set-record-hotkey ⌥⇧⌘5|none]
                     [--set-open-hotkey ⌥⇧⌘E|none] [--set-target display|window|region] [--set-delay N]
                     [--set-narration on|off] [--set-show-pointer on|off] [--set-show-clicks on|off]
-                    [--set-downscale on|off] [--set-open-editor on|off]
+                    [--set-downscale on|off] [--set-open-editor on|off] [--set-open-at-login on|off]
 ```
 
 This mode applies and saves the changes, registers all three hotkeys exactly as the app would,
 and prints JSON: `settings`, `hotkey {status, message}` (Capture), `recordHotkey {status,
-message}`, `openReviewHotkey {status, message}`, and `defaultCapture`.
+message}`, `openReviewHotkey {status, message}`, `defaultCapture`, and `openAtLogin {status,
+message}`. The `openAtLogin` status is one of `enabled`, `requiresApproval`, `notRegistered`
+or `notFound`. `--set-open-at-login` registers or unregisters the login item. It is not saved
+in `captureSettings`.
 
 - Exit 0 on success.
+- Exit 1 when the system refuses an Open at login change.
 - Exit 2 on bad arguments, including an unusable hotkey or one that duplicates another
   shortcut. In that case nothing is saved. Swapping the two in one command is allowed.
 
@@ -277,4 +292,9 @@ hotkeys, a real conflict for each against a running menu bar instance, and dupli
 
 Test isolation: when `UXREVIEW_DEFAULTS_SUITE` selects separate test preferences, native
 window-frame autosave is disabled because AppKit otherwise writes those frames to the
-standard application defaults. See [live UI testing](09-ui-testing.md).
+standard application defaults.
+
+Under the same override, Open at login uses a stand-in kept in the test preferences (key
+`testLoginItem`) instead of `SMAppService`, so a test run never adds a login item to its
+machine. `UXREVIEW_TEST_LOGIN_ITEM_APPROVAL=1` makes the stand-in wait for approval, as a first
+registration can on a real Mac. See [live UI testing](09-ui-testing.md).

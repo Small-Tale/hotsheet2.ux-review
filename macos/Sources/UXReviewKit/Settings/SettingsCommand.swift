@@ -5,7 +5,7 @@ import Foundation
 ///     UXReview --settings [--set-hotkey ⌥⇧⌘4|none] [--set-record-hotkey ⌥⇧⌘5|none]
 ///                         [--set-open-hotkey ⌥⇧⌘E|none] [--set-target display|window|region] [--set-delay N]
 ///                         [--set-narration on|off] [--set-show-pointer on|off] [--set-show-clicks on|off]
-///                         [--set-downscale on|off] [--set-open-editor on|off]
+///                         [--set-downscale on|off] [--set-open-editor on|off] [--set-open-at-login on|off]
 ///
 /// Applies the changes (if any), saves them, registers the hotkeys, and prints the result.
 /// Spec: docs/05-start-and-settings.md §5.5.
@@ -28,6 +28,9 @@ public struct SettingsCommand: Equatable, Sendable {
     public var downscale: Bool?
     /// Opens the annotation editor after each capture.
     public var openEditor: Bool?
+    /// Registers (or unregisters) UX Review as a login item (`HS2-QNXVDA`). Not part of
+    /// `CaptureSettings`: the system's login-item registration is its only state.
+    public var openAtLogin: Bool?
 
     public init(
         hotkey: Hotkey?? = nil,
@@ -39,7 +42,8 @@ public struct SettingsCommand: Equatable, Sendable {
         showPointer: Bool? = nil,
         showClicks: Bool? = nil,
         downscale: Bool? = nil,
-        openEditor: Bool? = nil
+        openEditor: Bool? = nil,
+        openAtLogin: Bool? = nil
     ) {
         self.hotkey = hotkey
         self.recordHotkey = recordHotkey
@@ -51,11 +55,13 @@ public struct SettingsCommand: Equatable, Sendable {
         self.showClicks = showClicks
         self.downscale = downscale
         self.openEditor = openEditor
+        self.openAtLogin = openAtLogin
     }
 
     public var changesSomething: Bool {
         hotkey != nil || recordHotkey != nil || openReviewHotkey != nil || target != nil || delaySeconds != nil
             || narration != nil || showPointer != nil || showClicks != nil || downscale != nil || openEditor != nil
+            || openAtLogin != nil
     }
 
     static let hotkeyFlags: [(HotkeySlot, String)] = [
@@ -94,6 +100,7 @@ public struct SettingsCommand: Equatable, Sendable {
         command.showClicks = try parseSwitch(values, flag: "--set-show-clicks")
         command.downscale = try parseSwitch(values, flag: "--set-downscale")
         command.openEditor = try parseSwitch(values, flag: "--set-open-editor")
+        command.openAtLogin = try parseSwitch(values, flag: "--set-open-at-login")
         return command
     }
 
