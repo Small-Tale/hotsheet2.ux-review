@@ -100,6 +100,8 @@ cat > "$STAGE/run.sh" <<RUN
 #!/bin/bash
 set -uo pipefail
 G="$GROOT"
+# launchctl asuser + sudo leaves HOME=/, which hides the user keychain search list from Xcode.
+export HOME="/Users/$GUSER"
 mkdir -p "\$G/tmp"
 export TMPDIR="\$G/tmp"
 export PATH="\$G/tools/xcodegen/bin:\$PATH"
@@ -107,7 +109,19 @@ export HOTSHEET_CLI="\$G/tools/bin/hotsheet-cli"
 export UXREVIEW_UI_REAL_CAPTURE=$REAL_CAPTURE
 cd "\$G/src"
 out="\$G/run-output.txt"
-/bin/bash scripts/ui-e2e.sh$args > "\$out" 2>&1
+: > "\$out"
+# HS2-07PFQX: sign with the guest-only identity from scripts/vm-ui-signing.sh so TCC grants for
+# the app and runner survive rebuilds. The sync replaced src/, so copy its xcconfig back in.
+S="\$G/signing"
+if [[ -s "\$S/Signing.local.xcconfig" && -s "\$S/keychain-password" ]]; then
+  security unlock-keychain -p "\$(cat "\$S/keychain-password")" "/Users/$GUSER/Library/Keychains/uxreview-ui-signing.keychain-db" >> "\$out" 2>&1 &&
+    cp "\$S/Signing.local.xcconfig" macos/Signing.local.xcconfig &&
+    echo "Signing with the guest identity" >> "\$out" ||
+    echo "warning: could not unlock the guest signing keychain; building ad hoc" >> "\$out"
+else
+  echo "warning: no guest signing identity (run scripts/vm-ui-provision.sh); building ad hoc, so TCC grants will not persist" >> "\$out"
+fi
+/bin/bash scripts/ui-e2e.sh$args >> "\$out" 2>&1
 code=\$?
 echo "UXR_RUN_DIR=\$(sed -n 's/^UI test artifacts: //p' "\$out" | tail -n1)" >> "\$out"
 echo "UXR_EXIT=\$code" >> "\$out"

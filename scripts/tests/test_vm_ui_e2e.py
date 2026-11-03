@@ -100,7 +100,7 @@ class VMWrapperPreflightTests(unittest.TestCase):
     def run_wrapper(self, *, vm='Test VM', state='running', user='testing', uid='501',
                     locked='0', xcode='1', exec_exit='0', connect_fails=0,
                     fail_text='PrlVm_TerminalConnect: PrlJob_Wait: PRL_ERR_IO_STOPPED',
-                    screen='1440 812'):
+                    screen='1440 812', keep_run_script=None):
         with tempfile.TemporaryDirectory(prefix='uxreview-vm-wrapper-') as directory:
             tools = Path(directory) / 'bin'
             xcodegen = Path(directory) / 'xcodegen' / 'bin'
@@ -118,8 +118,12 @@ class VMWrapperPreflightTests(unittest.TestCase):
                                VM_XCODE=xcode, VM_EXEC_EXIT=exec_exit, VM_SCREEN=screen,
                                VM_COUNTER=str(Path(directory) / 'count'),
                                VM_CONNECT_FAILS=str(connect_fails), VM_FAIL_TEXT=fail_text)
-            return subprocess.run(['bash', str(ROOT / 'scripts/vm-ui-e2e.sh')], cwd=ROOT,
-                                  env=environment, text=True, capture_output=True, timeout=20)
+            result = subprocess.run(['bash', str(ROOT / 'scripts/vm-ui-e2e.sh')], cwd=ROOT,
+                                    env=environment, text=True, capture_output=True, timeout=20)
+            if keep_run_script is not None:
+                staged = list(Path(directory).glob('uxreview-vm-ui/*/stage/run.sh'))
+                keep_run_script.extend(path.read_text() for path in staged)
+            return result
 
     def test_requires_vm_name(self):
         result = self.run_wrapper(vm='')
@@ -162,6 +166,57 @@ class VMWrapperPreflightTests(unittest.TestCase):
         result = self.run_wrapper(connect_fails=9, fail_text='PrlJob_GetRetCode: Invalid argument.')
         self.assertIn('Could not run commands', result.stderr)
         self.assertNotIn('Syncing', result.stdout)
+
+
+class GuestRunScriptSigningTests(unittest.TestCase):
+    """HS2-07PFQX: the guest run script signs with the guest-only identity when it exists."""
+
+    def guest_run(self, *, identity, unlock_exit=0):
+        scripts = []
+        result = VMWrapperPreflightTests.run_wrapper(self, keep_run_script=scripts)
+        self.assertEqual(len(scripts), 1, result.stderr)
+        with tempfile.TemporaryDirectory(prefix='uxreview-vm-guest-') as directory:
+            guest, tools = Path(directory) / 'guest', Path(directory) / 'bin'
+            (guest / 'src/macos').mkdir(parents=True)
+            (guest / 'src/scripts').mkdir()
+            tools.mkdir()
+            # Stand-in for scripts/ui-e2e.sh: report which signing config the build would see.
+            (guest / 'src/scripts/ui-e2e.sh').write_text(
+                'cat macos/Signing.local.xcconfig 2>/dev/null || echo NO-LOCAL-SIGNING\n'
+                'echo "UI test artifacts: $PWD"\n')
+            (tools / 'security').write_text(
+                f'#!/bin/sh\necho "security $*" >> {directory}/security.log\nexit {unlock_exit}\n')
+            (tools / 'security').chmod(0o755)
+            if identity:
+                (guest / 'signing').mkdir()
+                (guest / 'signing/Signing.local.xcconfig').write_text('CODE_SIGN_IDENTITY = ABC123\n')
+                (guest / 'signing/keychain-password').write_text('secret\n')
+            script = scripts[0].replace('/Users/testing/uxreview-vm', str(guest))
+            self.assertIn('export HOME="/Users/testing"', script)  # Xcode finds keychains via HOME
+            script = script.replace('/Users/testing/Library', str(Path(directory) / 'Library'))
+            script = script.replace('export HOME="/Users/testing"', f'export HOME="{directory}"')
+            environment = dict(os.environ, PATH=str(tools) + os.pathsep + os.environ['PATH'])
+            subprocess.run(['bash', '-c', script], env=environment, timeout=20, check=True)
+            log = Path(directory) / 'security.log'
+            return ((guest / 'run-output.txt').read_text(), (guest / 'run.status').read_text().strip(),
+                    log.read_text() if log.exists() else '')
+
+    def test_copies_guest_signing_config_after_unlocking_its_keychain(self):
+        output, status, security = self.guest_run(identity=True)
+        self.assertEqual(status, '0')
+        self.assertIn('Signing with the guest identity', output)
+        self.assertIn('CODE_SIGN_IDENTITY = ABC123', output)
+        self.assertIn('unlock-keychain -p secret', security)
+        self.assertIn('Library/Keychains/uxreview-ui-signing.keychain-db', security)
+
+    def test_builds_ad_hoc_with_a_warning_without_an_identity_or_unlock(self):
+        output, _, security = self.guest_run(identity=False)
+        self.assertIn('no guest signing identity', output)
+        self.assertIn('NO-LOCAL-SIGNING', output)
+        self.assertEqual(security, '')
+        output, _, _ = self.guest_run(identity=True, unlock_exit=51)
+        self.assertIn('could not unlock the guest signing keychain', output)
+        self.assertIn('NO-LOCAL-SIGNING', output)
 
 
 if __name__ == '__main__':

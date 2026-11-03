@@ -4,7 +4,8 @@
 # and Xcode already copied to the guest's /Applications/Xcode.app (docs/09-ui-testing.md).
 # Changes only the guest: selects Xcode, accepts its license, installs first-launch
 # components, enables developer mode and unattended UI automation, and keeps the guest
-# console awake. Never run its commands on the developer host.
+# console awake, then creates or keeps a guest-only signing identity (vm-ui-signing.sh,
+# HS2-07PFQX). Never run its commands on the developer host.
 set -euo pipefail
 VM="${UXREVIEW_UI_VM:-}"
 [[ -n "$VM" ]] || { echo "Set UXREVIEW_UI_VM to the Parallels macOS guest name (prlctl list -a)" >&2; exit 2; }
@@ -48,4 +49,12 @@ echo "Provisioning '$VM' for $GUSER…"
 until gx "test -f $STATUS" >/dev/null 2>&1; do sleep 5; done
 gx "cat $LOG"
 [[ "$(gx "cat $STATUS")" == 0 ]] || { echo "Guest provisioning failed; see the log above" >&2; exit 1; }
+# HS2-07PFQX: a guest-only self-signed identity, so TCC grants survive rebuilds. The script runs
+# as the guest user in its session; it keeps an existing identity (and the grants made for it).
+SIGNING="$(base64 < "$(dirname "$0")/vm-ui-signing.sh" | tr -d '\n')"
+gx "echo $SIGNING | base64 -D > /var/tmp/uxreview-vm-signing.sh && chmod 755 /var/tmp/uxreview-vm-signing.sh" ||
+  { echo "Could not copy the signing setup to '$VM'" >&2; exit 1; }
+gx "cd /tmp && launchctl asuser $GUID sudo -H -u $GUSER /bin/bash /var/tmp/uxreview-vm-signing.sh" ||
+  { echo "Guest signing setup failed" >&2; exit 1; }
+echo "Approve UXReviewUITests-Runner once in the guest's Privacy & Security > Device Control and Data Access after its first signed run (docs/09-ui-testing.md)."
 echo "Keep the guest console unlocked between runs; FileVault guests need a manual login after every boot."

@@ -102,11 +102,53 @@ shrinking back, so every drag stays above that threshold, and accepts a size wit
 editor's fitted media strip, use `resizeToMinimumWidth`: it drags past the editor's 900 pt
 minimum so the window clamps to exactly that width.
 
-Accessibility trust for the UI-test runner is not yet provisioned in the guest, so the
-direct-AX sidebar test fails there with `process trusted=false` until `HS2-07PFQX` lands.
+The developer's local signing identity is never copied to the guest. The guest instead signs
+the app and `UXReviewUITests-Runner` with its own self-signed identity (`HS2-07PFQX`), created
+by `scripts/vm-ui-signing.sh` during provisioning:
+- a dedicated keychain, `~/Library/Keychains/uxreview-ui-signing.keychain-db`, holding the
+  certificate "UXReview UI Test Signing (guest)";
+- a generated keychain password, mode 0600, in `~/uxreview-vm/signing/`;
+- a `Signing.local.xcconfig` in the same directory that names the certificate by SHA-1.
 
-The guest builds with ad hoc signing because the developer's local signing identity is not
-copied. `UXREVIEW_UI_REAL_CAPTURE` is forwarded unchanged.
+Before each run the guest run script unlocks the keychain and copies that xcconfig into the
+freshly synced tree. The designated requirement is then `certificate leaf = H"…"` rather than
+a per-build code hash, so TCC grants survive rebuilds. Without the identity the run still
+builds ad hoc and prints a warning. `UXREVIEW_UI_REAL_CAPTURE` is forwarded unchanged.
+
+**One-time certificate trust.** `codesign` accepts the untrusted certificate, but Xcode
+lists only valid identities. Until the certificate is trusted, the build fails with "No
+certificate matching '…' found". Changing trust settings needs a person's authorization, so
+in the guest's Terminal run this once, then approve the dialog:
+
+    security add-trusted-cert -r trustRoot -p codeSign \
+      -k ~/Library/Keychains/uxreview-ui-signing.keychain-db ~/uxreview-vm/signing/certificate.pem
+
+Afterwards `security find-identity -v -p codesigning` lists the identity. Trust is limited to
+code signing, for this one guest-only certificate.
+
+The guest xcconfig also sets `ENABLE_DEBUG_DYLIB = NO`. A self-signed certificate has no
+Team ID, so hardened-runtime library validation would otherwise reject Xcode's separate
+`UXReview.debug.dylib` ("different Team IDs"). The guest run script exports the guest
+user's `HOME`, because `launchctl asuser … sudo` leaves `HOME=/`, which hides the keychain
+search list from Xcode.
+
+**One-time privacy grants.** SIP blocks scripted TCC grants, so a person approves these once
+in the guest. Both builds live in
+`~/uxreview-vm/tmp/uxreview-ui-<uid>/DerivedData/Build/Products/UITesting/`.
+1. Trust the certificate as above, then run the suite once so the signed builds exist.
+2. Open System Settings → Privacy & Security → **Device Control and Data Access**. In
+   macOS 27 this replaces the "Accessibility" list.
+   `x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility` still
+   opens it. Add `UXReviewUITests-Runner.app` with **+** and turn it on. Direct public AX
+   actions need it.
+3. Under Privacy & Security → **Full Disk Access**, add `UXReview.app` from the same folder.
+   - Xcode always sandboxes the runner, so fixtures live in the runner's container
+     (`~/Library/Containers/com.smalltale.uxreview.uitests.xctrunner`).
+   - App-data protection (`kTCCServiceSystemPolicyAppDataDetailed`) lets another app use that
+     container only with the same Team ID. A self-signed certificate has none, so without
+     this grant the app fails with "You don't have permission to save the file … in the
+     folder 'drafts'".
+   - This grant applies only to this guest-only test build. Never grant it on the host.
 
 ### Guest setup
 
@@ -124,8 +166,11 @@ copied. `UXREVIEW_UI_REAL_CAPTURE` is forwarded unchanged.
    console user to `_developer`, enables unattended UI automation
    (`automationmodetool enable-automationmode-without-authentication`), and disables guest
    sleep and screen saver. Unattended automation is acceptable here because the guest is
-   a dedicated test machine; never apply it to the developer host.
-4. Dismiss one-time guest banners (for example Xcode's "Multiple Extensions Added") before the
+   a dedicated test machine; never apply it to the developer host. Finally, as the console
+   user, it creates or keeps the guest signing identity described above.
+4. Trust the guest certificate, run once, then make the one-time privacy grants described
+   above.
+5. Dismiss one-time guest banners (for example Xcode's "Multiple Extensions Added") before the
    first run; a banner over the top-right of a window blocks clicks there.
 
 ### Recovery
@@ -154,15 +199,27 @@ copied. `UXREVIEW_UI_REAL_CAPTURE` is forwarded unchanged.
   host's Parallels bridge address (`ifconfig bridge100`) and that the host firewall allows
   incoming connections for `python3`.
 - **Automation-mode prompt or timeout in the guest**: rerun `scripts/vm-ui-provision.sh`.
+- **"permission to save the file … in the folder 'drafts'" in the guest**: the guest
+  `UXReview.app` lacks Full Disk Access (see the one-time privacy grants above).
+- **"No certificate matching '…' found"**: the guest certificate is not trusted for code
+  signing. Run the one-time `add-trusted-cert` step.
+- **`process trusted=false` in the guest**: the runner's Accessibility grant is missing or was
+  made for another signature. Check that `run-output.txt` says "Signing with the guest
+  identity". Then remove and re-add the runner under Device Control and Data Access.
+  - To confirm the cause, the guest's `tccd` log answers "returning Unknown" when no entry
+    matches: `log show --last 10m --predicate 'process == "tccd"' | grep xctrunner`.
+  - Rerunning provisioning keeps the existing identity. If you delete
+    `~/uxreview-vm/signing` or the keychain, a new identity is created, and every grant must
+    be made again.
 
 ### Real capture lane
 
 Screen Recording and Microphone approvals are per-machine TCC grants that need a person to
 approve them in the guest's System Settings. Real capture therefore stays a separately gated
 lane in the guest as well: grant Screen Recording to the `UITesting` build in the guest once,
-then run `UXREVIEW_UI_REAL_CAPTURE=1 scripts/vm-ui-e2e.sh`. Because guest builds are ad hoc
-signed, the grant can stop applying after a rebuild. Without the grant, the suite records a
-skip, or fails when the lane is required, exactly as on the host.
+then run `UXREVIEW_UI_REAL_CAPTURE=1 scripts/vm-ui-e2e.sh`. Guest builds use the guest
+signing identity, so the grant keeps applying after a rebuild. Without the grant, the suite
+records a skip, or fails when the lane is required, exactly as on the host.
 
 ## What the automated suite exercises
 

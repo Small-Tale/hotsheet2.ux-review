@@ -2088,7 +2088,11 @@ commands, desktop permissions, isolation and the manual capture regression matri
 - UI helpers: the window `resize` helper's corner-then-edge correction and `resizeToMinimumWidth` exact clamp are exercised by every editor, submission and sidebar live test in the guest.
 - Unit: connect failures and late `PrlJob_GetRetCode` errors are retried for repeatable commands and give up with "Could not run commands" when they persist.
 - Not covered by unit tests: the launch marker retry (`run.started`) and upload retry; the fake `prlctl` stops before sync, so only real guest runs exercise them.
-- Known guest gap: the direct-AX sidebar test needs runner Accessibility trust (`HS2-07PFQX`).
+- Guest signing (`HS2-07PFQX`), unit tests: the generated guest run script runs against a fake guest home and a fake `security`.
+  - With an identity, it unlocks the dedicated keychain and copies the guest `Signing.local.xcconfig` into the synced tree.
+  - With no identity, or a failed unlock, it builds ad hoc and prints a warning.
+- Guest signing, end to end: `scripts/vm-ui-signing.sh` runs in the guest, and the runner's Accessibility grant must survive two consecutive guest runs with a UI-test source change between them (see the ticket).
+- Manual: the one-time runner Accessibility grant (Device Control and Data Access).
 - Manual: guest login/unlock after boot, Parallels Tools recovery, and the real-capture TCC grant in the guest (docs/09, "Real capture lane").
 
 Verification on 2026-10-20: all three default live UI flows passed; the real-capture test
@@ -2256,7 +2260,13 @@ public AX actions through the bounds, fitted the strip to `178 points` at the ed
 900 pt minimum, and checked reset, external updates and a further edit. The final tree
 reports an enabled `AXSlider` at `128 points`. The drag/persistence regression also passed
 there against the same control, and wide/narrow captures were inspected. Production code is
-unchanged since `0ed79b1`. The guest grant is tied to the ad hoc build until `HS2-07PFQX`.
+unchanged since `0ed79b1`. That grant was tied to the ad hoc build. `HS2-07PFQX` replaced it with the guest signing identity, so later grants persist.
+
+On 2026-11-03 (`HS2-07PFQX`), the grants were verified to persist with the guest signing identity:
+- The app and runner were signed with "UXReview UI Test Signing (guest)". Both designated requirements are `certificate leaf = H"864d17e7…"`.
+- After the one-time certificate trust, runner Accessibility and app Full Disk Access grants, the sidebar AX regression passed twice in a row.
+- A UI-test source change between the runs rebuilt the runner: its CDHash changed from `9dd57a3c…` to `0a996189…`, and the probe attachment appeared in the second run.
+- The narrow capture was inspected: 900 pt editor, fitted strip, nothing clipped.
 
 ### Destination-dependent Title (`HS2-6V0S8A`)
 
