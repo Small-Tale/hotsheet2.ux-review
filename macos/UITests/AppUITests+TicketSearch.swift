@@ -33,10 +33,15 @@ extension AppUITests {
         XCTAssertFalse(submit.isEnabled)
         capture("ticket-search-wide", session)
         let wide = session.frame.size
-        resize(session, to: CGSize(width: 520, height: 680))
+        // A corner drag past the minimum clamps to exactly 520 pt; the edge-drag corrections in
+        // resize(_:to:) can grab this window's always-visible scroller in the guest.
+        dragCorner(session, by: CGVector(dx: 400 - wide.width, dy: 680 - wide.height))
+        XCTAssertTrue(fixture.wait { abs(session.frame.width - 520) < 0.5 }, "Width \(session.frame.width); minimum 520")
         XCTAssertTrue(match(titled).isHittable)
         capture("ticket-search-narrow", session)
-        resize(session, to: wide)
+        dragCorner(session, by: CGVector(dx: wide.width - session.frame.width, dy: wide.height - session.frame.height))
+        XCTAssertTrue(fixture.wait { session.frame.width > wide.width - 20 }, "Width \(session.frame.width) after widening")
+        XCTAssertTrue(match(titled).isHittable)
 
         // A slug fragment, then a slug with the wrong prefix (looked up, not found, then searched).
         let suffix = try XCTUnwrap(titled.split(separator: "-").last)
@@ -61,5 +66,10 @@ extension AppUITests {
         XCTAssertTrue(fixture.wait(timeout: 20) { !session.exists })
         XCTAssertEqual(try fixture.tickets().count, 3, "Adding a review must not create another ticket")
         XCTAssertTrue(try fixture.run(fixture.cli, ["-C", store, "show", titled]).contains("UX review: UX review"))
+    }
+
+    private func dragCorner(_ window: XCUIElement, by delta: CGVector) {
+        let corner = window.coordinate(withNormalizedOffset: CGVector(dx: 1, dy: 1)).withOffset(CGVector(dx: -2, dy: -2))
+        corner.click(forDuration: 0.2, thenDragTo: corner.withOffset(delta), withVelocity: .slow, thenHoldForDuration: 0.3)
     }
 }
