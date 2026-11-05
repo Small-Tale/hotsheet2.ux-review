@@ -33,20 +33,10 @@ struct RecentTicketsButton: View {
                     ScrollView {
                         VStack(alignment: .leading, spacing: 2) {
                             ForEach(model.recentTickets.tickets, id: \.slug) { ticket in
-                                Button {
+                                TicketSuggestionRow(ticket: ticket) {
                                     model.chooseRecentTicket(ticket)
                                     showing = false
-                                } label: {
-                                    VStack(alignment: .leading, spacing: 2) {
-                                        Text(ticket.title).lineLimit(2)
-                                        Text("\(ticket.slug) · \(ReviewDestinationRows.statusLabel(ticket.status))")
-                                            .font(.caption).foregroundStyle(.secondary)
-                                    }
-                                    .frame(maxWidth: .infinity, alignment: .leading)
-                                    .padding(6)
-                                    .contentShape(Rectangle())
                                 }
-                                .buttonStyle(.plain)
                                 .accessibilityIdentifier("recent-ticket-\(ticket.slug)")
                             }
                         }
@@ -59,5 +49,69 @@ struct RecentTicketsButton: View {
             .frame(width: 340, alignment: .leading)
             .accessibilityIdentifier("recent-ticket-popup")
         }
+    }
+}
+
+/// One suggested ticket: its title, then slug and status. Recent and the search matches share it.
+struct TicketSuggestionRow: View {
+    var ticket: RecentTicket
+    var action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(ticket.title).lineLimit(2)
+                Text("\(ticket.slug) · \(ReviewDestinationRows.statusLabel(ticket.status))")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(6)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+/// Candidates for text in the ticket field that isn't an exact reference (HS2-F2VKVZ, docs/07
+/// §7.2.1): slug fragments, then title, details, and note matches. Choosing one fills the field.
+struct TicketMatches: View {
+    @ObservedObject var model: ReviewSessionModel
+    var text: String
+
+    var body: some View {
+        let search = model.ticketSearch
+        VStack(alignment: .leading, spacing: 4) {
+            Text("Matching tickets").font(.caption.weight(.medium)).foregroundStyle(.secondary)
+            if search.isLoading {
+                HStack(spacing: 6) {
+                    ProgressView().controlSize(.mini)
+                    Text("Searching for “\(text)”…").foregroundStyle(.secondary)
+                }
+                .font(.caption)
+            } else if search.failure != nil {
+                HStack(spacing: 8) {
+                    Text("Couldn't search this project's tickets.").font(.caption).foregroundStyle(.secondary)
+                    Button("Try Again") { model.retryTicketSearch() }
+                        .controlSize(.small)
+                        .accessibilityIdentifier("ticket-search-retry")
+                }
+            } else if search.tickets.isEmpty {
+                Text("No tickets match “\(text)”.").font(.caption).foregroundStyle(.secondary)
+            } else {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 0) {
+                        ForEach(search.tickets, id: \.slug) { ticket in
+                            TicketSuggestionRow(ticket: ticket) { model.chooseSearchedTicket(ticket) }
+                                .accessibilityIdentifier("ticket-match-\(ticket.slug)")
+                        }
+                    }
+                }
+                .frame(maxHeight: 190)
+                .fixedSize(horizontal: false, vertical: true)
+                .background(RoundedRectangle(cornerRadius: 6).fill(Color(nsColor: .quaternarySystemFill)))
+            }
+        }
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("ticket-matches")
     }
 }

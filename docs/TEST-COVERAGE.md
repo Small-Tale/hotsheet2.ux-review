@@ -2140,6 +2140,39 @@ with the default capture bindings registered, then exercises persistence in both
   widths and keyboard navigation. Background request transitions have unit coverage.
 
 
+## HS2-F2VKVZ: Searching for a ticket in Submit Review
+
+- **Unit:** `TicketSearchTests` covers:
+  - slug-fragment matching: any case, wrong prefix, and too-short, punctuated, or spaced text;
+  - normalization (trim, flatten, minimum length);
+  - merge order (slug matches first, no repeats, 10-row cap);
+  - argv: two `ls` listings, with `--text=` keeping a leading `-`;
+  - short text running nothing;
+  - command failures and malformed output in either listing;
+  - `ReviewSession.ticketSearchText` for every lookup state, destination switches, a missing
+    store, a store change, an exact slug that resolves to not-found, and clearing;
+  - search requests scoped by text, so a stale response is ignored.
+- **Unit (messages):** `ExistingTicketSessionTests.onlyAFoundOpenTicketCanBeSubmittedTo` pins
+  the reworded "Choose a ticket matching …" blocker. `TicketSearchTests` pins the unchanged
+  one-character message.
+- **Real CLI:** `ticketSearchFindsSlugFragmentsAndTextInARealStore` uses an isolated store. It
+  checks title, details, and note matches newest first, a leading-dash query, a deleted ticket
+  left out, a slug fragment, a wrong-prefix slug, no matches, and that a candidate resolves
+  through the ordinary lookup.
+- **Offscreen renders:** `--render-ui-previews` writes the real `ReviewSessionView` in these
+  states: `session-existing-matches`, `session-existing-matches-narrow`,
+  `session-existing-no-matches`, `session-existing-search-failed`, and
+  `session-existing-not-found` (searching after not found).
+- **Live UI:** `testExistingTicketSearchSuggestsCandidates` (`AppUITests+TicketSearch.swift`)
+  runs against a real project store. It searches title and details text, then a slug fragment,
+  a wrong-prefix slug (not found, then searched), and text with no matches. It resizes wide,
+  then narrow, then wide. Then it chooses a candidate, which runs the lookup and enables
+  submitting, and files into that ticket without creating another.
+- **Manual:**
+  - Type quickly past several queries and confirm the list follows the last one.
+  - Switch projects while a search runs.
+  - Make the CLI fail, then use Try Again.
+
 ## HS2-7HJNAC: Writable isolated preferences
 
 `FilePreferencesTests` covers separate instances, interleaved sequential writes preserving

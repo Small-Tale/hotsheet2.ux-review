@@ -23,6 +23,7 @@ final class ReviewSessionModel: ObservableObject {
             guard ticketInput != oldValue else { return }
             session.editTicket(ticketInput)
             scheduleLookup()
+            scheduleTicketSearch()
         }
     }
 
@@ -100,13 +101,15 @@ final class ReviewSessionModel: ObservableObject {
     @Published var recentTickets = RecentTicketSuggestions()
     var recentTicketsTask: Task<Void, Never>?
     var recentTicketLoader: @Sendable (String, String) -> Result<[RecentTicket], SubmissionFailure> = { cli, store in
-        do {
-            return try .success(HotSheetCLIClient(
-                executable: URL(fileURLWithPath: cli), storePath: URL(fileURLWithPath: store)
-            ).recentTickets())
-        } catch {
-            return .failure(SubmissionFailure(message: ReviewSubmitter.describe(error)))
-        }
+        listTickets(cli, store) { try $0.recentTickets() }
+    }
+
+    /// Candidate tickets for text that isn't an exact reference (HS2-F2VKVZ).
+    @Published var ticketSearch = RecentTicketSuggestions()
+    var ticketSearchTask: Task<Void, Never>?
+    /// Searches a store's tickets (off the main thread): cli, store, text. Previews and tests replace it.
+    var ticketSearcher: @Sendable (String, String, String) -> Result<[RecentTicket], SubmissionFailure> = { cli, store, text in
+        listTickets(cli, store) { try $0.searchTickets(text) }
     }
 
     private var saveTask: Task<Void, Never>?
@@ -206,6 +209,7 @@ final class ReviewSessionModel: ObservableObject {
         session.setTarget(statusProvider())
         if session.target.storePath != previousStore { loadRecentTickets() }
         scheduleLookup()
+        scheduleTicketSearch()
         refreshScale()
     }
 
@@ -215,6 +219,7 @@ final class ReviewSessionModel: ObservableObject {
         guard session.setDestination(destination) else { return }
         loadRecentTickets()
         scheduleLookup()
+        scheduleTicketSearch()
     }
 
     /// Starts the lookup the session waits for, after a short pause so typing doesn't run
@@ -235,7 +240,8 @@ final class ReviewSessionModel: ObservableObject {
             }
             let result = await Task.detached { find(query, cli) }.value
             if lookupInFlight == query { lookupInFlight = nil }
-            session.resolveLookup(query, result)
+            // A reference with no such ticket searches for candidates (HS2-F2VKVZ).
+            if session.resolveLookup(query, result) { scheduleTicketSearch() }
         }
     }
 
@@ -243,7 +249,7 @@ final class ReviewSessionModel: ObservableObject {
     func previewLookup(_ result: Result<HotSheetTicket?, SubmissionFailure>) {
         lookupTask?.cancel()
         lookupInFlight = nil
-        if let query = session.pendingLookup { session.resolveLookup(query, result) }
+        if let query = session.pendingLookup, session.resolveLookup(query, result) { scheduleTicketSearch() }
     }
 
     private static func missingFiles(in draft: ReviewDraft) -> Set<String> {

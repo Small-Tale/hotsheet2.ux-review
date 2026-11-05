@@ -204,6 +204,14 @@ surface as a recoverable list error. The UI loads off the main thread and scopes
 to its store and request, so older results cannot repopulate a changed project. Choosing a
 suggestion uses the ordinary validated ticket lookup above.
 
+**Search** (`HS2-F2VKVZ`, docs/07 §7.2.1). `HotSheetCLIClient.searchTickets(_:)` runs two
+listings in the store: `ls --sort created` to match slug fragments locally (any case; a wrong
+prefix still matches the suffix), and `ls --sort created --text=<text>` for title, details, and
+note text, because the CLI's `--text` doesn't look at slugs. `--text=` keeps text starting with
+`-` from being read as an option. `TicketSearch.merge` puts slug matches first, then text
+matches, drops repeats and deleted/moved tickets, and keeps 10. Text shorter than two
+characters runs nothing.
+
 **Writing.** `ReviewSubmitter.add(…)` validates and writes `review.json` exactly like §3.2, then:
 
 1. `hotsheet-cli -C <store> attach --actor-role=human --actor-id=ux-review <SLUG> --batch-id=… --batch-label=UX review capture --purpose=problem_evidence -- <media…> review.json`:

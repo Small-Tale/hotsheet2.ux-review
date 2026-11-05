@@ -273,7 +273,7 @@ final class AppUITests: XCTestCase {
         return element.value as? String ?? "<no value>"
     }
 
-    private func replace(_ element: XCUIElement, with text: String) {
+    func replace(_ element: XCUIElement, with text: String) {
         XCTAssertTrue(element.waitForExistence(timeout: 5))
         element.click()
         element.typeKey("a", modifierFlags: .command)

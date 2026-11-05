@@ -41,7 +41,8 @@ macos/
     HotSheet/HotSheetCLIClient.swift  HotSheetClient protocol, CreatedTicket (slug + file), CLI transport (new, attach with stored names + --batch-id, attachIncomplete, show, edit --note-file, moveToTrash, ai-settings get --json), HotSheetLocator
     HotSheet/HotSheetWebClient.swift  the running Hot Sheet 2 web client (client.json, live pid, answers) and its ticket deep link (docs/07 §7.2)
     HotSheet/HotSheetProjects.swift   the projects Hot Sheet knows: `hotsheet-cli checkout list` (HS2-T32CZC)
-    HotSheet/RecentTickets.swift     newest-created CLI listing parser, 10-ticket cap, store/request-scoped suggestion state (HS2-19XFD1)
+    HotSheet/RecentTickets.swift     newest-created CLI listing parser, 10-ticket cap, store/request/text-scoped suggestion state (HS2-19XFD1)
+    HotSheet/TicketSearch.swift      candidates for non-exact ticket text: slug fragments + `ls --text`, merge, ReviewSession.ticketSearchText (HS2-F2VKVZ)
     HotSheet/HotSheetTicket.swift     an existing ticket from `show` front matter, its file; TicketReference (slug/ULID/path in pasted text)
     HotSheet/HotSheetStatus.swift     ready/problem detection for UI and --status
     HotSheet/ProcessRunner.swift      Process seam (fakeable in tests)
@@ -120,7 +121,7 @@ macos/
     Editor/DragModifiers.swift        ⇧ / ⌥ while dragging: ModifiedBox resize, drawn boxes, 45° snapping (HS2-Q5TA4C)
     Editor/Filmstrip.swift            the timeline filmstrip: frame count, times, small frames from the movie (HS2-VMKTHQ)
   Tests/UXReviewKitTests/      Swift Testing unit + end-to-end tests (docs/TEST-COVERAGE.md)
-  UITests/                    XCTest live UI target: UIAppFixture isolates real stores/settings; +StatusMenu helpers retain bounded lock/focus/geometry diagnostics; +Accessibility resolves real app AX elements/actions for sidebar verification; AppUITests drives menus, explicit dismissal/reopen, import, editor, submit and optional real capture
+  UITests/                    XCTest live UI target: UIAppFixture isolates real stores/settings; +StatusMenu helpers retain bounded lock/focus/geometry diagnostics; +Accessibility resolves real app AX elements/actions for sidebar verification; AppUITests drives menus, explicit dismissal/reopen, import, editor, submit, ticket search (+TicketSearch, HS2-F2VKVZ) and optional real capture
   App/Resources/Assets.xcassets  StatusBarIcon template vector (menu bar icon, docs/05 §5.1)
   App/Sources/
     UXReviewApp.swift          @main: headless mode routing, else an AppKit NSApplication run loop

@@ -73,7 +73,10 @@ public enum TicketIssue: Equatable, Sendable {
         case .empty:
             "Enter the ticket to add this review to."
         case let .unrecognized(text):
-            "“\(Self.clip(text))” isn't a ticket. Enter a slug such as HS-ABC123."
+            // Searchable text lists candidates under the field (HS2-F2VKVZ).
+            TicketSearch.normalized(text) == nil
+                ? "“\(Self.clip(text))” isn't a ticket. Enter a slug such as HS-ABC123."
+                : "Choose a ticket matching “\(Self.clip(text))”, or enter a slug such as HS-ABC123."
         case let .looking(reference):
             "Looking up \(reference)…"
         case let .notFound(reference, store):

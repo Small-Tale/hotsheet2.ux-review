@@ -44,6 +44,9 @@ struct ReviewDestinationRows: View {
                 lookupStatus
                     .font(.caption)
                     .fixedSize(horizontal: false, vertical: true)
+                if let text = session.ticketSearchText {
+                    TicketMatches(model: model, text: text)
+                }
             }
             if !session.bundle.media.isEmpty {
                 DisclosureGroup(isExpanded: $choosing) {
@@ -94,6 +97,9 @@ struct ReviewDestinationRows: View {
                 Image(systemName: "checkmark.circle.fill").foregroundStyle(.green)
             }
             .accessibilityElement(children: .combine)
+        case .unrecognized where session.ticketSearchText != nil:
+            // The matches list stands in for the warning (HS2-F2VKVZ); the footer still says why.
+            EmptyView()
         default:
             if let issue = session.issues.first(where: { if case .ticket = $0 { true } else { false } }) {
                 Label(issue.message(in: session.bundle), systemImage: "exclamationmark.triangle.fill")

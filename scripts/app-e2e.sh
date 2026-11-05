@@ -1317,6 +1317,7 @@ for name in overlay-region-hint overlay-window-hint overlay-region-selection ove
   session-ready session-narrow session-edited session-ticket-text-new session-ticket-text-existing session-ticket-text-edited session-ticket-text-editing session-ticket-text-narrow session-submitting session-failed session-submitted filed-hud filed-hud-hotsheet filed-hud-partial session-submitted-hotsheet session-submitted-fitted session-issues session-empty \
   session-existing-looking session-existing-found session-existing-narrow session-existing-not-found session-existing-closed \
   session-existing-failed session-existing-submitted session-existing-selection session-existing-abandoned \
+  session-existing-matches session-existing-matches-narrow session-existing-no-matches session-existing-search-failed \
   drafts-delete-immediately; do
   [[ -s "$TMP/previews/$name.png" ]] || die "previews: $name.png missing"
 done

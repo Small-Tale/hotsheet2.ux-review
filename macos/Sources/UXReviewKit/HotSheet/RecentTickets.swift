@@ -15,6 +15,14 @@ public struct RecentTicket: Equatable, Sendable {
     /// `ls --sort created` is oldest first. Its rows have marker, slug, status, then title.
     /// Reject unknown output instead of silently presenting a broken list as an empty project.
     public static func parseList(_ output: String) throws -> [RecentTicket] {
+        try Array(parseRows(output).prefix(limit))
+    }
+
+    /// The most rows a suggestion list shows (Recent and search matches alike).
+    public static let limit = 10
+
+    /// Every row of an `ls --sort created` listing, newest first, without deleted/moved tickets.
+    static func parseRows(_ output: String) throws -> [RecentTicket] {
         if output.trimmingCharacters(in: .whitespacesAndNewlines) == "(no tickets)" { return [] }
         let statuses: Set<String> = ["not_started", "started", "completed", "verified", "backlog", "archive", "deleted", "moved"]
         let rows = try output.split(separator: "\n").filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty }.map { line in
@@ -24,7 +32,7 @@ public struct RecentTicket: Equatable, Sendable {
             }
             return RecentTicket(slug: String(parts[1]), title: parts[3].trimmingCharacters(in: .whitespaces), status: String(parts[2]))
         }
-        return Array(rows.reversed().filter { !HotSheetTicket.closedStatuses.contains($0.status) }.prefix(10))
+        return rows.reversed().filter { !HotSheetTicket.closedStatuses.contains($0.status) }
     }
 }
 
@@ -39,6 +47,8 @@ public extension HotSheetCLIClient {
 public struct RecentTicketSuggestions: Sendable {
     public struct Request: Equatable, Sendable {
         public let store: String
+        /// What a ticket search looks for (HS2-F2VKVZ); nil for the Recent list.
+        public let text: String?
         private let id = UUID()
     }
 
@@ -50,8 +60,8 @@ public struct RecentTicketSuggestions: Sendable {
     public init() {}
 
     @discardableResult
-    public mutating func begin(store: String?) -> Request? {
-        request = store.map { Request(store: $0) }
+    public mutating func begin(store: String?, text: String? = nil) -> Request? {
+        request = store.map { Request(store: $0, text: text) }
         tickets = []
         failure = nil
         isLoading = request != nil

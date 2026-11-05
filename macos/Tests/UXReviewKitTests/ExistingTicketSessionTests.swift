@@ -111,7 +111,7 @@ struct ExistingTicketSessionTests {
     @Test func onlyAFoundOpenTicketCanBeSubmittedTo() {
         let messages: [Start: String?] = [
             .empty: "Enter the ticket to add this review to.",
-            .unrecognized: "“junk” isn't a ticket. Enter a slug such as HS-ABC123.",
+            .unrecognized: "Choose a ticket matching “junk”, or enter a slug such as HS-ABC123.",
             .looking: "Looking up HS-1ABC…",
             .found: nil,
             .notFound: "No ticket HS-1ABC in a.hs2.",

@@ -97,6 +97,17 @@ intake ticket: all of it, or the part chosen under **Add** (§7.2.2).
   lookup as typing. Opening the popup refreshes its list off the main thread; changing projects
   clears old rows immediately and ignores late responses. Loading, empty, and failed-list states
   are explicit; a failed list offers **Try Again** and never prevents manual entry.
+- **Searching** (`HS2-F2VKVZ`): text that isn't an exact reference lists **Matching tickets**
+  under the field. That covers words from a ticket, a slug fragment (`F2VK`, `hs2-f2v`), a slug
+  with the wrong prefix (`HS-F2VKVZ`), or a slug with no such ticket. Slug matches come first,
+  then tickets whose title, details, or notes contain the text, each newest first. Deleted and
+  moved tickets are left out, and the list shows at most 10. The search runs 0.3 s after typing
+  stops (two or more characters), after a lookup finds no such ticket, and when the project
+  changes. A response for older text or another store is ignored. Searching, no-match, and
+  failed states are explicit; a failed search offers **Try Again**. Choosing a row fills the
+  field and runs the ordinary lookup, as Recent does. While matches are shown for text that
+  isn't a reference, the warning under the field gives way to the list; the footer still names
+  what blocks submitting.
 - **The lookup** runs `hotsheet-cli show` in the project's store 0.3 s after typing stops, and
   again when the project changes. Under the field it shows "Looking up HS-…", the found ticket's
   slug, “title”, and status, or the problem (§7.3). A result for text that has since changed, or
@@ -175,7 +186,8 @@ are none.
    (`HotSheetStatus`, [03-hotsheet-integration.md](03-hotsheet-integration.md) §3.1).
 6. Adding to an existing ticket (§7.2.1), until a found, open ticket is confirmed:
    - "Enter the ticket to add this review to."
-   - "“…” isn't a ticket. Enter a slug such as HS-ABC123."
+   - "Choose a ticket matching “…”, or enter a slug such as HS-ABC123." (`HS2-F2VKVZ`); text too
+     short to search (one character) reads "“…” isn't a ticket. Enter a slug such as HS-ABC123."
    - "Looking up HS-…"
    - "No ticket HS-… in <store>."
    - "HS-… is deleted." (or moved) "Choose an open ticket."

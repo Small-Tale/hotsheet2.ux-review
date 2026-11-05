@@ -27,12 +27,7 @@ enum ReviewSessionPreviews {
             let model = ReviewSessionModel(draft: draft, store: store, target: target) { _, _ in .claudeStandard }
             model.statusProvider = { target }
             model.previewScale(.claudeStandard)
-            // Previews never run hotsheet-cli; they resolve lookups with previewLookup.
-            model.ticketFinder = { _, _ in .success(nil) }
-            model.recentTicketLoader = { _, _ in .success([]) }
-            // No Hot Sheet web client unless a preview says so.
-            model.hotSheetLinkFinder = { _, _, _ in nil }
-            return model
+            return isolated(model)
         }
 
         var written: [URL] = []
@@ -141,6 +136,16 @@ enum ReviewSessionPreviews {
         return written
     }
 
+    /// Previews never run hotsheet-cli; they resolve lookups and searches with previewLookup and
+    /// previewTicketSearch. No Hot Sheet web client unless a preview says so.
+    private static func isolated(_ model: ReviewSessionModel) -> ReviewSessionModel {
+        model.ticketFinder = { _, _ in .success(nil) }
+        model.recentTicketLoader = { _, _ in .success([]) }
+        model.ticketSearcher = { _, _, _ in .success([]) }
+        model.hotSheetLinkFinder = { _, _, _ in nil }
+        return model
+    }
+
     static let existingTicket = HotSheetTicket(
         id: "01M4CCW6AW9EHFYT2QTZJ70H8D", slug: "HS-YCDZ2A", title: "Accounts settings page redesign", status: "started",
         file: "/Users/me/Code/acme-mail.hs2/tickets/8D/01M4CCW6AW9EHFYT2QTZJ70H8D.md"
@@ -176,6 +181,21 @@ enum ReviewSessionPreviews {
         try shoot("session-existing-found", existing("HS-YCDZ2A", .success(existingTicket)), size)
         try shoot("session-existing-narrow", existing("HS-YCDZ2A", .success(existingTicket)), CGSize(width: 520, height: 880))
         try shoot("session-existing-not-found", existing("HS-NOPE00", .success(nil)), size)
+        // Text that isn't an exact reference lists candidates (HS2-F2VKVZ).
+        func searched(_ input: String, _ result: Result<[RecentTicket], SubmissionFailure>) -> ReviewSessionModel {
+            let session = existing(input, nil)
+            session.previewTicketSearch(result)
+            return session
+        }
+        let matches = [
+            RecentTicket(slug: "HS-YCDZ2A", title: existingTicket.title, status: "started"),
+            RecentTicket(slug: "HS-4QPM2C", title: "Settings sidebar loses its selection after switching accounts", status: "not_started"),
+            RecentTicket(slug: "HS-0KX7TB", title: "Account settings: avatar upload", status: "completed"),
+        ]
+        try shoot("session-existing-matches", searched("account settings", .success(matches)), size)
+        try shoot("session-existing-matches-narrow", searched("account settings", .success(matches)), CGSize(width: 520, height: 940))
+        try shoot("session-existing-no-matches", searched("zebra stripes", .success([])), size)
+        try shoot("session-existing-search-failed", searched("account settings", .failure(SubmissionFailure(message: "locked"))), size)
         var deleted = existingTicket
         deleted.status = "deleted"
         try shoot("session-existing-closed", existing("HS-YCDZ2A", .success(deleted)), size)
