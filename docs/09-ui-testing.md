@@ -96,9 +96,11 @@ Each run:
 
 Pointer drags in the guest end a few points short, and a drag of about 5 pt or less is
 ignored. The suite's window `resize` helper therefore drags the corner slowly and holds at
-the end, then corrects each side from its edge midpoint by growing past the target and
-shrinking back, so every drag stays above that threshold, and accepts a size within 4 pt
-(`macos/UITests/AppUITests.swift`). Checks that depend on the exact width, such as the
+the end. It then corrects through the same corner by growing past the target and
+shrinking back, so every drag stays above that threshold, and accepts a size within 4 pt,
+inclusive (`macos/UITests/AppUITests+Resize.swift`). Corrections avoid edge drags
+(`HS2-3AVG0K`): a grab 1 pt inside the window can land on an always-visible scroller, such
+as the Submit Review form's in the guest, and resize nothing. Checks that depend on the exact width, such as the
 editor's fitted media strip, use `resizeToMinimumWidth`: it drags past the editor's 900 pt
 minimum so the window clamps to exactly that width.
 
