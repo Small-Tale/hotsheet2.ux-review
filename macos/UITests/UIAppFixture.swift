@@ -114,13 +114,6 @@ final class UIAppFixture {
         return canvas
     }
 
-    func openSubmit() -> XCUIElement {
-        app.buttons["Submit Review…"].click()
-        let window = app.windows["Submit Review"]
-        XCTAssertTrue(window.waitForExistence(timeout: 10))
-        return window
-    }
-
     func tickets() throws -> [URL] {
         let enumerator = FileManager.default.enumerator(at: store.appendingPathComponent("tickets"), includingPropertiesForKeys: nil)
         return (enumerator?.allObjects as? [URL] ?? []).filter { $0.pathExtension == "md" }

@@ -121,7 +121,7 @@ macos/
     Editor/DragModifiers.swift        ⇧ / ⌥ while dragging: ModifiedBox resize, drawn boxes, 45° snapping (HS2-Q5TA4C)
     Editor/Filmstrip.swift            the timeline filmstrip: frame count, times, small frames from the movie (HS2-VMKTHQ)
   Tests/UXReviewKitTests/      Swift Testing unit + end-to-end tests (docs/TEST-COVERAGE.md)
-  UITests/                    XCTest live UI target: UIAppFixture isolates real stores/settings; +StatusMenu helpers retain bounded lock/focus/geometry diagnostics; +Accessibility resolves real app AX elements/actions for sidebar verification; AppUITests drives menus, explicit dismissal/reopen, import, editor, submit, ticket search (+TicketSearch, HS2-F2VKVZ) and optional real capture
+  UITests/                    XCTest live UI target: UIAppFixture isolates real stores/settings; +StatusMenu helpers retain bounded lock/focus/geometry diagnostics; +Accessibility resolves real app AX elements/actions for sidebar verification; +Submit opens Submit Review only once its button is ready and attaches before/after diagnostics (HS2-M8PKED); AppUITests drives menus, explicit dismissal/reopen, import, editor, submit, ticket search (+TicketSearch, HS2-F2VKVZ) and optional real capture
   App/Resources/Assets.xcassets  StatusBarIcon template vector (menu bar icon, docs/05 §5.1)
   App/Sources/
     UXReviewApp.swift          @main: headless mode routing, else an AppKit NSApplication run loop

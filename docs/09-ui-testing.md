@@ -253,6 +253,15 @@ snapshotting, selecting Settings, and closing Settings three times; the separate
 Settings flow checks persistence across app relaunch. A focused regression dismisses the menu
 with Escape, verifies a bounded not-ready result, explicitly reopens it and enters the editor.
 
+Opening Submit Review (`UIAppFixture.openSubmit`, `HS2-M8PKED`) follows the same rule. It
+waits until no sheet covers the editor (the import's open panel has closed) and Submit Review…
+is hittable with the same frame for three polls. Then it clicks the button's center and waits
+10 s for the window. On failure it attaches `submit-review-readiness` and the AX tree
+(`submit-review-ax-tree`). The first holds the button's existence, hit-test, enabled state,
+frame, the sheet count, and the window titles, sampled before and after the click, plus the
+app/foreground/lock state. Those show whether the click was lost or the window was late. It
+never clicks twice.
+
 A failed readiness assertion retains a small `status-menu-readiness` text attachment with the
 requested entry, app/foreground state, best-effort desktop-lock flag, status/menu existence,
 and the last entry hit-test/frame/stability sample (`HS2-K0JZP2`). It does not collect other
