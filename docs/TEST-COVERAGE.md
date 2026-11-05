@@ -2140,6 +2140,20 @@ with the default capture bindings registered, then exercises persistence in both
   widths and keyboard navigation. Background request transitions have unit coverage.
 
 
+## HS2-KVBA6A: Real-capture lane in the guest
+
+- **Live UI (opt-in):** `testRealScreenCaptureFromStatusMenu` with `UXREVIEW_UI_REAL_CAPTURE=1`
+  runs in the Parallels guest. It checks a `--capture` preflight, then Capture Image from the
+  real status menu. The editor must open on `capture-1.png`, the draft must hold one capture
+  whose recorded size matches the file, and the review must not be named after
+  `UserNotificationCenter` (a system alert over the capture).
+- **Verified 2026-11-05:** runs `20261105T033121Z-52858` and `20261105T034254Z-63213`
+  passed. The second came after a UI-test source change and a rebuild, and its capture shows
+  the clean guest desktop, so the Screen Recording grant and the private-window-picker Allow
+  persist under the guest signing identity.
+- **Manual (one time per guest):** grant Screen & System Audio Recording, then click
+  **Allow** on the bypass alerts (docs/09, Real capture lane).
+
 ## HS2-F2VKVZ: Searching for a ticket in Submit Review
 
 - **Unit:** `TicketSearchTests` covers:

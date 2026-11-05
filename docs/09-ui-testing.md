@@ -221,6 +221,17 @@ then run `UXREVIEW_UI_REAL_CAPTURE=1 scripts/vm-ui-e2e.sh`. Guest builds use the
 signing identity, so the grant keeps applying after a rebuild. Without the grant, the suite
 records a skip, or fails when the lane is required, exactly as on the host.
 
+The first capture after the grant also raises macOS's *"UXReview" is requesting to bypass
+the system private window picker and directly access your screen and audio* alert, and
+the same alert for `UXReviewUITests-Runner`. Click **Allow** on each, in the guest
+(`HS2-KVBA6A`). Unanswered, they stay frontmost, end up in the capture, and take focus from
+later tests. The test fails when the review is named after `UserNotificationCenter`,
+because that means an alert covered the capture.
+
+Verified on 2026-11-05 (`HS2-KVBA6A`): after the grant and the Allow, the lane passed with a
+clean capture of the guest desktop. The second run came after a UI-test source change and a
+rebuild, so both the grant and the Allow persist across rebuilds.
+
 ## What the automated suite exercises
 
 Tests launch the normal app and click its real menu bar extra. They open Settings, change

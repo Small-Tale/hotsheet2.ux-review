@@ -245,6 +245,12 @@ final class AppUITests: XCTestCase {
         XCTAssertTrue(canvas.label.contains("capture-1.png"))
         let draft = try XCTUnwrap(fixture.drafts.current())
         XCTAssertEqual(draft.bundle.media.count, 1)
+        // HS2-KVBA6A: an unanswered "bypass the system private window picker" alert is frontmost
+        // during the capture, and the review is named after it.
+        XCTAssertFalse(
+            draft.bundle.title.hasPrefix("UserNotificationCenter"),
+            "A system alert covered the capture; answer it in the guest (docs/09 Real capture lane)"
+        )
         let media = try XCTUnwrap(draft.bundle.media.first)
         let pixels = try ImageFiles.pixelSize(of: draft.mediaURL(media))
         XCTAssertEqual(pixels.width, media.pixelWidth)
