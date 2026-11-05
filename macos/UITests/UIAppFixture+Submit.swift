@@ -48,7 +48,7 @@ extension UIAppFixture {
         var stableSamples = 0
         var lastSample = "not sampled"
         let ready = wait(timeout: timeout) {
-            let sheets = app.sheets.count
+            let sheets = self.app.sheets.count
             let hittable = button.exists && button.isHittable
             let frame = button.exists ? button.frame : .zero
             if sheets == 0, hittable, !frame.isEmpty {
@@ -58,7 +58,7 @@ extension UIAppFixture {
                 previousFrame = nil
                 stableSamples = 0
             }
-            lastSample = submitSample(button) + ", stableSamples=\(stableSamples)"
+            lastSample = self.submitSample(button) + ", stableSamples=\(stableSamples)"
             return stableSamples >= 3
         }
         return StatusEntryReadiness(isReady: ready, diagnostics: "ready=\(ready); \(lastSample)")
